@@ -683,7 +683,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           )}
           {mode === "assign" && (isMgr || canAssign) && (
             <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {users.filter(u => u.role === "employee").map(u => (
+              {users.map(u => (
                 <Btn key={u.id} color={t.assignedTo === u.id ? COLORS.teal : COLORS.navy} outline={t.assignedTo !== u.id}
                   onClick={() => { onAssign(t, u.id); setMode(null); }}>{u.name}</Btn>
               ))}
@@ -797,11 +797,6 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
           {boats.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
 
-        <label style={lbl}>{tr("Γρήγορες εργασίες")}</label>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-          {quick.map(q => <Btn key={q} small color={COLORS.teal} outline={desc !== q} onClick={() => setDesc(q)}>{q}</Btn>)}
-        </div>
-
         <label style={lbl}>{tr("Περιγραφή")}</label>
         <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={multi ? 6 : 3}
           placeholder={multi ? tr("Μία εργασία ανά γραμμή, π.χ.:\nΠαράθυρο σπασμένο\nΤο φως στην πλώρη δεν ανάβει\nΗ σκότα θέλει αλλαγή") : tr("π.χ. Το πόμολο στη δεξιά πόρτα της καμπίνας έχει χαλάσει")} style={inputStyle} />
@@ -825,7 +820,7 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
             <label style={lbl}>Ανάθεση σε συγκεκριμένο άτομο (προαιρετικό)</label>
             <select value={assignTo} onChange={e => setAssignTo(e.target.value)} style={inputStyle}>
               <option value="">Ελεύθερη — θα κατανεμηθεί από το AI ή όποιον την πιάσει</option>
-              {users.filter(u => u.role === "employee").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </>
         )}
