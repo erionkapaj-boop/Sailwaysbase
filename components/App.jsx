@@ -1066,7 +1066,7 @@ function WeeklyReport({ tasks, users, me, boats }) {
       </div>
       {rep
         ? <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{rep.text}</div>
-        : <div style={{ marginTop: 8, fontSize: 12.5, color: COLORS.sub }}>Δημιουργείται αυτόματα κάθε Κυριακή απόγευμα — ή πάτα «Δημιουργία» όποτε θες ενδιάμεση εικόνα. Ορατή μόνο σε Owner, Φανούρη, Αλέξανδρο.</div>}
+        : <div style={{ marginTop: 8, fontSize: 12.5, color: COLORS.sub }}>Δημιουργείται αυτόματα κάθε Κυριακή απόγευμα — ή πάτα «Δημιουργία» όποτε θες ενδιάμεση εικόνα.</div>}
     </div>
   );
 }
