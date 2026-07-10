@@ -29,7 +29,6 @@ const SEED_USERS = [
   { id: "u-nikol", name: "Νικόλ", role: "employee", profile: "", code: "NIK-8637" },
   { id: "u-danai", name: "Δανάη", role: "employee", profile: "", code: "DAN-3495" },
 ];
-
 const genCode = (name) => (name.slice(0, 3).toUpperCase().replace(/[^A-ZΑ-Ω]/g, "X")) + "-" + Math.floor(1000 + Math.random() * 9000);
 
 const SEED_BOATS = [
@@ -42,18 +41,10 @@ const SEED_BOATS = [
 ].map(([name, type], i) => ({ id: "b" + i, name, type, atSea: false, returnDate: null, departureDate: null }));
 
 const SEED_QUICK = ["Αλλαγή λαδιών", "Καθαρισμός σεντίνας", "Καθαρισμός μηχανοστασίου"];
-
-// Το νέο αντικειμενοστρεφές Seeding για το Checklist
-const SEED_CHECKLIST = [
-  { id: "chk-1", text: "Εξωτερικό πλύσιμο", category: "Καθαρισμός" },
-  { id: "chk-2", text: "Εσωτερικός καθαρισμός", category: "Καθαρισμός" },
-  { id: "chk-3", text: "Έλεγχος τουαλετών", category: "Έλεγχος" },
-  { id: "chk-4", text: "Έλεγχος εξοπλισμού", category: "Έλεγχος" }
-];
+const SEED_CHECKLIST = ["Εξωτερικό πλύσιμο", "Εσωτερικός καθαρισμός", "Έλεγχος τουαλετών", "Έλεγχος εξοπλισμού"];
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 let LANG = "el";
-
 const TR = {
   "Σήμερα": "Today", "Εργασίες": "Tasks", "Νέα": "New", "Διοίκηση": "Admin",
   "Οι εργασίες μου": "My tasks", "Διαθέσιμες εργασίες": "Available tasks",
@@ -77,9 +68,8 @@ const TR = {
   "εξωτερικός συνεργάτης": "external specialist",
   "Ο κωδικός μπαίνει μία φορά — η συσκευή σε θυμάται. / Enter once — this device remembers you.": "Enter your code once — this device remembers you.",
   "Ο κωδικός δεν αναγνωρίστηκε. Ζήτησε τον προσωπικό σου κωδικό από τον υπεύθυνο.": "Code not recognized. Ask your manager for your personal code.",
-  "Σημείωση manager:": "Manager note:", "Διόρθωση": "Edit", "Φωνητική καταχώρηση με AI": "Voice entry with AI", "Μίλα": "Speak", "Σταμάτημα": "Stop", "Ανάλυση με AI": "Analyze with AI", "Ανάλυση…": "Analyzing…", "Καθάρισμα": "Clear", "Καταχώρηση όλων": "Add all", "Προεπισκόπηση — έλεγξε και διόρθωσε πριν την καταχώρηση": "Preview — check and correct before submitting", "Δεν αναγνωρίστηκαν εργασίες — δοκίμασε πιο συγκεκριμένη διατύπωση.": "No tasks recognized — try being more specific.", "Η ανάλυση απέτυχε — δοκίμασε ξανά.": "Analysis failed — try again.", "Η φωνητική αναγνώριση δεν υποστηρίζεται σε αυτή τη συσκευή/browser — γράψε το κείμενο και πάτα Ανάλυση.": "Speech recognition not supported on this device/browser — type the text and press Analyze.", "Πρόβλημα μικροφώνου — δοκίει ξανά ή γράψε το κείμενο.": "Microphone problem — try again or type the text.", "π.χ. Στον Λεωνίδα το παράθυρο είναι σπασμένο, δεν ανάβει το φως στην πλώρη και θέλει αλλαγή η σκότα": "e.g. On Leonidas the window is broken, the bow light is not working and the sheet needs replacement", "Πολλαπλές εργασίες: ΝΑΙ — μία ανά γραμμή": "Multiple tasks: ON — one per line", "Πολλαπλές εργασίες μαζί (μία ανά γραμμή)": "Multiple tasks at once (one per line)", "Μία εργασία ανά γραμμή, π.χ.:\nΠαράθυρο σπασμένο\nΤο φως στην πλώρη δεν ανάβει\nΗ σκότα θέλει αλλαγή": "One task per line, e.g.:\nBroken window\nBow light not working\nSheet needs replacement", "Διαγραφή": "Delete", "Φωτογραφίες (προαιρετικό)": "Photos (optional)", "Προσθήκη φωτογραφίας": "Add photo", "Αγορά": "Purchase", "Λείπει υλικό / χρειάζεται αγορά": "Missing material / needs purchase", "ΑΓΟΡΑ / ΛΕΙΨΗ ΥΛΙΚΟΥ — θα ανατεθεί στον Λεωνίδα": "PURCHASE / MISSING MATERIAL — will be assigned to Leonidas", "Ναι, διαγραφή": "Yes, delete", "Διαγραφή εργασίας; Δεν αναιρείται.": "Delete this task? This cannot be undone.", "πρόοδοι": "progress entries", "Επιστράφηκε": "Returned",
+  "Σημείωση manager:": "Manager note:", "Διόρθωση": "Edit", "Φωνητική καταχώρηση με AI": "Voice entry with AI", "Μίλα": "Speak", "Σταμάτημα": "Stop", "Ανάλυση με AI": "Analyze with AI", "Ανάλυση…": "Analyzing…", "Καθάρισμα": "Clear", "Καταχώρηση όλων": "Add all", "Προεπισκόπηση — έλεγξε και διόρθωσε πριν την καταχώρηση": "Preview — check and correct before submitting", "Δεν αναγνωρίστηκαν εργασίες — δοκίμασε πιο συγκεκριμένη διατύπωση.": "No tasks recognized — try being more specific.", "Η ανάλυση απέτυχε — δοκίμασε ξανά.": "Analysis failed — try again.", "Η φωνητική αναγνώριση δεν υποστηρίζεται σε αυτή τη συσκευή/browser — γράψε το κείμενο και πάτα Ανάλυση.": "Speech recognition not supported on this device/browser — type the text and press Analyze.", "Πρόβλημα μικροφώνου — δοκίμασε ξανά ή γράψε το κείμενο.": "Microphone problem — try again or type the text.", "π.χ. Στον Λεωνίδα το παράθυρο είναι σπασμένο, δεν ανάβει το φως στην πλώρη και θέλει αλλαγή η σκότα": "e.g. On Leonidas the window is broken, the bow light is not working and the sheet needs replacement", "Πολλαπλές εργασίες: ΝΑΙ — μία ανά γραμμή": "Multiple tasks: ON — one per line", "Πολλαπλές εργασίες μαζί (μία ανά γραμμή)": "Multiple tasks at once (one per line)", "Μία εργασία ανά γραμμή, π.χ.:\nΠαράθυρο σπασμένο\nΤο φως στην πλώρη δεν ανάβει\nΗ σκότα θέλει αλλαγή": "One task per line, e.g.:\nBroken window\nBow light not working\nSheet needs replacement", "Διαγραφή": "Delete", "Φωτογραφίες (προαιρετικό)": "Photos (optional)", "Προσθήκη φωτογραφίας": "Add photo", "Αγορά": "Purchase", "Λείπει υλικό / χρειάζεται αγορά": "Missing material / needs purchase", "ΑΓΟΡΑ / ΛΕΙΨΗ ΥΛΙΚΟΥ — θα ανατεθεί στον Λεωνίδα": "PURCHASE / MISSING MATERIAL — will be assigned to Leonidas", "Ναι, διαγραφή": "Yes, delete", "Διαγραφή εργασίας; Δεν αναιρείται.": "Delete this task? This cannot be undone.", "πρόοδοι": "progress entries", "Επιστράφηκε": "Returned",
 };
-
 const tr = (s) => (LANG === "en" ? (TR[s] || s) : s);
 const fmtDate = (d) => { if (!d) return ""; const x = new Date(d); return x.toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { day: "numeric", month: "short" }); };
 const daysUntil = (d) => { if (!d) return null; return Math.ceil((new Date(d) - new Date(todayStr())) / 86400000); };
@@ -122,7 +112,6 @@ function compressImage(file, maxDim = 1280, quality = 0.72) {
     reader.readAsDataURL(file);
   });
 }
-
 async function uploadTaskPhotos(files, taskId) {
   if (!supabase || !files?.length) return [];
   const urls = [];
@@ -151,6 +140,7 @@ export default function App() {
   const [viewAs, setViewAs] = useState(null);
   const [tab, setTab] = useState("today");
   const [toast, setToast] = useState(null);
+
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
   // Φόρτωση
@@ -161,23 +151,23 @@ export default function App() {
         load("app-quicktasks", null), load("app-checklist", null),
       ]);
       if (!u) { u = SEED_USERS; await save("app-users", u); }
-      
+      // Μετάβαση: προσθήκη προσωπικών κωδικών σε παλιούς χρήστες
       if (u.some(x => !x.code)) { u = u.map(x => x.code ? x : { ...x, code: genCode(x.name) }); await save("app-users", u); }
-      
+      // Μετάβαση v3: πλήρη προφίλ ομάδας (συμπληρώνονται μία φορά — μετά επεξεργάσιμα ελεύθερα)
       const PROFILES = {
         "Βασίλης": "Βασίλης (22): Πρόθυμος και συνεργάσιμος, ακολουθεί οδηγίες. Χωρίς εξειδίκευση — σε φάση εκμάθησης. Δυνατά σημεία: χειρωνακτικές και σωματικά απαιτητικές εργασίες (βιδώματα, μοντάρισμα, μεταφορές, βαριές δουλειές) — τις προτιμά και αποδίδει καλύτερα. Καθαρισμούς αναλαμβάνει κανονικά. Ιδανική ανάθεση: απλές, σαφώς ορισμένες εργασίες με συγκεκριμένες οδηγίες. Να αποφεύγονται: σύνθετες τεχνικές διαγνώσεις, εργασίες που απαιτούν αυτόνομο σχεδιασμό. Ποιότητα: χρειάζεται τακτικό έλεγχο ολοκληρώσεων. Συμπράξεις: ΜΠΑΛΑΝΤΕΡ — συνδυάζεται άνετα με οποιονδήποτε ως δεύτερο χέρι· πρώτη επιλογή όταν χρειάζεται βοηθός.",
         "Μήτσος": "Μήτσος (~25-27): Νέος στην εταιρεία με άριστα δείγματα. Εργατικός, αξιόπιστος, αυτόνομος — ολοκληρώνει σωστά, διπλοτσεκάρει, κρατά σημειώσεις. Εμπειρία μηχανικού αυτοκινήτων: δυνατός σε κινητήρες και μηχανολογικά. Ιδανική ανάθεση: μηχανολογικές/τεχνικές εργασίες κάθε δυσκολίας, εργασίες αυτονομίας και κρίσης, οργάνωση χώρων/εργαλείων/ανταλλακτικών. Προτεραιότητα ανάπτυξης: εργασίες που παραδοσιακά πάνε σε εξωτερικούς μηχανικούς — δοκιμάζει πρώτος πριν κληθεί εξωτερικός. Μπορεί να καθοδηγεί νεότερους/ξενόγλωσσους. Χαμηλή ανάγκη ελέγχου. Εργάζεται άνετα μόνος· σύμπραξη με Γιάννη επιτρεπτή ΜΟΝΟ ως ισότιμη (όχι σχέση επικεφαλής-βοηθού). Μελλοντικά: κεντρικό τεχνικό πρόσωπο βάσης.",
-        "Γιάννης": "Γιάννης (~30+, 1+ έτος): Ευρεία τεχνική εμπειρία — χρήσιμος σε όλα τα τεχνικά: μηχανικά, ηλεκτρολογικά (ως έναν βαθμό, πρώτο σκαλί πριν Φανούρη/Αλέξανδρο), μηχανισμούς (bow thrusters, πλατφόρμες). Κανόνας: όταν υπάρχει τεχνική πίεση (αναχωρήσεις, σοβαρά ζητήματα) → προτεραιότητα σε τεχνικές εργασίες, οι καθαριότητες σε άλλους. Χχωρίς τεχνική πίεση → συμμετέχει κανονικά και ισότιμα σε καθαρισμούς/τακτοποιήσεις/αγγαρείες — καμία μόνιμη εξαίρεση. Προσοχή: αυτοαναφορές αναξιόπιστες («δεν υπάρχει δουλειά» ενώ υπάρχουν διαθέσιμες)· τακτικός ποιοτικός έλεγχος με έμφαση σε πληρότητα και επιστροφή εργαλείων στη θέση τους. Δεν καθοδηγεί/συντονίζει άλλους. Συμπράξεις: με Βασίλη (πρώτη επιλογή) ή Μήτσο (ισότιμα). Όχι με Martin ή Δανάη.",
-        "Δανάη": "Δανάη (νέα): Απόφοιτος ΑΣΚΤ (γλυπτική) — υψηλή κατασκευαστική ικανότητα: ηλεκτροκόλληση, κοπές, κατασκευές, ξυλουργικά, φινιρίσματα. Δίπλωμα skipper, προοπτική προς θάλασσα. Αξιόπιστη, πρόθυμη, επικοινωνιακή — ως νέα χρειάζεται καθοδήγηση και σαφείς οδηγίες. Ιδανική ανάθεση: (α) κατασκευαστικές εργασίες ακριβείας· (β) αισθητική αναβάθμιση σκαφών — γυαλίσματα, βαψίματα, στοκαρίσματα, ανακαινίσεις (προτεραιότητα σε περιόδους χαμηλού φόρτου — στρατηγικός λόγος ένταξής της). Καλοκαίρι: κανονική κάλυψη αναγκών βάσης. Συμπράξεις: καλή συνεργασία με Φανούρη, Μήτσος, Βασίλη, Martin· όχι με Γιάννη. Με Martin: λογική επιλογή για εργασίες αισθητικής φύσεως. Μέλος σχήματος έκτακτης εσωτερικής προετοιμασίας (με Νικόλ/Martin).",
+        "Γιάννης": "Γιάννης (~30+, 1+ έτος): Ευρεία τεχνική εμπειρία — χρήσιμος σε όλα τα τεχνικά: μηχανικά, ηλεκτρολογικά (ως έναν βαθμό, πρώτο σκαλί πριν Φανούρη/Αλέξανδρο), μηχανισμούς (bow thrusters, πλατφόρμες). Κανόνας: όταν υπάρχει τεχνική πίεση (αναχωρήσεις, σοβαρά ζητήματα) → προτεραιότητα σε τεχνικές εργασίες, οι καθαριότητες σε άλλους. Χωρίς τεχνική πίεση → συμμετέχει κανονικά και ισότιμα σε καθαρισμούς/τακτοποιήσεις/αγγαρείες — καμία μόνιμη εξαίρεση. Προσοχή: αυτοαναφορές αναξιόπιστες («δεν υπάρχει δουλειά» ενώ υπάρχουν διαθέσιμες)· τακτικός ποιοτικός έλεγχος με έμφαση σε πληρότητα και επιστροφή εργαλείων στη θέση τους. Δεν καθοδηγεί/συντονίζει άλλους. Συμπράξεις: με Βασίλη (πρώτη επιλογή) ή Μήτσο (ισότιμα). Όχι με Martin ή Δανάη.",
+        "Δανάη": "Δανάη (νέα): Απόφοιτος ΑΣΚΤ (γλυπτική) — υψηλή κατασκευαστική ικανότητα: ηλεκτροκόλληση, κοπές, κατασκευές, ξυλουργικά, φινιρίσματα. Δίπλωμα skipper, προοπτική προς θάλασσα. Αξιόπιστη, πρόθυμη, επικοινωνιακή — ως νέα χρειάζεται καθοδήγηση και σαφείς οδηγίες. Ιδανική ανάθεση: (α) κατασκευαστικές εργασίες ακριβείας· (β) αισθητική αναβάθμιση σκαφών — γυαλίσματα, βαψίματα, στοκαρίσματα, ανακαινίσεις (προτεραιότητα σε περιόδους χαμηλού φόρτου — στρατηγικός λόγος ένταξής της). Καλοκαίρι: κανονική κάλυψη αναγκών βάσης. Συμπράξεις: καλή συνεργασία με Φανούρη, Μήτσο, Βασίλη, Martin· όχι με Γιάννη. Με Martin: λογική επιλογή για εργασίες αισθητικής φύσεως. Μέλος σχήματος έκτακτης εσωτερικής προετοιμασίας (με Νικόλ/Martin).",
         "Martin": "Martin (new): English-speaking (Czech — app language EN). Artist (painting, preparing for Fine Arts Academy) with high practical skill and inventiveness — past experience with boats and engines; can solve complex problems incl. some electrical. Assign tasks normally and fully. Main areas: (a) routine boat preparation — washing, cleaning, oils, closings; (b) artistic/aesthetic work — varnish removal/application, polishing, finishing, restoration (natural interest, high performance); (c) clearly defined technical tasks. Performance condition: task description must be fully clear and specific (what, where, expected result) — vague tasks block him. Motivation factor: excels on tasks that interest him; performance drops on indifferent ones. Completeness: knows procedures perfectly but often forgets steps when alone — his completions need regular completeness checks. Especially suited: long-duration tasks with gradual progress (boat renewals, varnish projects — «Progress» logging over days). Pairings: pleasant cooperation with Danai (shared artistic background) — good choice for aesthetic work, not an exclusive duo. NEVER under Giannis' coordination. Avoid multi-person tasks with many voices. Member of urgent interior-prep team (with Nikol/Danai).",
-        "Φανούρης": "Φανούρης (Base Manager): Υψηλή αντιληπτική ικανότητα, πλήρης εικόνα βάσης — υπόβαθρο εμβιομηχανικής/μηχανικής. Απόλυτη αξιοπιστία: ό,τι δηλώνει ολοκληρωμένο, είναι. Φυσικό πεδίο: εργασίες υψηλής λεπτομέρειας και τεχνικής σκέψης — μηχανισμοί, πόμολα/κλειδαριές/παράθυρα, σχεδιασμός & 3D εκτύπωση εξαρτημάτων. ΚΡΙΣΙΜΕΣ ΛΕΠΤΟΔΟΥΛΕΙΕΣ (όπου πρόχειρη εκτέλεση = ζημιά, π.χ. στεγανοποίηση/λάστιχα παραθύρων): μαρκάρονται απευθείας ως εργασία Φανούρη — ΔΕΝ κατανέμονται σε άλλους. Ηλεκτρολογικά: ισχυρή αντίληψη — κλιμάκωση: Γιάννης → Φανούρης → Αλέξανδρος → εξωτερικός. Ωράριο μη συγχρονισμένο (μπορεί μεσημέρι-νύχτα). Αναθέτει, δίνει οδηγίες, σημείο τηλεφωνικής αναφοράς.",
+        "Φανούρης": "Φανούρης (Base Manager): Υψηλή αντιληπτική ικανότητα, πλήρης εικόνα βάσης — υπόβαθρο εμβιομηχανικής/μηχανικής. Απόλυτη αξιοπιστία: ό,τι δηλώνει ολοκληρωμένο, είναι. ΔΕΝ λαμβάνει αυτόματες αναθέσεις — επιλέγει μόνος. Φυσικό πεδίο: εργασίες υψηλής λεπτομέρειας και τεχνικής σκέψης — μηχανισμοί, πόμολα/κλειδαριές/παράθυρα, σχεδιασμός & 3D εκτύπωση εξαρτημάτων. ΚΡΙΣΙΜΕΣ ΛΕΠΤΟΔΟΥΛΕΙΕΣ (όπου πρόχειρη εκτέλεση = ζημιά, π.χ. στεγανοποίηση/λάστιχα παραθύρων): μαρκάρονται απευθείας ως εργασία Φανούρη — ΔΕΝ κατανέμονται σε άλλους. Ηλεκτρολογικά: ισχυρή αντίληψη — κλιμάκωση: Γιάννης → Φανούρης → Αλέξανδρος → εξωτερικός. Ωράριο μη συγχρονισμένο (μπορεί μεσημέρι-νύχτα) — η πρωινή κατανομή δεν τον προσμετρά. Αναθέτει, δίνει οδηγίες, σημείο τηλεφωνικής αναφοράς.",
         "Νικόλ": "Νικόλ: Σταθεροί δικοί της τομείς — ΕΚΤΟΣ αυτόματης κατανομής, λειτουργεί με δικό της πρόγραμμα. Πεδία: (α) INVENTORY LIST σκαφών προ αναχώρησης — πλήρης έλεγχος εξοπλισμού (σωσίβια, γκάζι, εργαλεία, τρόμπες κ.λπ.) — στο checklist αναχώρησης προ-ανατίθεται αυτόματα σε αυτήν· (β) εσωτερικοί καθαρισμοί/προετοιμασία σκαφών (όχι εξωτερικά πλυσίματα) — Σάββατα μαζί με εξωτερικές καθαρίστριες· (γ) επίβλεψη γραφείου/αποθήκης ανταλλακτικών — δίαυλος τροφοδοσίας βάσης με υλικά. Έκτακτες άμεσες προετοιμασίες (π.χ. ημερήσια εκδρομή): πάντα βασικό άτομο εσωτερικής ετοιμασίας, με ενίσχυση Δανάη ή/και Martin. Χειροκίνητη ανάθεση: μόνο εντός των πεδίων της.",
         "Λεωνίδας": "Λεωνίδας (~19-20, γιος ιδιοκτήτη): Ικανός, ευφυής — προετοιμάζεται για μελλοντική διεύθυνση βάσης. Χωρίς ωράριο/πρόγραμμα — παρών, βοηθά, μαθαίνει. ΕΚΤΟΣ AI κατανομής και εργασιών ρουτίνας — δεν του γεμίζει κανείς τον χρόνο. Χειροκίνητη ανάθεση όταν προκύπτει: (α) προμήθειες/αγορές — πρώτο άτομο για εξωτερικές διαδρομές αγοράς υλικών/ανταλλακτικών· (β) διαδρομές γραφείου/μεταφορές· (γ) check-out σκαφών — συμμετέχει συχνά· (δ) σημειακή βοήθεια. Δεν λογίζεται στα στατιστικά φόρτου.",
         "Αφροδίτη": "Αφροδίτη (γραμματεία): Δεξί χέρι της επιχείρησης — οικονομικά, επίβλεψη, υψηλός λόγος. Αναθέτει εργασίες, δεν λαμβάνει. Πρόσβαση manager για εποπτεία και ανάθεση.",
         "Αλέξανδρος": "Αλέξανδρος (ιδιοκτήτης): Πλήρης γνώση όλων των εργασιών — καμία δουλειά δεν τον σταματά (π.χ. δεξαμενές λυμάτων). Ισχυρά ηλεκτρολογικά. Κυρίως γραφείο, παρών σε δύσκολα — βρίσκει λύσεις όπου κολλάνε οι υπάλληλοι. ΚΑΝΟΝΑΣ ΚΛΙΜΑΚΩΣΗΣ: πριν οποιονδήποτε εξωτερικό συνεργάτη, εξαντλείται η φάση Αλέξανδρου (ιδίως ηλεκτρολογικά). Χωρίς αυτόματες αναθέσεις — εμπλέκεται με πρωτοβουλία/συνεννόηση.",
         "Νίκος": "Νίκος (συνιδιοκτήτης): Εξειδίκευση: επισκευές πλαστικών/πολυεστέρα (και για τρίτους), πανιά (μούδες, επισκευές), κατασκευαστικές λεπτομέρειες. Έμπειρος καπετάνιος. Ρόλος: τεχνικός γνωμοδότης — δεν του ανατίθενται εργασίες· σε ζητήματα πολυεστέρα/πανιών/κατασκευών, οι αναθέσεις σε άλλους φέρουν οδηγία «συμβουλέψου τον κ. Νίκο για τον τρόπο». Τελικός λόγος σε κατασκευαστικά αδιέξοδα.",
       };
-
+      // Μετάβαση v2: ρόλοι ομάδας
       if (!u.find(x => x.id === "u-afroditi")) {
         u = u.map(x => {
           if (x.id === "u-fanouris") return { ...x, role: "manager" };
@@ -191,7 +181,7 @@ export default function App() {
         ];
         await save("app-users", u);
       }
-
+      // Μετάβαση v3 (μία φορά): πλήρη προφίλ ομάδας + ρυθμίσεις Λεωνίδα/Martin
       const v3done = await load("app-profiles-v3", false);
       if (!v3done) {
         u = u.map(x => {
@@ -207,13 +197,8 @@ export default function App() {
       if (!b) { b = SEED_BOATS; await save("app-boats", b); }
       if (!t) { t = []; await save("app-tasks", t); }
       if (!q) { q = SEED_QUICK; await save("app-quicktasks", q); }
-      
-      // Αναβαθμισμένος έλεγχος φόρτωσης / μετεγκατάστασης για το αντικειμενοστρεφές Checklist
-      if (!c || c.length === 0 || typeof c[0] === "string") { 
-        c = SEED_CHECKLIST; 
-        await save("app-checklist", c); 
-      }
-
+      if (!c) { c = SEED_CHECKLIST; await save("app-checklist", c); }
+      // Μετάβαση v5 (μία φορά): ενημέρωση προφίλ Φανούρη — λαμβάνει πλέον στοχευμένες αναθέσεις
       const v5done = await load("app-fanouris-v5", false);
       if (!v5done) {
         u = u.map(x => x.name === "Φανούρης" ? { ...x, profile: PROFILES["Φανούρης"]
@@ -222,7 +207,7 @@ export default function App() {
         await save("app-users", u);
         await save("app-fanouris-v5", true);
       }
-
+      // Μετάβαση v6 (μία φορά): ύφος χιούμορ ημερήσιου μηνύματος ανά άτομο
       const v6done = await load("app-humor-v6", false);
       if (!v6done) {
         const HUMOR = {
@@ -238,14 +223,14 @@ export default function App() {
         await save("app-users", u);
         await save("app-humor-v6", true);
       }
-
+      // Μετάβαση v9 (μία φορά): η Αφροδίτη γίνεται Base Manager (υπεύθυνη ναύλων)
       const v9done = await load("app-roles-v9", false);
       if (!v9done) {
         u = u.map(x => (x.name || "").toLowerCase().replace(/ί/g, "ι").trim() === "αφροδιτη" ? { ...x, role: "manager" } : x);
         await save("app-users", u);
         await save("app-roles-v9", true);
       }
-
+      // Μετάβαση v4 (μία φορά): εξαίρεση από στατιστικά/αξιολόγηση
       const v4done = await load("app-nostats-v4", false);
       if (!v4done) {
         const NOSTATS = ["Νικόλ", "Λεωνίδας", "Αλέξανδρος", "Νίκος", "Αφροδίτη"];
@@ -253,7 +238,7 @@ export default function App() {
         await save("app-users", u);
         await save("app-nostats-v4", true);
       }
-
+      // Μετάβαση v7: εύρωστη αντιστοίχιση ονομάτων για χειροκίνητα προστιθέμενους χρήστες (Martin/Λεωνίδας κ.λπ.)
       {
         const norm = (n) => (n || "").toLowerCase().trim()
           .replace(/ά/g, "α").replace(/έ/g, "ε").replace(/ή/g, "η").replace(/ί/g, "ι").replace(/ό/g, "ο").replace(/ύ/g, "υ").replace(/ώ/g, "ω");
@@ -285,7 +270,7 @@ export default function App() {
         }
         if (ch) await save("app-users", u);
       }
-
+      // Μετάβαση v8 (μία φορά): βαθμίδα «Στέλεχος» για Αφροδίτη, Νικόλ, Λεωνίδα · Νίκος/Αλέξανδρος managers
       const v8done = await load("app-roles-v8", false);
       if (!v8done) {
         const norm8 = (n) => (n || "").toLowerCase().replace(/ί/g, "ι").replace(/ό/g, "ο").trim();
@@ -298,7 +283,7 @@ export default function App() {
         await save("app-users", u);
         await save("app-roles-v8", true);
       }
-
+      // Αυτόματη μετάβαση: αναχώρηση που έφτασε -> εν πλω. Επιστροφή που έφτασε -> στη βάση.
       let changed = false;
       b = b.map(x => {
         if (x.atSea && x.returnDate && x.returnDate <= todayStr()) { changed = true; return { ...x, atSea: false, returnDate: null }; }
@@ -341,37 +326,1195 @@ export default function App() {
         "Ο Φανούρης ΛΑΜΒΑΝΕΙ αναθέσεις, αλλά ΜΟΝΟ εργασίες που απαιτούν υψηλή προσοχή, ακρίβεια και υπευθυνότητα — και ΛΙΓΕΣ (το πολύ 1-2 την ημέρα), γιατί επιλέγει και μόνος του επιπλέον.",
         "Εργασίες σχετικές με hatch, παράθυρα, πόρτες, πόμολα, κλειδαριές, στεγανοποιήσεις και γενικά λεπτοδουλειές: ανατίθενται ΑΥΤΟΜΑΤΑ στον Φανούρη.",
       ];
-      for (const fr of FAN_RULES) {
-        if (!rules.some(r => r.includes(fr.slice(0, 30)))) rules = [...rules, fr];
-      }
+      for (const fr of FAN_RULES) { if (!rules.some(r => r.includes(fr.slice(0, 30)))) rules = [...rules, fr]; }
       rules = rules.filter(r => !r.includes("πεδίο Φανούρη — δεν λαμβάνει αυτόματες αναθέσεις"));
       await save("app-dist-rules", rules);
       const boatName = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
       const loadPer = Object.fromEntries(employees.map(e => [e.id, tasks.filter(t => t.assignedTo === e.id && t.status === "open").length]));
-      const prompt = `Είσαι σύστημα κατανομής εργασιών σε βάση σκαφών. Μοίρασε ΜΕΧΡΙ 3 εργασίες ανά υπάλληλο για σήμερα από τις ελεύθερες, με βάση προφίλ, είδος εργασίας και δίκαιο φόρτο. Δεν χρειάζεται να ανατεθούν όλες. ΑΠΑΡΑΒΑΤΟΙ ΕΙΔΙΚΟΙ ΚΑΝΟΝΕΣ:\n${rules.map(r => "- " + r).join("\n")}\n\nΥπάλληλοι: ${employees.map(e => `${e.id}: ${e.name} (τρέχων φόρτος: ${loadPer[e.id]}, προφίλ: ${e.profile || "χωρίς προφίλ"})`).join("; ")}\n\nΕλεύθερες εργασίες: ${free.map(t => `${t.id}: "${t.desc}" [σκάφος: ${boatName(t.boatId)}${t.urgent ? ", ΕΠΕΙΓΟΝ" : ""}]`).join("; ")}\n\nΑπάντησε ΜΟΝΟ με JSON, χωρίς markdown: {"assignments":[{"taskId":"...","userId":"..."}]}`;
+      const prompt = `Είσαι σύστημα κατανομής εργασιών σε βάση σκαφών. Μοίρασε ΜΕΧΡΙ 3 εργασίες ανά υπάλληλο για σήμερα από τις ελεύθερες, με βάση προφίλ, είδος εργασίας και δίκαιο φόρτο. Δεν χρειάζεται να ανατεθούν όλες.
+ΑΠΑΡΑΒΑΤΟΙ ΕΙΔΙΚΟΙ ΚΑΝΟΝΕΣ:
+${rules.map(r => "- " + r).join("\n")}
+Υπάλληλοι: ${employees.map(e => `${e.id}: ${e.name} (τρέχων φόρτος: ${loadPer[e.id]}, προφίλ: ${e.profile || "χωρίς προφίλ"})`).join("; ")}
+Ελεύθερες εργασίες: ${free.map(t => `${t.id}: "${t.desc}" [σκάφος: ${boatName(t.boatId)}${t.urgent ? ", ΕΠΕΙΓΟΝ" : ""}]`).join("; ")}
+Απάντησε ΜΟΝΟ με JSON, χωρίς markdown: {"assignments":[{"taskId":"...","userId":"..."}]}`;
       const raw = await askClaude(prompt, 800);
-      const parsed = JSON.parse(raw.replace(/```json|```/gi, "").trim());
-      if (parsed?.assignments?.length) {
-        const next = tasks.map(t => {
-          const match = parsed.assignments.find(a => a.taskId === t.id);
-          return match ? { ...t, assignedTo: match.userId } : t;
-        });
-        await persistTasks(next);
-        if (manual) showToast(`Η αυτόματη κατανομή ολοκληρώθηκε! Μοιράστηκαν ${parsed.assignments.length} εργασίες.`);
-      } else {
-        if (manual) showToast("Το AI δεν βρήκε κατάλληλες νέες αναθέσεις.");
-      }
-    } catch (e) {
-      console.error(e);
-      if (manual) showToast("Η κατανομή απέτυχε.");
-    }
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      if (!parsed.assignments?.length) return;
+      const valid = parsed.assignments.filter(a => free.some(t => t.id === a.taskId) && employees.some(e => e.id === a.userId));
+      if (!valid.length) return;
+      const next = tasks.map(t => {
+        const a = valid.find(v => v.taskId === t.id);
+        return a ? { ...t, assignedTo: a.userId, assignedBy: "AI" } : t;
+      });
+      await persistTasks(next);
+      showToast(`Η κατανομή ημέρας έγινε: ${valid.length} αναθέσεις`);
+    } catch (e) { console.error(e); if (manual) showToast("Η κατανομή απέτυχε — δοκίμασε ξανά"); }
   }
 
-  // --- Το υπόλοιπο UI και τα Tabs του App συνεχίζουν κανονικά εδώ ---
+  // Αυτόματη είσοδος: από link#ΚΩΔΙΚΟΣ ή από αποθηκευμένο κωδικό συσκευής
+  useEffect(() => {
+    if (!ready || me) return;
+    (async () => {
+      const hashCode = (window.location.hash || "").replace("#", "").trim().toUpperCase();
+      let code = hashCode;
+      if (!code) {
+        try { const r = await winStorage.get("my-code", false); code = r ? r.value : ""; } catch { code = ""; }
+      }
+      if (!code) return;
+      const u = users.find(x => (x.code || "").toUpperCase() === code.toUpperCase());
+      if (u) {
+        setMe(u); setTab("today");
+        try { await winStorage.set("my-code", u.code, false); } catch {}
+      }
+    })();
+  }, [ready]);
+
+  const logout = async () => {
+    try { await winStorage.delete("my-code", false); } catch {}
+    setMe(null);
+  };
+
+  if (!ready) return <Center><div style={{ color: COLORS.sub }}>Φόρτωση…</div></Center>;
+  if (!me) return <Login users={users} onPick={async (u) => {
+    setMe(u); setTab("today");
+    try { await winStorage.set("my-code", u.code, false); } catch {}
+  }} />;
+
+  const acting = viewAs || me;
+  const isMgr = acting.role === "manager" || acting.role === "owner";
+  const canAssign = isMgr || acting.role === "associate";
+  LANG = acting.lang === "en" ? "en" : "el";
+  const activeBoats = boats.filter(b => !b.atSea);
+
+  // ---------- Ενέργειες εργασιών ----------
+  const addParsed = async (items) => {
+    const now = Date.now();
+    const fresh = items.map((it, i) => ({
+      id: "t" + now + "-" + i, status: "open", createdBy: acting.id, createdAt: new Date(now + i).toISOString(),
+      progress: [], returns: 0, assignedTo: null, boatId: it.boatId || null, desc: it.desc, urgent: !!it.urgent, viaVoice: true,
+    }));
+    await persistTasks([...fresh, ...tasks]);
+    showToast(`Καταχωρήθηκαν ${fresh.length} εργασίες`);
+    setTab("tasks");
+  };
+  const addTasks = async (base, descs) => {
+    const now = Date.now();
+    const leo = base.purchase ? findLeonidas() : null;
+    const fresh = descs.map((d, i) => ({
+      id: "t" + now + "-" + i, status: "open", createdBy: acting.id, createdAt: new Date(now + i).toISOString(),
+      progress: [], returns: 0, assignedTo: leo ? leo.id : (base.assignedTo || null), boatId: base.boatId || null, desc: d, urgent: !!base.urgent, purchase: !!base.purchase,
+      ...(leo ? { assignedBy: "auto-purchase" } : {}),
+    }));
+    await persistTasks([...fresh, ...tasks]);
+    showToast(`Καταχωρήθηκαν ${fresh.length} εργασίες`);
+    setTab("tasks");
+  };
+  const findLeonidas = () => users.find(x => ["λεωνιδας", "leonidas"].includes((x.name || "").toLowerCase().replace(/ί/g, "ι").trim()));
+  const addTask = async (task, photoFiles) => {
+    const leo = task.purchase ? findLeonidas() : null;
+    const id = "t" + Date.now();
+    const t = {
+      id, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
+      progress: [], returns: 0, assignedTo: null, photos: [], ...task, ...(leo ? { assignedTo: leo.id, assignedBy: "auto-purchase" } : {}),
+    };
+    await persistTasks([t, ...tasks]);
+    showToast("Η εργασία καταχωρήθηκε");
+    setTab("tasks");
+    if (photoFiles?.length) {
+      const urls = await uploadTaskPhotos(photoFiles, id);
+      if (urls.length) setTasks(cur => { const nx = cur.map(x => x.id === id ? { ...x, photos: [...(x.photos || []), ...urls] } : x); save("app-tasks", nx); return nx; });
+    }
+  };
+  const completeTask = async (t) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "done", completedBy: acting.id, completedAt: new Date().toISOString() } : x));
+    showToast("Ολοκληρώθηκε ✔");
+  };
+  const externalTask = async (t, note) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "external", externalBy: acting.id, externalAt: new Date().toISOString(), externalNote: note } : x));
+    showToast("Καταγράφηκε: χρειάζεται εξωτερικό συνεργάτη ⚠");
+  };
+  const addProgress = async (t, note) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, progress: [...x.progress, { by: acting.id, at: new Date().toISOString(), note }] } : x));
+    showToast("Η πρόοδος καταγράφηκε");
+  };
+  const returnTask = async (t, note) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "open", assignedTo: x.completedBy, returns: (x.returns || 0) + 1, returnNote: note, returnedAt: new Date().toISOString() } : x));
+    showToast("Η εργασία επιστράφηκε ως ατελής");
+  };
+  const closeExternal = async (t, note) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "done", completedBy: acting.id, completedAt: new Date().toISOString(), closedAsExternal: true, externalCloseNote: note } : x));
+    showToast("Έκλεισε (εξωτερικός συνεργάτης) ✔");
+  };
+  const downgradeUrgent = async (t) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, urgent: false, downgradedBy: acting.id } : x));
+    showToast("Υποβαθμίστηκε σε κανονική");
+  };
+  const deleteTask = async (t) => {
+    await persistTasks(tasks.filter(x => x.id !== t.id));
+    showToast("Η εργασία διαγράφηκε");
+  };
+  const editTask = async (t, desc) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, desc, editedBy: acting.id, editedAt: new Date().toISOString() } : x));
+    showToast("Η εργασία διορθώθηκε");
+  };
+  const assignTask = async (t, userId) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, assignedTo: userId || null, assignedBy: acting.id } : x));
+    showToast(userId ? "Ανατέθηκε" : "Έγινε ελεύθερη");
+  };
+
+  // Αναχώρηση σκάφους: ορισμός ημερομηνίας + αυτόματο checklist
+  const setDeparture = async (boat, date, returnDate) => {
+    await persistBoats(boats.map(b => b.id === boat.id ? { ...b, departureDate: date || null, returnDate: date ? (returnDate || null) : null } : b));
+    if (date) {
+      const existing = tasks.filter(t => t.boatId === boat.id && t.status === "open").map(t => t.desc);
+      const fresh = checklist.filter(c => !existing.includes(c)).map((c, i) => ({
+        id: "t" + Date.now() + "-" + i, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
+        progress: [], returns: 0, assignedTo: null, boatId: boat.id, desc: c, fromChecklist: true,
+      }));
+      if (fresh.length) await persistTasks([...fresh, ...tasks]);
+      showToast(`Ορίστηκε ναύλο — άνοιξαν ${fresh.length} εργασίες checklist`);
+    } else showToast("Η αναχώρηση αφαιρέθηκε");
+  };
+
+  const effectiveDeadline = (t) => {
+    if (t.manualDeadline) return t.manualDeadline;
+    if (t.excludedFromDeadline) return null;
+    const b = boats.find(x => x.id === t.boatId);
+    return b?.departureDate || null;
+  };
+  const sortTasks = (list) => [...list].sort((a, b) => {
+    if (!!b.urgent - !!a.urgent) return !!b.urgent - !!a.urgent;
+    const da = effectiveDeadline(a), db = effectiveDeadline(b);
+    if (da && db) return da.localeCompare(db);
+    if (da) return -1; if (db) return 1;
+    return b.createdAt.localeCompare(a.createdAt);
+  });
+
+  const myTasks = sortTasks(tasks.filter(t => t.status === "open" && t.assignedTo === acting.id));
+  const freeTasks = sortTasks(tasks.filter(t => t.status === "open" && (!t.assignedTo || t.assignedTo !== acting.id)));
+
+  const tabs = [
+    { id: "today", label: tr("Σήμερα"), icon: "☀" },
+    { id: "tasks", label: tr("Εργασίες"), icon: "☰" },
+    { id: "new", label: tr("Νέα"), icon: "+" },
+    { id: "service", label: "Service", icon: "📖" },
+    ...(isMgr ? [{ id: "admin", label: "Διοίκηση", icon: "⚙" }] : []),
+  ];
+
   return (
-    <div style={{ padding: 20, fontFamily: "sans-serif", background: COLORS.bg, minHeight: "100vh" }}>
-      <h3>Base Management Application {APP_VERSION}</h3>
-      {/* UI rendering elements */}
+    <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "system-ui, -apple-system, sans-serif", paddingBottom: 76 }}>
+      <Header me={acting} onLogout={logout} />
+      {viewAs && (
+        <div style={{ background: COLORS.amber, color: "#3A2600", padding: "9px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13.5, fontWeight: 700 }}>
+          👁 Προβολή ως: {viewAs.name}
+          <button onClick={() => { setViewAs(null); setTab("admin"); }} style={{ border: "1.5px solid #3A2600", background: "transparent", color: "#3A2600", borderRadius: 8, padding: "5px 10px", fontWeight: 700 }}>Επιστροφή σε Owner</button>
+        </div>
+      )}
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
+        {tab === "today" && <TodayView me={acting} tasks={myTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
+          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} />}
+        {tab === "tasks" && <TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
+          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
+          onAssign={assignTask} onDowngrade={downgradeUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} />}
+        {tab === "new" && <NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} />}
+        {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} />}
+        {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist}
+          persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist}
+          setDeparture={setDeparture} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={downgradeUrgent}
+          onAssign={assignTask} runDistribution={() => runDistribution(true)} effectiveDeadline={effectiveDeadline}
+          persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={(u) => { setViewAs(u); setTab("today"); }} realOwner={me.role === "owner"} />}
+      </div>
+      <TabBar tabs={tabs} tab={tab} setTab={setTab} />
+      {toast && <div style={{ position: "fixed", bottom: 86, left: "50%", transform: "translateX(-50%)", background: COLORS.navy, color: "#fff", padding: "10px 18px", borderRadius: 24, fontSize: 14, zIndex: 50, maxWidth: "90%" }}>{toast}</div>}
     </div>
   );
 }
+
+// ---------- Κοινά UI ----------
+const Center = ({ children }) => <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: COLORS.bg }}>{children}</div>;
+
+function Header({ me, onLogout }) {
+  const roleLabel = me.role === "owner" ? "Owner" : me.role === "manager" ? "Base Manager" : me.role === "associate" ? "Στέλεχος" : tr("Συνεργείο βάσης");
+  return (
+    <div style={{ background: COLORS.navy, color: "#fff", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div>
+        <div style={{ fontWeight: 800, letterSpacing: 0.5, fontSize: 17 }}>SAILWAYS <span style={{ fontWeight: 300 }}>| Βάση Αλίμου</span></div>
+        <div style={{ fontSize: 12, opacity: 0.75 }}>{me.name} · {roleLabel}</div>
+      </div>
+      <button onClick={onLogout} style={{ background: "transparent", border: "1px solid rgba(255,255,255,.35)", color: "#fff", borderRadius: 8, padding: "6px 12px", fontSize: 13 }}>{tr("Έξοδος")}</button>
+    </div>
+  );
+}
+
+function TabBar({ tabs, tab, setTab }) {
+  return (
+    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: COLORS.card, borderTop: `1px solid ${COLORS.line}`, display: "flex", zIndex: 40 }}>
+      {tabs.map(t => (
+        <button key={t.id} onClick={() => setTab(t.id)} style={{
+          flex: 1, padding: "10px 4px 12px", background: "none", border: "none",
+          color: tab === t.id ? COLORS.teal : COLORS.sub, fontWeight: tab === t.id ? 700 : 500, fontSize: 12,
+        }}>
+          <div style={{ fontSize: 19, marginBottom: 2 }}>{t.icon}</div>{t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Login({ users, onPick }) {
+  const [code, setCode] = useState("");
+  const [err, setErr] = useState("");
+  const tryLogin = () => {
+    const u = users.find(x => (x.code || "").toUpperCase() === code.trim().toUpperCase());
+    if (u) onPick(u);
+    else setErr("Ο κωδικός δεν αναγνωρίστηκε. / Code not recognized.");
+  };
+  return (
+    <Center>
+      <div style={{ width: "100%", maxWidth: 380, padding: 24 }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ fontSize: 26, fontWeight: 800, color: COLORS.navy, letterSpacing: 1 }}>SAILWAYS</div>
+          <div style={{ color: COLORS.sub, marginTop: 4 }}>Βάση Μαρίνας Αλίμου <span style={{ fontSize: 11, opacity: .6 }}>· {APP_VERSION}</span></div>
+        </div>
+        <div style={{ background: COLORS.card, borderRadius: 14, padding: 20 }}>
+          <label style={lbl}>Προσωπικός κωδικός / Personal code</label>
+          <input value={code} onChange={e => { setCode(e.target.value); setErr(""); }}
+            onKeyDown={e => e.key === "Enter" && tryLogin()}
+            placeholder="π.χ. VAS-4821" autoCapitalize="characters"
+            style={{ ...inputStyle, fontSize: 17, textAlign: "center", letterSpacing: 1.5 }} />
+          {err && <div style={{ color: COLORS.red, fontSize: 13, marginTop: 8 }}>{err}</div>}
+          <div style={{ marginTop: 14 }}>
+            <button onClick={tryLogin} style={{ width: "100%", padding: 13, borderRadius: 10, border: "none", background: COLORS.navy, color: "#fff", fontSize: 15.5, fontWeight: 700 }}>Είσοδος / Sign in</button>
+          </div>
+          <div style={{ marginTop: 12, fontSize: 12, color: COLORS.sub, textAlign: "center" }}>
+            Ο κωδικός μπαίνει μία φορά — η συσκευή σε θυμάται. / Enter once — this device remembers you.
+          </div>
+        </div>
+      </div>
+    </Center>
+  );
+}
+
+// ---------- Κάρτα εργασίας ----------
+function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, showAssignee }) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign'
+  const [note, setNote] = useState("");
+  const boat = boats.find(b => b.id === t.boatId);
+  const dl = deadline(t);
+  const du = daysUntil(dl);
+  const spine = t.urgent ? COLORS.red : (dl && du !== null && du <= 7 ? COLORS.amber : COLORS.line);
+  const assignee = users.find(u => u.id === t.assignedTo);
+
+  return (
+    <div style={{ background: COLORS.card, borderRadius: 12, marginBottom: 10, borderLeft: `5px solid ${spine}`, boxShadow: "0 1px 2px rgba(10,30,50,.06)" }}>
+      <div onClick={() => setOpen(!open)} style={{ padding: "12px 14px", cursor: "pointer" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.35 }}>{t.desc}</div>
+          <div style={{ fontSize: 18 }}>{open ? "▾" : "▸"}</div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6, fontSize: 12.5, color: COLORS.sub, alignItems: "center" }}>
+          <span style={{ background: COLORS.bg, padding: "2px 8px", borderRadius: 6, fontWeight: 600, color: COLORS.navy }}>{boat ? boat.name : tr("Βάση / Άλλο")}</span>
+          {t.urgent && <span style={{ color: COLORS.red, fontWeight: 700 }}>🔴 {tr("Επείγον")}</span>}
+          {t.purchase && <span style={{ color: COLORS.amber, fontWeight: 700 }}>🛒 {tr("Αγορά")}</span>}
+          {!t.urgent && dl && du !== null && du <= 7 && <span style={{ color: COLORS.amber, fontWeight: 700 }}>⏰ {du <= 0 ? tr("Σήμερα!") : (LANG === "en" ? `in ${du} days` : `σε ${du} μέρες`)}</span>}
+          {dl && (du === null || du > 7) && <span>{tr("έως")} {fmtDate(dl)}</span>}
+          {showAssignee && assignee && <span>→ {assignee.name}{t.assignedBy === "AI" ? " (AI)" : ""}</span>}
+          {t.returnNote && t.status === "open" && <span style={{ color: COLORS.red }}>↩ {tr("Επιστράφηκε")}</span>}
+          {t.progress?.length > 0 && <span style={{ color: COLORS.teal }}>✏ {t.progress.length} {tr("πρόοδοι")}</span>}
+        </div>
+      </div>
+      {open && (
+        <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${COLORS.line}` }}>
+          {t.returnNote && t.status === "open" && (
+            <div style={{ background: "#FDECEA", color: "#8A1C12", padding: "8px 10px", borderRadius: 8, fontSize: 13, margin: "10px 0" }}>
+              <b>{tr("Σημείωση manager:")}</b> {t.returnNote}
+            </div>
+          )}
+          {t.photos?.length > 0 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "10px 0" }}>
+              {t.photos.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noreferrer">
+                  <img src={url} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: `1px solid ${COLORS.line}` }} />
+                </a>
+              ))}
+            </div>
+          )}
+          {t.progress?.length > 0 && (
+            <div style={{ margin: "10px 0", fontSize: 13 }}>
+              {t.progress.map((p, i) => (
+                <div key={i} style={{ padding: "5px 0", borderBottom: i < t.progress.length - 1 ? `1px dashed ${COLORS.line}` : "none", color: COLORS.sub }}>
+                  ✏ {fmtDate(p.at)}: {p.note}{isMgr ? ` — ${users.find(u => u.id === p.by)?.name || ""}` : ""}
+                </div>
+              ))}
+            </div>
+          )}
+          {mode === null && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+              <Btn color={COLORS.green} onClick={() => onComplete(t)}>{tr("Ολοκληρώθηκε ✔")}</Btn>
+              <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
+              <Btn color={COLORS.amber} outline onClick={() => { setMode("external"); setNote(""); }}>{tr("Χρειάζεται ειδικός ⚠")}</Btn>
+              {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.sub} outline onClick={() => { setMode("edit"); setNote(t.desc); }}>✎ {tr("Διόρθωση")}</Btn>}
+              {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.red} outline onClick={() => setMode("confirmDel")}>🗑 {tr("Διαγραφή")}</Btn>}
+              {(isMgr || canAssign) && <Btn color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>}
+              {isMgr && t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>Υποβάθμιση επείγοντος</Btn>}
+            </div>
+          )}
+          {mode === "confirmDel" && (
+            <div style={{ marginTop: 10, background: "#FDECEA", borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#8A1C12", marginBottom: 8 }}>{tr("Διαγραφή εργασίας; Δεν αναιρείται.")}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn small color={COLORS.red} onClick={() => onDelete(t)}>{tr("Ναι, διαγραφή")}</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
+              </div>
+            </div>
+          )}
+          {mode === "edit" && (
+            <div style={{ marginTop: 10 }}>
+              <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} style={inputStyle} />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <Btn color={COLORS.teal} onClick={() => { if (!note.trim()) return; onEdit(t, note.trim()); setMode(null); }}>{tr("Καταχώρηση")}</Btn>
+                <Btn color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
+              </div>
+            </div>
+          )}
+          {(mode === "progress" || mode === "external") && (
+            <div style={{ marginTop: 10 }}>
+              <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
+                placeholder={mode === "progress" ? tr("Τι έκανες; π.χ. γυάλισα τη δεξιά πλευρά της πλώρης (~1 ώρα)") : tr("Τι δοκίμασες; Τι ειδικό χρειάζεται;")}
+                style={inputStyle} />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <Btn color={COLORS.teal} onClick={() => { if (!note.trim()) return; mode === "progress" ? onProgress(t, note.trim()) : onExternal(t, note.trim()); setMode(null); setOpen(false); }}>{tr("Καταχώρηση")}</Btn>
+                <Btn color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
+              </div>
+            </div>
+          )}
+          {mode === "assign" && (isMgr || canAssign) && (
+            <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {users.map(u => (
+                <Btn key={u.id} color={t.assignedTo === u.id ? COLORS.teal : COLORS.navy} outline={t.assignedTo !== u.id}
+                  onClick={() => { onAssign(t, u.id); setMode(null); }}>{u.name}</Btn>
+              ))}
+              <Btn color={COLORS.sub} outline onClick={() => { onAssign(t, null); setMode(null); }}>Ελεύθερη</Btn>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const Btn = ({ children, color, outline, onClick, small }) => (
+  <button onClick={onClick} style={{
+    background: outline ? "transparent" : color, color: outline ? color : "#fff",
+    border: `1.5px solid ${color}`, borderRadius: 9, padding: small ? "5px 10px" : "9px 14px",
+    fontSize: small ? 12.5 : 14, fontWeight: 600,
+  }}>{children}</button>
+);
+
+const inputStyle = { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 9, border: `1px solid ${COLORS.line}`, fontSize: 14.5, fontFamily: "inherit", background: "#fff" };
+
+const SectionTitle = ({ children }) => <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.sub, textTransform: "uppercase", letterSpacing: 0.8, margin: "18px 0 8px" }}>{children}</div>;
+
+// ---------- Προβολές ----------
+
+function DailyGreeting({ me }) {
+  const [msg, setMsg] = useState(null);
+  useEffect(() => {
+    (async () => {
+      const key = "greet-" + me.id + "-" + todayStr();
+      try { const r = await winStorage.get(key, false); if (r) { setMsg(r.value); return; } } catch {}
+      if (!me.humor) return;
+      try {
+        const prompt = LANG === "en"
+          ? `Write ONE short morning message (1-2 sentences, emoji ok) for ${me.name}, a boat-base worker. Style: ${me.humor}. Today is ${todayStr()} — make it fresh and different from other days. Reply ONLY with the message.`
+          : `Γράψε ΕΝΑ σύντομο πρωινό μήνυμα (1-2 προτάσεις, emoji επιτρέπονται) για τον/την ${me.name}, που δουλεύει σε βάση σκαφών στη μαρίνα. Ύφος: ${me.humor}. Σήμερα είναι ${todayStr()} — να είναι φρέσκο, διαφορετικό από άλλες μέρες. Απάντησε ΜΟΝΟ με το μήνυμα, χωρίς εισαγωγικά.`;
+        const m = (await askClaude(prompt, 200)).trim().replace(/^"|"$/g, "");
+        if (m) { setMsg(m); try { await winStorage.set("greet-" + me.id + "-" + todayStr(), m, false); } catch {} }
+      } catch {}
+    })();
+  }, [me.id]);
+  if (!msg) return null;
+  return (
+    <div style={{ background: "linear-gradient(135deg, #0B2239, #0E7C86)", color: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 14, fontSize: 15.5, lineHeight: 1.45, fontWeight: 600 }}>
+      {msg}
+    </div>
+  );
+}
+
+function DeparturesWidget({ boats }) {
+  const soon = boats
+    .filter(b => !b.atSea && b.departureDate)
+    .map(b => ({ ...b, _du: daysUntil(b.departureDate) }))
+    .filter(b => b._du !== null && b._du <= 7)
+    .sort((a, b) => a.departureDate.localeCompare(b.departureDate));
+  const returning = boats
+    .filter(b => b.atSea && b.returnDate)
+    .map(b => ({ ...b, _du: daysUntil(b.returnDate) }))
+    .filter(b => b._du !== null && b._du <= 7)
+    .sort((a, b) => a.returnDate.localeCompare(b.returnDate));
+  if (!soon.length && !returning.length) return null;
+  return (
+    <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${COLORS.line}` }}>
+      <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 8 }}>⚓ Αναχωρήσεις & Επιστροφές (7 μέρες)</div>
+      {soon.map(b => (
+        <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
+          <span>⏰ {b.name}</span>
+          <span style={{ color: b._du <= 1 ? COLORS.red : COLORS.amber, fontWeight: 700 }}>{b._du <= 0 ? "Φεύγει σήμερα" : `Φεύγει σε ${b._du}μ — ${fmtDate(b.departureDate)}`}</span>
+        </div>
+      ))}
+      {returning.map(b => (
+        <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
+          <span>🌊 {b.name}</span>
+          <span style={{ color: COLORS.teal, fontWeight: 700 }}>{b._du <= 0 ? "Επιστρέφει σήμερα" : `Επιστρέφει σε ${b._du}μ — ${fmtDate(b.returnDate)}`}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TodayView({ me, tasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete }) {
+  return (
+    <div>
+      <DailyGreeting me={me} />
+      <DeparturesWidget boats={boats} />
+      <SectionTitle>{tr("Οι εργασίες μου")} — {new Date().toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { weekday: "long", day: "numeric", month: "long" })}</SectionTitle>
+      {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
+      {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} />)}
+    </div>
+  );
+}
+
+function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign }) {
+  const [boatFilter, setBoatFilter] = useState("");
+  const shown = boatFilter ? tasks.filter(t => t.boatId === boatFilter || (boatFilter === "other" && !t.boatId)) : tasks;
+  return (
+    <div>
+      <SectionTitle>{tr("Διαθέσιμες εργασίες")} ({tasks.length})</SectionTitle>
+      <select value={boatFilter} onChange={e => setBoatFilter(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }}>
+        <option value="">{tr("Όλα τα σκάφη")}</option>
+        {boats.filter(b => !b.atSea).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+        <option value="other">{tr("Βάση / Άλλο")}</option>
+      </select>
+      {shown.length === 0 && <Empty>{tr("Καμία εργασία εδώ.")}</Empty>}
+      {shown.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} />)}
+    </div>
+  );
+}
+
+const Empty = ({ children }) => <div style={{ background: COLORS.card, borderRadius: 12, padding: 18, color: COLORS.sub, fontSize: 14, textAlign: "center" }}>{children}</div>;
+
+function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) {
+  const [boatId, setBoatId] = useState("");
+  const [desc, setDesc] = useState("");
+  const [urgent, setUrgent] = useState(false);
+  const [assignTo, setAssignTo] = useState("");
+  const [multi, setMulti] = useState(false);
+  const [purchase, setPurchase] = useState(false);
+  const [photos, setPhotos] = useState([]);
+  const fileRef = useRef(null);
+  const submit = () => {
+    if (!desc.trim()) return;
+    if (multi) {
+      const lines = desc.split("\n").map(l => l.trim()).filter(Boolean);
+      if (!lines.length) return;
+      onAddMany({ boatId: boatId || null, urgent, assignedTo: isMgr && assignTo ? assignTo : null, purchase }, lines);
+    } else {
+      onAdd({ boatId: boatId || null, desc: desc.trim(), urgent, assignedTo: isMgr && assignTo ? assignTo : null, purchase }, photos);
+    }
+    setDesc(""); setUrgent(false); setAssignTo(""); setBoatId(""); setMulti(false); setPurchase(false); setPhotos([]);
+  };
+  return (
+    <div>
+      <SectionTitle>{tr("Νέα εργασία")}</SectionTitle>
+      <VoiceEntry boats={boats} onAddParsed={onAddParsed} />
+      <div style={{ background: COLORS.card, borderRadius: 12, padding: 16 }}>
+        <label style={lbl}>{tr("Σκάφος")}</label>
+        <select value={boatId} onChange={e => setBoatId(e.target.value)} style={inputStyle}>
+          <option value="">{tr("Βάση / Άλλο (van, εργαλεία…)")}</option>
+          {boats.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
+
+        <label style={lbl}>{tr("Περιγραφή")}</label>
+        <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={multi ? 6 : 3}
+          placeholder={multi ? tr("Μία εργασία ανά γραμμή, π.χ.:\nΠαράθυρο σπασμένο\nΤο φως στην πλώρη δεν ανάβει\nΗ σκότα θέλει αλλαγή") : tr("π.χ. Το πόμολο στη δεξιά πόρτα της καμπίνας έχει χαλάσει")} style={inputStyle} />
+        <button onClick={() => setMulti(!multi)} style={{
+          marginTop: 8, padding: "8px 12px", borderRadius: 9, fontSize: 13, fontWeight: 700,
+          border: `1.5px solid ${COLORS.teal}`, background: multi ? COLORS.teal : "transparent", color: multi ? "#fff" : COLORS.teal,
+        }}>≡ {multi ? tr("Πολλαπλές εργασίες: ΝΑΙ — μία ανά γραμμή") : tr("Πολλαπλές εργασίες μαζί (μία ανά γραμμή)")}</button>
+
+        <button onClick={() => setUrgent(!urgent)} style={{
+          marginTop: 12, width: "100%", padding: "11px", borderRadius: 10, fontWeight: 700, fontSize: 14.5,
+          border: `2px solid ${COLORS.red}`, background: urgent ? COLORS.red : "transparent", color: urgent ? "#fff" : COLORS.red,
+        }}>{urgent ? tr("🔴 ΕΠΕΙΓΟΝ — σοβαρό πρόβλημα") : "🔴 " + tr("Μαρκάρισμα ως επείγον (σοβαρό πρόβλημα)")}</button>
+
+        <button onClick={() => setPurchase(!purchase)} style={{
+          marginTop: 8, width: "100%", padding: "11px", borderRadius: 10, fontWeight: 700, fontSize: 14.5,
+          border: `2px solid ${COLORS.amber}`, background: purchase ? COLORS.amber : "transparent", color: purchase ? "#fff" : COLORS.amber,
+        }}>🛒 {purchase ? tr("ΑΓΟΡΑ / ΛΕΙΨΗ ΥΛΙΚΟΥ — θα ανατεθεί στον Λεωνίδα") : tr("Λείπει υλικό / χρειάζεται αγορά")}</button>
+
+        {isMgr && (
+          <>
+            <label style={lbl}>Ανάθεση σε συγκεκριμένο άτομο (προαιρετικό)</label>
+            <select value={assignTo} onChange={e => setAssignTo(e.target.value)} style={inputStyle}>
+              <option value="">Ελεύθερη — θα κατανεμηθεί από το AI ή όποιον την πιάσει</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </>
+        )}
+
+        <label style={lbl}>{tr("Φωτογραφίες (προαιρετικό)")}</label>
+        <input ref={fileRef} type="file" accept="image/*" multiple capture="environment"
+          onChange={e => setPhotos(prev => [...prev, ...Array.from(e.target.files || [])])}
+          style={{ display: "none" }} />
+        <button onClick={() => fileRef.current?.click()} style={{
+          width: "100%", padding: "10px", borderRadius: 9, border: `1.5px dashed ${COLORS.teal}`,
+          background: "transparent", color: COLORS.teal, fontSize: 13.5, fontWeight: 600,
+        }}>📷 {tr("Προσθήκη φωτογραφίας")}</button>
+        {photos.length > 0 && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            {photos.map((f, i) => (
+              <div key={i} style={{ position: "relative" }}>
+                <img src={URL.createObjectURL(f)} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: `1px solid ${COLORS.line}` }} />
+                <button onClick={() => setPhotos(photos.filter((_, j) => j !== i))} style={{
+                  position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: 10, border: "none",
+                  background: COLORS.red, color: "#fff", fontSize: 12, lineHeight: "20px", padding: 0,
+                }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ marginTop: 16 }}>
+          <Btn color={COLORS.navy} onClick={submit}>{tr("Καταχώρηση εργασίας")}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+const lbl = { display: "block", fontSize: 12.5, fontWeight: 700, color: COLORS.sub, margin: "14px 0 6px" };
+
+
+function VoiceEntry({ boats, onAddParsed }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [listening, setListening] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [items, setItems] = useState(null);
+  const [err, setErr] = useState("");
+  const recRef = useRef(null);
+  const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  const toggleMic = () => {
+    setErr("");
+    if (listening) { recRef.current?.stop(); setListening(false); return; }
+    if (!SR) { setErr(tr("Η φωνητική αναγνώριση δεν υποστηρίζεται σε αυτή τη συσκευή/browser — γράψε το κείμενο και πάτα Ανάλυση.")); return; }
+    const rec = new SR();
+    rec.lang = LANG === "en" ? "en-US" : "el-GR";
+    rec.continuous = true; rec.interimResults = false;
+    rec.onresult = (e) => {
+      let add = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) add += e.results[i][0].transcript + " ";
+      if (add) setText(t => (t + " " + add).trim());
+    };
+    rec.onerror = () => { setListening(false); setErr(tr("Πρόβλημα μικροφώνου — δοκίμασε ξανά ή γράψε το κείμενο.")); };
+    rec.onend = () => setListening(false);
+    recRef.current = rec; rec.start(); setListening(true);
+  };
+
+  const analyze = async () => {
+    if (!text.trim() || busy) return;
+    setBusy(true); setErr(""); setItems(null);
+    try {
+      const prompt = `Είσαι σύστημα καταγραφής εργασιών σε βάση σκαφών. Ο χρήστης περιγράφει προφορικά προβλήματα/εργασίες. Ανάλυσε το κείμενο σε ΞΕΧΩΡΙΣΤΕΣ εργασίες.
+Σκάφη της βάσης: ${boats.map(b => b.name).join(", ")}. Αν αναφέρεται σκάφος (έστω με μικρή παραλλαγή/χωρίς τόνους), αντιστοίχισέ το στο σωστό όνομα από τη λίστα, αλλιώς boat: null.
+Για κάθε εργασία: σύντομη, καθαρή, επαγγελματική περιγραφή στα ελληνικά (π.χ. "Αντικατάσταση σκότας", "Επισκευή φωτός πλώρης"). urgent: true ΜΟΝΟ αν το κείμενο δείχνει σοβαρό/επείγον πρόβλημα (διαρροή, τρύπα, κίνδυνος).
+ΚΕΙΜΕΝΟ: "${text.trim()}"
+Απάντησε ΜΟΝΟ με JSON χωρίς markdown: {"tasks":[{"boat":"...ή null","desc":"...","urgent":false}]}`;
+      const raw = await askClaude(prompt, 800);
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      const mapped = (parsed.tasks || []).map(t => {
+        const boat = boats.find(b => b.name === t.boat) || boats.find(b => t.boat && b.name.toLowerCase().includes(String(t.boat).toLowerCase()));
+        return { boatId: boat ? boat.id : "", desc: t.desc || "", urgent: !!t.urgent };
+      }).filter(t => t.desc);
+      if (!mapped.length) setErr(tr("Δεν αναγνωρίστηκαν εργασίες — δοκίμασε πιο συγκεκριμένη διατύπωση."));
+      else setItems(mapped);
+    } catch { setErr(tr("Η ανάλυση απέτυχε — δοκίμασε ξανά.")); }
+    setBusy(false);
+  };
+
+  const upd = (i, patch) => setItems(items.map((x, j) => j === i ? { ...x, ...patch } : x));
+
+  return (
+    <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12, border: `1.5px solid ${open ? COLORS.teal : COLORS.line}` }}>
+      <button onClick={() => setOpen(!open)} style={{ width: "100%", background: "none", border: "none", textAlign: "left", fontSize: 15, fontWeight: 700, color: COLORS.teal }}>
+        🎤 {tr("Φωνητική καταχώρηση με AI")} {open ? "▾" : "▸"}
+      </button>
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <button onClick={toggleMic} style={{
+              flex: 1, padding: 12, borderRadius: 10, fontWeight: 700, fontSize: 14.5,
+              border: `2px solid ${listening ? COLORS.red : COLORS.teal}`,
+              background: listening ? COLORS.red : "transparent", color: listening ? "#fff" : COLORS.teal,
+            }}>{listening ? "⏹ " + tr("Σταμάτημα") : "🎤 " + tr("Μίλα")}</button>
+          </div>
+          <textarea value={text} onChange={e => setText(e.target.value)} rows={3}
+            placeholder={tr("π.χ. Στον Λεωνίδα το παράθυρο είναι σπασμένο, δεν ανάβει το φως στην πλώρη και θέλει αλλαγή η σκότα")}
+            style={inputStyle} />
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <Btn color={COLORS.navy} onClick={analyze}>{busy ? tr("Ανάλυση…") : "✨ " + tr("Ανάλυση με AI")}</Btn>
+            {text && <Btn color={COLORS.sub} outline onClick={() => { setText(""); setItems(null); }}>{tr("Καθάρισμα")}</Btn>}
+          </div>
+          {err && <div style={{ color: COLORS.red, fontSize: 13, marginTop: 8 }}>{err}</div>}
+          {items && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.sub, marginBottom: 6 }}>{tr("Προεπισκόπηση — έλεγξε και διόρθωσε πριν την καταχώρηση")}:</div>
+              {items.map((it, i) => (
+                <div key={i} style={{ border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 10, marginBottom: 8 }}>
+                  <input value={it.desc} onChange={e => upd(i, { desc: e.target.value })} style={{ ...inputStyle, marginBottom: 6 }} />
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <select value={it.boatId} onChange={e => upd(i, { boatId: e.target.value })} style={{ ...inputStyle, width: "auto", flex: 1 }}>
+                      <option value="">{tr("Βάση / Άλλο")}</option>
+                      {boats.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                    <button onClick={() => upd(i, { urgent: !it.urgent })} style={{
+                      padding: "7px 10px", borderRadius: 8, fontSize: 12.5, fontWeight: 700,
+                      border: `1.5px solid ${COLORS.red}`, background: it.urgent ? COLORS.red : "transparent", color: it.urgent ? "#fff" : COLORS.red,
+                    }}>🔴</button>
+                    <Btn small color={COLORS.sub} outline onClick={() => setItems(items.filter((_, j) => j !== i))}>×</Btn>
+                  </div>
+                </div>
+              ))}
+              <Btn color={COLORS.green} onClick={() => { onAddParsed(items); setItems(null); setText(""); setOpen(false); }}>
+                ✔ {tr("Καταχώρηση όλων")} ({items.length})
+              </Btn>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ServiceBook({ boats, tasks, users, isMgr }) {
+  const [boatId, setBoatId] = useState("");
+  const done = tasks.filter(t => t.status === "done" && (boatId ? t.boatId === boatId : true))
+    .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
+  return (
+    <div>
+      <SectionTitle>{tr("Βιβλίο service")}</SectionTitle>
+      <select value={boatId} onChange={e => setBoatId(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }}>
+        <option value="">{tr("Όλα τα σκάφη")}</option>
+        {boats.map(b => <option key={b.id} value={b.id}>{b.name}{b.atSea ? " (εν πλω)" : ""}</option>)}
+      </select>
+      {done.length === 0 && <Empty>{tr("Καμία ολοκληρωμένη εργασία ακόμα.")}</Empty>}
+      {done.map(t => {
+        const boat = boats.find(b => b.id === t.boatId);
+        return (
+          <div key={t.id} style={{ background: COLORS.card, borderRadius: 10, padding: "11px 14px", marginBottom: 8, fontSize: 14 }}>
+            <div style={{ fontWeight: 600 }}>{t.desc}</div>
+            <div style={{ fontSize: 12.5, color: COLORS.sub, marginTop: 3 }}>
+              {boat ? boat.name : tr("Βάση / Άλλο")} · {fmtDate(t.completedAt)}
+              {t.closedAsExternal && " · " + tr("εξωτερικός συνεργάτης")}
+              {isMgr && t.completedBy && ` · ${users.find(u => u.id === t.completedBy)?.name || ""}`}
+              {isMgr && t.returns > 0 && ` · ↩ ${t.returns} επιστροφή/ές`}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------- Διοίκηση (manager + owner) ----------
+function AdminView(props) {
+  const { me, users, boats, tasks, quick, checklist, persistUsers, persistBoats, persistQuick, persistChecklist,
+    setDeparture, onReturn, onCloseExternal, onDowngrade, runDistribution, effectiveDeadline, showToast, onViewAs, realOwner } = props;
+  const [section, setSection] = useState("overview");
+  const isOwner = me.role === "owner";
+  const sections = [
+    ["overview", "Επισκόπηση"], ["control", "Έλεγχος"], ["boats", "Σκάφη"],
+    ["lists", "Λίστες"], ["stats", "Στατιστικά"], ["ai", "AI"],
+    ...(isOwner ? [["usersS", "Χρήστες"]] : []),
+  ];
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, marginBottom: 6 }}>
+        {sections.map(([id, label]) => (
+          <button key={id} onClick={() => setSection(id)} style={{
+            whiteSpace: "nowrap", padding: "7px 13px", borderRadius: 20, fontSize: 13, fontWeight: 600,
+            border: `1.5px solid ${section === id ? COLORS.navy : COLORS.line}`,
+            background: section === id ? COLORS.navy : COLORS.card, color: section === id ? "#fff" : COLORS.text,
+          }}>{label}</button>
+        ))}
+      </div>
+      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} users={users} me={me} />}
+      {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} />}
+      {section === "boats" && <BoatsAdmin boats={boats} persistBoats={persistBoats} setDeparture={setDeparture} showToast={showToast} />}
+      {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} persistQuick={persistQuick} persistChecklist={persistChecklist} />}
+      {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
+      {section === "ai" && <AiSearch tasks={tasks} boats={boats} />}
+      {section === "usersS" && isOwner && <UsersAdmin users={users} persistUsers={persistUsers} me={me} onViewAs={realOwner ? onViewAs : null} />}
+    </div>
+  );
+}
+
+
+function WeeklyReport({ tasks, users, me, boats }) {
+  const [rep, setRep] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const allowed = me.role === "owner" || ["Φανούρης", "Αλέξανδρος"].includes(me.name);
+  const weekKey = (() => { const d = new Date(); const day = d.getDay(); const back = day === 0 ? 0 : day; d.setDate(d.getDate() - back); return d.toISOString().slice(0, 10); })();
+  const genReport = async (auto) => {
+    if (busy) return; setBusy(true);
+    try {
+      const from = new Date(); from.setDate(from.getDate() - 7);
+      const inW = (d) => d && new Date(d) >= from;
+      const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση";
+      const team = users.filter(u => u.role === "employee" && !u.noStats);
+      const data = team.map(u => {
+        const done = tasks.filter(t => t.completedBy === u.id && t.status === "done" && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})${t.returns ? " [επιστράφηκε " + t.returns + "x]" : ""}`);
+        const prog = tasks.reduce((s2, t) => s2 + (t.progress || []).filter(p => p.by === u.id && inW(p.at)).length, 0);
+        const found = tasks.filter(t => t.createdBy === u.id && inW(t.createdAt)).length;
+        return `${u.name}: Ολοκλήρωσε [${done.join("; ") || "τίποτα"}]. Πρόοδοι σε μεγάλες εργασίες: ${prog}. Εντόπισε/κατέγραψε νέες: ${found}.`;
+      }).join("\n");
+      const prompt = `Είσαι σύμβουλος απόδοσης ομάδας σε βάση σκαφών charter. Γράψε ΣΥΝΟΠΤΙΚΗ εβδομαδιαία αναφορά (150-250 λέξεις, ελληνικά) για τη διοίκηση, με βάση τα δεδομένα.
+ΟΔΗΓΙΕΣ: Κρίνε κάθε ολοκληρωμένη εργασία με συντελεστή βαρύτητας 1-5 (1=ασήμαντη π.χ. βίδωμα/λάμπα/απλό πλύσιμο, 5=βαριά π.χ. αλλαγή θερμοσίφωνα, στεγανοποίηση παραθύρων, επισκευή μηχανισμών). Σύγκρινε κάθε άτομο με τον μέσο όρο της ομάδας σε ΣΤΑΘΜΙΣΜΕΝΟ έργο (όχι σκέτο πλήθος). Επισήμανε μοτίβα: ποιος σηκώνει βαριές δουλειές, ποιος διαλέγει μόνο εύκολες (π.χ. μόνο πλυσίματα), ποιος έχει χαμηλή παραγωγή, ποιος εντοπίζει προβλήματα, επιστροφές ατελών. Ευθύς αλλά δίκαιος. Μη βαθμολογείς όσους απουσίαζαν αν δεν έχουν καθόλου δεδομένα — ανάφερέ το ουδέτερα.
+ΔΕΔΟΜΕΝΑ ΕΒΔΟΜΑΔΑΣ:\n${data}`;
+      const text = await askClaude(prompt, 900);
+      if (text) { await save("weekly-report-" + weekKey, { text, at: new Date().toISOString() }); setRep({ text }); }
+    } catch {}
+    setBusy(false);
+  };
+  useEffect(() => {
+    if (!allowed) return;
+    (async () => {
+      const r = await load("weekly-report-" + weekKey, null);
+      if (r) { setRep(r); return; }
+      const now = new Date();
+      if (now.getDay() === 0 && now.getHours() >= 17) genReport(true);
+    })();
+  }, []);
+  if (!allowed) return null;
+  return (
+    <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12, border: `1.5px solid ${COLORS.navy}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontWeight: 800, fontSize: 14.5 }}>📊 Εβδομαδιαία αναφορά ομάδας</div>
+        <Btn small color={COLORS.navy} outline onClick={() => genReport(false)}>{busy ? "Σύνταξη…" : rep ? "↻ Νέα" : "Δημιουργία"}</Btn>
+      </div>
+      {rep
+        ? <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{rep.text}</div>
+        : <div style={{ marginTop: 8, fontSize: 12.5, color: COLORS.sub }}>Δημιουργείται αυτόματα κάθε Κυριακή απόγευμα — ή πάτα «Δημιουργία» όποτε θες ενδιάμεση εικόνα.</div>}
+    </div>
+  );
+}
+
+function Overview({ boats, tasks, effectiveDeadline, runDistribution, users, me }) {
+  const departing = boats.filter(b => !b.atSea && b.departureDate).sort((a, b) => a.departureDate.localeCompare(b.departureDate));
+  const urgent = tasks.filter(t => t.status === "open" && t.urgent);
+  const external = tasks.filter(t => t.status === "external");
+  const purchases = tasks.filter(t => t.status === "open" && t.purchase);
+  const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
+  const openPerBoat = boats.filter(b => !b.atSea).map(b => ({ b, n: tasks.filter(t => t.boatId === b.id && t.status === "open").length })).filter(x => x.n > 0);
+  return (
+    <div>
+      <SectionTitle>Εικόνα εβδομάδας</SectionTitle>
+      <WeeklyReport tasks={tasks} users={users} me={me} boats={boats} />
+      {(urgent.length > 0 || external.length > 0) && (
+        <div style={{ background: "#FDECEA", borderRadius: 12, padding: 14, marginBottom: 12, fontSize: 14 }}>
+          {urgent.length > 0 && <div style={{ fontWeight: 700, color: COLORS.red }}>🔴 {urgent.length} επείγουσες εργασίες σοβαρότητας</div>}
+          {external.length > 0 && <div style={{ fontWeight: 700, color: "#8A5A00", marginTop: 6 }}>⚠ Εκκρεμούν εξωτερικοί συνεργάτες:</div>}
+          {external.map(t => <div key={t.id} style={{ fontSize: 13, color: "#8A5A00", paddingLeft: 8 }}>• {t.desc} — {bn(t.boatId)}</div>)}
+          <div style={{ fontSize: 12.5, color: COLORS.sub, marginTop: 4 }}>Λεπτομέρειες/κλείσιμο στην καρτέλα «Έλεγχος».</div>
+        </div>
+      )}
+      {purchases.length > 0 && (
+        <div style={{ background: "#FFF7E8", borderRadius: 12, padding: 14, marginBottom: 12, fontSize: 14 }}>
+          <div style={{ fontWeight: 700, color: "#8A5A00" }}>🛒 Ελλείψεις / προς αγορά ({purchases.length}) — ανατεθειμένα στον Λεωνίδα:</div>
+          {purchases.map(t => <div key={t.id} style={{ fontSize: 13, color: "#5B4A00", paddingLeft: 8, marginTop: 3 }}>• {t.desc} — {bn(t.boatId)}</div>)}
+        </div>
+      )}
+      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>Αναχωρήσεις</div>
+        {departing.length === 0 && <div style={{ color: COLORS.sub, fontSize: 14 }}>Καμία δηλωμένη αναχώρηση. Όρισε από «Σκάφη».</div>}
+        {departing.map(b => {
+          const open = tasks.filter(t => t.boatId === b.id && t.status === "open" && !t.excludedFromDeadline).length;
+          const du = daysUntil(b.departureDate);
+          return (
+            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 14 }}>
+              <span style={{ fontWeight: 600 }}>{b.name}</span>
+              <span style={{ color: du <= 2 ? COLORS.red : COLORS.sub }}>{fmtDate(b.departureDate)} ({du <= 0 ? "σήμερα" : `σε ${du}μ`}) · {open} ανοιχτές</span>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>Ανοιχτές εργασίες ανά σκάφος</div>
+        {openPerBoat.length === 0 && <div style={{ color: COLORS.sub, fontSize: 14 }}>Καμία ανοιχτή εργασία σε σκάφη.</div>}
+        {openPerBoat.map(({ b, n }) => (
+          <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14 }}>
+            <span>{b.name}</span><b>{n}</b>
+          </div>
+        ))}
+      </div>
+      <Btn color={COLORS.teal} onClick={runDistribution}>▶ Εκτέλεση κατανομής ημέρας (AI) τώρα</Btn>
+      <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 6 }}>Η κατανομή τρέχει αυτόματα μία φορά την ημέρα στο πρώτο άνοιγμα.</div>
+    </div>
+  );
+}
+
+function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngrade }) {
+  const [noteFor, setNoteFor] = useState(null);
+  const [note, setNote] = useState("");
+  const external = tasks.filter(t => t.status === "external");
+  const urgent = tasks.filter(t => t.status === "open" && t.urgent);
+  const recentDone = tasks.filter(t => t.status === "done").sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || "")).slice(0, 15);
+  const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
+  const un = (id) => users.find(u => u.id === id)?.name || "";
+  return (
+    <div>
+      <SectionTitle>⚠ Εκκρεμούν εξωτερικοί συνεργάτες ({external.length})</SectionTitle>
+      {external.length === 0 && <Empty>Καμία εκκρεμότητα εξωτερικού.</Empty>}
+      {external.map(t => (
+        <div key={t.id} style={{ background: "#FFF7E8", borderRadius: 12, padding: 14, marginBottom: 10, fontSize: 14 }}>
+          <div style={{ fontWeight: 700 }}>{t.desc} — {bn(t.boatId)}</div>
+          <div style={{ color: COLORS.sub, fontSize: 13, margin: "4px 0 8px" }}>{un(t.externalBy)} ({fmtDate(t.externalAt)}): {t.externalNote}</div>
+          {noteFor === t.id ? (
+            <div>
+              <input value={note} onChange={e => setNote(e.target.value)} placeholder="π.χ. Έγινε από εξωτερικό ψυκτικό (Χ)" style={inputStyle} />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <Btn small color={COLORS.green} onClick={() => { onCloseExternal(t, note.trim()); setNoteFor(null); setNote(""); }}>Κλείσιμο ✔</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => setNoteFor(null)}>Άκυρο</Btn>
+              </div>
+            </div>
+          ) : <Btn small color={COLORS.green} onClick={() => { setNoteFor(t.id); setNote(""); }}>Έγινε — κλείσιμο εργασίας</Btn>}
+        </div>
+      ))}
+
+      <SectionTitle>🔴 Επείγοντα σοβαρότητας ({urgent.length})</SectionTitle>
+      {urgent.length === 0 && <Empty>Κανένα ενεργό επείγον.</Empty>}
+      {urgent.map(t => (
+        <div key={t.id} style={{ background: "#FDECEA", borderRadius: 12, padding: 14, marginBottom: 10, fontSize: 14 }}>
+          <div style={{ fontWeight: 700 }}>{t.desc} — {bn(t.boatId)}</div>
+          <div style={{ color: COLORS.sub, fontSize: 13, margin: "4px 0 8px" }}>Καταχώρηση: {un(t.createdBy)}, {fmtDate(t.createdAt)}</div>
+          <Btn small color={COLORS.red} outline onClick={() => onDowngrade(t)}>Υποβάθμιση σε κανονική</Btn>
+        </div>
+      ))}
+
+      <SectionTitle>Πρόσφατα ολοκληρωμένες — έλεγχος ποιότητας</SectionTitle>
+      {recentDone.length === 0 && <Empty>Τίποτα ολοκληρωμένο ακόμα.</Empty>}
+      {recentDone.map(t => (
+        <div key={t.id} style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 10, fontSize: 14 }}>
+          <div style={{ fontWeight: 600 }}>{t.desc} — {bn(t.boatId)}</div>
+          <div style={{ color: COLORS.sub, fontSize: 13, margin: "3px 0 8px" }}>
+            {un(t.completedBy)} · {fmtDate(t.completedAt)}{t.returns > 0 ? ` · ↩ ${t.returns}` : ""}
+          </div>
+          {noteFor === "r" + t.id ? (
+            <div>
+              <input value={note} onChange={e => setNote(e.target.value)} placeholder="Τι λείπει; π.χ. Έμειναν νερά στη σεντίνα" style={inputStyle} />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <Btn small color={COLORS.red} onClick={() => { if (!note.trim()) return; onReturn(t, note.trim()); setNoteFor(null); setNote(""); }}>Επιστροφή ↩</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => setNoteFor(null)}>Άκυρο</Btn>
+              </div>
+            </div>
+          ) : <Btn small color={COLORS.red} outline onClick={() => { setNoteFor("r" + t.id); setNote(""); }}>Επιστροφή — ατελής</Btn>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const addDays = (dateStr, days) => { const d = new Date(dateStr); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
+
+function BoatsAdmin({ boats, persistBoats, setDeparture, showToast }) {
+  const [dateFor, setDateFor] = useState(null);
+  const [dateVal, setDateVal] = useState("");
+  const [duration, setDuration] = useState(7);
+  const [customReturn, setCustomReturn] = useState("");
+  const [mode, setMode] = useState(null); // 'sea' | 'charter'
+  const computedReturn = dateVal ? (duration === "custom" ? customReturn : addDays(dateVal, duration)) : "";
+  return (
+    <div>
+      <SectionTitle>Σκάφη ({boats.length})</SectionTitle>
+      {boats.map(b => (
+        <div key={b.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <b>{b.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{b.type}</span>
+              <div style={{ fontSize: 12.5, marginTop: 2 }}>
+                {b.atSea
+                  ? <span style={{ color: COLORS.teal, fontWeight: 700 }}>🌊 Εν πλω — επιστρέφει {fmtDate(b.returnDate)}</span>
+                  : b.departureDate
+                    ? <span style={{ color: COLORS.amber, fontWeight: 700 }}>⏰ Φεύγει {fmtDate(b.departureDate)}{b.returnDate ? ` — επιστρέφει ${fmtDate(b.returnDate)}` : ""}</span>
+                    : <span style={{ color: COLORS.sub }}>Στη βάση</span>}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexDirection: "column" }}>
+              {b.atSea
+                ? <Btn small color={COLORS.teal} outline onClick={() => persistBoats(boats.map(x => x.id === b.id ? { ...x, atSea: false, returnDate: null } : x))}>Επέστρεψε</Btn>
+                : <>
+                  <Btn small color={COLORS.navy} outline onClick={() => { setDateFor(b.id); setMode("charter"); setDateVal(b.departureDate || ""); setDuration(7); setCustomReturn(""); }}>Ναύλο</Btn>
+                  <Btn small color={COLORS.teal} outline onClick={() => { setDateFor(b.id); setMode("sea"); setDateVal(""); }}>Εν πλω (έκτακτο)</Btn>
+                </>}
+            </div>
+          </div>
+          {dateFor === b.id && (
+            <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <input type="date" value={dateVal} onChange={e => setDateVal(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
+              {mode === "charter" && dateVal && (
+                <>
+                  <div style={{ display: "flex", gap: 6, width: "100%" }}>
+                    <Btn small color={COLORS.navy} outline={duration !== 7} onClick={() => setDuration(7)}>1 εβδομάδα</Btn>
+                    <Btn small color={COLORS.navy} outline={duration !== 14} onClick={() => setDuration(14)}>2 εβδομάδες</Btn>
+                    <Btn small color={COLORS.navy} outline={duration !== "custom"} onClick={() => setDuration("custom")}>Συγκεκριμένη ημερομηνία</Btn>
+                  </div>
+                  {duration === "custom" && (
+                    <div style={{ width: "100%" }}>
+                      <label style={{ fontSize: 12, color: COLORS.sub }}>Ημερομηνία επιστροφής</label>
+                      <input type="date" min={dateVal} value={customReturn} onChange={e => setCustomReturn(e.target.value)} style={{ ...inputStyle, width: "auto", display: "block", marginTop: 4 }} />
+                    </div>
+                  )}
+                  {computedReturn && <div style={{ fontSize: 12.5, color: COLORS.sub, width: "100%" }}>Επιστρέφει: <b>{fmtDate(computedReturn)}</b> — γίνεται αυτόματα «εν πλω» την {fmtDate(dateVal)} και επιστρέφει μόνο του την ίδια μέρα.</div>}
+                </>
+              )}
+              <Btn small color={COLORS.navy} onClick={() => {
+                if (mode === "sea") {
+                  if (!dateVal) { showToast("Η ημερομηνία επιστροφής είναι υποχρεωτική"); return; }
+                  persistBoats(boats.map(x => x.id === b.id ? { ...x, atSea: true, returnDate: dateVal, departureDate: null } : x));
+                } else if (dateVal) {
+                  if (duration === "custom" && !customReturn) { showToast("Διάλεξε ημερομηνία επιστροφής"); return; }
+                  setDeparture(b, dateVal, computedReturn || null);
+                } else {
+                  setDeparture(b, null);
+                }
+                setDateFor(null);
+              }}>{mode === "sea" ? "Ορισμός εν πλω" : dateVal ? "Ορισμός ναύλου" : "Αφαίρεση αναχώρησης"}</Btn>
+              <Btn small color={COLORS.sub} outline onClick={() => setDateFor(null)}>Άκυρο</Btn>
+              {mode === "sea" && <div style={{ fontSize: 12, color: COLORS.sub, width: "100%" }}>Για έκτακτες περιπτώσεις εκτός συνηθισμένου ναύλου. Υποχρεωτική ημερομηνία επιστροφής.</div>}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ListsAdmin({ quick, checklist, persistQuick, persistChecklist }) {
+  return (
+    <div>
+      <EditableList title="Γρήγορες εργασίες (quick-tasks)" items={quick} onChange={persistQuick} placeholder="π.χ. Αλλαγή impeller" />
+      <EditableList title="Checklist αναχώρησης (ανοίγουν αυτόματα όταν ορίζεται αναχώρηση)" items={checklist} onChange={persistChecklist} placeholder="π.χ. Έλεγχος άγκυρας" />
+    </div>
+  );
+}
+
+function EditableList({ title, items, onChange, placeholder }) {
+  const [val, setVal] = useState("");
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <SectionTitle>{title}</SectionTitle>
+      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14 }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 14 }}>
+            {it}
+            <Btn small color={COLORS.red} outline onClick={() => onChange(items.filter((_, j) => j !== i))}>×</Btn>
+          </div>
+        ))}
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <input value={val} onChange={e => setVal(e.target.value)} placeholder={placeholder} style={inputStyle} />
+          <Btn small color={COLORS.navy} onClick={() => { if (!val.trim()) return; onChange([...items, val.trim()]); setVal(""); }}>+</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stats({ users, tasks, boats }) {
+  const [sel, setSel] = useState(null);
+  const [range, setRange] = useState("week");
+  if (sel) {
+    const now = new Date();
+    const from = new Date(now);
+    if (range === "week") from.setDate(now.getDate() - 7);
+    else if (range === "month") from.setMonth(now.getMonth() - 1);
+    else from.setFullYear(2000);
+    const inR = (d) => d && new Date(d) >= from;
+    const bn = (id) => boats?.find(b => b.id === id)?.name || "Βάση/Άλλο";
+    const done = tasks.filter(t => t.completedBy === sel.id && t.status === "done" && inR(t.completedAt)).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||""));
+    const created = tasks.filter(t => t.createdBy === sel.id && inR(t.createdAt));
+    const prog = tasks.flatMap(t => (t.progress||[]).filter(p => p.by === sel.id && inR(p.at)).map(p => ({...p, desc: t.desc, boatId: t.boatId})));
+    return (
+      <div>
+        <SectionTitle>👤 {sel.name} — ιστορικό</SectionTitle>
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          {[["week","Εβδομάδα"],["month","Μήνας"],["all","Όλα"]].map(([id,l]) => (
+            <Btn key={id} small color={COLORS.navy} outline={range!==id} onClick={()=>setRange(id)}>{l}</Btn>
+          ))}
+          <Btn small color={COLORS.sub} outline onClick={()=>setSel(null)}>← Πίσω</Btn>
+        </div>
+        <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 10, fontSize: 14 }}>
+          <b>Σύνοψη:</b> {done.length} ολοκληρώσεις · {created.length} καταχωρήσεις · {prog.length} πρόοδοι
+        </div>
+        <SectionTitle>Ολοκληρώσεις</SectionTitle>
+        {done.length === 0 && <Empty>Καμία στο διάστημα.</Empty>}
+        {done.map(t => (
+          <div key={t.id} style={{ background: COLORS.card, borderRadius: 10, padding: "10px 13px", marginBottom: 6, fontSize: 13.5 }}>
+            <b>{t.desc}</b> — {bn(t.boatId)} · {fmtDate(t.completedAt)}{t.returns > 0 ? <span style={{color:COLORS.red}}> · ↩{t.returns}</span> : ""}
+          </div>
+        ))}
+        <SectionTitle>Πρόοδοι</SectionTitle>
+        {prog.length === 0 && <Empty>Καμία στο διάστημα.</Empty>}
+        {prog.map((p,i) => (
+          <div key={i} style={{ background: COLORS.card, borderRadius: 10, padding: "10px 13px", marginBottom: 6, fontSize: 13.5 }}>
+            ✏ {p.note} <span style={{color:COLORS.sub}}>({p.desc} — {bn(p.boatId)}, {fmtDate(p.at)})</span>
+          </div>
+        ))}
+        <SectionTitle>Καταχωρήσεις (εντοπισμοί)</SectionTitle>
+        {created.length === 0 && <Empty>Καμία στο διάστημα.</Empty>}
+        {created.map(t => (
+          <div key={t.id} style={{ background: COLORS.card, borderRadius: 10, padding: "10px 13px", marginBottom: 6, fontSize: 13.5 }}>
+            {t.desc} — {bn(t.boatId)} · {fmtDate(t.createdAt)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  const rows = users.filter(u => u.role === "employee" && !u.noStats).map(u => ({
+    name: u.name,
+    created: tasks.filter(t => t.createdBy === u.id).length,
+    done: tasks.filter(t => t.completedBy === u.id && t.status === "done").length,
+    prog: tasks.reduce((s, t) => s + (t.progress || []).filter(p => p.by === u.id).length, 0),
+    returns: tasks.filter(t => t.completedBy === u.id || (t.status === "open" && t.assignedTo === u.id && t.returnNote)).reduce((s, t) => s + (t.returns || 0), 0),
+  }));
+  return (
+    <div>
+      <SectionTitle>Στατιστικά ομάδας (ορατά μόνο σε managers)</SectionTitle>
+      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, overflowX: "auto" }}>
+        <table style={{ width: "100%", fontSize: 13.5, borderCollapse: "collapse" }}>
+          <thead><tr style={{ color: COLORS.sub, textAlign: "left" }}>
+            <th style={th}>Άτομο</th><th style={th}>Εντόπισε</th><th style={th}>Ολοκλήρωσε</th><th style={th}>Πρόοδοι</th><th style={th}>↩ Επιστρ.</th>
+          </tr></thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.name} style={{ borderTop: `1px solid ${COLORS.line}` }} onClick={() => setSel(users.find(u => u.name === r.name))}>
+                <td style={td}><b style={{ color: COLORS.teal, textDecoration: "underline" }}>{r.name}</b></td><td style={td}>{r.created}</td><td style={td}>{r.done}</td><td style={td}>{r.prog}</td>
+                <td style={{ ...td, color: r.returns > 0 ? COLORS.red : COLORS.text }}>{r.returns}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+const th = { padding: "6px 8px", fontWeight: 700, fontSize: 12 };
+const td = { padding: "8px 8px" };
+
+function AiSearch({ tasks, boats }) {
+  const [q, setQ] = useState("");
+  const [ans, setAns] = useState("");
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    if (!q.trim() || busy) return;
+    setBusy(true); setAns("");
+    try {
+      const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
+      const history = tasks.filter(t => t.status === "done").map(t =>
+        `[${bn(t.boatId)}] "${t.desc}" ολοκληρώθηκε ${new Date(t.completedAt).toLocaleDateString("el-GR")}${t.progress?.length ? " | πρόοδοι: " + t.progress.map(p => p.note).join("· ") : ""}`
+      ).join("\n");
+      const prompt = `Είσαι βοηθός βάσης σκαφών. Απάντησε στην ερώτηση με βάση ΜΟΝΟ το ιστορικό εργασιών. Αναγνώρισε συνώνυμα (π.χ. "impeller" = "φτερωτή αντλίας"). Αν δεν υπάρχει σχετική εγγραφή, πες το καθαρά. Απάντησε σύντομα στα ελληνικά.
+ΙΣΤΟΡΙΚΟ:\n${history || "(κενό)"}\n\nΕΡΩΤΗΣΗ: ${q}`;
+      setAns(await askClaude(prompt, 500));
+    } catch { setAns("Σφάλμα — δοκίμασε ξανά."); }
+    setBusy(false);
+  };
+  return (
+    <div>
+      <SectionTitle>AI αναζήτηση ιστορικού</SectionTitle>
+      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14 }}>
+        <textarea value={q} onChange={e => setQ(e.target.value)} rows={2} placeholder='π.χ. "Πότε αλλάξαμε τελευταία φορά impeller στη Σοφία II;"' style={inputStyle} />
+        <div style={{ marginTop: 10 }}><Btn color={COLORS.teal} onClick={run}>{busy ? "Ψάχνω…" : "Ρώτησε"}</Btn></div>
+        {ans && <div style={{ marginTop: 12, fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap", background: COLORS.bg, borderRadius: 10, padding: 12 }}>{ans}</div>}
+      </div>
+    </div>
+  );
+}
+
+function UsersAdmin({ users, persistUsers, me, onViewAs }) {
+  const [name, setName] = useState("");
+  const [profFor, setProfFor] = useState(null);
+  const [prof, setProf] = useState("");
+  return (
+    <div>
+      <SectionTitle>Χρήστες & ρόλοι (μόνο owner)</SectionTitle>
+      {users.filter(u => u.id !== me.id).map(u => (
+        <div key={u.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{u.role === "manager" ? "Base Manager" : u.role === "owner" ? "Owner" : u.role === "associate" ? "Στέλεχος" : "Υπάλληλος"}</span>
+              <div style={{ fontSize: 12.5, marginTop: 2 }}>
+                Κωδικός: <b style={{ letterSpacing: 1 }}>{u.code}</b>{" "}
+                <button onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, code: genCode(x.name) } : x))}
+                  style={{ border: "none", background: "none", color: COLORS.teal, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>↻ νέος</button>
+              </div>
+              {u.profile && <div style={{ fontSize: 12.5, color: COLORS.sub, marginTop: 2 }}>{u.profile}</div>}
+            </div>
+            <div style={{ display: "flex", gap: 6, flexDirection: "column", alignItems: "flex-end" }}>
+              {u.role !== "owner" && (
+                <Btn small color={COLORS.navy} outline onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, role: x.role === "employee" ? "associate" : x.role === "associate" ? "manager" : "employee" } : x))}>
+                  {u.role === "manager" ? "Manager → Υπάλληλος" : u.role === "associate" ? "Στέλεχος → Manager" : "Υπάλληλος → Στέλεχος"}
+                </Btn>
+              )}
+              {u.role === "employee" && (
+                <Btn small color={u.noAutoAssign ? COLORS.red : COLORS.green} outline
+                  onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, noAutoAssign: !x.noAutoAssign } : x))}>
+                  AI κατανομή: {u.noAutoAssign ? "όχι" : "ναι"}
+                </Btn>
+              )}
+              <Btn small color={COLORS.navy} outline
+                onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, lang: x.lang === "en" ? "el" : "en" } : x))}>
+                Γλώσσα: {u.lang === "en" ? "EN" : "ΕΛ"}
+              </Btn>
+              <Btn small color={COLORS.teal} outline onClick={() => { setProfFor(u.id); setProf(u.profile || ""); }}>Προφίλ</Btn>
+              <Btn small color={COLORS.amber} outline onClick={() => { setProfFor("h-" + u.id); setProf(u.humor || ""); }}>Ύφος 😄</Btn>
+              {onViewAs && <Btn small color={COLORS.teal} onClick={() => onViewAs(u)}>👁 Προβολή ως</Btn>}
+              {u.role !== "owner" && <Btn small color={COLORS.red} outline onClick={() => { if (confirm(`Αφαίρεση πρόσβασης: ${u.name};`)) persistUsers(users.filter(x => x.id !== u.id)); }}>Αφαίρεση</Btn>}
+            </div>
+          </div>
+          {profFor === u.id && (
+            <div style={{ marginTop: 10 }}>
+              <textarea value={prof} onChange={e => setProf(e.target.value)} rows={2} placeholder="Δεξιότητες / τι κάνει κυρίως — το χρησιμοποιεί το AI για τις αναθέσεις" style={inputStyle} />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <Btn small color={COLORS.navy} onClick={() => { persistUsers(users.map(x => x.id === u.id ? { ...x, profile: prof.trim() } : x)); setProfFor(null); }}>Αποθήκευση</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => setProfFor(null)}>Άκυρο</Btn>
+              </div>
+            </div>
+          )}
+          {profFor === "h-" + u.id && (
+            <div style={{ marginTop: 10 }}>
+              <textarea value={prof} onChange={e => setProf(e.target.value)} rows={2} placeholder="Ύφος ημερήσιου μηνύματος (χιούμορ, πειράγματα, running jokes) — κενό = χωρίς μήνυμα" style={inputStyle} />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <Btn small color={COLORS.navy} onClick={() => { persistUsers(users.map(x => x.id === u.id ? { ...x, humor: prof.trim() } : x)); setProfFor(null); }}>Αποθήκευση</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => setProfFor(null)}>Άκυρο</Btn>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginTop: 12 }}>
+        <label style={lbl}>Νέος χρήστης</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Όνομα" style={inputStyle} />
+          <Btn small color={COLORS.navy} onClick={() => {
+            if (!name.trim()) return;
+            persistUsers([...users, { id: "u" + Date.now(), name: name.trim(), role: "employee", profile: "", code: genCode(name.trim()) }]);
+            setName("");
+          }}>+</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
