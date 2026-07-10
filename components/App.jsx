@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.13";
+const APP_VERSION = "v3.15";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -21,7 +21,7 @@ const COLORS = {
 };
 
 const SEED_USERS = [
-  { id: "u-owner", name: "Εριόν", role: "owner", profile: "Ιδιοκτήτης εφαρμογής", code: "OWN-7301" },
+  { id: "u-owner", name: "Εριόν", role: "owner", profile: "Διαχειριστής εφαρμογής", code: "OWN-7301" },
   { id: "u-vasilis", name: "Βασίλης", role: "employee", profile: "", code: "VAS-4821" },
   { id: "u-mitsos", name: "Μήτσος", role: "employee", profile: "", code: "MIT-9354" },
   { id: "u-fanouris", name: "Φανούρης", role: "employee", profile: "", code: "FAN-2768" },
@@ -683,7 +683,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       {viewAs && (
         <div style={{ background: COLORS.amber, color: "#3A2600", padding: "9px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13.5, fontWeight: 700 }}>
           👁 Προβολή ως: {viewAs.name}
-          <button onClick={() => { setViewAs(null); setTab("admin"); }} style={{ border: "1.5px solid #3A2600", background: "transparent", color: "#3A2600", borderRadius: 8, padding: "5px 10px", fontWeight: 700 }}>Επιστροφή σε Εριόν</button>
+          <button onClick={() => { setViewAs(null); setTab("admin"); }} style={{ border: "1.5px solid #3A2600", background: "transparent", color: "#3A2600", borderRadius: 8, padding: "5px 10px", fontWeight: 700 }}>Επιστροφή σε {me.name}</button>
         </div>
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
@@ -699,7 +699,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={downgradeUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} effectiveDeadline={effectiveDeadline}
-          persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={(u) => { setViewAs(u); setTab("today"); }} realOwner={me.role === "owner"} onDelete={deleteTask}
+          persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
           onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} />}
       </div>
       <TabBar tabs={tabs} tab={tab} setTab={setTab} />
@@ -712,7 +712,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
 const Center = ({ children }) => <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: COLORS.bg }}>{children}</div>;
 
 function Header({ me, onLogout }) {
-  const roleLabel = me.role === "owner" ? "Εριόν" : me.role === "manager" ? "Base Manager" : me.role === "associate" ? "Στέλεχος" : tr("Συνεργείο βάσης");
+  const roleLabel = me.role === "owner" ? "Διαχειριστής" : me.role === "manager" ? "Base Manager" : me.role === "associate" ? "Στέλεχος" : tr("Συνεργείο βάσης");
   return (
     <div style={{ background: COLORS.navy, color: "#fff", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div>
@@ -1631,7 +1631,7 @@ function AdminView(props) {
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} />}
-      {section === "profiles" && <ProfilesView users={users} />}
+      {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} />}
       {section === "usersS" && isOwner && <UsersAdmin users={users} persistUsers={persistUsers} me={me} onViewAs={realOwner ? onViewAs : null} />}
     </div>
   );
@@ -2128,16 +2128,21 @@ function AiSearch({ tasks, boats }) {
   );
 }
 
-function ProfilesView({ users }) {
-  const roleLabel = (r) => r === "manager" ? "Base Manager" : r === "owner" ? "Δημιουργός" : r === "associate" ? "Στέλεχος" : "Υπάλληλος";
-  const shown = users.filter(u => u.role === "employee" || u.role === "associate");
+function ProfilesView({ users, me, onViewAs }) {
+  const roleLabel = (r) => r === "manager" ? "Base Manager" : r === "owner" ? "Διαχειριστής" : r === "associate" ? "Στέλεχος" : "Υπάλληλος";
+  const shown = users.filter(u => (u.role === "employee" || u.role === "associate") && u.id !== me.id);
   return (
     <div>
       <SectionTitle>Προφίλ υπαλλήλων</SectionTitle>
       {shown.length === 0 && <Empty>Κανένα προφίλ ακόμα.</Empty>}
       {shown.map(u => (
         <div key={u.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
-          <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{roleLabel(u.role)}</span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div>
+              <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{roleLabel(u.role)}</span>
+            </div>
+            {onViewAs && <Btn small color={COLORS.teal} onClick={() => onViewAs(u)}>👁 Προβολή ως</Btn>}
+          </div>
           <div style={{ fontSize: 13, color: u.profile ? COLORS.text : COLORS.sub, marginTop: 4 }}>
             {u.profile || "Χωρίς καταχωρημένο προφίλ."}
           </div>
@@ -2158,7 +2163,7 @@ function UsersAdmin({ users, persistUsers, me, onViewAs }) {
         <div key={u.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{u.role === "manager" ? "Base Manager" : u.role === "owner" ? "Δημιουργός" : u.role === "associate" ? "Στέλεχος" : "Υπάλληλος"}</span>
+              <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{u.role === "manager" ? "Base Manager" : u.role === "owner" ? "Διαχειριστής" : u.role === "associate" ? "Στέλεχος" : "Υπάλληλος"}</span>
               <div style={{ fontSize: 12.5, marginTop: 2 }}>
                 Κωδικός: <b style={{ letterSpacing: 1 }}>{u.code}</b>{" "}
                 <button onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, code: genCode(x.name) } : x))}
