@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.10";
+const APP_VERSION = "v3.11";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -441,8 +441,9 @@ ${rules.map(r => "- " + r).join("\n")}
       if (urls.length) setTasks(cur => { const nx = cur.map(x => x.id === id ? { ...x, photos: [...(x.photos || []), ...urls] } : x); save("app-tasks", nx); return nx; });
     }
   };
-  const completeTask = async (t) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "done", completedBy: acting.id, completedAt: new Date().toISOString() } : x));
+  const completeTask = async (t, attributedTo) => {
+    const finalBy = attributedTo || acting.id;
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "done", completedBy: finalBy, completedByActor: acting.id, completedAt: new Date().toISOString() } : x));
     showToast("Ολοκληρώθηκε ✔");
   };
   const externalTask = async (t, note) => {
@@ -459,6 +460,10 @@ ${rules.map(r => "- " + r).join("\n")}
   const returnTask = async (t, note) => {
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "open", assignedTo: x.completedBy, returns: (x.returns || 0) + 1, returnNote: note, returnedAt: new Date().toISOString() } : x));
     showToast("Η εργασία επιστράφηκε ως ατελής");
+  };
+  const rateTask = async (t, rating) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, rating, ratedBy: acting.id, ratedAt: new Date().toISOString() } : x));
+    showToast("Η αξιολόγηση καταχωρήθηκε");
   };
   const closeExternal = async (t, note) => {
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "done", completedBy: acting.id, completedAt: new Date().toISOString(), closedAsExternal: true, externalCloseNote: note } : x));
@@ -593,7 +598,7 @@ ${rules.map(r => "- " + r).join("\n")}
         {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} />}
         {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist}
-          setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={downgradeUrgent}
+          setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={downgradeUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true)} effectiveDeadline={effectiveDeadline}
           persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={(u) => { setViewAs(u); setTab("today"); }} realOwner={me.role === "owner"} onDelete={deleteTask}
           onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} />}
@@ -710,13 +715,15 @@ function ChecklistItems({ t, onChecklistItem }) {
 
 function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem }) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign'
+  const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign' | 'completeAs'
   const [note, setNote] = useState("");
+  const [completeAsId, setCompleteAsId] = useState(null);
   const boat = boats.find(b => b.id === t.boatId);
   const dl = deadline(t);
   const du = daysUntil(dl);
   const spine = t.urgent ? COLORS.red : (dl && du !== null && du <= 7 ? COLORS.amber : COLORS.line);
   const assignee = users.find(u => u.id === t.assignedTo);
+  const employees = users.filter(u => u.role === "employee" && !u.noStats);
 
   return (
     <div style={{ background: COLORS.card, borderRadius: 12, marginBottom: 10, borderLeft: `5px solid ${spine}`, boxShadow: "0 1px 2px rgba(10,30,50,.06)" }}>
@@ -766,7 +773,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           )}
           {mode === null && !Array.isArray(t.checklistItems) && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-              <Btn color={COLORS.green} onClick={() => onComplete(t)}>{tr("Ολοκληρώθηκε ✔")}</Btn>
+              <Btn color={COLORS.green} onClick={() => { if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); } else { onComplete(t); } }}>{tr("Ολοκληρώθηκε ✔")}</Btn>
               <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
               <Btn color={COLORS.amber} outline onClick={() => { setMode("external"); setNote(""); }}>{tr("Χρειάζεται ειδικός ⚠")}</Btn>
               {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.sub} outline onClick={() => { setMode("edit"); setNote(t.desc); }}>✎ {tr("Διόρθωση")}</Btn>}
@@ -817,6 +824,23 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                   onClick={() => { onAssign(t, u.id); setMode(null); }}>{u.name}</Btn>
               ))}
               <Btn color={COLORS.sub} outline onClick={() => { onAssign(t, null); setMode(null); }}>Ελεύθερη</Btn>
+            </div>
+          )}
+          {mode === "completeAs" && isMgr && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 8 }}>{tr("Ολοκληρώθηκε από:")}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {employees.map(u => (
+                  <Btn key={u.id} small color={completeAsId === u.id ? COLORS.teal : COLORS.navy} outline={completeAsId !== u.id}
+                    onClick={() => setCompleteAsId(u.id)}>{u.name}</Btn>
+                ))}
+                <Btn small color={completeAsId === me.id ? COLORS.teal : COLORS.navy} outline={completeAsId !== me.id}
+                  onClick={() => setCompleteAsId(me.id)}>{tr("Εγώ")} ({me.name})</Btn>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <Btn color={COLORS.green} onClick={() => { onComplete(t, completeAsId); setMode(null); setOpen(false); }}>{tr("Επιβεβαίωση ✔")}</Btn>
+                <Btn color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
+              </div>
             </div>
           )}
         </div>
@@ -1360,7 +1384,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete }) {
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
   const { me, users, boats, tasks, quick, checklist, absences, persistUsers, persistBoats, persistQuick, persistChecklist,
-    setDeparture, cancelCharter, onReturn, onCloseExternal, onDowngrade, runDistribution, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence } = props;
+    setDeparture, cancelCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence } = props;
   const [section, setSection] = useState("overview");
   const isOwner = me.role === "owner";
   const sections = [
@@ -1380,7 +1404,7 @@ function AdminView(props) {
         ))}
       </div>
       {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} users={users} me={me} absences={absences} />}
-      {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onDelete={props.onDelete} />}
+      {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
       {section === "boats" && <BoatsAdmin boats={boats} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} persistQuick={persistQuick} persistChecklist={persistChecklist} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
@@ -1409,7 +1433,7 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
       const absDaysFor = (uid) => (absences || []).filter(a => a.userId === uid && a.from <= todayStr() && a.to >= fromStr)
         .reduce((s, a) => s + 1, 0);
       const data = team.map(u => {
-        const done = tasks.filter(t => t.completedBy === u.id && t.status === "done" && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})${t.returns ? " [επιστράφηκε " + t.returns + "x]" : ""}`);
+        const done = tasks.filter(t => t.completedBy === u.id && t.status === "done" && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})${t.returns ? " [επιστράφηκε " + t.returns + "x]" : ""}${t.rating ? ` [αξιολόγηση manager: ${t.rating}/5]` : ""}`);
         const prog = tasks.reduce((s2, t) => s2 + (t.progress || []).filter(p => p.by === u.id && inW(p.at)).length, 0);
         const found = tasks.filter(t => t.createdBy === u.id && inW(t.createdAt)).length;
         const absPeriods = (absences || []).filter(a => a.userId === u.id && a.from <= todayStr() && a.to >= fromStr).map(a => `${fmtDate(a.from)}–${fmtDate(a.to)}${a.note ? " (" + a.note + ")" : ""}`);
@@ -1417,7 +1441,7 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
         return `${u.name}: Ολοκλήρωσε [${done.join("; ") || "τίποτα"}]. Πρόοδοι σε μεγάλες εργασίες: ${prog}. Εντόπισε/κατέγραψε νέες: ${found}.${absNote}`;
       }).join("\n");
       const prompt = `Είσαι σύμβουλος απόδοσης ομάδας σε βάση σκαφών charter. Γράψε ΣΥΝΟΠΤΙΚΗ εβδομαδιαία αναφορά (150-250 λέξεις, ελληνικά) για τη διοίκηση, με βάση τα δεδομένα.
-ΟΔΗΓΙΕΣ: Κρίνε κάθε ολοκληρωμένη εργασία με συντελεστή βαρύτητας 1-5 (1=ασήμαντη π.χ. βίδωμα/λάμπα/απλό πλύσιμο, 5=βαριά π.χ. αλλαγή θερμοσίφωνα, στεγανοποίηση παραθύρων, επισκευή μηχανισμών). Σύγκρινε κάθε άτομο με τον μέσο όρο της ομάδας σε ΣΤΑΘΜΙΣΜΕΝΟ έργο (όχι σκέτο πλήθος). Επισήμανε μοτίβα: ποιος σηκώνει βαριές δουλειές, ποιος διαλέγει μόνο εύκολες (π.χ. μόνο πλυσίματα), ποιος έχει χαμηλή παραγωγή, ποιος εντοπίζει προβλήματα, επιστροφές ατελών. Ευθύς αλλά δίκαιος. ΣΗΜΑΝΤΙΚΟ: αν κάποιος είχε δηλωμένη απουσία μέρος ή όλη την εβδομάδα, ΜΗΝ τον συγκρίνεις άδικα με όσους ήταν παρόντες όλη την εβδομάδα — ανάφερε ουδέτερα ότι απουσίαζε τις συγκεκριμένες μέρες και αξιολόγησε μόνο τις μέρες παρουσίας του.
+ΟΔΗΓΙΕΣ: Κρίνε κάθε ολοκληρωμένη εργασία με συντελεστή βαρύτητας 1-5 (1=ασήμαντη π.χ. βίδωμα/λάμπα/απλό πλύσιμο, 5=βαριά π.χ. αλλαγή θερμοσίφωνα, στεγανοποίηση παραθύρων, επισκευή μηχανισμών). Όπου υπάρχει "αξιολόγηση manager" σε μια εργασία, αυτή είναι η δική του κρίση για την ΠΟΙΟΤΗΤΑ εκτέλεσης (1=κακή, 5=άριστη) — συνυπολόγισέ την ΞΕΧΩΡΙΣΤΑ από τη δική σου εκτίμηση βαρύτητας, καθώς αντικατοπτρίζει άμεση επιτόπια κρίση. Σύγκρινε κάθε άτομο με τον μέσο όρο της ομάδας σε ΣΤΑΘΜΙΣΜΕΝΟ έργο (όχι σκέτο πλήθος). Επισήμανε μοτίβα: ποιος σηκώνει βαριές δουλειές, ποιος διαλέγει μόνο εύκολες (π.χ. μόνο πλυσίματα), ποιος έχει χαμηλή παραγωγή, ποιος εντοπίζει προβλήματα, επιστροφές ατελών, χαμηλές/υψηλές αξιολογήσεις manager. Ευθύς αλλά δίκαιος. ΣΗΜΑΝΤΙΚΟ: αν κάποιος είχε δηλωμένη απουσία μέρος ή όλη την εβδομάδα, ΜΗΝ τον συγκρίνεις άδικα με όσους ήταν παρόντες όλη την εβδομάδα — ανάφερε ουδέτερα ότι απουσίαζε τις συγκεκριμένες μέρες και αξιολόγησε μόνο τις μέρες παρουσίας του.
 ΔΕΔΟΜΕΝΑ ΕΒΔΟΜΑΔΑΣ:\n${data}`;
       const text = await askClaude(prompt, 900);
       if (text) { await save("weekly-report-" + weekKey, { text, at: new Date().toISOString() }); setRep({ text }); if (!auto) setOpen(true); }
@@ -1508,7 +1532,7 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, users, me,
   );
 }
 
-function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngrade, onDelete }) {
+function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngrade, onRate, onDelete }) {
   const [noteFor, setNoteFor] = useState(null);
   const [note, setNote] = useState("");
   const [confirmId, setConfirmId] = useState(null);
@@ -1579,6 +1603,13 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
               </div>
             </div>
           ) : <Btn small color={COLORS.red} outline onClick={() => { setNoteFor("r" + t.id); setNote(""); }}>Επιστροφή — ατελής</Btn>}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 8 }}>
+            <span style={{ fontSize: 12, color: COLORS.sub, marginRight: 4 }}>Αξιολόγηση:</span>
+            {[1, 2, 3, 4, 5].map(n => (
+              <span key={n} onClick={() => onRate(t, n)} style={{ cursor: "pointer", fontSize: 18, color: (t.rating || 0) >= n ? COLORS.amber : COLORS.line }}>★</span>
+            ))}
+            {t.rating > 0 && <span style={{ fontSize: 12, color: COLORS.sub, marginLeft: 4 }}>({un(t.ratedBy)})</span>}
+          </div>
         </div>
       ))}
     </div>
@@ -1944,5 +1975,6 @@ function UsersAdmin({ users, persistUsers, me, onViewAs }) {
     </div>
   );
 }
+
 
 
