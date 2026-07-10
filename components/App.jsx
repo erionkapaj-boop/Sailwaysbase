@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v2.9";
+const APP_VERSION = "v3.0";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -666,7 +666,7 @@ function ChecklistItems({ t, onChecklistItem }) {
   );
 }
 
-function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, showAssignee }) {
+function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign'
   const [note, setNote] = useState("");
@@ -1613,4 +1613,5 @@ function UsersAdmin({ users, persistUsers, me, onViewAs }) {
     </div>
   );
 }
+
 
