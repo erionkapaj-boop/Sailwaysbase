@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.6";
+const APP_VERSION = "v3.8";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -136,6 +136,8 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [quick, setQuick] = useState([]);
   const [checklist, setChecklist] = useState([]);
+  const [absences, setAbsences] = useState([]);
+  const [notes, setNotes] = useState([]);
   const [me, setMe] = useState(null);
   const [viewAs, setViewAs] = useState(null);
   const [tab, setTab] = useState("today");
@@ -146,9 +148,9 @@ export default function App() {
   // Φόρτωση
   useEffect(() => {
     (async () => {
-      let [u, b, t, q, c] = await Promise.all([
+      let [u, b, t, q, c, ab, nt] = await Promise.all([
         load("app-users", null), load("app-boats", null), load("app-tasks", null),
-        load("app-quicktasks", null), load("app-checklist", null),
+        load("app-quicktasks", null), load("app-checklist", null), load("app-absences", null), load("app-notes", null),
       ]);
       if (!u) { u = SEED_USERS; await save("app-users", u); }
       // Μετάβαση: προσθήκη προσωπικών κωδικών σε παλιούς χρήστες
@@ -298,7 +300,9 @@ export default function App() {
         return x;
       });
       if (changed) await save("app-boats", b);
-      setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c);
+      if (!ab) { ab = []; await save("app-absences", ab); }
+      if (!nt) { nt = []; await save("app-notes", nt); }
+      setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c); setAbsences(ab); setNotes(nt);
       setReady(true);
     })();
   }, []);
@@ -308,6 +312,8 @@ export default function App() {
   const persistUsers = async (next) => { setUsers(next); await save("app-users", next); };
   const persistQuick = async (next) => { setQuick(next); await save("app-quicktasks", next); };
   const persistChecklist = async (next) => { setChecklist(next); await save("app-checklist", next); };
+  const persistAbsences = async (next) => { setAbsences(next); await save("app-absences", next); };
+  const persistNotes = async (next) => { setNotes(next); await save("app-notes", next); };
 
   // Νυχτερινή κατανομή AI: τρέχει στο πρώτο άνοιγμα κάθε νέας μέρας
   useEffect(() => {
@@ -320,8 +326,11 @@ export default function App() {
     })();
   }, [ready, me]);
 
+  const isAbsentOn = (userId, dateStr) => absences.some(a => a.userId === userId && a.from <= dateStr && dateStr <= a.to);
+
   async function runDistribution(manual) {
-    const employees = users.filter(u => (u.role === "employee" && !u.noAutoAssign) || u.name === "Φανούρης");
+    const today = todayStr();
+    const employees = users.filter(u => ((u.role === "employee" && !u.noAutoAssign) || u.name === "Φανούρης") && !isAbsentOn(u.id, today));
     const free = tasks.filter(t => t.status === "open" && !t.assignedTo);
     if (!employees.length || !free.length) { if (manual) showToast("Δεν υπάρχουν ελεύθερες εργασίες για κατανομή"); return; }
     try {
@@ -469,6 +478,26 @@ ${rules.map(r => "- " + r).join("\n")}
     showToast(userId ? "Ανατέθηκε" : "Έγινε ελεύθερη");
   };
 
+  const addAbsence = async (userId, from, to, note) => {
+    const a = { id: "ab" + Date.now(), userId, from, to, note: note || "", addedBy: acting.id, addedAt: new Date().toISOString() };
+    await persistAbsences([a, ...absences]);
+    showToast("Η απουσία καταχωρήθηκε");
+  };
+  const deleteAbsence = async (id) => {
+    await persistAbsences(absences.filter(a => a.id !== id));
+    showToast("Η απουσία διαγράφηκε");
+  };
+
+  const sendNote = async (recipientIds, text) => {
+    const n = { id: "n" + Date.now(), from: acting.id, to: recipientIds, text, at: new Date().toISOString() };
+    await persistNotes([n, ...notes]);
+    showToast("Το μήνυμα στάλθηκε");
+  };
+  const deleteNote = async (id) => {
+    await persistNotes(notes.filter(n => n.id !== id));
+    showToast("Το μήνυμα διαγράφηκε");
+  };
+
   // Αναχώρηση σκάφους: ορισμός ημερομηνίας + αυτόματο checklist
   const setDeparture = async (boat, date, returnDate) => {
     await persistBoats(boats.map(b => b.id === boat.id ? { ...b, departureDate: date || null, returnDate: date ? (returnDate || null) : null } : b));
@@ -552,17 +581,19 @@ ${rules.map(r => "- " + r).join("\n")}
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
         {tab === "today" && <TodayView me={acting} tasks={myTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
-          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} />}
+          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem}
+          absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} />}
         {tab === "tasks" && <TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
           onAssign={assignTask} onDowngrade={downgradeUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} />}
         {tab === "new" && <NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} />}
         {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} />}
-        {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist}
+        {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={downgradeUrgent}
           onAssign={assignTask} runDistribution={() => runDistribution(true)} effectiveDeadline={effectiveDeadline}
-          persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={(u) => { setViewAs(u); setTab("today"); }} realOwner={me.role === "owner"} onDelete={deleteTask} />}
+          persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={(u) => { setViewAs(u); setTab("today"); }} realOwner={me.role === "owner"} onDelete={deleteTask}
+          onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} />}
       </div>
       <TabBar tabs={tabs} tab={tab} setTab={setTab} />
       {toast && <div style={{ position: "fixed", bottom: 86, left: "50%", transform: "translateX(-50%)", background: COLORS.navy, color: "#fff", padding: "10px 18px", borderRadius: 24, fontSize: 14, zIndex: 50, maxWidth: "90%" }}>{toast}</div>}
@@ -860,11 +891,126 @@ function DeparturesWidget({ boats }) {
   );
 }
 
-function TodayView({ me, tasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem }) {
+function MyNotes({ me, notes, users }) {
+  const [idx, setIdx] = useState(0);
+  const eightHoursAgo = Date.now() - 8 * 3600 * 1000;
+  const mine = notes.filter(n => n.to.includes(me.id) && new Date(n.at).getTime() >= eightHoursAgo)
+    .sort((a, b) => b.at.localeCompare(a.at));
+  if (mine.length === 0) return null;
+  const shown = mine[Math.min(idx, mine.length - 1)];
+  const senderName = users.find(u => u.id === shown.from)?.name || "";
+  const timeAgo = (() => {
+    const mins = Math.round((Date.now() - new Date(shown.at).getTime()) / 60000);
+    if (mins < 60) return `${mins}λ`;
+    return `${Math.round(mins / 60)}ω`;
+  })();
+  return (
+    <div style={{ background: "#FFF7E8", border: `1.5px solid ${COLORS.amber}`, borderRadius: 12, padding: "10px 12px", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#8A5A00", marginBottom: 3 }}>📌 {senderName} · {timeAgo}</div>
+          <div style={{ fontSize: 14, lineHeight: 1.4, color: "#3A2600" }}>{shown.text}</div>
+        </div>
+        {mine.length > 1 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center" }}>
+            <button onClick={() => setIdx((idx - 1 + mine.length) % mine.length)} style={{ border: "none", background: "none", color: "#8A5A00", fontSize: 14, padding: 2, lineHeight: 1 }}>▴</button>
+            <div style={{ fontSize: 10, color: "#8A5A00" }}>{idx + 1}/{mine.length}</div>
+            <button onClick={() => setIdx((idx + 1) % mine.length)} style={{ border: "none", background: "none", color: "#8A5A00", fontSize: 14, padding: 2, lineHeight: 1 }}>▾</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SendNote({ me, users, notes, onSend, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState([]);
+  const [text, setText] = useState("");
+  const eightHoursAgo = Date.now() - 8 * 3600 * 1000;
+  const sent = notes.filter(n => n.from === me.id && new Date(n.at).getTime() >= eightHoursAgo).sort((a, b) => b.at.localeCompare(a.at));
+  const recipientNames = (ids) => ids.map(id => users.find(u => u.id === id)?.name).filter(Boolean).join(", ");
+  const toggle = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <button onClick={() => setOpen(!open)} style={{
+        background: "none", border: "none", color: COLORS.sub, fontSize: 12.5, fontWeight: 600, padding: 0, display: "flex", alignItems: "center", gap: 4,
+      }}>✉ Μήνυμα σε ομάδα {open ? "▾" : "▸"}</button>
+      {open && (
+        <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginTop: 8 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+            {users.filter(u => u.id !== me.id).map(u => (
+              <button key={u.id} onClick={() => toggle(u.id)} style={{
+                padding: "6px 11px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+                border: `1.5px solid ${selected.includes(u.id) ? COLORS.teal : COLORS.line}`,
+                background: selected.includes(u.id) ? COLORS.teal : "transparent", color: selected.includes(u.id) ? "#fff" : COLORS.text,
+              }}>{u.name}</button>
+            ))}
+          </div>
+          <textarea value={text} onChange={e => setText(e.target.value)} rows={2} placeholder="π.χ. Παιδιά σήμερα θέλω να ασχοληθείτε με το σκάφος Χ" style={inputStyle} />
+          <div style={{ marginTop: 8 }}>
+            <Btn small color={COLORS.navy} onClick={() => { if (!selected.length || !text.trim()) return; onSend(selected, text.trim()); setSelected([]); setText(""); }}>Αποστολή</Btn>
+          </div>
+          {sent.length > 0 && (
+            <div style={{ marginTop: 14, borderTop: `1px solid ${COLORS.line}`, paddingTop: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.sub, marginBottom: 6 }}>Στάλθηκαν πρόσφατα:</div>
+              {sent.map(n => (
+                <div key={n.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, padding: "6px 0", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 13 }}>
+                  <div><b>{recipientNames(n.to)}</b>: {n.text}</div>
+                  <button onClick={() => onDelete(n.id)} style={{ border: "none", background: "none", color: COLORS.red, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>🗑</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MyAbsences({ me, absences, onAdd, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [note, setNote] = useState("");
+  const mine = absences.filter(a => a.userId === me.id).sort((a, b) => b.from.localeCompare(a.from));
+  const upcoming = mine.filter(a => a.to >= todayStr());
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <button onClick={() => setOpen(!open)} style={{
+        background: "none", border: "none", color: COLORS.sub, fontSize: 12.5, fontWeight: 600, padding: 0, display: "flex", alignItems: "center", gap: 4,
+      }}>🏖 Απουσίες{upcoming.length > 0 ? ` (${upcoming.length})` : ""} {open ? "▾" : "▸"}</button>
+      {open && (
+        <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginTop: 8 }}>
+          {mine.length === 0 && <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 10 }}>Καμία δηλωμένη απουσία.</div>}
+          {mine.map(a => (
+            <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 13.5 }}>
+              <span>{fmtDate(a.from)} – {fmtDate(a.to)}{a.note ? ` · ${a.note}` : ""}</span>
+              <button onClick={() => onDelete(a.id)} style={{ border: "none", background: "none", color: COLORS.red, fontSize: 12, fontWeight: 700 }}>×</button>
+            </div>
+          ))}
+          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ ...inputStyle, width: "auto", flex: 1 }} />
+            <input type="date" min={from} value={to} onChange={e => setTo(e.target.value)} style={{ ...inputStyle, width: "auto", flex: 1 }} />
+          </div>
+          <input value={note} onChange={e => setNote(e.target.value)} placeholder="π.χ. άδεια, καπετάνιος σε ναύλο (προαιρετικό)" style={{ ...inputStyle, marginTop: 8 }} />
+          <div style={{ marginTop: 8 }}>
+            <Btn small color={COLORS.navy} onClick={() => { if (!from || !to) return; onAdd(me.id, from, to, note.trim()); setFrom(""); setTo(""); setNote(""); }}>+ Προσθήκη απουσίας</Btn>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TodayView({ me, tasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote }) {
   return (
     <div>
+      <MyNotes me={me} notes={notes} users={users} />
       <DailyGreeting me={me} />
       <DeparturesWidget boats={boats} />
+      <MyAbsences me={me} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />
+      {canAssign && <SendNote me={me} users={users} notes={notes} onSend={onSendNote} onDelete={onDeleteNote} />}
       <SectionTitle>{tr("Οι εργασίες μου")} — {new Date().toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { weekday: "long", day: "numeric", month: "long" })}</SectionTitle>
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
@@ -1130,13 +1276,13 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete }) {
 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
-  const { me, users, boats, tasks, quick, checklist, persistUsers, persistBoats, persistQuick, persistChecklist,
-    setDeparture, cancelCharter, onReturn, onCloseExternal, onDowngrade, runDistribution, effectiveDeadline, showToast, onViewAs, realOwner } = props;
+  const { me, users, boats, tasks, quick, checklist, absences, persistUsers, persistBoats, persistQuick, persistChecklist,
+    setDeparture, cancelCharter, onReturn, onCloseExternal, onDowngrade, runDistribution, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence } = props;
   const [section, setSection] = useState("overview");
   const isOwner = me.role === "owner";
   const sections = [
     ["overview", "Επισκόπηση"], ["control", "Έλεγχος"], ["boats", "Σκάφη"],
-    ["lists", "Λίστες"], ["stats", "Στατιστικά"], ["ai", "AI"],
+    ["lists", "Λίστες"], ["absences", "Απουσίες"], ["stats", "Στατιστικά"], ["ai", "AI"],
     ...(isOwner ? [["usersS", "Χρήστες"]] : []),
   ];
   return (
@@ -1150,10 +1296,11 @@ function AdminView(props) {
           }}>{label}</button>
         ))}
       </div>
-      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} users={users} me={me} />}
+      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} users={users} me={me} absences={absences} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onDelete={props.onDelete} />}
       {section === "boats" && <BoatsAdmin boats={boats} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} persistQuick={persistQuick} persistChecklist={persistChecklist} />}
+      {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} />}
       {section === "usersS" && isOwner && <UsersAdmin users={users} persistUsers={persistUsers} me={me} onViewAs={realOwner ? onViewAs : null} />}
@@ -1162,7 +1309,7 @@ function AdminView(props) {
 }
 
 
-function WeeklyReport({ tasks, users, me, boats }) {
+function WeeklyReport({ tasks, users, me, boats, absences }) {
   const [rep, setRep] = useState(null);
   const [busy, setBusy] = useState(false);
   const allowed = me.role === "owner" || ["Φανούρης", "Αλέξανδρος"].includes(me.name);
@@ -1171,17 +1318,22 @@ function WeeklyReport({ tasks, users, me, boats }) {
     if (busy) return; setBusy(true);
     try {
       const from = new Date(); from.setDate(from.getDate() - 7);
+      const fromStr = from.toISOString().slice(0, 10);
       const inW = (d) => d && new Date(d) >= from;
       const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση";
       const team = users.filter(u => u.role === "employee" && !u.noStats);
+      const absDaysFor = (uid) => (absences || []).filter(a => a.userId === uid && a.from <= todayStr() && a.to >= fromStr)
+        .reduce((s, a) => s + 1, 0);
       const data = team.map(u => {
         const done = tasks.filter(t => t.completedBy === u.id && t.status === "done" && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})${t.returns ? " [επιστράφηκε " + t.returns + "x]" : ""}`);
         const prog = tasks.reduce((s2, t) => s2 + (t.progress || []).filter(p => p.by === u.id && inW(p.at)).length, 0);
         const found = tasks.filter(t => t.createdBy === u.id && inW(t.createdAt)).length;
-        return `${u.name}: Ολοκλήρωσε [${done.join("; ") || "τίποτα"}]. Πρόοδοι σε μεγάλες εργασίες: ${prog}. Εντόπισε/κατέγραψε νέες: ${found}.`;
+        const absPeriods = (absences || []).filter(a => a.userId === u.id && a.from <= todayStr() && a.to >= fromStr).map(a => `${fmtDate(a.from)}–${fmtDate(a.to)}${a.note ? " (" + a.note + ")" : ""}`);
+        const absNote = absPeriods.length ? ` ΑΠΟΥΣΙΑΣΕ αυτή την εβδομάδα: ${absPeriods.join(", ")}.` : "";
+        return `${u.name}: Ολοκλήρωσε [${done.join("; ") || "τίποτα"}]. Πρόοδοι σε μεγάλες εργασίες: ${prog}. Εντόπισε/κατέγραψε νέες: ${found}.${absNote}`;
       }).join("\n");
       const prompt = `Είσαι σύμβουλος απόδοσης ομάδας σε βάση σκαφών charter. Γράψε ΣΥΝΟΠΤΙΚΗ εβδομαδιαία αναφορά (150-250 λέξεις, ελληνικά) για τη διοίκηση, με βάση τα δεδομένα.
-ΟΔΗΓΙΕΣ: Κρίνε κάθε ολοκληρωμένη εργασία με συντελεστή βαρύτητας 1-5 (1=ασήμαντη π.χ. βίδωμα/λάμπα/απλό πλύσιμο, 5=βαριά π.χ. αλλαγή θερμοσίφωνα, στεγανοποίηση παραθύρων, επισκευή μηχανισμών). Σύγκρινε κάθε άτομο με τον μέσο όρο της ομάδας σε ΣΤΑΘΜΙΣΜΕΝΟ έργο (όχι σκέτο πλήθος). Επισήμανε μοτίβα: ποιος σηκώνει βαριές δουλειές, ποιος διαλέγει μόνο εύκολες (π.χ. μόνο πλυσίματα), ποιος έχει χαμηλή παραγωγή, ποιος εντοπίζει προβλήματα, επιστροφές ατελών. Ευθύς αλλά δίκαιος. Μη βαθμολογείς όσους απουσίαζαν αν δεν έχουν καθόλου δεδομένα — ανάφερέ το ουδέτερα.
+ΟΔΗΓΙΕΣ: Κρίνε κάθε ολοκληρωμένη εργασία με συντελεστή βαρύτητας 1-5 (1=ασήμαντη π.χ. βίδωμα/λάμπα/απλό πλύσιμο, 5=βαριά π.χ. αλλαγή θερμοσίφωνα, στεγανοποίηση παραθύρων, επισκευή μηχανισμών). Σύγκρινε κάθε άτομο με τον μέσο όρο της ομάδας σε ΣΤΑΘΜΙΣΜΕΝΟ έργο (όχι σκέτο πλήθος). Επισήμανε μοτίβα: ποιος σηκώνει βαριές δουλειές, ποιος διαλέγει μόνο εύκολες (π.χ. μόνο πλυσίματα), ποιος έχει χαμηλή παραγωγή, ποιος εντοπίζει προβλήματα, επιστροφές ατελών. Ευθύς αλλά δίκαιος. ΣΗΜΑΝΤΙΚΟ: αν κάποιος είχε δηλωμένη απουσία μέρος ή όλη την εβδομάδα, ΜΗΝ τον συγκρίνεις άδικα με όσους ήταν παρόντες όλη την εβδομάδα — ανάφερε ουδέτερα ότι απουσίαζε τις συγκεκριμένες μέρες και αξιολόγησε μόνο τις μέρες παρουσίας του.
 ΔΕΔΟΜΕΝΑ ΕΒΔΟΜΑΔΑΣ:\n${data}`;
       const text = await askClaude(prompt, 900);
       if (text) { await save("weekly-report-" + weekKey, { text, at: new Date().toISOString() }); setRep({ text }); }
@@ -1211,7 +1363,7 @@ function WeeklyReport({ tasks, users, me, boats }) {
   );
 }
 
-function Overview({ boats, tasks, effectiveDeadline, runDistribution, users, me }) {
+function Overview({ boats, tasks, effectiveDeadline, runDistribution, users, me, absences }) {
   const departing = boats.filter(b => !b.atSea && b.departureDate).sort((a, b) => a.departureDate.localeCompare(b.departureDate));
   const urgent = tasks.filter(t => t.status === "open" && t.urgent);
   const external = tasks.filter(t => t.status === "external");
@@ -1221,7 +1373,7 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, users, me 
   return (
     <div>
       <SectionTitle>Εικόνα εβδομάδας</SectionTitle>
-      <WeeklyReport tasks={tasks} users={users} me={me} boats={boats} />
+      <WeeklyReport tasks={tasks} users={users} me={me} boats={boats} absences={absences} />
       {(urgent.length > 0 || external.length > 0) && (
         <div style={{ background: "#FDECEA", borderRadius: 12, padding: 14, marginBottom: 12, fontSize: 14 }}>
           {urgent.length > 0 && <div style={{ fontWeight: 700, color: COLORS.red }}>🔴 {urgent.length} επείγουσες εργασίες σοβαρότητας</div>}
@@ -1439,6 +1591,57 @@ function ListsAdmin({ quick, checklist, persistQuick, persistChecklist }) {
     <div>
       <EditableList title="Γρήγορες εργασίες (quick-tasks)" items={quick} onChange={persistQuick} placeholder="π.χ. Αλλαγή impeller" />
       <EditableList title="Checklist αναχώρησης (ανοίγουν αυτόματα όταν ορίζεται αναχώρηση)" items={checklist} onChange={persistChecklist} placeholder="π.χ. Έλεγχος άγκυρας" />
+    </div>
+  );
+}
+
+function AbsencesAdmin({ users, absences, onAdd, onDelete }) {
+  const [userId, setUserId] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [note, setNote] = useState("");
+  const today = todayStr();
+  const upcoming = absences.filter(a => a.to >= today).sort((a, b) => a.from.localeCompare(b.from));
+  const past = absences.filter(a => a.to < today).sort((a, b) => b.from.localeCompare(a.from));
+  const un = (id) => users.find(u => u.id === id)?.name || "";
+  const Row = ({ a }) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 13.5 }}>
+      <span><b>{un(a.userId)}</b> · {fmtDate(a.from)} – {fmtDate(a.to)}{a.note ? ` · ${a.note}` : ""}</span>
+      <button onClick={() => onDelete(a.id)} style={{ border: "none", background: "none", color: COLORS.red, fontSize: 12, fontWeight: 700 }}>×</button>
+    </div>
+  );
+  return (
+    <div>
+      <SectionTitle>Επερχόμενες / τρέχουσες απουσίες ({upcoming.length})</SectionTitle>
+      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14 }}>
+        {upcoming.length === 0 && <div style={{ fontSize: 14, color: COLORS.sub }}>Καμία δηλωμένη απουσία.</div>}
+        {upcoming.map(a => <Row key={a.id} a={a} />)}
+      </div>
+
+      <SectionTitle>Καταχώρηση απουσίας για κάποιον</SectionTitle>
+      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14 }}>
+        <select value={userId} onChange={e => setUserId(e.target.value)} style={inputStyle}>
+          <option value="">Επίλεξε άτομο</option>
+          {users.filter(u => u.role !== "owner").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ ...inputStyle, width: "auto", flex: 1 }} />
+          <input type="date" min={from} value={to} onChange={e => setTo(e.target.value)} style={{ ...inputStyle, width: "auto", flex: 1 }} />
+        </div>
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder="π.χ. άδεια, καπετάνιος σε ναύλο (προαιρετικό)" style={{ ...inputStyle, marginTop: 8 }} />
+        <div style={{ marginTop: 10 }}>
+          <Btn small color={COLORS.navy} onClick={() => { if (!userId || !from || !to) return; onAdd(userId, from, to, note.trim()); setUserId(""); setFrom(""); setTo(""); setNote(""); }}>+ Προσθήκη</Btn>
+        </div>
+      </div>
+
+      {past.length > 0 && (
+        <>
+          <SectionTitle>Παλαιότερες ({past.length})</SectionTitle>
+          <div style={{ background: COLORS.card, borderRadius: 12, padding: 14 }}>
+            {past.map(a => <Row key={a.id} a={a} />)}
+          </div>
+        </>
+      )}
     </div>
   );
 }
