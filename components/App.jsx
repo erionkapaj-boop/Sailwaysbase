@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v2.9";
+const APP_VERSION = "v2.8";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -479,14 +479,6 @@ ${rules.map(r => "- " + r).join("\n")}
     } else showToast("Η αναχώρηση αφαιρέθηκε");
   };
 
-  const cancelCharter = async (boat) => {
-    await persistBoats(boats.map(b => b.id === boat.id ? { ...b, departureDate: null, returnDate: null } : b));
-    // Το checklist ελέγχου αναχώρησης δεν έχει πια νόημα και φεύγει· τυχόν εργασίες που προέκυψαν από προβλήματα (⚠) παραμένουν κανονικά.
-    const stillOpen = tasks.filter(t => !(t.boatId === boat.id && t.status === "open" && t.checklistItems));
-    if (stillOpen.length !== tasks.length) await persistTasks(stillOpen);
-    showToast("Ο ναύλος ακυρώθηκε — οι εργασίες του σκάφους βγήκαν από προτεραιότητα");
-  };
-
   const resolveChecklistItem = async (task, itemId, outcome, note) => {
     let base = tasks;
     let newTaskId = null;
@@ -553,7 +545,7 @@ ${rules.map(r => "- " + r).join("\n")}
         {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} />}
         {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist}
-          setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={downgradeUrgent}
+          setDeparture={setDeparture} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={downgradeUrgent}
           onAssign={assignTask} runDistribution={() => runDistribution(true)} effectiveDeadline={effectiveDeadline}
           persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={(u) => { setViewAs(u); setTab("today"); }} realOwner={me.role === "owner"} />}
       </div>
@@ -1110,7 +1102,7 @@ function ServiceBook({ boats, tasks, users, isMgr }) {
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
   const { me, users, boats, tasks, quick, checklist, persistUsers, persistBoats, persistQuick, persistChecklist,
-    setDeparture, cancelCharter, onReturn, onCloseExternal, onDowngrade, runDistribution, effectiveDeadline, showToast, onViewAs, realOwner } = props;
+    setDeparture, onReturn, onCloseExternal, onDowngrade, runDistribution, effectiveDeadline, showToast, onViewAs, realOwner } = props;
   const [section, setSection] = useState("overview");
   const isOwner = me.role === "owner";
   const sections = [
@@ -1131,7 +1123,7 @@ function AdminView(props) {
       </div>
       {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} users={users} me={me} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} />}
-      {section === "boats" && <BoatsAdmin boats={boats} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} showToast={showToast} />}
+      {section === "boats" && <BoatsAdmin boats={boats} persistBoats={persistBoats} setDeparture={setDeparture} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} persistQuick={persistQuick} persistChecklist={persistChecklist} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} />}
@@ -1307,13 +1299,12 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
 
 const addDays = (dateStr, days) => { const d = new Date(dateStr); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
 
-function BoatsAdmin({ boats, persistBoats, setDeparture, cancelCharter, showToast }) {
+function BoatsAdmin({ boats, persistBoats, setDeparture, showToast }) {
   const [dateFor, setDateFor] = useState(null);
   const [dateVal, setDateVal] = useState("");
   const [duration, setDuration] = useState(7);
   const [customReturn, setCustomReturn] = useState("");
   const [mode, setMode] = useState(null); // 'sea' | 'charter'
-  const [cancelFor, setCancelFor] = useState(null);
   const computedReturn = dateVal ? (duration === "custom" ? customReturn : addDays(dateVal, duration)) : "";
   return (
     <div>
@@ -1334,28 +1325,12 @@ function BoatsAdmin({ boats, persistBoats, setDeparture, cancelCharter, showToas
             <div style={{ display: "flex", gap: 6, flexDirection: "column" }}>
               {b.atSea
                 ? <Btn small color={COLORS.teal} outline onClick={() => persistBoats(boats.map(x => x.id === b.id ? { ...x, atSea: false, returnDate: null } : x))}>Επέστρεψε</Btn>
-                : b.departureDate
-                  ? <>
-                    <Btn small color={COLORS.navy} outline onClick={() => { setDateFor(b.id); setMode("charter"); setDateVal(b.departureDate || ""); setDuration(7); setCustomReturn(""); }}>Αλλαγή</Btn>
-                    <Btn small color={COLORS.red} outline onClick={() => setCancelFor(b.id)}>Ακύρωση ναύλου</Btn>
-                  </>
-                  : <>
-                    <Btn small color={COLORS.navy} outline onClick={() => { setDateFor(b.id); setMode("charter"); setDateVal(""); setDuration(7); setCustomReturn(""); }}>Ναύλο</Btn>
-                    <Btn small color={COLORS.teal} outline onClick={() => { setDateFor(b.id); setMode("sea"); setDateVal(""); }}>Εν πλω (έκτακτο)</Btn>
-                  </>}
+                : <>
+                  <Btn small color={COLORS.navy} outline onClick={() => { setDateFor(b.id); setMode("charter"); setDateVal(b.departureDate || ""); setDuration(7); setCustomReturn(""); }}>Ναύλο</Btn>
+                  <Btn small color={COLORS.teal} outline onClick={() => { setDateFor(b.id); setMode("sea"); setDateVal(""); }}>Εν πλω (έκτακτο)</Btn>
+                </>}
             </div>
           </div>
-          {cancelFor === b.id && (
-            <div style={{ marginTop: 10, background: "#FDECEA", borderRadius: 10, padding: 12 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#8A1C12", marginBottom: 8 }}>
-                Ακύρωση ναύλου για {b.name}; Ο έλεγχος αναχώρησης θα φύγει από τις εργασίες — τυχόν προβλήματα που είχαν ήδη καταγραφεί παραμένουν κανονικά.
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <Btn small color={COLORS.red} onClick={() => { cancelCharter(b); setCancelFor(null); }}>Ναι, ακύρωση</Btn>
-                <Btn small color={COLORS.sub} outline onClick={() => setCancelFor(null)}>Όχι</Btn>
-              </div>
-            </div>
-          )}
           {dateFor === b.id && (
             <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <input type="date" value={dateVal} onChange={e => setDateVal(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
