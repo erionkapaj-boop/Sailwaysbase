@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.15";
+const APP_VERSION = "v3.16";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -1610,7 +1610,7 @@ function AdminView(props) {
   const sections = [
     ["overview", "Επισκόπηση"], ["control", "Έλεγχος"], ["boats", "Σκάφη"],
     ["lists", "Λίστες"], ["absences", "Απουσίες"], ["stats", "Στατιστικά"], ["ai", "AI"],
-    ["profiles", "Προφίλ"],
+    ["profiles", "Ομάδα"],
     ...(isOwner ? [["usersS", "Χρήστες"]] : []),
   ];
   return (
@@ -2133,8 +2133,8 @@ function ProfilesView({ users, me, onViewAs }) {
   const shown = users.filter(u => (u.role === "employee" || u.role === "associate") && u.id !== me.id);
   return (
     <div>
-      <SectionTitle>Προφίλ υπαλλήλων</SectionTitle>
-      {shown.length === 0 && <Empty>Κανένα προφίλ ακόμα.</Empty>}
+      <SectionTitle>Ομάδα</SectionTitle>
+      {shown.length === 0 && <Empty>Κανένας χρήστης ακόμα.</Empty>}
       {shown.map(u => (
         <div key={u.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -2142,9 +2142,6 @@ function ProfilesView({ users, me, onViewAs }) {
               <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{roleLabel(u.role)}</span>
             </div>
             {onViewAs && <Btn small color={COLORS.teal} onClick={() => onViewAs(u)}>👁 Προβολή ως</Btn>}
-          </div>
-          <div style={{ fontSize: 13, color: u.profile ? COLORS.text : COLORS.sub, marginTop: 4 }}>
-            {u.profile || "Χωρίς καταχωρημένο προφίλ."}
           </div>
         </div>
       ))}
