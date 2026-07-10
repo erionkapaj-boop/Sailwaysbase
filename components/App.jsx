@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.8";
+const APP_VERSION = "v3.9";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -449,6 +449,9 @@ ${rules.map(r => "- " + r).join("\n")}
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "external", externalBy: acting.id, externalAt: new Date().toISOString(), externalNote: note } : x));
     showToast("Καταγράφηκε: χρειάζεται εξωτερικό συνεργάτη ⚠");
   };
+  const acknowledgeExternal = async (t) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, ackBy: { ...(x.ackBy || {}), [acting.id]: new Date().toISOString() } } : x));
+  };
   const addProgress = async (t, note) => {
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, progress: [...x.progress, { by: acting.id, at: new Date().toISOString(), note }] } : x));
     showToast("Η πρόοδος καταγράφηκε");
@@ -580,9 +583,9 @@ ${rules.map(r => "- " + r).join("\n")}
         </div>
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
-        {tab === "today" && <TodayView me={acting} tasks={myTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
+        {tab === "today" && <TodayView me={acting} tasks={myTasks} allTasks={tasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem}
-          absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} />}
+          absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} />}
         {tab === "tasks" && <TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
           onAssign={assignTask} onDowngrade={downgradeUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} />}
@@ -891,6 +894,36 @@ function DeparturesWidget({ boats }) {
   );
 }
 
+function ExternalReminders({ me, tasks, boats, onAck }) {
+  const allowed = me.role === "owner" || ["Φανούρης", "Αλέξανδρος"].includes(me.name);
+  if (!allowed) return null;
+  const threeDaysAgo = Date.now() - 3 * 24 * 3600 * 1000;
+  const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
+  const shown = tasks.filter(t => {
+    if (t.status !== "external") return false;
+    const ackAt = t.ackBy?.[me.id];
+    if (!ackAt) return true;
+    return new Date(ackAt).getTime() < threeDaysAgo;
+  });
+  if (shown.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8A5A00", marginBottom: 6 }}>⚠ Εκκρεμούν εξωτερικοί συνεργάτες ({shown.length})</div>
+      {shown.map(t => (
+        <div key={t.id} style={{ background: "#FFF7E8", borderRadius: 10, padding: "10px 12px", marginBottom: 6, fontSize: 13.5 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div><b>{t.desc}</b> — {bn(t.boatId)}</div>
+          </div>
+          {t.externalNote && <div style={{ color: "#8A5A00", fontSize: 12.5, marginTop: 3 }}>{t.externalNote}</div>}
+          <div style={{ marginTop: 8 }}>
+            <Btn small color={COLORS.amber} outline onClick={() => onAck(t)}>👁 Το γνωρίζω</Btn>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MyNotes({ me, notes, users }) {
   const [idx, setIdx] = useState(0);
   const eightHoursAgo = Date.now() - 8 * 3600 * 1000;
@@ -1003,9 +1036,10 @@ function MyAbsences({ me, absences, onAdd, onDelete }) {
   );
 }
 
-function TodayView({ me, tasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote }) {
+function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal }) {
   return (
     <div>
+      <ExternalReminders me={me} tasks={allTasks} boats={boats} onAck={onAckExternal} />
       <MyNotes me={me} notes={notes} users={users} />
       <DailyGreeting me={me} />
       <DeparturesWidget boats={boats} />
@@ -1312,6 +1346,7 @@ function AdminView(props) {
 function WeeklyReport({ tasks, users, me, boats, absences }) {
   const [rep, setRep] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
   const allowed = me.role === "owner" || ["Φανούρης", "Αλέξανδρος"].includes(me.name);
   const weekKey = (() => { const d = new Date(); const day = d.getDay(); const back = day === 0 ? 0 : day; d.setDate(d.getDate() - back); return d.toISOString().slice(0, 10); })();
   const genReport = async (auto) => {
@@ -1336,7 +1371,7 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
 ΟΔΗΓΙΕΣ: Κρίνε κάθε ολοκληρωμένη εργασία με συντελεστή βαρύτητας 1-5 (1=ασήμαντη π.χ. βίδωμα/λάμπα/απλό πλύσιμο, 5=βαριά π.χ. αλλαγή θερμοσίφωνα, στεγανοποίηση παραθύρων, επισκευή μηχανισμών). Σύγκρινε κάθε άτομο με τον μέσο όρο της ομάδας σε ΣΤΑΘΜΙΣΜΕΝΟ έργο (όχι σκέτο πλήθος). Επισήμανε μοτίβα: ποιος σηκώνει βαριές δουλειές, ποιος διαλέγει μόνο εύκολες (π.χ. μόνο πλυσίματα), ποιος έχει χαμηλή παραγωγή, ποιος εντοπίζει προβλήματα, επιστροφές ατελών. Ευθύς αλλά δίκαιος. ΣΗΜΑΝΤΙΚΟ: αν κάποιος είχε δηλωμένη απουσία μέρος ή όλη την εβδομάδα, ΜΗΝ τον συγκρίνεις άδικα με όσους ήταν παρόντες όλη την εβδομάδα — ανάφερε ουδέτερα ότι απουσίαζε τις συγκεκριμένες μέρες και αξιολόγησε μόνο τις μέρες παρουσίας του.
 ΔΕΔΟΜΕΝΑ ΕΒΔΟΜΑΔΑΣ:\n${data}`;
       const text = await askClaude(prompt, 900);
-      if (text) { await save("weekly-report-" + weekKey, { text, at: new Date().toISOString() }); setRep({ text }); }
+      if (text) { await save("weekly-report-" + weekKey, { text, at: new Date().toISOString() }); setRep({ text }); if (!auto) setOpen(true); }
     } catch {}
     setBusy(false);
   };
@@ -1353,11 +1388,18 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
   return (
     <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12, border: `1.5px solid ${COLORS.navy}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontWeight: 800, fontSize: 14.5 }}>📊 Εβδομαδιαία αναφορά ομάδας</div>
+        <button onClick={() => rep && setOpen(!open)} style={{ background: "none", border: "none", padding: 0, display: "flex", alignItems: "center", gap: 6, cursor: rep ? "pointer" : "default" }}>
+          <div style={{ fontWeight: 800, fontSize: 14.5 }}>📊 Εβδομαδιαία αναφορά ομάδας</div>
+          {rep && <span style={{ fontSize: 12, color: COLORS.sub }}>{open ? "▾" : "▸"}</span>}
+        </button>
         <Btn small color={COLORS.navy} outline onClick={() => genReport(false)}>{busy ? "Σύνταξη…" : rep ? "↻ Νέα" : "Δημιουργία"}</Btn>
       </div>
       {rep
-        ? <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{rep.text}</div>
+        ? (open
+            ? <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{rep.text}</div>
+            : <div onClick={() => setOpen(true)} style={{ marginTop: 8, fontSize: 13, color: COLORS.sub, cursor: "pointer" }}>
+                {rep.text.slice(0, 90)}… <span style={{ color: COLORS.teal, fontWeight: 600 }}>περισσότερα</span>
+              </div>)
         : <div style={{ marginTop: 8, fontSize: 12.5, color: COLORS.sub }}>Δημιουργείται αυτόματα κάθε Κυριακή απόγευμα — ή πάτα «Δημιουργία» όποτε θες ενδιάμεση εικόνα.</div>}
     </div>
   );
