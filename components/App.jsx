@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v2.8";
+const APP_VERSION = "v2.7";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -68,7 +68,7 @@ const TR = {
   "εξωτερικός συνεργάτης": "external specialist",
   "Ο κωδικός μπαίνει μία φορά — η συσκευή σε θυμάται. / Enter once — this device remembers you.": "Enter your code once — this device remembers you.",
   "Ο κωδικός δεν αναγνωρίστηκε. Ζήτησε τον προσωπικό σου κωδικό από τον υπεύθυνο.": "Code not recognized. Ask your manager for your personal code.",
-  "Σημείωση manager:": "Manager note:", "Διόρθωση": "Edit", "Φωνητική καταχώρηση με AI": "Voice entry with AI", "Μίλα": "Speak", "Σταμάτημα": "Stop", "Ανάλυση με AI": "Analyze with AI", "Ανάλυση…": "Analyzing…", "Καθάρισμα": "Clear", "Καταχώρηση όλων": "Add all", "Προεπισκόπηση — έλεγξε και διόρθωσε πριν την καταχώρηση": "Preview — check and correct before submitting", "Δεν αναγνωρίστηκαν εργασίες — δοκίμασε πιο συγκεκριμένη διατύπωση.": "No tasks recognized — try being more specific.", "Η ανάλυση απέτυχε — δοκίμασε ξανά.": "Analysis failed — try again.", "Η φωνητική αναγνώριση δεν υποστηρίζεται σε αυτή τη συσκευή/browser — γράψε το κείμενο και πάτα Ανάλυση.": "Speech recognition not supported on this device/browser — type the text and press Analyze.", "Πρόβλημα μικροφώνου — δοκίμασε ξανά ή γράψε το κείμενο.": "Microphone problem — try again or type the text.", "π.χ. Στον Λεωνίδα το παράθυρο είναι σπασμένο, δεν ανάβει το φως στην πλώρη και θέλει αλλαγή η σκότα": "e.g. On Leonidas the window is broken, the bow light is not working and the sheet needs replacement", "Πολλαπλές εργασίες: ΝΑΙ — μία ανά γραμμή": "Multiple tasks: ON — one per line", "Πολλαπλές εργασίες μαζί (μία ανά γραμμή)": "Multiple tasks at once (one per line)", "Μία εργασία ανά γραμμή, π.χ.:\nΠαράθυρο σπασμένο\nΤο φως στην πλώρη δεν ανάβει\nΗ σκότα θέλει αλλαγή": "One task per line, e.g.:\nBroken window\nBow light not working\nSheet needs replacement", "Διαγραφή": "Delete", "Φωτογραφίες (προαιρετικό)": "Photos (optional)", "Προσθήκη φωτογραφίας": "Add photo", "Αγορά": "Purchase", "Λείπει υλικό / χρειάζεται αγορά": "Missing material / needs purchase", "ΑΓΟΡΑ / ΛΕΙΨΗ ΥΛΙΚΟΥ — θα ανατεθεί στον Λεωνίδα": "PURCHASE / MISSING MATERIAL — will be assigned to Leonidas", "Ναι, διαγραφή": "Yes, delete", "Διαγραφή εργασίας; Δεν αναιρείται.": "Delete this task? This cannot be undone.", "πρόοδοι": "progress entries", "Επιστράφηκε": "Returned", "Εντάξει": "OK", "Πρόβλημα": "Problem", "Τι πρόβλημα είδες;": "What's the problem?", "Καταχώρηση προβλήματος": "Log problem",
+  "Σημείωση manager:": "Manager note:", "Διόρθωση": "Edit", "Φωνητική καταχώρηση με AI": "Voice entry with AI", "Μίλα": "Speak", "Σταμάτημα": "Stop", "Ανάλυση με AI": "Analyze with AI", "Ανάλυση…": "Analyzing…", "Καθάρισμα": "Clear", "Καταχώρηση όλων": "Add all", "Προεπισκόπηση — έλεγξε και διόρθωσε πριν την καταχώρηση": "Preview — check and correct before submitting", "Δεν αναγνωρίστηκαν εργασίες — δοκίμασε πιο συγκεκριμένη διατύπωση.": "No tasks recognized — try being more specific.", "Η ανάλυση απέτυχε — δοκίμασε ξανά.": "Analysis failed — try again.", "Η φωνητική αναγνώριση δεν υποστηρίζεται σε αυτή τη συσκευή/browser — γράψε το κείμενο και πάτα Ανάλυση.": "Speech recognition not supported on this device/browser — type the text and press Analyze.", "Πρόβλημα μικροφώνου — δοκίμασε ξανά ή γράψε το κείμενο.": "Microphone problem — try again or type the text.", "π.χ. Στον Λεωνίδα το παράθυρο είναι σπασμένο, δεν ανάβει το φως στην πλώρη και θέλει αλλαγή η σκότα": "e.g. On Leonidas the window is broken, the bow light is not working and the sheet needs replacement", "Πολλαπλές εργασίες: ΝΑΙ — μία ανά γραμμή": "Multiple tasks: ON — one per line", "Πολλαπλές εργασίες μαζί (μία ανά γραμμή)": "Multiple tasks at once (one per line)", "Μία εργασία ανά γραμμή, π.χ.:\nΠαράθυρο σπασμένο\nΤο φως στην πλώρη δεν ανάβει\nΗ σκότα θέλει αλλαγή": "One task per line, e.g.:\nBroken window\nBow light not working\nSheet needs replacement", "Διαγραφή": "Delete", "Φωτογραφίες (προαιρετικό)": "Photos (optional)", "Προσθήκη φωτογραφίας": "Add photo", "Αγορά": "Purchase", "Λείπει υλικό / χρειάζεται αγορά": "Missing material / needs purchase", "ΑΓΟΡΑ / ΛΕΙΨΗ ΥΛΙΚΟΥ — θα ανατεθεί στον Λεωνίδα": "PURCHASE / MISSING MATERIAL — will be assigned to Leonidas", "Ναι, διαγραφή": "Yes, delete", "Διαγραφή εργασίας; Δεν αναιρείται.": "Delete this task? This cannot be undone.", "πρόοδοι": "progress entries", "Επιστράφηκε": "Returned",
 };
 const tr = (s) => (LANG === "en" ? (TR[s] || s) : s);
 const fmtDate = (d) => { if (!d) return ""; const x = new Date(d); return x.toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { day: "numeric", month: "short" }); };
@@ -466,39 +466,14 @@ ${rules.map(r => "- " + r).join("\n")}
   const setDeparture = async (boat, date, returnDate) => {
     await persistBoats(boats.map(b => b.id === boat.id ? { ...b, departureDate: date || null, returnDate: date ? (returnDate || null) : null } : b));
     if (date) {
-      const already = tasks.some(t => t.boatId === boat.id && t.status === "open" && t.checklistItems);
-      if (!already && checklist.length) {
-        const t = {
-          id: "t" + Date.now(), status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
-          progress: [], returns: 0, assignedTo: null, boatId: boat.id, desc: "Έλεγχος αναχώρησης",
-          checklistItems: checklist.map((c, i) => ({ id: "ci" + i, text: c, status: "pending", problemTaskId: null })),
-        };
-        await persistTasks([t, ...tasks]);
-      }
-      showToast("Ορίστηκε ναύλο" + (!already && checklist.length ? " — άνοιξε ο έλεγχος αναχώρησης" : ""));
+      const existing = tasks.filter(t => t.boatId === boat.id && t.status === "open").map(t => t.desc);
+      const fresh = checklist.filter(c => !existing.includes(c)).map((c, i) => ({
+        id: "t" + Date.now() + "-" + i, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
+        progress: [], returns: 0, assignedTo: null, boatId: boat.id, desc: c, fromChecklist: true,
+      }));
+      if (fresh.length) await persistTasks([...fresh, ...tasks]);
+      showToast(`Ορίστηκε ναύλο — άνοιξαν ${fresh.length} εργασίες checklist`);
     } else showToast("Η αναχώρηση αφαιρέθηκε");
-  };
-
-  const resolveChecklistItem = async (task, itemId, outcome, note) => {
-    let base = tasks;
-    let newTaskId = null;
-    if (outcome === "problem") {
-      newTaskId = "t" + Date.now() + "-p";
-      const newTask = {
-        id: newTaskId, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
-        progress: [], returns: 0, assignedTo: null, boatId: task.boatId,
-        desc: note?.trim() || "Πρόβλημα κατά τον έλεγχο αναχώρησης",
-      };
-      base = [newTask, ...tasks];
-    }
-    const items = task.checklistItems.map(it => it.id === itemId ? { ...it, status: outcome, problemTaskId: outcome === "problem" ? newTaskId : null } : it);
-    const allResolved = items.every(it => it.status !== "pending");
-    const next = base.map(t2 => t2.id === task.id ? {
-      ...t2, checklistItems: items,
-      ...(allResolved ? { status: "done", completedBy: acting.id, completedAt: new Date().toISOString() } : {}),
-    } : t2);
-    await persistTasks(next);
-    showToast(outcome === "problem" ? "Καταγράφηκε πρόβλημα — δημιουργήθηκε νέα εργασία ⚠" : "Τσεκαρίστηκε ✔");
   };
 
   const effectiveDeadline = (t) => {
@@ -537,10 +512,10 @@ ${rules.map(r => "- " + r).join("\n")}
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
         {tab === "today" && <TodayView me={acting} tasks={myTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
-          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} />}
+          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} />}
         {tab === "tasks" && <TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
-          onAssign={assignTask} onDowngrade={downgradeUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} />}
+          onAssign={assignTask} onDowngrade={downgradeUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} />}
         {tab === "new" && <NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} />}
         {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} />}
         {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist}
@@ -621,43 +596,6 @@ function Login({ users, onPick }) {
 }
 
 // ---------- Κάρτα εργασίας ----------
-function ChecklistItems({ t, onChecklistItem }) {
-  const [probFor, setProbFor] = useState(null);
-  const [note, setNote] = useState("");
-  const doneCount = t.checklistItems.filter(it => it.status !== "pending").length;
-  return (
-    <div style={{ marginTop: 10 }}>
-      <div style={{ fontSize: 12.5, color: COLORS.sub, fontWeight: 700, marginBottom: 6 }}>{doneCount}/{t.checklistItems.length} ελέγχθηκαν</div>
-      {t.checklistItems.map(it => (
-        <div key={it.id} style={{ borderBottom: `1px dashed ${COLORS.line}`, padding: "8px 0" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>
-              {it.status === "ok" && "✔ "}{it.status === "problem" && "⚠ "}{it.text}
-            </div>
-            {it.status === "pending"
-              ? <div style={{ display: "flex", gap: 6 }}>
-                  <Btn small color={COLORS.green} onClick={() => onChecklistItem(t, it.id, "ok")}>✔</Btn>
-                  <Btn small color={COLORS.red} outline onClick={() => { setProbFor(it.id); setNote(""); }}>⚠</Btn>
-                </div>
-              : <span style={{ fontSize: 12, color: it.status === "ok" ? COLORS.green : COLORS.red, fontWeight: 700 }}>
-                  {it.status === "ok" ? tr("Εντάξει") : tr("Πρόβλημα")}
-                </span>}
-          </div>
-          {probFor === it.id && (
-            <div style={{ marginTop: 8 }}>
-              <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder={tr("Τι πρόβλημα είδες;")} style={inputStyle} />
-              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                <Btn small color={COLORS.red} onClick={() => { if (!note.trim()) return; onChecklistItem(t, it.id, "problem", note.trim()); setProbFor(null); }}>{tr("Καταχώρηση προβλήματος")}</Btn>
-                <Btn small color={COLORS.sub} outline onClick={() => setProbFor(null)}>{tr("Άκυρο")}</Btn>
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, showAssignee }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign'
@@ -711,10 +649,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               ))}
             </div>
           )}
-          {t.checklistItems && (
-            <ChecklistItems t={t} onChecklistItem={onChecklistItem} />
-          )}
-          {mode === null && !t.checklistItems && (
+          {mode === null && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
               <Btn color={COLORS.green} onClick={() => onComplete(t)}>{tr("Ολοκληρώθηκε ✔")}</Btn>
               <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
@@ -723,11 +658,6 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.red} outline onClick={() => setMode("confirmDel")}>🗑 {tr("Διαγραφή")}</Btn>}
               {(isMgr || canAssign) && <Btn color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>}
               {isMgr && t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>Υποβάθμιση επείγοντος</Btn>}
-            </div>
-          )}
-          {t.checklistItems && (isMgr || canAssign) && mode !== "assign" && (
-            <div style={{ marginTop: 10 }}>
-              <Btn small color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>
             </div>
           )}
           {mode === "confirmDel" && (
@@ -843,7 +773,7 @@ function DeparturesWidget({ boats }) {
   );
 }
 
-function TodayView({ me, tasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem }) {
+function TodayView({ me, tasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete }) {
   return (
     <div>
       <DailyGreeting me={me} />
@@ -851,12 +781,12 @@ function TodayView({ me, tasks, boats, users, isMgr, canAssign, effectiveDeadlin
       <SectionTitle>{tr("Οι εργασίες μου")} — {new Date().toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { weekday: "long", day: "numeric", month: "long" })}</SectionTitle>
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} />)}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} />)}
     </div>
   );
 }
 
-function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, onChecklistItem }) {
+function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign }) {
   const [boatFilter, setBoatFilter] = useState("");
   const shown = boatFilter ? tasks.filter(t => t.boatId === boatFilter || (boatFilter === "other" && !t.boatId)) : tasks;
   return (
@@ -869,7 +799,7 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
       </select>
       {shown.length === 0 && <Empty>{tr("Καμία εργασία εδώ.")}</Empty>}
       {shown.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} />)}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} />)}
     </div>
   );
 }
@@ -1090,7 +1020,6 @@ function ServiceBook({ boats, tasks, users, isMgr }) {
               {t.closedAsExternal && " · " + tr("εξωτερικός συνεργάτης")}
               {isMgr && t.completedBy && ` · ${users.find(u => u.id === t.completedBy)?.name || ""}`}
               {isMgr && t.returns > 0 && ` · ↩ ${t.returns} επιστροφή/ές`}
-              {t.checklistItems && (() => { const p = t.checklistItems.filter(it => it.status === "problem").length; return p > 0 ? ` · ⚠ ${p} σημεία με πρόβλημα` : " · ✔ όλα εντάξει"; })()}
             </div>
           </div>
         );
