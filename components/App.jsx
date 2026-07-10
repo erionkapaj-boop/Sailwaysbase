@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.11";
+const APP_VERSION = "v3.13";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -322,7 +322,8 @@ export default function App() {
       const meta = await load("app-meta", {});
       if (meta.lastDistribution === todayStr()) return;
       await save("app-meta", { ...meta, lastDistribution: todayStr() });
-      await runDistribution(false);
+      const freshTasks = await runDistribution(false);
+      await generateAutoTasks(freshTasks);
     })();
   }, [ready, me]);
 
@@ -332,7 +333,7 @@ export default function App() {
     const today = todayStr();
     const employees = users.filter(u => ((u.role === "employee" && !u.noAutoAssign) || u.name === "Φανούρης") && !isAbsentOn(u.id, today));
     const free = tasks.filter(t => t.status === "open" && !t.assignedTo);
-    if (!employees.length || !free.length) { if (manual) showToast("Δεν υπάρχουν ελεύθερες εργασίες για κατανομή"); return; }
+    if (!employees.length || !free.length) { if (manual) showToast("Δεν υπάρχουν ελεύθερες εργασίες για κατανομή"); return tasks; }
     try {
       let rules = await load("app-dist-rules", [
         "Ο Γιάννης ΔΕΝ αναλαμβάνει ΠΟΤΕ εργασίες στο σκάφος Sunflower — μην του ανατεθεί καμία εργασία αυτού του σκάφους.",
@@ -355,16 +356,87 @@ ${rules.map(r => "- " + r).join("\n")}
 Απάντησε ΜΟΝΟ με JSON, χωρίς markdown: {"assignments":[{"taskId":"...","userId":"..."}]}`;
       const raw = await askClaude(prompt, 800);
       const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
-      if (!parsed.assignments?.length) return;
+      if (!parsed.assignments?.length) return tasks;
       const valid = parsed.assignments.filter(a => free.some(t => t.id === a.taskId) && employees.some(e => e.id === a.userId));
-      if (!valid.length) return;
+      if (!valid.length) return tasks;
       const next = tasks.map(t => {
         const a = valid.find(v => v.taskId === t.id);
         return a ? { ...t, assignedTo: a.userId, assignedBy: "AI" } : t;
       });
       await persistTasks(next);
       showToast(`Η κατανομή ημέρας έγινε: ${valid.length} αναθέσεις`);
-    } catch (e) { console.error(e); if (manual) showToast("Η κατανομή απέτυχε — δοκίμασε ξανά"); }
+      return next;
+    } catch (e) { console.error(e); if (manual) showToast("Η κατανομή απέτυχε — δοκίμασε ξανά"); return tasks; }
+  }
+
+  const AUTO_TASK_TYPES = [
+    "Τακτοποίηση βαν: όλα τα εργαλεία στη θέση τους, το λευκό κουτί με τις βίδες/ανταλλακτικά οργανωμένο, ό,τι έχει περισσέψει να επιστρέφει στο γραφείο. Πρωί, τουλάχιστον 1 ώρα, ΥΠΟΧΡΕΩΤΙΚΟ τουλάχιστον 1 φορά/εβδομάδα. Tone: αυστηρό αλλά με χιούμορ, ρητή αναφορά ότι είναι οδηγία του Εριόν.",
+    "Τακτοποίηση αποθήκης/γραφείου: 1-2 άτομα πηγαίνουν στο γραφείο να οργανώσουν τον χώρο αποθήκευσης εργαλείων. ΠΡΕΠΕΙ να συμμετέχει τουλάχιστον ένας από Μήτσος/Φανούρης/Δανάη μαζί με άλλον.",
+    "Πλύσιμο σκάφους που έχει καθίσει πολύ στο λιμάνι χωρίς ναύλο.",
+    "Βαθύ καθάρισμα κρυφού σημείου σε συγκεκριμένο σκάφος (κάτω από ντουλάπια κουζίνας, μέσα σε σεντίνες, κάτω από μηχανοστάσιο, πίσω από κρεβάτια/καθίσματα) — 'δείξε τη δουλειά σου' τύπος, τουλάχιστον 1-2 ώρες, όχι πρόχειρα.",
+    "Γυάλισμα/επιδιόρθωση λεπτομέρειας σε συγκεκριμένο σκάφος (ξύλο, βερνίκι, μεταλλικά στοιχεία, μούχλα σε λάστιχα/ταβάνι με χλωρίνη) — 'δείξε τη δουλειά σου' τύπος, λεπτή δουλειά με προσοχή, τουλάχιστον 1-2 ώρες.",
+    "Περιποίηση μηχανισμών (Vigirello, γρανάζια): άνοιγμα, καθάρισμα με βενζίνη, γρασάρισμα, επανατοποθέτηση.",
+    "Αποθηκευτικοί χώροι σκάφους (μπαλαούρα): άδειασμα, βαθύ καθάρισμα, έλεγχος φθορών, οργανωμένη επανατοποθέτηση.",
+    "Περιποίηση εργαλείων βαν: WD-40 σε σκουριασμένα/κολλημένα εργαλεία λόγω αλμύρας.",
+    "Λεύκανση/γυάλισμα μπαλονιών συγκεκριμένου σκάφους — να ασπρίσουν πραγματικά, όχι μόνο πλύσιμο με νερό (ειδικό γυαλιστικό, ρώτα Φανούρη/Αλέξανδρο αν χρειάζεται) — 'δείξε τη δουλειά σου' τύπος.",
+    "ΕΝΤΟΠΙΣΕ ΤΟΥΛΑΧΙΣΤΟΝ 3 ΕΡΓΑΣΙΕΣ: πήγαινε σε συγκεκριμένο σκάφος (ή 2) στο λιμάνι και εντόπισε τουλάχιστον 3 σημεία/προβλήματα που θέλουν φτιάξιμο — πολύ συχνός τύπος, ανάθεσε σε όλους αρκετά τακτικά.",
+  ];
+
+  async function generateAutoTasks(tasksOverride) {
+    const src = tasksOverride || tasks;
+    const today = todayStr();
+    const employees = users.filter(u => u.role === "employee" && !u.noAutoAssign && !isAbsentOn(u.id, today));
+    if (!employees.length) return;
+    // Ρυθμός ουράς: αν υπάρχουν ήδη αρκετές ελεύθερες εργασίες σε αναμονή, μην προσθέσεις άλλες.
+    const freeNow = src.filter(t => t.status === "open" && !t.assignedTo).length;
+    const doneLast7d = src.filter(t => t.status === "done" && t.completedAt && (Date.now() - new Date(t.completedAt).getTime()) <= 7 * 24 * 60 * 60 * 1000).length;
+    const avgDailyPace = Math.max(1, Math.round(doneLast7d / 7));
+    if (freeNow >= avgDailyPace * 2) return; // η ουρά είναι ήδη αρκετά γεμάτη σε σχέση με τον ρυθμό ολοκλήρωσης
+    // Ποιοι έχουν χαμηλό φόρτο σήμερα (0-1 ανοιχτές αναθέσεις);
+    const loadPer = Object.fromEntries(employees.map(e => [e.id, src.filter(t => t.assignedTo === e.id && t.status === "open").length]));
+    const lowLoad = employees.filter(e => loadPer[e.id] <= 1);
+    if (!lowLoad.length) return;
+    // Έλεγχος υποχρεωτικού βαν τουλάχιστον 1x/εβδομάδα
+    const vanLast7d = src.some(t => t.autoType === "van" && t.createdAt && (Date.now() - new Date(t.createdAt).getTime()) <= 7 * 24 * 60 * 60 * 1000);
+    try {
+      const inPort = boats.filter(b => !b.atSea);
+      // Πρόσφατο ιστορικό ανά σκάφος για να αποφευχθεί επανάληψη ίδιου σημείου
+      const recentByBoat = Object.fromEntries(inPort.map(b => [b.id,
+        src.filter(t => t.boatId === b.id && t.completedAt && (Date.now() - new Date(t.completedAt).getTime()) <= 21 * 24 * 60 * 60 * 1000)
+          .map(t => t.desc).slice(0, 8)
+      ]));
+      const prompt = `Είσαι σύστημα δημιουργίας εργασιών χαμηλού φόρτου για βάση σκαφών. ΣΗΜΕΡΑ υπάρχουν λίγες ελεύθερες εργασίες σε αναμονή, οπότε δημιούργησε 1-${Math.min(lowLoad.length, 3)} ΝΕΕΣ, ΣΤΟΧΟΠΟΙΗΜΕΝΕΣ εργασίες, μία ανά υπάλληλο με χαμηλό φόρτο.
+ΚΑΝΟΝΕΣ:
+- Διάλεξε ΜΟΝΟ από τους παρακάτω εγκεκριμένους τύπους — ΜΗΝ επινοήσεις άλλο είδος εργασίας.
+- Κάθε εργασία πρέπει να αναφέρει ΣΥΓΚΕΚΡΙΜΕΝΟ σκάφος (από τη λίστα «σκάφη στο λιμάνι») και ΣΥΓΚΕΚΡΙΜΕΝΟ σημείο/αντικείμενο, όχι γενικόλογη περιγραφή.
+- Δες το πρόσφατο ιστορικό ανά σκάφος και ΑΠΕΦΥΓΕ να ξαναστείλεις κάποιον στο ίδιο ακριβώς σημείο που καθαρίστηκε πρόσφατα — προτίμησε άλλο τμήμα του σκάφους (πλώρη/σαλόνι/πίσω καμπίνες/εξωτερικός χώρος, εναλλάξ).
+- Ανάφερε ρητά ελάχιστο χρόνο ενασχόλησης όπου αναγράφεται (π.χ. "τουλάχιστον 1 ώρα — όχι πρόχειρα"), ΟΧΙ σαν deadline.
+- ${vanLast7d ? "Η τακτοποίηση βαν έχει ήδη γίνει αυτή την εβδομάδα — μην την ξαναβάλεις εκτός αν κρίνεις ότι όντως χρειάζεται." : "Η τακτοποίηση βαν ΔΕΝ έχει γίνει αυτή την εβδομάδα ακόμα — αν έχεις διαθέσιμο άτομο, δώσε ΠΡΟΤΕΡΑΙΟΤΗΤΑ σε αυτήν."}
+- Αν εντοπίζεις μοτίβο επαναλαμβανόμενου προβλήματος σε κάποιο σκάφος μέσα στο ιστορικό, προτίμησε προληπτικό έλεγχο εκεί.
+Υπάλληλοι με χαμηλό φόρτο: ${lowLoad.map(e => `${e.id}: ${e.name}`).join("; ")}
+Σκάφη στο λιμάνι: ${inPort.map(b => `${b.id}: ${b.name}`).join("; ")}
+Πρόσφατο ιστορικό ανά σκάφος (τελευταίες 3 εβδ.): ${JSON.stringify(recentByBoat)}
+Εγκεκριμένοι τύποι εργασιών:
+${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
+Απάντησε ΜΟΝΟ με JSON, χωρίς markdown: {"tasks":[{"userId":"...","boatId":"...","typeIndex":0,"desc":"πλήρης περιγραφή στα ελληνικά, στοχοποιημένη","intensive":true/false,"findMode":true/false}]}
+Βάλε intensive:true για τύπους «δείξε τη δουλειά σου» (καθάρισμα/γυάλισμα/λεύκανση). Βάλε findMode:true ΜΟΝΟ για τον τύπο «ΕΝΤΟΠΙΣΕ ΤΟΥΛΑΧΙΣΤΟΝ 3».`;
+      const raw = await askClaude(prompt, 1200);
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      if (!parsed.tasks?.length) return;
+      const valid = parsed.tasks.filter(x => lowLoad.some(e => e.id === x.userId) && x.desc?.trim());
+      if (!valid.length) return;
+      const newTasks = valid.map(x => ({
+        id: "t" + Date.now() + "-a" + Math.random().toString(36).slice(2, 6),
+        status: "open", createdBy: "AI", createdAt: new Date().toISOString(),
+        progress: [], returns: 0, photos: [],
+        boatId: inPort.some(b => b.id === x.boatId) ? x.boatId : null, desc: x.desc.trim(),
+        assignedTo: x.userId, assignedBy: "AI",
+        autoGenerated: true, autoType: AUTO_TASK_TYPES[x.typeIndex]?.startsWith("Τακτοποίηση βαν") ? "van" : undefined,
+        intensive: !!x.intensive,
+        ...(x.findMode ? { findMode: true, findMin: 3, findings: [] } : {}),
+      }));
+      await persistTasks([...newTasks, ...src]);
+    } catch (e) { console.error("generateAutoTasks failed", e); }
   }
 
   // Αυτόματη είσοδος: από link#ΚΩΔΙΚΟΣ ή από αποθηκευμένο κωδικό συσκευής
@@ -441,10 +513,33 @@ ${rules.map(r => "- " + r).join("\n")}
       if (urls.length) setTasks(cur => { const nx = cur.map(x => x.id === id ? { ...x, photos: [...(x.photos || []), ...urls] } : x); save("app-tasks", nx); return nx; });
     }
   };
-  const completeTask = async (t, attributedTo) => {
+  const logFinding = async (findTask, desc) => {
+    if (!desc?.trim()) return;
+    const newId = "t" + Date.now() + "-f";
+    const newTask = {
+      id: newId, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
+      progress: [], returns: 0, assignedTo: null, photos: [], boatId: findTask.boatId, desc: desc.trim(), foundVia: findTask.id,
+    };
+    const findings = [...(findTask.findings || []), { taskId: newId, desc: desc.trim(), at: new Date().toISOString() }];
+    await persistTasks([newTask, ...tasks.map(x => x.id === findTask.id ? { ...x, findings } : x)]);
+    showToast(`Καταχωρήθηκε (${findings.length}/${findTask.findMin || 3})`);
+  };
+  const completeTask = async (t, attributedTo, afterPhotoFiles) => {
     const finalBy = attributedTo || acting.id;
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "done", completedBy: finalBy, completedByActor: acting.id, completedAt: new Date().toISOString() } : x));
+    let afterUrls = [];
+    if (afterPhotoFiles?.length) {
+      try { afterUrls = await uploadTaskPhotos(afterPhotoFiles, t.id); } catch {}
+    }
+    await persistTasks(tasks.map(x => x.id === t.id ? {
+      ...x, status: "done", completedBy: finalBy, completedByActor: acting.id, completedAt: new Date().toISOString(),
+      ...(afterUrls.length ? { photosAfter: [...(x.photosAfter || []), ...afterUrls] } : {}),
+    } : x));
     showToast("Ολοκληρώθηκε ✔");
+  };
+  const addBeforePhotos = async (t, files) => {
+    if (!files?.length) return;
+    const urls = await uploadTaskPhotos(files, t.id);
+    if (urls.length) await persistTasks(tasks.map(x => x.id === t.id ? { ...x, photosBefore: [...(x.photosBefore || []), ...urls] } : x));
   };
   const externalTask = async (t, note) => {
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "external", externalBy: acting.id, externalAt: new Date().toISOString(), externalNote: note } : x));
@@ -480,6 +575,10 @@ ${rules.map(r => "- " + r).join("\n")}
   const editTask = async (t, desc) => {
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, desc, editedBy: acting.id, editedAt: new Date().toISOString() } : x));
     showToast("Η εργασία διορθώθηκε");
+  };
+  const setTaskDeadline = async (t, isoDeadline) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, manualDeadline: isoDeadline, deadlineSetBy: acting.id } : x));
+    showToast(isoDeadline ? "Το deadline ορίστηκε" : "Το deadline αφαιρέθηκε");
   };
   const assignTask = async (t, userId) => {
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, assignedTo: userId || null, assignedBy: acting.id } : x));
@@ -589,17 +688,17 @@ ${rules.map(r => "- " + r).join("\n")}
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
         {tab === "today" && <TodayView me={acting} tasks={myTasks} allTasks={tasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
-          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem}
+          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} />}
         {tab === "tasks" && <TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
-          onAssign={assignTask} onDowngrade={downgradeUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} />}
+          onAssign={assignTask} onDowngrade={downgradeUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} />}
         {tab === "new" && <NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} />}
         {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} />}
         {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={downgradeUrgent} onRate={rateTask}
-          onAssign={assignTask} runDistribution={() => runDistribution(true)} effectiveDeadline={effectiveDeadline}
+          onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} effectiveDeadline={effectiveDeadline}
           persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={(u) => { setViewAs(u); setTab("today"); }} realOwner={me.role === "owner"} onDelete={deleteTask}
           onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} />}
       </div>
@@ -675,6 +774,36 @@ function Login({ users, onPick }) {
 }
 
 // ---------- Κάρτα εργασίας ----------
+function FindingsFlow({ t, onLogFinding, onComplete, isMgr, me, setCompleteAsId, setMode, employees, completeAsId }) {
+  const [text, setText] = useState("");
+  const min = t.findMin || 3;
+  const findings = t.findings || [];
+  const canComplete = findings.length >= min;
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 12.5, color: canComplete ? COLORS.green : COLORS.sub, fontWeight: 700, marginBottom: 8 }}>
+        {findings.length}/{min} {tr("εντοπισμένα")} {canComplete ? "✔" : ""}
+      </div>
+      {findings.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          {findings.map((f, i) => (
+            <div key={i} style={{ fontSize: 13.5, padding: "5px 0", borderBottom: i < findings.length - 1 ? `1px dashed ${COLORS.line}` : "none" }}>
+              {i + 1}. {f.desc}
+            </div>
+          ))}
+        </div>
+      )}
+      <textarea value={text} onChange={e => setText(e.target.value)} rows={2} placeholder={tr("Τι εντόπισες; π.χ. Το πόμολο της ντουλάπας στην πλώρη είναι χαλαρό")} style={inputStyle} />
+      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+        <Btn small color={COLORS.teal} onClick={() => { if (!text.trim()) return; onLogFinding(t, text.trim()); setText(""); }}>{tr("Προσθήκη εύρεσης")}</Btn>
+        {canComplete && (
+          <Btn small color={COLORS.green} onClick={() => { if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); } else { onComplete(t); } }}>{tr("Ολοκληρώθηκε ✔")}</Btn>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ChecklistItems({ t, onChecklistItem }) {
   const [probFor, setProbFor] = useState(null);
   const [note, setNote] = useState("");
@@ -713,11 +842,13 @@ function ChecklistItems({ t, onChecklistItem }) {
   );
 }
 
-function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem }) {
+function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onSetDeadline, onAddBeforePhotos, onLogFinding }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign' | 'completeAs'
   const [note, setNote] = useState("");
   const [completeAsId, setCompleteAsId] = useState(null);
+  const [afterPhotos, setAfterPhotos] = useState([]);
+  const afterFileRef = useRef(null);
   const boat = boats.find(b => b.id === t.boatId);
   const dl = deadline(t);
   const du = daysUntil(dl);
@@ -736,7 +867,8 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           <span style={{ background: COLORS.bg, padding: "2px 8px", borderRadius: 6, fontWeight: 600, color: COLORS.navy }}>{boat ? boat.name : tr("Βάση / Άλλο")}</span>
           {t.urgent && <span style={{ color: COLORS.red, fontWeight: 700 }}>🔴 {tr("Επείγον")}</span>}
           {t.purchase && <span style={{ color: COLORS.amber, fontWeight: 700 }}>🛒 {tr("Αγορά")}</span>}
-          {!t.urgent && dl && du !== null && du <= 7 && <span style={{ color: COLORS.amber, fontWeight: 700 }}>⏰ {du <= 0 ? tr("Σήμερα!") : (LANG === "en" ? `in ${du} days` : `σε ${du} μέρες`)}</span>}
+          {t.autoGenerated && <span style={{ color: COLORS.sub, fontWeight: 600 }}>🤖 {tr("αυτόματη")}</span>}
+          {!t.urgent && dl && du !== null && du <= 7 && <span style={{ color: COLORS.amber, fontWeight: 700 }}>⏰ {du <= 0 ? (t.manualDeadline && new Date(dl).getHours() + new Date(dl).getMinutes() > 0 ? `${tr("έως")} ${new Date(dl).toLocaleTimeString(LANG === "en" ? "en-GB" : "el-GR", { hour: "2-digit", minute: "2-digit" })}` : tr("Σήμερα!")) : (LANG === "en" ? `in ${du} days` : `σε ${du} μέρες`)}</span>}
           {dl && (du === null || du > 7) && <span>{tr("έως")} {fmtDate(dl)}</span>}
           {showAssignee && assignee && <span>→ {assignee.name}{t.assignedBy === "AI" ? " (AI)" : ""}</span>}
           {t.returnNote && t.status === "open" && <span style={{ color: COLORS.red }}>↩ {tr("Επιστράφηκε")}</span>}
@@ -759,6 +891,37 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               ))}
             </div>
           )}
+          {(t.photosBefore?.length > 0 || t.photosAfter?.length > 0) && (
+            <div style={{ margin: "10px 0" }}>
+              {t.photosBefore?.length > 0 && (
+                <div style={{ marginBottom: 6 }}>
+                  <div style={{ fontSize: 11.5, color: COLORS.sub, marginBottom: 4 }}>{tr("Πριν")}</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {t.photosBefore.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noreferrer">
+                        <img src={url} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: `1px solid ${COLORS.line}` }} />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {t.photosAfter?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11.5, color: COLORS.sub, marginBottom: 4 }}>{tr("Μετά")}</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {t.photosAfter.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noreferrer">
+                        <img src={url} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: `1px solid ${COLORS.line}` }} />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {t.intensive && t.status === "done" && !(t.photosAfter?.length) && (
+            <div style={{ color: COLORS.amber, fontSize: 12.5, fontWeight: 600, margin: "10px 0" }}>⚠ {tr("Χωρίς φωτογραφία αποτελέσματος")}</div>
+          )}
           {t.progress?.length > 0 && (
             <div style={{ margin: "10px 0", fontSize: 13 }}>
               {(t.progress || []).map((p, i) => (
@@ -771,12 +934,17 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           {Array.isArray(t.checklistItems) && (
             <ChecklistItems t={t} onChecklistItem={onChecklistItem} />
           )}
-          {mode === null && !Array.isArray(t.checklistItems) && (
+          {t.findMode && (
+            <FindingsFlow t={t} onLogFinding={onLogFinding} onComplete={onComplete} isMgr={isMgr} me={me} setCompleteAsId={setCompleteAsId} setMode={setMode} employees={employees} completeAsId={completeAsId} />
+          )}
+          {mode === null && !Array.isArray(t.checklistItems) && !t.findMode && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-              <Btn color={COLORS.green} onClick={() => { if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); } else { onComplete(t); } }}>{tr("Ολοκληρώθηκε ✔")}</Btn>
+              <Btn color={COLORS.green} onClick={() => { if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); } else if (t.intensive) { setMode("completeSimple"); } else { onComplete(t); } }}>{tr("Ολοκληρώθηκε ✔")}</Btn>
               <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
+              {t.intensive && !(t.photosBefore?.length) && <Btn color={COLORS.teal} outline onClick={() => setMode("beforePhoto")}>📷 {tr("Φωτογραφία πριν")}</Btn>}
               <Btn color={COLORS.amber} outline onClick={() => { setMode("external"); setNote(""); }}>{tr("Χρειάζεται ειδικός ⚠")}</Btn>
               {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.sub} outline onClick={() => { setMode("edit"); setNote(t.desc); }}>✎ {tr("Διόρθωση")}</Btn>}
+              {isMgr && <Btn color={COLORS.amber} outline onClick={() => setMode("deadline")}>⏱ {tr("Deadline")}</Btn>}
               {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.red} outline onClick={() => setMode("confirmDel")}>🗑 {tr("Διαγραφή")}</Btn>}
               {(isMgr || canAssign) && <Btn color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>}
               {isMgr && t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>Υποβάθμιση επείγοντος</Btn>}
@@ -803,6 +971,36 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                 <Btn color={COLORS.teal} onClick={() => { if (!note.trim()) return; onEdit(t, note.trim()); setMode(null); }}>{tr("Καταχώρηση")}</Btn>
                 <Btn color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
+              </div>
+            </div>
+          )}
+          {mode === "deadline" && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 8 }}>{tr("Ορισμός προθεσμίας:")}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {[["30′", 30], ["1ω", 60], ["2ω", 120], ["3ω", 180], ["4ω", 240]].map(([label, mins]) => (
+                  <Btn key={mins} small color={COLORS.amber} outline onClick={() => { onSetDeadline(t, new Date(Date.now() + mins * 60000).toISOString()); setMode(null); }}>{label}</Btn>
+                ))}
+                <Btn small color={COLORS.amber} outline onClick={() => { const d = new Date(); d.setHours(18, 0, 0, 0); onSetDeadline(t, d.toISOString()); setMode(null); }}>{tr("Τέλος ημέρας")}</Btn>
+              </div>
+              {t.manualDeadline && (
+                <div style={{ marginTop: 10 }}>
+                  <Btn small color={COLORS.red} outline onClick={() => { onSetDeadline(t, null); setMode(null); }}>{tr("Αφαίρεση προθεσμίας")}</Btn>
+                </div>
+              )}
+              <div style={{ marginTop: 10 }}>
+                <Btn small color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
+              </div>
+            </div>
+          )}
+          {mode === "beforePhoto" && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 12.5, color: COLORS.sub, marginBottom: 6 }}>{tr("Φωτογραφία πριν ξεκινήσεις:")}</div>
+              <input ref={afterFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }}
+                onChange={async e => { const files = Array.from(e.target.files || []); if (files.length) { await onAddBeforePhotos(t, files); } setMode(null); }} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn small color={COLORS.teal} onClick={() => afterFileRef.current?.click()}>📷 {tr("Επιλογή φωτογραφίας")}</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
               </div>
             </div>
           )}
@@ -837,9 +1035,31 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                 <Btn small color={completeAsId === me.id ? COLORS.teal : COLORS.navy} outline={completeAsId !== me.id}
                   onClick={() => setCompleteAsId(me.id)}>{tr("Εγώ")} ({me.name})</Btn>
               </div>
+              {t.intensive && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 12.5, color: COLORS.sub, marginBottom: 6 }}>{tr("Φωτογραφία αποτελέσματος (προαιρετικό):")}</div>
+                  <input ref={afterFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }}
+                    onChange={e => setAfterPhotos(prev => [...prev, ...Array.from(e.target.files || [])])} />
+                  <Btn small color={COLORS.teal} outline onClick={() => afterFileRef.current?.click()}>📷 {tr("Προσθήκη φωτογραφίας")}</Btn>
+                  {afterPhotos.length > 0 && <span style={{ fontSize: 12.5, color: COLORS.sub, marginLeft: 8 }}>{afterPhotos.length} {tr("επιλεγμένες")}</span>}
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <Btn color={COLORS.green} onClick={() => { onComplete(t, completeAsId); setMode(null); setOpen(false); }}>{tr("Επιβεβαίωση ✔")}</Btn>
-                <Btn color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
+                <Btn color={COLORS.green} onClick={() => { onComplete(t, completeAsId, afterPhotos); setMode(null); setOpen(false); setAfterPhotos([]); }}>{tr("Επιβεβαίωση ✔")}</Btn>
+                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); }}>{tr("Άκυρο")}</Btn>
+              </div>
+            </div>
+          )}
+          {mode === "completeSimple" && !isMgr && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 12.5, color: COLORS.sub, marginBottom: 6 }}>{tr("Φωτογραφία αποτελέσματος (προαιρετικό, αλλά συνιστάται):")}</div>
+              <input ref={afterFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }}
+                onChange={e => setAfterPhotos(prev => [...prev, ...Array.from(e.target.files || [])])} />
+              <Btn small color={COLORS.teal} outline onClick={() => afterFileRef.current?.click()}>📷 {tr("Προσθήκη φωτογραφίας")}</Btn>
+              {afterPhotos.length > 0 && <span style={{ fontSize: 12.5, color: COLORS.sub, marginLeft: 8 }}>{afterPhotos.length} {tr("επιλεγμένες")}</span>}
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <Btn color={COLORS.green} onClick={() => { onComplete(t, null, afterPhotos); setMode(null); setOpen(false); setAfterPhotos([]); }}>{tr("Επιβεβαίωση ✔")}</Btn>
+                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); }}>{tr("Άκυρο")}</Btn>
               </div>
             </div>
           )}
@@ -1109,7 +1329,7 @@ function MyAbsences({ me, absences, onAdd, onDelete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
+function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onAddBeforePhotos, onLogFinding, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
       <ExternalReminders me={me} tasks={allTasks} boats={boats} onAck={onAckExternal} onProgress={onProgress} onCloseExternal={onCloseExternal} onDelete={onDelete} onEdit={onEdit} />
@@ -1121,12 +1341,12 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
       <SectionTitle>{tr("Οι εργασίες μου")} — {new Date().toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { weekday: "long", day: "numeric", month: "long" })}</SectionTitle>
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} />)}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} />)}
     </div>
   );
 }
 
-function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, onChecklistItem }) {
+function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, onChecklistItem, onSetDeadline, onAddBeforePhotos, onLogFinding }) {
   const [boatFilter, setBoatFilter] = useState("");
   const shown = boatFilter ? tasks.filter(t => t.boatId === boatFilter || (boatFilter === "other" && !t.boatId)) : tasks;
   return (
@@ -1139,7 +1359,7 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
       </select>
       {shown.length === 0 && <Empty>{tr("Καμία εργασία εδώ.")}</Empty>}
       {shown.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} />)}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} />)}
     </div>
   );
 }
@@ -1390,6 +1610,7 @@ function AdminView(props) {
   const sections = [
     ["overview", "Επισκόπηση"], ["control", "Έλεγχος"], ["boats", "Σκάφη"],
     ["lists", "Λίστες"], ["absences", "Απουσίες"], ["stats", "Στατιστικά"], ["ai", "AI"],
+    ["profiles", "Προφίλ"],
     ...(isOwner ? [["usersS", "Χρήστες"]] : []),
   ];
   return (
@@ -1410,6 +1631,7 @@ function AdminView(props) {
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} />}
+      {section === "profiles" && <ProfilesView users={users} />}
       {section === "usersS" && isOwner && <UsersAdmin users={users} persistUsers={persistUsers} me={me} onViewAs={realOwner ? onViewAs : null} />}
     </div>
   );
@@ -1433,7 +1655,7 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
       const absDaysFor = (uid) => (absences || []).filter(a => a.userId === uid && a.from <= todayStr() && a.to >= fromStr)
         .reduce((s, a) => s + 1, 0);
       const data = team.map(u => {
-        const done = tasks.filter(t => t.completedBy === u.id && t.status === "done" && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})${t.returns ? " [επιστράφηκε " + t.returns + "x]" : ""}${t.rating ? ` [αξιολόγηση manager: ${t.rating}/5]` : ""}`);
+        const done = tasks.filter(t => t.completedBy === u.id && t.status === "done" && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})${t.returns ? " [επιστράφηκε " + t.returns + "x]" : ""}${t.rating ? ` [αξιολόγηση manager: ${t.rating}/5]` : ""}${t.autoGenerated ? " [αυτόματη ανάθεση χαμηλού φόρτου]" : ""}${t.intensive && !(t.photosAfter?.length) ? " [ΧΩΡΙΣ φωτογραφία αποτελέσματος, παρότι ζητήθηκε]" : ""}`);
         const prog = tasks.reduce((s2, t) => s2 + (t.progress || []).filter(p => p.by === u.id && inW(p.at)).length, 0);
         const found = tasks.filter(t => t.createdBy === u.id && inW(t.createdAt)).length;
         const absPeriods = (absences || []).filter(a => a.userId === u.id && a.from <= todayStr() && a.to >= fromStr).map(a => `${fmtDate(a.from)}–${fmtDate(a.to)}${a.note ? " (" + a.note + ")" : ""}`);
@@ -1441,7 +1663,7 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
         return `${u.name}: Ολοκλήρωσε [${done.join("; ") || "τίποτα"}]. Πρόοδοι σε μεγάλες εργασίες: ${prog}. Εντόπισε/κατέγραψε νέες: ${found}.${absNote}`;
       }).join("\n");
       const prompt = `Είσαι σύμβουλος απόδοσης ομάδας σε βάση σκαφών charter. Γράψε ΣΥΝΟΠΤΙΚΗ εβδομαδιαία αναφορά (150-250 λέξεις, ελληνικά) για τη διοίκηση, με βάση τα δεδομένα.
-ΟΔΗΓΙΕΣ: Κρίνε κάθε ολοκληρωμένη εργασία με συντελεστή βαρύτητας 1-5 (1=ασήμαντη π.χ. βίδωμα/λάμπα/απλό πλύσιμο, 5=βαριά π.χ. αλλαγή θερμοσίφωνα, στεγανοποίηση παραθύρων, επισκευή μηχανισμών). Όπου υπάρχει "αξιολόγηση manager" σε μια εργασία, αυτή είναι η δική του κρίση για την ΠΟΙΟΤΗΤΑ εκτέλεσης (1=κακή, 5=άριστη) — συνυπολόγισέ την ΞΕΧΩΡΙΣΤΑ από τη δική σου εκτίμηση βαρύτητας, καθώς αντικατοπτρίζει άμεση επιτόπια κρίση. Σύγκρινε κάθε άτομο με τον μέσο όρο της ομάδας σε ΣΤΑΘΜΙΣΜΕΝΟ έργο (όχι σκέτο πλήθος). Επισήμανε μοτίβα: ποιος σηκώνει βαριές δουλειές, ποιος διαλέγει μόνο εύκολες (π.χ. μόνο πλυσίματα), ποιος έχει χαμηλή παραγωγή, ποιος εντοπίζει προβλήματα, επιστροφές ατελών, χαμηλές/υψηλές αξιολογήσεις manager. Ευθύς αλλά δίκαιος. ΣΗΜΑΝΤΙΚΟ: αν κάποιος είχε δηλωμένη απουσία μέρος ή όλη την εβδομάδα, ΜΗΝ τον συγκρίνεις άδικα με όσους ήταν παρόντες όλη την εβδομάδα — ανάφερε ουδέτερα ότι απουσίαζε τις συγκεκριμένες μέρες και αξιολόγησε μόνο τις μέρες παρουσίας του.
+ΟΔΗΓΙΕΣ: Κρίνε κάθε ολοκληρωμένη εργασία με συντελεστή βαρύτητας 1-5 (1=ασήμαντη π.χ. βίδωμα/λάμπα/απλό πλύσιμο, 5=βαριά π.χ. αλλαγή θερμοσίφωνα, στεγανοποίηση παραθύρων, επισκευή μηχανισμών). Όπου υπάρχει "αξιολόγηση manager" σε μια εργασία, αυτή είναι η δική του κρίση για την ΠΟΙΟΤΗΤΑ εκτέλεσης (1=κακή, 5=άριστη) — συνυπολόγισέ την ΞΕΧΩΡΙΣΤΑ από τη δική σου εκτίμηση βαρύτητας, καθώς αντικατοπτρίζει άμεση επιτόπια κρίση. Οι εργασίες με ένδειξη "αυτόματη ανάθεση χαμηλού φόρτου" δόθηκαν επειδή ο υπάλληλος δεν είχε άλλη δουλειά εκείνη τη στιγμή — μέτρα τες κανονικά αλλά μην τις θεωρήσεις σημάδι χαμηλής απόδοσης από μόνες τους. Η ένδειξη "ΧΩΡΙΣ φωτογραφία αποτελέσματος" σε εργασία που τη ζητούσε είναι αρνητικό σημάδι — ο υπάλληλος δεν τεκμηρίωσε τη δουλειά του παρότι έπρεπε· ανάφερέ το. Σύγκρινε κάθε άτομο με τον μέσο όρο της ομάδας σε ΣΤΑΘΜΙΣΜΕΝΟ έργο (όχι σκέτο πλήθος). Επισήμανε μοτίβα: ποιος σηκώνει βαριές δουλειές, ποιος διαλέγει μόνο εύκολες (π.χ. μόνο πλυσίματα), ποιος έχει χαμηλή παραγωγή, ποιος εντοπίζει προβλήματα, επιστροφές ατελών, χαμηλές/υψηλές αξιολογήσεις manager, λείπουσες φωτογραφίες τεκμηρίωσης. Ευθύς αλλά δίκαιος. ΣΗΜΑΝΤΙΚΟ: αν κάποιος είχε δηλωμένη απουσία μέρος ή όλη την εβδομάδα, ΜΗΝ τον συγκρίνεις άδικα με όσους ήταν παρόντες όλη την εβδομάδα — ανάφερε ουδέτερα ότι απουσίαζε τις συγκεκριμένες μέρες και αξιολόγησε μόνο τις μέρες παρουσίας του.
 ΔΕΔΟΜΕΝΑ ΕΒΔΟΜΑΔΑΣ:\n${data}`;
       const text = await askClaude(prompt, 900);
       if (text) { await save("weekly-report-" + weekKey, { text, at: new Date().toISOString() }); setRep({ text }); if (!auto) setOpen(true); }
@@ -1536,9 +1758,10 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
   const [noteFor, setNoteFor] = useState(null);
   const [note, setNote] = useState("");
   const [confirmId, setConfirmId] = useState(null);
+  const [showAllDone, setShowAllDone] = useState(false);
   const external = tasks.filter(t => t.status === "external");
   const urgent = tasks.filter(t => t.status === "open" && t.urgent);
-  const recentDone = tasks.filter(t => t.status === "done").sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || "")).slice(0, 15);
+  const recentDone = tasks.filter(t => t.status === "done" && t.completedAt && (Date.now() - new Date(t.completedAt).getTime()) <= 7 * 24 * 60 * 60 * 1000).sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
   const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
   const un = (id) => users.find(u => u.id === id)?.name || "";
   const DelBtn = ({ t }) => confirmId === t.id ? (
@@ -1585,7 +1808,7 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
 
       <SectionTitle>Πρόσφατα ολοκληρωμένες — έλεγχος ποιότητας</SectionTitle>
       {recentDone.length === 0 && <Empty>Τίποτα ολοκληρωμένο ακόμα.</Empty>}
-      {recentDone.map(t => (
+      {(showAllDone ? recentDone : recentDone.slice(0, 3)).map(t => (
         <div key={t.id} style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 10, fontSize: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
             <div style={{ fontWeight: 600 }}>{t.desc} — {bn(t.boatId)}</div>
@@ -1612,6 +1835,11 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
           </div>
         </div>
       ))}
+      {recentDone.length > 3 && (
+        <Btn small color={COLORS.navy} outline onClick={() => setShowAllDone(!showAllDone)}>
+          {showAllDone ? "Λιγότερα ▲" : `Δείξε κι άλλα (${recentDone.length - 3} ακόμα) ▼`}
+        </Btn>
+      )}
     </div>
   );
 }
@@ -1896,6 +2124,25 @@ function AiSearch({ tasks, boats }) {
         <div style={{ marginTop: 10 }}><Btn color={COLORS.teal} onClick={run}>{busy ? "Ψάχνω…" : "Ρώτησε"}</Btn></div>
         {ans && <div style={{ marginTop: 12, fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap", background: COLORS.bg, borderRadius: 10, padding: 12 }}>{ans}</div>}
       </div>
+    </div>
+  );
+}
+
+function ProfilesView({ users }) {
+  const roleLabel = (r) => r === "manager" ? "Base Manager" : r === "owner" ? "Δημιουργός" : r === "associate" ? "Στέλεχος" : "Υπάλληλος";
+  const shown = users.filter(u => u.role === "employee" || u.role === "associate");
+  return (
+    <div>
+      <SectionTitle>Προφίλ υπαλλήλων</SectionTitle>
+      {shown.length === 0 && <Empty>Κανένα προφίλ ακόμα.</Empty>}
+      {shown.map(u => (
+        <div key={u.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
+          <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{roleLabel(u.role)}</span>
+          <div style={{ fontSize: 13, color: u.profile ? COLORS.text : COLORS.sub, marginTop: 4 }}>
+            {u.profile || "Χωρίς καταχωρημένο προφίλ."}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
