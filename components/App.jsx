@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.3";
+const APP_VERSION = "v3.5";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -21,7 +21,7 @@ const COLORS = {
 };
 
 const SEED_USERS = [
-  { id: "u-owner", name: "Owner", role: "owner", profile: "Ιδιοκτήτης εφαρμογής", code: "OWN-7301" },
+  { id: "u-owner", name: "Εριόν", role: "owner", profile: "Ιδιοκτήτης εφαρμογής", code: "OWN-7301" },
   { id: "u-vasilis", name: "Βασίλης", role: "employee", profile: "", code: "VAS-4821" },
   { id: "u-mitsos", name: "Μήτσος", role: "employee", profile: "", code: "MIT-9354" },
   { id: "u-fanouris", name: "Φανούρης", role: "employee", profile: "", code: "FAN-2768" },
@@ -229,6 +229,13 @@ export default function App() {
         u = u.map(x => (x.name || "").toLowerCase().replace(/ί/g, "ι").trim() === "αφροδιτη" ? { ...x, role: "manager" } : x);
         await save("app-users", u);
         await save("app-roles-v9", true);
+      }
+      // Μετάβαση v10 (μία φορά): ο "Owner" γίνεται "Εριόν"
+      const v10done = await load("app-owner-rename-v10", false);
+      if (!v10done) {
+        u = u.map(x => x.role === "owner" && x.name === "Owner" ? { ...x, name: "Εριόν" } : x);
+        await save("app-users", u);
+        await save("app-owner-rename-v10", true);
       }
       // Μετάβαση v4 (μία φορά): εξαίρεση από στατιστικά/αξιολόγηση
       const v4done = await load("app-nostats-v4", false);
@@ -540,7 +547,7 @@ ${rules.map(r => "- " + r).join("\n")}
       {viewAs && (
         <div style={{ background: COLORS.amber, color: "#3A2600", padding: "9px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13.5, fontWeight: 700 }}>
           👁 Προβολή ως: {viewAs.name}
-          <button onClick={() => { setViewAs(null); setTab("admin"); }} style={{ border: "1.5px solid #3A2600", background: "transparent", color: "#3A2600", borderRadius: 8, padding: "5px 10px", fontWeight: 700 }}>Επιστροφή σε Owner</button>
+          <button onClick={() => { setViewAs(null); setTab("admin"); }} style={{ border: "1.5px solid #3A2600", background: "transparent", color: "#3A2600", borderRadius: 8, padding: "5px 10px", fontWeight: 700 }}>Επιστροφή σε Εριόν</button>
         </div>
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
@@ -567,7 +574,7 @@ ${rules.map(r => "- " + r).join("\n")}
 const Center = ({ children }) => <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: COLORS.bg }}>{children}</div>;
 
 function Header({ me, onLogout }) {
-  const roleLabel = me.role === "owner" ? "Owner" : me.role === "manager" ? "Base Manager" : me.role === "associate" ? "Στέλεχος" : tr("Συνεργείο βάσης");
+  const roleLabel = me.role === "owner" ? "Εριόν" : me.role === "manager" ? "Base Manager" : me.role === "associate" ? "Στέλεχος" : tr("Συνεργείο βάσης");
   return (
     <div style={{ background: COLORS.navy, color: "#fff", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div>
@@ -1578,7 +1585,7 @@ function UsersAdmin({ users, persistUsers, me, onViewAs }) {
         <div key={u.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{u.role === "manager" ? "Base Manager" : u.role === "owner" ? "Owner" : u.role === "associate" ? "Στέλεχος" : "Υπάλληλος"}</span>
+              <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{u.role === "manager" ? "Base Manager" : u.role === "owner" ? "Δημιουργός" : u.role === "associate" ? "Στέλεχος" : "Υπάλληλος"}</span>
               <div style={{ fontSize: 12.5, marginTop: 2 }}>
                 Κωδικός: <b style={{ letterSpacing: 1 }}>{u.code}</b>{" "}
                 <button onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, code: genCode(x.name) } : x))}
