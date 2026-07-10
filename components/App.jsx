@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.9";
+const APP_VERSION = "v3.10";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -585,7 +585,7 @@ ${rules.map(r => "- " + r).join("\n")}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
         {tab === "today" && <TodayView me={acting} tasks={myTasks} allTasks={tasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem}
-          absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} />}
+          absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} />}
         {tab === "tasks" && <TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
           onAssign={assignTask} onDowngrade={downgradeUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} />}
@@ -894,8 +894,10 @@ function DeparturesWidget({ boats }) {
   );
 }
 
-function ExternalReminders({ me, tasks, boats, onAck }) {
+function ExternalReminders({ me, tasks, boats, onAck, onProgress, onCloseExternal, onDelete, onEdit }) {
   const allowed = me.role === "owner" || ["Φανούρης", "Αλέξανδρος"].includes(me.name);
+  const [mode, setMode] = useState(null); // { taskId, kind: 'progress'|'complete'|'confirmDel'|'edit' }
+  const [note, setNote] = useState("");
   if (!allowed) return null;
   const threeDaysAgo = Date.now() - 3 * 24 * 3600 * 1000;
   const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
@@ -906,20 +908,67 @@ function ExternalReminders({ me, tasks, boats, onAck }) {
     return new Date(ackAt).getTime() < threeDaysAgo;
   });
   if (shown.length === 0) return null;
+  const startMode = (taskId, kind, prefill = "") => { setMode({ taskId, kind }); setNote(prefill); };
+  const cancelMode = () => { setMode(null); setNote(""); };
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8A5A00", marginBottom: 6 }}>⚠ Εκκρεμούν εξωτερικοί συνεργάτες ({shown.length})</div>
-      {shown.map(t => (
-        <div key={t.id} style={{ background: "#FFF7E8", borderRadius: 10, padding: "10px 12px", marginBottom: 6, fontSize: 13.5 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+      {shown.map(t => {
+        const m = mode?.taskId === t.id ? mode.kind : null;
+        return (
+          <div key={t.id} style={{ background: "#FFF7E8", borderRadius: 10, padding: "10px 12px", marginBottom: 6, fontSize: 13.5 }}>
             <div><b>{t.desc}</b> — {bn(t.boatId)}</div>
+            {t.externalNote && <div style={{ color: "#8A5A00", fontSize: 12.5, marginTop: 3 }}>{t.externalNote}</div>}
+            {t.progress?.length > 0 && (
+              <div style={{ marginTop: 6, fontSize: 12.5, color: "#5B4A00" }}>
+                {t.progress.map((p, i) => <div key={i}>✏ {fmtDate(p.at)}: {p.note}</div>)}
+              </div>
+            )}
+            {m === null && (
+              <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Btn small color={COLORS.green} onClick={() => startMode(t.id, "complete")}>✔ Ολοκληρώθηκε</Btn>
+                <Btn small color={COLORS.teal} outline onClick={() => startMode(t.id, "progress")}>➕ Πρόοδος</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => startMode(t.id, "edit", t.desc)}>✎ Διόρθωση</Btn>
+                <Btn small color={COLORS.red} outline onClick={() => startMode(t.id, "confirmDel")}>🗑 Διαγραφή</Btn>
+                <Btn small color={COLORS.amber} outline onClick={() => onAck(t)}>👁 Το γνωρίζω</Btn>
+              </div>
+            )}
+            {(m === "progress" || m === "complete") && (
+              <div style={{ marginTop: 8 }}>
+                <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
+                  placeholder={m === "complete" ? "π.χ. Ο μηχανικός ολοκλήρωσε την επισκευή" : "π.χ. Ο μηχανικός έφτιαξε το μισό, θα ξανάρθει την Πέμπτη"}
+                  style={inputStyle} />
+                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                  <Btn small color={COLORS.teal} onClick={() => {
+                    if (!note.trim()) return;
+                    if (m === "complete") onCloseExternal(t, note.trim()); else onProgress(t, note.trim());
+                    cancelMode();
+                  }}>Καταχώρηση</Btn>
+                  <Btn small color={COLORS.sub} outline onClick={cancelMode}>Άκυρο</Btn>
+                </div>
+              </div>
+            )}
+            {m === "edit" && (
+              <div style={{ marginTop: 8 }}>
+                <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} style={inputStyle} />
+                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                  <Btn small color={COLORS.teal} onClick={() => { if (!note.trim()) return; onEdit(t, note.trim()); cancelMode(); }}>Καταχώρηση</Btn>
+                  <Btn small color={COLORS.sub} outline onClick={cancelMode}>Άκυρο</Btn>
+                </div>
+              </div>
+            )}
+            {m === "confirmDel" && (
+              <div style={{ marginTop: 8, background: "#FDECEA", borderRadius: 8, padding: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#8A1C12", marginBottom: 6 }}>Διαγραφή εργασίας; Δεν αναιρείται.</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn small color={COLORS.red} onClick={() => { onDelete(t); cancelMode(); }}>Ναι, διαγραφή</Btn>
+                  <Btn small color={COLORS.sub} outline onClick={cancelMode}>Άκυρο</Btn>
+                </div>
+              </div>
+            )}
           </div>
-          {t.externalNote && <div style={{ color: "#8A5A00", fontSize: 12.5, marginTop: 3 }}>{t.externalNote}</div>}
-          <div style={{ marginTop: 8 }}>
-            <Btn small color={COLORS.amber} outline onClick={() => onAck(t)}>👁 Το γνωρίζω</Btn>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -1036,10 +1085,10 @@ function MyAbsences({ me, absences, onAdd, onDelete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal }) {
+function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
-      <ExternalReminders me={me} tasks={allTasks} boats={boats} onAck={onAckExternal} />
+      <ExternalReminders me={me} tasks={allTasks} boats={boats} onAck={onAckExternal} onProgress={onProgress} onCloseExternal={onCloseExternal} onDelete={onDelete} onEdit={onEdit} />
       <MyNotes me={me} notes={notes} users={users} />
       <DailyGreeting me={me} />
       <DeparturesWidget boats={boats} />
