@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.5";
+const APP_VERSION = "v3.6";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -741,9 +741,10 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               {isMgr && t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>Υποβάθμιση επείγοντος</Btn>}
             </div>
           )}
-          {Array.isArray(t.checklistItems) && (isMgr || canAssign) && mode !== "assign" && (
-            <div style={{ marginTop: 10 }}>
-              <Btn small color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>
+          {Array.isArray(t.checklistItems) && mode !== "assign" && mode !== "confirmDel" && (
+            <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {(isMgr || canAssign) && <Btn small color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>}
+              {isMgr && <Btn small color={COLORS.red} outline onClick={() => setMode("confirmDel")}>🗑 {tr("Διαγραφή")}</Btn>}
             </div>
           )}
           {mode === "confirmDel" && (
