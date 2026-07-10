@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.0";
+const APP_VERSION = "v3.1";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -520,7 +520,7 @@ ${rules.map(r => "- " + r).join("\n")}
     const da = effectiveDeadline(a), db = effectiveDeadline(b);
     if (da && db) return da.localeCompare(db);
     if (da) return -1; if (db) return 1;
-    return b.createdAt.localeCompare(a.createdAt);
+    return (b.createdAt || "").localeCompare(a.createdAt || "");
   });
 
   const myTasks = sortTasks(tasks.filter(t => t.status === "open" && t.assignedTo === acting.id));
