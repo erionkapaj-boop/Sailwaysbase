@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.1";
+const APP_VERSION = "v3.3";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -499,7 +499,7 @@ ${rules.map(r => "- " + r).join("\n")}
       };
       base = [newTask, ...tasks];
     }
-    const items = task.checklistItems.map(it => it.id === itemId ? { ...it, status: outcome, problemTaskId: outcome === "problem" ? newTaskId : null } : it);
+    const items = (Array.isArray(task.checklistItems) ? task.checklistItems : []).map(it => it.id === itemId ? { ...it, status: outcome, problemTaskId: outcome === "problem" ? newTaskId : null } : it);
     const allResolved = items.every(it => it.status !== "pending");
     const next = base.map(t2 => t2.id === task.id ? {
       ...t2, checklistItems: items,
@@ -550,12 +550,12 @@ ${rules.map(r => "- " + r).join("\n")}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
           onAssign={assignTask} onDowngrade={downgradeUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} />}
         {tab === "new" && <NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} />}
-        {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} />}
+        {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} />}
         {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={downgradeUrgent}
           onAssign={assignTask} runDistribution={() => runDistribution(true)} effectiveDeadline={effectiveDeadline}
-          persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={(u) => { setViewAs(u); setTab("today"); }} realOwner={me.role === "owner"} />}
+          persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={(u) => { setViewAs(u); setTab("today"); }} realOwner={me.role === "owner"} onDelete={deleteTask} />}
       </div>
       <TabBar tabs={tabs} tab={tab} setTab={setTab} />
       {toast && <div style={{ position: "fixed", bottom: 86, left: "50%", transform: "translateX(-50%)", background: COLORS.navy, color: "#fff", padding: "10px 18px", borderRadius: 24, fontSize: 14, zIndex: 50, maxWidth: "90%" }}>{toast}</div>}
@@ -632,11 +632,12 @@ function Login({ users, onPick }) {
 function ChecklistItems({ t, onChecklistItem }) {
   const [probFor, setProbFor] = useState(null);
   const [note, setNote] = useState("");
-  const doneCount = t.checklistItems.filter(it => it.status !== "pending").length;
+  const items = Array.isArray(t.checklistItems) ? t.checklistItems : [];
+  const doneCount = items.filter(it => it.status !== "pending").length;
   return (
     <div style={{ marginTop: 10 }}>
-      <div style={{ fontSize: 12.5, color: COLORS.sub, fontWeight: 700, marginBottom: 6 }}>{doneCount}/{t.checklistItems.length} ελέγχθηκαν</div>
-      {t.checklistItems.map(it => (
+      <div style={{ fontSize: 12.5, color: COLORS.sub, fontWeight: 700, marginBottom: 6 }}>{doneCount}/{items.length} ελέγχθηκαν</div>
+      {items.map(it => (
         <div key={it.id} style={{ borderBottom: `1px dashed ${COLORS.line}`, padding: "8px 0" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>
@@ -703,7 +704,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           )}
           {t.photos?.length > 0 && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "10px 0" }}>
-              {t.photos.map((url, i) => (
+              {(t.photos || []).map((url, i) => (
                 <a key={i} href={url} target="_blank" rel="noreferrer">
                   <img src={url} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: `1px solid ${COLORS.line}` }} />
                 </a>
@@ -712,17 +713,17 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           )}
           {t.progress?.length > 0 && (
             <div style={{ margin: "10px 0", fontSize: 13 }}>
-              {t.progress.map((p, i) => (
-                <div key={i} style={{ padding: "5px 0", borderBottom: i < t.progress.length - 1 ? `1px dashed ${COLORS.line}` : "none", color: COLORS.sub }}>
+              {(t.progress || []).map((p, i) => (
+                <div key={i} style={{ padding: "5px 0", borderBottom: i < (t.progress || []).length - 1 ? `1px dashed ${COLORS.line}` : "none", color: COLORS.sub }}>
                   ✏ {fmtDate(p.at)}: {p.note}{isMgr ? ` — ${users.find(u => u.id === p.by)?.name || ""}` : ""}
                 </div>
               ))}
             </div>
           )}
-          {t.checklistItems && (
+          {Array.isArray(t.checklistItems) && (
             <ChecklistItems t={t} onChecklistItem={onChecklistItem} />
           )}
-          {mode === null && !t.checklistItems && (
+          {mode === null && !Array.isArray(t.checklistItems) && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
               <Btn color={COLORS.green} onClick={() => onComplete(t)}>{tr("Ολοκληρώθηκε ✔")}</Btn>
               <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
@@ -733,7 +734,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               {isMgr && t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>Υποβάθμιση επείγοντος</Btn>}
             </div>
           )}
-          {t.checklistItems && (isMgr || canAssign) && mode !== "assign" && (
+          {Array.isArray(t.checklistItems) && (isMgr || canAssign) && mode !== "assign" && (
             <div style={{ marginTop: 10 }}>
               <Btn small color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>
             </div>
@@ -1076,8 +1077,9 @@ function VoiceEntry({ boats, onAddParsed }) {
   );
 }
 
-function ServiceBook({ boats, tasks, users, isMgr }) {
+function ServiceBook({ boats, tasks, users, isMgr, onDelete }) {
   const [boatId, setBoatId] = useState("");
+  const [confirmId, setConfirmId] = useState(null);
   const done = tasks.filter(t => t.status === "done" && (boatId ? t.boatId === boatId : true))
     .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
   return (
@@ -1092,7 +1094,12 @@ function ServiceBook({ boats, tasks, users, isMgr }) {
         const boat = boats.find(b => b.id === t.boatId);
         return (
           <div key={t.id} style={{ background: COLORS.card, borderRadius: 10, padding: "11px 14px", marginBottom: 8, fontSize: 14 }}>
-            <div style={{ fontWeight: 600 }}>{t.desc}</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+              <div style={{ fontWeight: 600 }}>{t.desc}</div>
+              {isMgr && confirmId !== t.id && (
+                <button onClick={() => setConfirmId(t.id)} style={{ border: "none", background: "none", color: COLORS.red, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", padding: "2px 4px" }}>🗑</button>
+              )}
+            </div>
             <div style={{ fontSize: 12.5, color: COLORS.sub, marginTop: 3 }}>
               {boat ? boat.name : tr("Βάση / Άλλο")} · {fmtDate(t.completedAt)}
               {t.closedAsExternal && " · " + tr("εξωτερικός συνεργάτης")}
@@ -1100,6 +1107,12 @@ function ServiceBook({ boats, tasks, users, isMgr }) {
               {isMgr && t.returns > 0 && ` · ↩ ${t.returns} επιστροφή/ές`}
               {t.checklistItems && (() => { const p = t.checklistItems.filter(it => it.status === "problem").length; return p > 0 ? ` · ⚠ ${p} σημεία με πρόβλημα` : " · ✔ όλα εντάξει"; })()}
             </div>
+            {confirmId === t.id && (
+              <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                <Btn small color={COLORS.red} onClick={() => { onDelete(t); setConfirmId(null); }}>{tr("Ναι, διαγραφή")}</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => setConfirmId(null)}>{tr("Άκυρο")}</Btn>
+              </div>
+            )}
           </div>
         );
       })}
@@ -1130,7 +1143,7 @@ function AdminView(props) {
         ))}
       </div>
       {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} users={users} me={me} />}
-      {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} />}
+      {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onDelete={props.onDelete} />}
       {section === "boats" && <BoatsAdmin boats={boats} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} persistQuick={persistQuick} persistChecklist={persistChecklist} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
@@ -1244,21 +1257,31 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, users, me 
   );
 }
 
-function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngrade }) {
+function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngrade, onDelete }) {
   const [noteFor, setNoteFor] = useState(null);
   const [note, setNote] = useState("");
+  const [confirmId, setConfirmId] = useState(null);
   const external = tasks.filter(t => t.status === "external");
   const urgent = tasks.filter(t => t.status === "open" && t.urgent);
   const recentDone = tasks.filter(t => t.status === "done").sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || "")).slice(0, 15);
   const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
   const un = (id) => users.find(u => u.id === id)?.name || "";
+  const DelBtn = ({ t }) => confirmId === t.id ? (
+    <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+      <Btn small color={COLORS.red} onClick={() => { onDelete(t); setConfirmId(null); }}>Ναι, διαγραφή</Btn>
+      <Btn small color={COLORS.sub} outline onClick={() => setConfirmId(null)}>Άκυρο</Btn>
+    </div>
+  ) : <button onClick={() => setConfirmId(t.id)} style={{ border: "none", background: "none", color: COLORS.red, fontSize: 12, fontWeight: 700, padding: "2px 4px" }}>🗑</button>;
   return (
     <div>
       <SectionTitle>⚠ Εκκρεμούν εξωτερικοί συνεργάτες ({external.length})</SectionTitle>
       {external.length === 0 && <Empty>Καμία εκκρεμότητα εξωτερικού.</Empty>}
       {external.map(t => (
         <div key={t.id} style={{ background: "#FFF7E8", borderRadius: 12, padding: 14, marginBottom: 10, fontSize: 14 }}>
-          <div style={{ fontWeight: 700 }}>{t.desc} — {bn(t.boatId)}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div style={{ fontWeight: 700 }}>{t.desc} — {bn(t.boatId)}</div>
+            <DelBtn t={t} />
+          </div>
           <div style={{ color: COLORS.sub, fontSize: 13, margin: "4px 0 8px" }}>{un(t.externalBy)} ({fmtDate(t.externalAt)}): {t.externalNote}</div>
           {noteFor === t.id ? (
             <div>
@@ -1276,7 +1299,10 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
       {urgent.length === 0 && <Empty>Κανένα ενεργό επείγον.</Empty>}
       {urgent.map(t => (
         <div key={t.id} style={{ background: "#FDECEA", borderRadius: 12, padding: 14, marginBottom: 10, fontSize: 14 }}>
-          <div style={{ fontWeight: 700 }}>{t.desc} — {bn(t.boatId)}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div style={{ fontWeight: 700 }}>{t.desc} — {bn(t.boatId)}</div>
+            <DelBtn t={t} />
+          </div>
           <div style={{ color: COLORS.sub, fontSize: 13, margin: "4px 0 8px" }}>Καταχώρηση: {un(t.createdBy)}, {fmtDate(t.createdAt)}</div>
           <Btn small color={COLORS.red} outline onClick={() => onDowngrade(t)}>Υποβάθμιση σε κανονική</Btn>
         </div>
@@ -1286,7 +1312,10 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
       {recentDone.length === 0 && <Empty>Τίποτα ολοκληρωμένο ακόμα.</Empty>}
       {recentDone.map(t => (
         <div key={t.id} style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 10, fontSize: 14 }}>
-          <div style={{ fontWeight: 600 }}>{t.desc} — {bn(t.boatId)}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div style={{ fontWeight: 600 }}>{t.desc} — {bn(t.boatId)}</div>
+            <DelBtn t={t} />
+          </div>
           <div style={{ color: COLORS.sub, fontSize: 13, margin: "3px 0 8px" }}>
             {un(t.completedBy)} · {fmtDate(t.completedAt)}{t.returns > 0 ? ` · ↩ ${t.returns}` : ""}
           </div>
