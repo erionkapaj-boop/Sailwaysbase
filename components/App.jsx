@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.25";
+const APP_VERSION = "v3.26";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -344,10 +344,20 @@ export default function App() {
   const persistAbsences = async (next) => { setAbsences(next); await save("app-absences", next); };
   const persistNotes = async (next) => { setNotes(next); await save("app-notes", next); };
 
+  // Εβδομαδιαίος κύκλος βάσης: Δευτέρα ξεκινά η εβδομάδα, Κυριακή δεν είναι εργάσιμη, Παρασκευή επιστρέφουν ναύλα και Σάββατο φεύγουν νέα — άρα Σάββατο προτεραιότητα στο κλείσιμο υπαρχουσών εργασιών, όχι σε άσχετες καινούργιες.
+  const weekdayNote = () => {
+    const day = new Date().getDay(); // 0=Κυρ, 6=Σάβ
+    const names = ["Κυριακή", "Δευτέρα", "Τρίτη", "Τετάρτη", "Πέμπτη", "Παρασκευή", "Σάββατο"];
+    let note = `Σήμερα είναι ${names[day]}. Η εβδομάδα της βάσης ξεκινάει Δευτέρα και τελειώνει Σάββατο· η Κυριακή δεν είναι εργάσιμη μέρα.`;
+    if (day === 6) note += " ΣΗΜΑΝΤΙΚΟ: Σάββατο — τα σκάφη που επέστρεψαν Παρασκευή φεύγουν με νέο ναύλο σήμερα. ΠΡΟΤΕΡΑΙΟΤΗΤΑ στο κλείσιμο υπαρχουσών ανοιχτών εργασιών (ειδικά ό,τι σχετίζεται με ετοιμασία/καθαρισμό σκαφών για αναχώρηση) — ΟΧΙ σε άσχετες νέες εργασίες. Εξαίρεση: μεγάλες εργασίες με σταδιακή πρόοδο μπορούν σκόπιμα να μείνουν ανοιχτές.";
+    return note;
+  };
+
   // Νυχτερινή κατανομή AI: τρέχει στο πρώτο άνοιγμα κάθε νέας μέρας
   useEffect(() => {
     if (!ready || !me) return;
     (async () => {
+      if (new Date().getDay() === 0) return; // Κυριακή — μη εργάσιμη, καμία κατανομή
       const meta = await load("app-meta", {});
       if (meta.lastDistribution === todayStr()) return;
       await save("app-meta", { ...meta, lastDistribution: todayStr() });
@@ -416,6 +426,7 @@ export default function App() {
       const boatName = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
       const loadPer = Object.fromEntries(employees.map(e => [e.id, tasks.filter(t => t.assignedTo === e.id && t.status === "open").length]));
       const prompt = `Είσαι σύστημα κατανομής εργασιών σε βάση σκαφών. Μοίρασε ΜΕΧΡΙ 3 εργασίες ανά υπάλληλο για σήμερα από τις ελεύθερες, με βάση προφίλ, είδος εργασίας και δίκαιο φόρτο. Δεν χρειάζεται να ανατεθούν όλες.
+${weekdayNote()}
 ΑΠΑΡΑΒΑΤΟΙ ΕΙΔΙΚΟΙ ΚΑΝΟΝΕΣ:
 ${rules.map(r => "- " + r).join("\n")}
 Υπάλληλοι: ${employees.map(e => `${e.id}: ${e.name} (τρέχων φόρτος: ${loadPer[e.id]}, προφίλ: ${e.profile || "χωρίς προφίλ"})`).join("; ")}
@@ -452,6 +463,8 @@ ${rules.map(r => "- " + r).join("\n")}
   async function generateAutoTasks(tasksOverride) {
     const src = tasksOverride || tasks;
     const today = todayStr();
+    const dow = new Date().getDay(); // 0=Κυρ, 6=Σάβ
+    if (dow === 0 || dow === 6) return; // Κυριακή μη εργάσιμη· Σάββατο προτεραιότητα κλείσιμο υπαρχουσών, όχι νέες άσχετες
     const employees = users.filter(u => u.role === "employee" && !u.noAutoAssign && !isAbsentOn(u.id, today));
     if (!employees.length) return;
     // Ρυθμός ουράς: αν υπάρχουν ήδη αρκετές ελεύθερες εργασίες σε αναμονή, μην προσθέσεις άλλες.
