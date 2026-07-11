@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.17";
+const APP_VERSION = "v3.18";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -564,9 +564,10 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "done", completedBy: acting.id, completedAt: new Date().toISOString(), closedAsExternal: true, externalCloseNote: note } : x));
     showToast("Έκλεισε (εξωτερικός συνεργάτης) ✔");
   };
-  const downgradeUrgent = async (t) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, urgent: false, downgradedBy: acting.id } : x));
-    showToast("Υποβαθμίστηκε σε κανονική");
+  const toggleUrgent = async (t) => {
+    const next = !t.urgent;
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, urgent: next, ...(next ? { upgradedBy: acting.id } : { downgradedBy: acting.id }) } : x));
+    showToast(next ? "Μαρκαρίστηκε ως επείγον 🔴" : "Υποβαθμίστηκε σε κανονική");
   };
   const deleteTask = async (t) => {
     await persistTasks(tasks.filter(x => x.id !== t.id));
@@ -692,12 +693,12 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} />}
         {tab === "tasks" && <TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
-          onAssign={assignTask} onDowngrade={downgradeUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} />}
+          onAssign={assignTask} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} />}
         {tab === "new" && <NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} />}
         {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} />}
         {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist}
-          setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={downgradeUrgent} onRate={rateTask}
+          setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} effectiveDeadline={effectiveDeadline}
           persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
           onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} />}
@@ -947,6 +948,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               {isMgr && <Btn color={COLORS.amber} outline onClick={() => setMode("deadline")}>⏱ {tr("Deadline")}</Btn>}
               {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.red} outline onClick={() => setMode("confirmDel")}>🗑 {tr("Διαγραφή")}</Btn>}
               {(isMgr || canAssign) && <Btn color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>}
+              {!t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>🔴 {tr("Μαρκάρισμα ως επείγον")}</Btn>}
               {isMgr && t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>Υποβάθμιση επείγοντος</Btn>}
             </div>
           )}
@@ -1406,9 +1408,9 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
         }}>≡ {multi ? tr("Πολλαπλές εργασίες: ΝΑΙ — μία ανά γραμμή") : tr("Πολλαπλές εργασίες μαζί (μία ανά γραμμή)")}</button>
 
         <button onClick={() => setUrgent(!urgent)} style={{
-          marginTop: 12, width: "100%", padding: "11px", borderRadius: 10, fontWeight: 700, fontSize: 14.5,
-          border: `2px solid ${COLORS.red}`, background: urgent ? COLORS.red : "transparent", color: urgent ? "#fff" : COLORS.red,
-        }}>{urgent ? tr("🔴 ΕΠΕΙΓΟΝ — σοβαρό πρόβλημα") : "🔴 " + tr("Μαρκάρισμα ως επείγον (σοβαρό πρόβλημα)")}</button>
+          marginTop: 8, padding: "8px 12px", borderRadius: 9, fontSize: 13, fontWeight: 700,
+          border: `1.5px solid ${COLORS.red}`, background: urgent ? COLORS.red : "transparent", color: urgent ? "#fff" : COLORS.red,
+        }}>🔴 {urgent ? tr("ΕΠΕΙΓΟΝ — σοβαρό πρόβλημα") : tr("Μαρκάρισμα ως επείγον (σοβαρό πρόβλημα)")}</button>
 
         <button onClick={() => setPurchase(!purchase)} style={{
           marginTop: 8, width: "100%", padding: "11px", borderRadius: 10, fontWeight: 700, fontSize: 14.5,
