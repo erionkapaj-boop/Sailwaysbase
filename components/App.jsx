@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.21";
+const APP_VERSION = "v3.22";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -635,6 +635,20 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, assignedTo: userId || null, assignedBy: acting.id } : x));
     showToast(userId ? "Ανατέθηκε" : "Έγινε ελεύθερη");
   };
+  const assignTaskWithDeadline = async (t, userId, minutes) => {
+    const patch = { assignedTo: userId || null, assignedBy: acting.id };
+    if (userId && minutes) {
+      let base = Date.now();
+      const queueEnd = tasks
+        .filter(x => x.id !== t.id && x.assignedTo === userId && x.status === "open" && x.manualDeadline)
+        .reduce((max, x) => Math.max(max, new Date(x.manualDeadline).getTime()), 0);
+      if (queueEnd > base) base = queueEnd;
+      patch.manualDeadline = new Date(base + Number(minutes) * 60000).toISOString();
+      patch.deadlineSetBy = acting.id;
+    }
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, ...patch } : x));
+    showToast(userId ? (patch.manualDeadline ? `Ανατέθηκε — έως ${fmtTime(patch.manualDeadline)}` : "Ανατέθηκε") : "Έγινε ελεύθερη");
+  };
 
   const addAbsence = async (userId, from, to, note) => {
     const a = { id: "ab" + Date.now(), userId, from, to, note: note || "", addedBy: acting.id, addedAt: new Date().toISOString() };
@@ -743,7 +757,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} />}
         {tab === "tasks" && <TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
-          onAssign={assignTask} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} />}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} />}
         {tab === "new" && <NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} />}
         {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} />}
         {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} absences={absences}
@@ -893,12 +907,14 @@ function ChecklistItems({ t, onChecklistItem }) {
   );
 }
 
-function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding }) {
+function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign' | 'completeAs'
   const [note, setNote] = useState("");
   const [completeAsId, setCompleteAsId] = useState(null);
   const [afterPhotos, setAfterPhotos] = useState([]);
+  const [assignMinutes, setAssignMinutes] = useState("");
+  const [customMins, setCustomMins] = useState("");
   const afterFileRef = useRef(null);
   const boat = boats.find(b => b.id === t.boatId);
   const dl = deadline(t);
@@ -1035,6 +1051,10 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                 ))}
                 <Btn small color={COLORS.amber} outline onClick={() => { const d = new Date(); d.setHours(18, 0, 0, 0); onSetDeadline(t, d.toISOString()); setMode(null); }}>{tr("Τέλος ημέρας")}</Btn>
               </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+                <input type="number" min="1" placeholder={tr("Custom (λεπτά)")} value={customMins} onChange={e => setCustomMins(e.target.value)} style={{ ...inputStyle, width: 130 }} />
+                <Btn small color={COLORS.amber} outline onClick={() => { if (customMins) { onSetDeadlineDuration(t, Number(customMins)); setMode(null); setCustomMins(""); } }}>{tr("Ορισμός")}</Btn>
+              </div>
               {t.manualDeadline && (
                 <div style={{ marginTop: 10 }}>
                   <Btn small color={COLORS.red} outline onClick={() => { onSetDeadline(t, null); setMode(null); }}>{tr("Αφαίρεση προθεσμίας")}</Btn>
@@ -1068,12 +1088,18 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
             </div>
           )}
           {mode === "assign" && (isMgr || canAssign) && (
-            <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {users.map(u => (
-                <Btn key={u.id} color={t.assignedTo === u.id ? COLORS.teal : COLORS.navy} outline={t.assignedTo !== u.id}
-                  onClick={() => { onAssign(t, u.id); setMode(null); }}>{u.name}</Btn>
-              ))}
-              <Btn color={COLORS.sub} outline onClick={() => { onAssign(t, null); setMode(null); }}>Ελεύθερη</Btn>
+            <div style={{ marginTop: 10 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                <input type="number" min="1" placeholder={tr("Χρόνος (λεπτά, προαιρετικό)")} value={assignMinutes}
+                  onChange={e => setAssignMinutes(e.target.value)} style={{ ...inputStyle, width: 180 }} />
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {users.map(u => (
+                  <Btn key={u.id} color={t.assignedTo === u.id ? COLORS.teal : COLORS.navy} outline={t.assignedTo !== u.id}
+                    onClick={() => { onAssignWithDeadline(t, u.id, assignMinutes ? Number(assignMinutes) : null); setMode(null); setAssignMinutes(""); }}>{u.name}</Btn>
+                ))}
+                <Btn color={COLORS.sub} outline onClick={() => { onAssign(t, null); setMode(null); setAssignMinutes(""); }}>Ελεύθερη</Btn>
+              </div>
             </div>
           )}
           {mode === "completeAs" && isMgr && (
@@ -1398,7 +1424,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
   );
 }
 
-function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onDowngrade, onEdit, onDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding }) {
+function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding }) {
   const [boatFilter, setBoatFilter] = useState("");
   const shown = boatFilter ? tasks.filter(t => t.boatId === boatFilter || (boatFilter === "other" && !t.boatId)) : tasks;
   return (
@@ -1411,7 +1437,7 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
       </select>
       {shown.length === 0 && <Empty>{tr("Καμία εργασία εδώ.")}</Empty>}
       {shown.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} />)}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} />)}
     </div>
   );
 }
