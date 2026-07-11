@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.24";
+const APP_VERSION = "v3.25";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -155,6 +155,7 @@ export default function App() {
   const [absences, setAbsences] = useState([]);
   const [notes, setNotes] = useState([]);
   const [boatNotes, setBoatNotes] = useState([]);
+  const [aiMemories, setAiMemories] = useState([]);
   const [me, setMe] = useState(null);
   const [viewAs, setViewAs] = useState(null);
   const [tab, setTab] = useState("today");
@@ -165,9 +166,9 @@ export default function App() {
   // Φόρτωση
   useEffect(() => {
     (async () => {
-      let [u, b, t, q, c, cc, ab, nt, bn] = await Promise.all([
+      let [u, b, t, q, c, cc, ab, nt, bn, am] = await Promise.all([
         load("app-users", null), load("app-boats", null), load("app-tasks", null),
-        load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null),
+        load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null), load("app-aimemories", null),
       ]);
       if (!u) { u = SEED_USERS; await save("app-users", u); }
       // Μετάβαση: προσθήκη προσωπικών κωδικών σε παλιούς χρήστες
@@ -321,7 +322,8 @@ export default function App() {
       if (!ab) { ab = []; await save("app-absences", ab); }
       if (!nt) { nt = []; await save("app-notes", nt); }
       if (!bn) { bn = []; await save("app-boatnotes", bn); }
-      setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c); setClosingChecklist(cc); setAbsences(ab); setNotes(nt); setBoatNotes(bn);
+      if (!am) { am = []; await save("app-aimemories", am); }
+      setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c); setClosingChecklist(cc); setAbsences(ab); setNotes(nt); setBoatNotes(bn); setAiMemories(am);
       setReady(true);
     })();
   }, []);
@@ -463,6 +465,19 @@ ${rules.map(r => "- " + r).join("\n")}
     if (!lowLoad.length) return;
     // Έλεγχος υποχρεωτικού βαν τουλάχιστον 1x/εβδομάδα
     const vanLast7d = src.some(t => t.autoType === "van" && t.createdAt && (Date.now() - new Date(t.createdAt).getTime()) <= 7 * 24 * 60 * 60 * 1000);
+    // Πρώτα εξάντλησε εργασίες σε αναμονή (backlog) πριν επινοήσεις νέες — αυτές είχαν ήδη οριστεί από τον χρήστη για «όταν υπάρχει κενό».
+    const backlog = src.filter(t => t.status === "backlog");
+    const eligibleBacklog = backlog.filter(t => !t.scheduledFor || t.scheduledFor <= today);
+    if (eligibleBacklog.length) {
+      const toConvert = eligibleBacklog.slice(0, Math.min(lowLoad.length, 3));
+      const converted = toConvert.map((t, i) => {
+        const preferred = t.preferredAssignee && lowLoad.some(e => e.id === t.preferredAssignee) ? t.preferredAssignee : lowLoad[i % lowLoad.length].id;
+        return { ...t, status: "open", assignedTo: preferred, assignedBy: "AI-backlog", convertedAt: new Date().toISOString() };
+      });
+      const rest = src.filter(t => !toConvert.some(c => c.id === t.id));
+      await persistTasks([...converted, ...rest]);
+      return;
+    }
     try {
       const inPort = boats.filter(b => !b.atSea);
       // Πρόσφατο ιστορικό ανά σκάφος για να αποφευχθεί επανάληψη ίδιου σημείου
@@ -556,14 +571,14 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   };
   const addTasks = async (base, descs) => {
     const now = Date.now();
-    const leo = base.purchase ? findLeonidas() : null;
+    const leo = (base.purchase && !base.backlog) ? findLeonidas() : null;
     const fresh = descs.map((d, i) => ({
-      id: "t" + now + "-" + i, status: "open", createdBy: acting.id, createdAt: new Date(now + i).toISOString(),
-      progress: [], returns: 0, assignedTo: leo ? leo.id : (base.assignedTo || null), boatId: base.boatId || null, desc: d, urgent: !!base.urgent, purchase: !!base.purchase,
+      id: "t" + now + "-" + i, status: base.backlog ? "backlog" : "open", createdBy: acting.id, createdAt: new Date(now + i).toISOString(),
+      progress: [], returns: 0, assignedTo: base.backlog ? null : (leo ? leo.id : (base.assignedTo || null)), boatId: base.boatId || null, desc: d, urgent: !!base.urgent, purchase: !!base.purchase,
       ...(leo ? { assignedBy: "auto-purchase" } : {}),
     }));
     await persistTasks([...fresh, ...tasks]);
-    showToast(`Καταχωρήθηκαν ${fresh.length} εργασίες`);
+    showToast(base.backlog ? `Μπήκε σε αναμονή: ${fresh.length} εργασία/ίες` : `Καταχωρήθηκαν ${fresh.length} εργασίες`);
     setTab("tasks");
   };
   const findLeonidas = () => users.find(x => ["λεωνιδας", "leonidas"].includes((x.name || "").toLowerCase().replace(/ί/g, "ι").trim()));
@@ -723,6 +738,24 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     await persistBoatNotes(boatNotes.filter(n => n.id !== id));
     showToast("Η παρατήρηση διαγράφηκε");
   };
+  const persistAiMemories = async (next) => { setAiMemories(next); await save("app-aimemories", next); };
+  const addAiMemory = async (text) => {
+    const m = { id: "am" + Date.now(), text, at: new Date().toISOString(), by: acting.id };
+    await persistAiMemories([m, ...aiMemories]);
+  };
+  const deleteAiMemory = async (id) => {
+    await persistAiMemories(aiMemories.filter(m => m.id !== id));
+  };
+  const addScheduledBacklogTask = async (desc, boatId, scheduledFor, preferredAssigneeName) => {
+    const preferred = preferredAssigneeName ? users.find(u => u.name.toLowerCase() === String(preferredAssigneeName).toLowerCase()) : null;
+    const t = {
+      id: "t" + Date.now(), status: "backlog", createdBy: acting.id, createdAt: new Date().toISOString(),
+      progress: [], returns: 0, assignedTo: null, boatId: boatId || null, desc,
+      ...(scheduledFor ? { scheduledFor } : {}),
+      ...(preferred ? { preferredAssignee: preferred.id } : {}),
+    };
+    await persistTasks([t, ...tasks]);
+  };
 
   // Αναχώρηση σκάφους: ορισμός ημερομηνίας + αυτόματο checklist
   const setDeparture = async (boat, date, returnDate) => {
@@ -814,7 +847,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} />}
         {tab === "new" && <NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} />}
         {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} />}
-        {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} absences={absences}
+        {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
@@ -1614,6 +1647,7 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
   const [assignTo, setAssignTo] = useState("");
   const [multi, setMulti] = useState(false);
   const [purchase, setPurchase] = useState(false);
+  const [backlog, setBacklog] = useState(false);
   const [photos, setPhotos] = useState([]);
   const fileRef = useRef(null);
   const submit = () => {
@@ -1621,11 +1655,11 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
     if (multi) {
       const lines = desc.split("\n").map(l => l.trim()).filter(Boolean);
       if (!lines.length) return;
-      onAddMany({ boatId: boatId || null, urgent, assignedTo: isMgr && assignTo ? assignTo : null, purchase }, lines);
+      onAddMany({ boatId: boatId || null, urgent: backlog ? false : urgent, assignedTo: (isMgr && assignTo && !backlog) ? assignTo : null, purchase: backlog ? false : purchase, backlog }, lines);
     } else {
-      onAdd({ boatId: boatId || null, desc: desc.trim(), urgent, assignedTo: isMgr && assignTo ? assignTo : null, purchase }, photos);
+      onAdd({ boatId: boatId || null, desc: desc.trim(), urgent: backlog ? false : urgent, assignedTo: (isMgr && assignTo && !backlog) ? assignTo : null, purchase: backlog ? false : purchase, backlog }, photos);
     }
-    setDesc(""); setUrgent(false); setAssignTo(""); setBoatId(""); setMulti(false); setPurchase(false); setPhotos([]);
+    setDesc(""); setUrgent(false); setAssignTo(""); setBoatId(""); setMulti(false); setPurchase(false); setBacklog(false); setPhotos([]);
   };
   return (
     <div>
@@ -1655,6 +1689,11 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
           marginTop: 8, width: "100%", padding: "11px", borderRadius: 10, fontWeight: 700, fontSize: 14.5,
           border: `2px solid ${COLORS.amber}`, background: purchase ? COLORS.amber : "transparent", color: purchase ? "#fff" : COLORS.amber,
         }}>🛒 {purchase ? tr("ΑΓΟΡΑ / ΛΕΙΨΗ ΥΛΙΚΟΥ — θα ανατεθεί στον Λεωνίδα") : tr("Λείπει υλικό / χρειάζεται αγορά")}</button>
+
+        <button onClick={() => setBacklog(!backlog)} style={{
+          marginTop: 8, width: "100%", padding: "11px", borderRadius: 10, fontWeight: 700, fontSize: 14.5,
+          border: `2px solid ${COLORS.sub}`, background: backlog ? COLORS.sub : "transparent", color: backlog ? "#fff" : COLORS.sub,
+        }}>⏳ {backlog ? tr("ΑΝΑΜΟΝΗ — δεν εμφανίζεται τώρα, το AI θα τη βάλει όταν υπάρχει κενό") : tr("Βάλε σε αναμονή (όχι τώρα — να τη θυμάται το AI για αργότερα)")}</button>
 
         {isMgr && (
           <>
@@ -1886,7 +1925,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
-  const { me, users, boats, tasks, quick, checklist, closingChecklist, boatNotes, onAddBoatNote, onDeleteBoatNote, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
+  const { me, users, boats, tasks, quick, checklist, closingChecklist, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
     setDeparture, cancelCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence } = props;
   const [section, setSection] = useState("overview");
   const isOwner = me.role === "owner";
@@ -1913,7 +1952,7 @@ function AdminView(props) {
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
-      {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} />}
+      {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
       {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} />}
       {section === "usersS" && isOwner && <UsersAdmin users={users} persistUsers={persistUsers} me={me} onViewAs={realOwner ? onViewAs : null} />}
     </div>
@@ -2453,10 +2492,31 @@ function Stats({ users, tasks, boats }) {
 const th = { padding: "6px 8px", fontWeight: 700, fontSize: 12 };
 const td = { padding: "8px 8px" };
 
-function AiSearch({ tasks, boats, users }) {
+function AiSearch({ tasks, boats, users, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, onDeleteTask }) {
   const [q, setQ] = useState("");
   const [ans, setAns] = useState("");
   const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
+  const recRef = useRef(null);
+  const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const backlog = tasks.filter(t => t.status === "backlog");
+
+  const toggleMic = () => {
+    if (listening) { recRef.current?.stop(); setListening(false); return; }
+    if (!SR) return;
+    const rec = new SR();
+    rec.lang = LANG === "en" ? "en-US" : "el-GR";
+    rec.continuous = true; rec.interimResults = false;
+    rec.onresult = (e) => {
+      let add = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) add += e.results[i][0].transcript + " ";
+      if (add) setQ(t => (t + " " + add).trim());
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recRef.current = rec; rec.start(); setListening(true);
+  };
+
   const run = async () => {
     if (!q.trim() || busy) return;
     setBusy(true); setAns("");
@@ -2466,20 +2526,76 @@ function AiSearch({ tasks, boats, users }) {
       const history = tasks.filter(t => t.status === "done").map(t =>
         `[${bn(t.boatId)}] "${t.desc}" ολοκληρώθηκε ${new Date(t.completedAt).toLocaleDateString("el-GR")} από ${un(t.completedBy) || "άγνωστο"}${t.progress?.length ? " | πρόοδοι: " + t.progress.map(p => p.note).join("· ") : ""}`
       ).join("\n");
-      const prompt = `Είσαι βοηθός βάσης σκαφών. Απάντησε στην ερώτηση με βάση ΜΟΝΟ το ιστορικό εργασιών. Αναγνώρισε συνώνυμα (π.χ. "impeller" = "φτερωτή αντλίας"). Αν δεν υπάρχει σχετική εγγραφή, πες το καθαρά. Απάντησε σύντομα στα ελληνικά.
-ΙΣΤΟΡΙΚΟ:\n${history || "(κενό)"}\n\nΕΡΩΤΗΣΗ: ${q}`;
-      setAns(await askClaude(prompt, 500));
+      const profiles = users.filter(u => u.profile).map(u => `${u.name}: ${u.profile}`).join("\n");
+      const memText = aiMemories.map(m => `"${m.text}" (${fmtDate(m.at)})`).join("; ") || "(καμία)";
+      const prompt = `Είσαι προσωπικός βοηθός του ιδιοκτήτη μιας βάσης σκαφών, μέσα σε εφαρμογή διαχείρισης. Ο χρήστης σου μιλάει ελεύθερα (γραπτά ή φωνητικά). Αποφάσισε ΤΙ θέλει και απάντησε με JSON.
+ΣΗΜΕΡΙΝΗ ΗΜΕΡΟΜΗΝΙΑ: ${todayStr()}
+ΤΡΕΙΣ πιθανές ενέργειες:
+1. "remember" — σου λέει κάτι να θυμάσαι/καταγράψεις (παρατήρηση, πληροφορία, σχόλιο) ΧΩΡΙΣ να ζητάει συγκεκριμένη μελλοντική ανάθεση εργασίας.
+2. "schedule" — σου ζητάει να «βάλεις»/«αναθέσεις» μια εργασία αργότερα, όχι τώρα (π.χ. «βάλε αυτό σε μια βδομάδα στον Βασίλη», «κάποια στιγμή θέλω να γίνει...»). Εξήγαγε: σύντομη περιγραφή εργασίας (note), σκάφος αν αναφέρεται (boatName), ΠΟΤΕ ως ημερομηνία YYYY-MM-DD υπολογισμένη από τη σημερινή (scheduledFor· null αν δεν ανέφερε χρόνο — τότε θα μπει μόλις υπάρξει διαθεσιμότητα), όνομα ατόμου αν προτιμά συγκεκριμένο (assigneeName, null αν δεν είπε).
+3. "answer" — κάνει ερώτηση (για υπάλληλο, σκάφος, ιστορικό, στατιστικά) και θέλει απάντηση ΤΩΡΑ.
+ΔΕΔΟΜΕΝΑ ΓΙΑ ΑΠΑΝΤΗΣΕΙΣ (χρησιμοποίησέ τα μόνο αν action="answer"):
+ΠΡΟΦΙΛ ΥΠΑΛΛΗΛΩΝ:\n${profiles}
+ΣΚΑΦΗ: ${boats.map(b => b.name).join(", ")}
+ΑΠΟΘΗΚΕΥΜΕΝΕΣ ΣΗΜΕΙΩΣΕΙΣ: ${memText}
+ΙΣΤΟΡΙΚΟ ΕΡΓΑΣΙΩΝ:\n${history || "(κενό)"}
+ΜΗΝΥΜΑ ΧΡΗΣΤΗ: "${q.trim()}"
+Απάντησε ΜΟΝΟ με JSON χωρίς markdown: {"action":"remember|schedule|answer","note":"σύντομη περίληψη για αποθήκευση (για remember/schedule)","boatName":"...ή null","scheduledFor":"YYYY-MM-DD ή null","assigneeName":"...ή null","answer":"πλήρης απάντηση στα ελληνικά — μόνο για action=answer, αλλιώς κενό string"}`;
+      const raw = await askClaude(prompt, 700);
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      if (parsed.action === "remember") {
+        await onAddMemory(parsed.note || q.trim());
+        setAns(`🧠 Το θυμήθηκα: «${parsed.note || q.trim()}»`);
+      } else if (parsed.action === "schedule") {
+        const boat = boats.find(b => b.name === parsed.boatName) || boats.find(b => parsed.boatName && b.name.toLowerCase().includes(String(parsed.boatName).toLowerCase()));
+        await onAddScheduled(parsed.note || q.trim(), boat ? boat.id : null, parsed.scheduledFor || null, parsed.assigneeName || null);
+        setAns(`⏳ Μπήκε σε αναμονή: «${parsed.note || q.trim()}»${parsed.scheduledFor ? ` — θα ενεργοποιηθεί από ${fmtDate(parsed.scheduledFor)}` : " — θα μπει όταν υπάρξει διαθεσιμότητα"}${parsed.assigneeName ? ` (προτίμηση: ${parsed.assigneeName})` : ""}`);
+      } else {
+        setAns(parsed.answer || "Δεν κατάλαβα — δοκίμασε να το διατυπώσεις διαφορετικά.");
+      }
+      setQ("");
     } catch { setAns("Σφάλμα — δοκίμασε ξανά."); }
     setBusy(false);
   };
+
   return (
     <div>
-      <SectionTitle>AI αναζήτηση ιστορικού</SectionTitle>
-      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14 }}>
-        <textarea value={q} onChange={e => setQ(e.target.value)} rows={2} placeholder='π.χ. "Πότε αλλάξαμε τελευταία φορά impeller στη Σοφία II;"' style={inputStyle} />
-        <div style={{ marginTop: 10 }}><Btn color={COLORS.teal} onClick={run}>{busy ? "Ψάχνω…" : "Ρώτησε"}</Btn></div>
+      <SectionTitle>AI Βοηθός</SectionTitle>
+      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+        <div style={{ fontSize: 12.5, color: COLORS.sub, marginBottom: 8 }}>Ρώτησε οτιδήποτε, πες κάτι να το θυμάται, ή ζήτα να βάλει μια εργασία αργότερα.</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <button onClick={toggleMic} style={{
+            padding: "10px 14px", borderRadius: 10, fontWeight: 700, fontSize: 14,
+            border: `2px solid ${listening ? COLORS.red : COLORS.teal}`,
+            background: listening ? COLORS.red : "transparent", color: listening ? "#fff" : COLORS.teal,
+          }}>{listening ? "⏹" : "🎤"}</button>
+          <textarea value={q} onChange={e => setQ(e.target.value)} rows={2} placeholder='π.χ. "Πες μου για τον Βασίλη" ή "Θυμήσου ότι το μηχανοστάσιο στη Βερόνικα θέλει τακτοποίηση, βάλε το όποτε υπάρχει χρόνος"' style={{ ...inputStyle, flex: 1 }} />
+        </div>
+        <Btn color={COLORS.teal} onClick={run}>{busy ? "…" : "Στείλε"}</Btn>
         {ans && <div style={{ marginTop: 12, fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap", background: COLORS.bg, borderRadius: 10, padding: 12 }}>{ans}</div>}
       </div>
+      {aiMemories.length > 0 && (
+        <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+          <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13.5 }}>🧠 Όσα θυμάται ({aiMemories.length})</div>
+          {aiMemories.map(m => (
+            <div key={m.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13, padding: "5px 0", borderBottom: `1px dashed ${COLORS.line}` }}>
+              <span>{m.text} <span style={{ color: COLORS.sub, fontSize: 11.5 }}>— {fmtDate(m.at)}</span></span>
+              <button onClick={() => onDeleteMemory(m.id)} style={{ border: "none", background: "none", color: COLORS.red, fontSize: 12, flexShrink: 0 }}>🗑</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {backlog.length > 0 && (
+        <div style={{ background: COLORS.card, borderRadius: 12, padding: 14 }}>
+          <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13.5 }}>⏳ Σε αναμονή ({backlog.length}) — δεν φαίνονται σε κανέναν ακόμα</div>
+          {backlog.map(t => (
+            <div key={t.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13, padding: "5px 0", borderBottom: `1px dashed ${COLORS.line}` }}>
+              <span>{t.desc} <span style={{ color: COLORS.sub, fontSize: 11.5 }}>({boats.find(b => b.id === t.boatId)?.name || "Βάση/Άλλο"}{t.scheduledFor ? ` · από ${fmtDate(t.scheduledFor)}` : ""}{t.preferredAssignee ? ` · προτίμηση: ${users.find(u => u.id === t.preferredAssignee)?.name || ""}` : ""})</span></span>
+              <button onClick={() => onDeleteTask(t)} style={{ border: "none", background: "none", color: COLORS.red, fontSize: 12, flexShrink: 0 }}>🗑</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
