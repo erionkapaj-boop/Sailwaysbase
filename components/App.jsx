@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.28";
+const APP_VERSION = "v3.30";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -614,8 +614,11 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   }} />;
 
   const acting = viewAs || me;
-  const isMgr = acting.role === "manager" || acting.role === "owner";
-  const canAssign = isMgr || acting.role === "associate";
+  // Τα δικαιώματα (τι κουμπιά βλέπεις) βασίζονται πάντα στον πραγματικό συνδεδεμένο χρήστη, όχι στο άτομο
+  // που τυχόν προβάλλεται μέσω «Προβολή ως» — έτσι ο manager διατηρεί πλήρη έλεγχο (ανάθεση/διαγραφή/deadline/
+  // επείγον) πάνω σε ΚΑΘΕ εργασία που βλέπει, είτε καταχωρήθηκε χειροκίνητα είτε μπήκε αυτόματα από το AI.
+  const isMgr = me.role === "manager" || me.role === "owner";
+  const canAssign = isMgr || me.role === "associate";
   LANG = acting.lang === "en" ? "en" : "el";
   const activeBoats = boats.filter(b => !b.atSea);
 
@@ -906,6 +909,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
         {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={tasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
         {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
@@ -1162,9 +1166,11 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           {t.findMode && (
             <FindingsFlow t={t} onLogFinding={onLogFinding} onComplete={onComplete} isMgr={isMgr} me={me} setCompleteAsId={setCompleteAsId} setMode={setMode} employees={employees} completeAsId={completeAsId} />
           )}
-          {mode === null && !Array.isArray(t.checklistItems) && !t.findMode && (
+          {mode === null && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-              <Btn color={COLORS.green} onClick={() => { if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); } else if (t.intensive) { setMode("completeSimple"); } else { onComplete(t); } }}>{tr("Ολοκληρώθηκε ✔")}</Btn>
+              {!Array.isArray(t.checklistItems) && !t.findMode && (
+                <Btn color={COLORS.green} onClick={() => { if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); } else if (t.intensive) { setMode("completeSimple"); } else { onComplete(t); } }}>{tr("Ολοκληρώθηκε ✔")}</Btn>
+              )}
               <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
               {t.intensive && !(t.photosBefore?.length) && <Btn color={COLORS.teal} outline onClick={() => setMode("beforePhoto")}>📷 {tr("Φωτογραφία πριν")}</Btn>}
               <Btn color={COLORS.amber} outline onClick={() => { setMode("external"); setNote(""); }}>{tr("Χρειάζεται ειδικός ⚠")}</Btn>
@@ -1174,12 +1180,6 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               {(isMgr || canAssign) && <Btn color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>}
               {!t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>🔴 {tr("Μαρκάρισμα ως επείγον")}</Btn>}
               {isMgr && t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>Υποβάθμιση επείγοντος</Btn>}
-            </div>
-          )}
-          {Array.isArray(t.checklistItems) && mode !== "assign" && mode !== "confirmDel" && (
-            <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {(isMgr || canAssign) && <Btn small color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>}
-              {isMgr && <Btn small color={COLORS.red} outline onClick={() => setMode("confirmDel")}>🗑 {tr("Διαγραφή")}</Btn>}
             </div>
           )}
           {mode === "confirmDel" && (
@@ -1667,7 +1667,7 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
+function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
       <ExternalReminders me={me} tasks={allTasks} boats={boats} onAck={onAckExternal} onProgress={onProgress} onCloseExternal={onCloseExternal} onDelete={onDelete} onEdit={onEdit} />
@@ -1680,7 +1680,8 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
       {tasks.length > 0 && <VoiceComplete tasks={tasks} boats={boats} onComplete={onComplete} />}
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} />)}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding}
+        onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} canAssign={canAssign} showAssignee={isMgr} />)}
     </div>
   );
 }
