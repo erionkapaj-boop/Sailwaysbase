@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.26";
+const APP_VERSION = "v3.28";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -98,6 +98,52 @@ async function save(key, val) {
   try { await winStorage.set(key, JSON.stringify(val), true); } catch (e) { console.error("save", key, e); }
 }
 
+// Ασφαλής κανονικοποίηση: ό,τι corrupted/λάθος-σχήμα δεδομένο βρεθεί (object αντί για array, μη-string στοιχεία κλπ)
+// μετατρέπεται ήσυχα στο ασφαλές fallback αντί να ρίξει crash το React render. Ποτέ δεν πετάει exception προς τα έξω.
+// null/undefined περνάνε ΑΝΕΓΓΙΧΤΑ ώστε να ενεργοποιείται κανονικά η υπάρχουσα λογική seed (if (!x) {...}) — μόνο λάθος-σχήμα δεδομένα διορθώνονται εδώ, όχι απλή απουσία δεδομένων.
+function asArray(x, fallback = []) {
+  if (x === null || x === undefined) return x;
+  return Array.isArray(x) ? x : fallback;
+}
+function asStringArray(x, fallback = []) {
+  if (x === null || x === undefined) return x;
+  if (!Array.isArray(x)) return fallback;
+  return x.filter(it => typeof it === "string" && it.trim().length > 0);
+}
+
+// ---------- Δίχτυ ασφαλείας ----------
+// Πιάνει σφάλματα μέσα στο κομμάτι που περιβάλλει, χωρίς να ρίξει όλη την εφαρμογή. Καταγράφει το σφάλμα μόνιμα
+// (app-errorlog) με ακρίβεια ΠΟΥ έγινε, ώστε να μην χρειάζεται τυφλή διάγνωση αργότερα — απλά κοιτάμε τη λίστα.
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error) {
+    const entry = {
+      id: "err" + Date.now(), at: new Date().toISOString(), section: this.props.label || "άγνωστο",
+      message: (error && error.message) || String(error),
+      stack: ((error && error.stack) || "").split("\n").slice(0, 5).join("\n"),
+      version: typeof APP_VERSION !== "undefined" ? APP_VERSION : "",
+    };
+    load("app-errorlog", []).then(list => {
+      const next = [entry, ...(Array.isArray(list) ? list : [])].slice(0, 50);
+      save("app-errorlog", next);
+    }).catch(() => {});
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ background: "#FDECEA", border: "1.5px solid #C0392B", borderRadius: 12, padding: 16, margin: "10px 0" }}>
+          <div style={{ fontWeight: 700, color: "#8A1C12", marginBottom: 6 }}>⚠️ Πρόβλημα σε: {this.props.label || "άγνωστο σημείο"}</div>
+          <div style={{ fontSize: 13, color: "#8A1C12", marginBottom: 10, whiteSpace: "pre-wrap" }}>{(this.state.error && this.state.error.message) || String(this.state.error)}</div>
+          <div style={{ fontSize: 12, color: "#8A1C12", marginBottom: 10 }}>Τα υπόλοιπα κομμάτια της εφαρμογής δουλεύουν κανονικά. Το σφάλμα καταγράφηκε — θα το δούμε στο Admin → Σφάλματα.</div>
+          <button onClick={() => this.setState({ error: null })} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#C0392B", color: "#fff", fontWeight: 700, fontSize: 13 }}>Δοκίμασε ξανά</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ---------- AI ----------
 async function askClaude(prompt, maxTokens = 1000) {
   const res = await fetch("/api/ai", {
@@ -144,7 +190,7 @@ async function uploadTaskPhotos(files, taskId) {
 }
 
 // ---------- Κύρια εφαρμογή ----------
-export default function App() {
+function AppInner() {
   const [ready, setReady] = useState(false);
   const [users, setUsers] = useState([]);
   const [boats, setBoats] = useState([]);
@@ -170,6 +216,12 @@ export default function App() {
         load("app-users", null), load("app-boats", null), load("app-tasks", null),
         load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null), load("app-aimemories", null),
       ]);
+      // Ασφάλεια: αν κάποιο key έχει corrupted/λάθος-σχήμα δεδομένα (π.χ. object αντί για array, μη-string στοιχεία),
+      // κανονικοποιείται ήσυχα εδώ πριν αγγίξει οποιοδήποτε .map/.filter/.some παρακάτω — never crash, self-heal.
+      // Το null/undefined περνάει ανέγγιχτο ώστε να ενεργοποιηθεί η κανονική λογική seed (if (!x) {...}) παρακάτω.
+      u = asArray(u); b = asArray(b); t = asArray(t);
+      q = asStringArray(q); c = asStringArray(c); cc = asStringArray(cc);
+      ab = asArray(ab); nt = asArray(nt); bn = asArray(bn); am = asArray(am);
       if (!u) { u = SEED_USERS; await save("app-users", u); }
       // Μετάβαση: προσθήκη προσωπικών κωδικών σε παλιούς χρήστες
       if (u.some(x => !x.code)) { u = u.map(x => x.code ? x : { ...x, code: genCode(x.name) }); await save("app-users", u); }
@@ -852,20 +904,20 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
         </div>
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
-        {tab === "today" && <TodayView me={acting} tasks={myTasks} allTasks={tasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
+        {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={tasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding}
-          absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} />}
-        {tab === "tasks" && <TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
+          absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
+        {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} />}
-        {tab === "new" && <NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} />}
-        {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} />}
-        {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} /></ErrorBoundary>}
+        {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
+        {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
+        {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
           persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
-          onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} />}
+          onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} /></ErrorBoundary>}
       </div>
       <TabBar tabs={tabs} tab={tab} setTab={setTab} />
       {toast && <div style={{ position: "fixed", bottom: 86, left: "50%", transform: "translateX(-50%)", background: COLORS.navy, color: "#fff", padding: "10px 18px", borderRadius: 24, fontSize: 14, zIndex: 50, maxWidth: "90%" }}>{toast}</div>}
@@ -1945,7 +1997,7 @@ function AdminView(props) {
   const sections = [
     ["overview", "Επισκόπηση"], ["control", "Έλεγχος"], ["boats", "Σκάφη"],
     ["lists", "Λίστες"], ["absences", "Απουσίες"], ["stats", "Στατιστικά"], ["ai", "AI"],
-    ["profiles", "Ομάδα"],
+    ["profiles", "Ομάδα"], ["errors", "Σφάλματα"],
     ...(isOwner ? [["usersS", "Χρήστες"]] : []),
   ];
   return (
@@ -1967,6 +2019,7 @@ function AdminView(props) {
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
       {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} />}
+      {section === "errors" && <ErrorsAdmin />}
       {section === "usersS" && isOwner && <UsersAdmin users={users} persistUsers={persistUsers} me={me} onViewAs={realOwner ? onViewAs : null} />}
     </div>
   );
@@ -2405,19 +2458,20 @@ function AbsencesAdmin({ users, absences, onAdd, onDelete }) {
 
 function EditableList({ title, items, onChange, placeholder }) {
   const [val, setVal] = useState("");
+  const safeItems = asStringArray(items) || [];
   return (
     <div style={{ marginBottom: 8 }}>
       <SectionTitle>{title}</SectionTitle>
       <div style={{ background: COLORS.card, borderRadius: 12, padding: 14 }}>
-        {items.map((it, i) => (
+        {safeItems.map((it, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 14 }}>
             {it}
-            <Btn small color={COLORS.red} outline onClick={() => onChange(items.filter((_, j) => j !== i))}>×</Btn>
+            <Btn small color={COLORS.red} outline onClick={() => onChange(safeItems.filter((_, j) => j !== i))}>×</Btn>
           </div>
         ))}
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           <input value={val} onChange={e => setVal(e.target.value)} placeholder={placeholder} style={inputStyle} />
-          <Btn small color={COLORS.navy} onClick={() => { if (!val.trim()) return; onChange([...items, val.trim()]); setVal(""); }}>+</Btn>
+          <Btn small color={COLORS.navy} onClick={() => { if (!val.trim()) return; onChange([...safeItems, val.trim()]); setVal(""); }}>+</Btn>
         </div>
       </div>
     </div>
@@ -2613,6 +2667,27 @@ function AiSearch({ tasks, boats, users, aiMemories, onAddMemory, onDeleteMemory
   );
 }
 
+function ErrorsAdmin() {
+  const [errors, setErrors] = useState(null);
+  useEffect(() => { load("app-errorlog", []).then(x => setErrors(Array.isArray(x) ? x : [])); }, []);
+  const clearAll = async () => { await save("app-errorlog", []); setErrors([]); };
+  if (errors === null) return <Empty>Φόρτωση…</Empty>;
+  return (
+    <div>
+      <SectionTitle>Σφάλματα ({errors.length})</SectionTitle>
+      <div style={{ fontSize: 12.5, color: COLORS.sub, marginBottom: 10 }}>Αυτόματη καταγραφή κάθε φορά που κάτι σπάει κάπου στην εφαρμογή — δείχνει ακριβώς πού, ώστε να μη χρειάζεται τυφλή αναζήτηση.</div>
+      {errors.length === 0 && <Empty>Κανένα καταγεγραμμένο σφάλμα. 🎉</Empty>}
+      {errors.map(e => (
+        <div key={e.id} style={{ background: COLORS.card, borderRadius: 10, padding: "11px 14px", marginBottom: 8, fontSize: 13.5 }}>
+          <div style={{ fontWeight: 700, color: COLORS.red }}>⚠️ {e.section} <span style={{ fontWeight: 400, color: COLORS.sub, fontSize: 11.5 }}>· {e.version} · {fmtDate(e.at)}</span></div>
+          <div style={{ marginTop: 4, color: COLORS.text }}>{e.message}</div>
+        </div>
+      ))}
+      {errors.length > 0 && <Btn small color={COLORS.sub} outline onClick={clearAll}>Καθάρισμα όλων</Btn>}
+    </div>
+  );
+}
+
 function ProfilesView({ users, me, onViewAs }) {
   const roleLabel = (r) => r === "manager" ? "Base Manager" : r === "owner" ? "Διαχειριστής" : r === "associate" ? "Στέλεχος" : "Υπάλληλος";
   const shown = users.filter(u => (u.role === "employee" || u.role === "associate") && u.id !== me.id);
@@ -2711,4 +2786,11 @@ function UsersAdmin({ users, persistUsers, me, onViewAs }) {
 }
 
 
+export default function App() {
+  return (
+    <ErrorBoundary label="Εφαρμογή">
+      <AppInner />
+    </ErrorBoundary>
+  );
+}
 
