@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.22";
+const APP_VERSION = "v3.24";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -42,6 +42,7 @@ const SEED_BOATS = [
 
 const SEED_QUICK = ["Αλλαγή λαδιών", "Καθαρισμός σεντίνας", "Καθαρισμός μηχανοστασίου"];
 const SEED_CHECKLIST = ["Εξωτερικό πλύσιμο", "Εσωτερικός καθαρισμός", "Έλεγχος τουαλετών", "Έλεγχος εξοπλισμού"];
+const SEED_CLOSING_CHECKLIST = ["Φώτα σβηστά", "Πασαρέλα μέσα / κλειδωμένη", "Μπαταρία στην πρίζα / φορτίζει", "Ψυγείο σωστά κλειστό", "Παράθυρα κλειστά", "Πόρτες κλειδωμένες"];
 
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 let LANG = "el";
@@ -150,8 +151,10 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [quick, setQuick] = useState([]);
   const [checklist, setChecklist] = useState([]);
+  const [closingChecklist, setClosingChecklist] = useState([]);
   const [absences, setAbsences] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [boatNotes, setBoatNotes] = useState([]);
   const [me, setMe] = useState(null);
   const [viewAs, setViewAs] = useState(null);
   const [tab, setTab] = useState("today");
@@ -162,9 +165,9 @@ export default function App() {
   // Φόρτωση
   useEffect(() => {
     (async () => {
-      let [u, b, t, q, c, ab, nt] = await Promise.all([
+      let [u, b, t, q, c, cc, ab, nt, bn] = await Promise.all([
         load("app-users", null), load("app-boats", null), load("app-tasks", null),
-        load("app-quicktasks", null), load("app-checklist", null), load("app-absences", null), load("app-notes", null),
+        load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null),
       ]);
       if (!u) { u = SEED_USERS; await save("app-users", u); }
       // Μετάβαση: προσθήκη προσωπικών κωδικών σε παλιούς χρήστες
@@ -214,6 +217,7 @@ export default function App() {
       if (!t) { t = []; await save("app-tasks", t); }
       if (!q) { q = SEED_QUICK; await save("app-quicktasks", q); }
       if (!c) { c = SEED_CHECKLIST; await save("app-checklist", c); }
+      if (!cc) { cc = SEED_CLOSING_CHECKLIST; await save("app-closingchecklist", cc); }
       // Μετάβαση v5 (μία φορά): ενημέρωση προφίλ Φανούρη — λαμβάνει πλέον στοχευμένες αναθέσεις
       const v5done = await load("app-fanouris-v5", false);
       if (!v5done) {
@@ -316,7 +320,8 @@ export default function App() {
       if (changed) await save("app-boats", b);
       if (!ab) { ab = []; await save("app-absences", ab); }
       if (!nt) { nt = []; await save("app-notes", nt); }
-      setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c); setAbsences(ab); setNotes(nt);
+      if (!bn) { bn = []; await save("app-boatnotes", bn); }
+      setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c); setClosingChecklist(cc); setAbsences(ab); setNotes(nt); setBoatNotes(bn);
       setReady(true);
     })();
   }, []);
@@ -333,6 +338,7 @@ export default function App() {
   const persistUsers = async (next) => { setUsers(next); await save("app-users", next); };
   const persistQuick = async (next) => { setQuick(next); await save("app-quicktasks", next); };
   const persistChecklist = async (next) => { setChecklist(next); await save("app-checklist", next); };
+  const persistClosingChecklist = async (next) => { setClosingChecklist(next); await save("app-closingchecklist", next); };
   const persistAbsences = async (next) => { setAbsences(next); await save("app-absences", next); };
   const persistNotes = async (next) => { setNotes(next); await save("app-notes", next); };
 
@@ -349,6 +355,44 @@ export default function App() {
   }, [ready, me]);
 
   const isAbsentOn = (userId, dateStr) => absences.some(a => a.userId === userId && a.from <= dateStr && dateStr <= a.to);
+
+  const generateClosingChecks = async (tasksOverride) => {
+    const src = tasksOverride || tasks;
+    const today = todayStr();
+    const inPort = boats.filter(b => !b.atSea);
+    if (!inPort.length) return;
+    const alreadyBoatIds = new Set(src.filter(t => t.closingCheck && t.closingDate === today).map(t => t.boatId));
+    const need = inPort.filter(b => !alreadyBoatIds.has(b.id));
+    if (!need.length) return;
+    const employees = users.filter(u => u.role === "employee" && !u.noAutoAssign && !isAbsentOn(u.id, today));
+    if (!employees.length) return;
+    const loadPer = Object.fromEntries(employees.map(e => [e.id, src.filter(x => x.assignedTo === e.id && x.status === "open").length]));
+    const sorted = [...employees].sort((a, b) => loadPer[a.id] - loadPer[b.id]);
+    const newTasks = need.map((b, i) => {
+      const emp = sorted[i % sorted.length];
+      return {
+        id: "t" + Date.now() + "-cc" + i, status: "open", createdBy: "system", createdAt: new Date().toISOString(),
+        progress: [], returns: 0, boatId: b.id, desc: `Κλείσιμο σκάφους ${b.name}`,
+        assignedTo: emp.id, assignedBy: "auto-closing",
+        closingCheck: true, closingDate: today,
+        reminderList: closingChecklist,
+      };
+    });
+    await persistTasks([...newTasks, ...src]);
+  };
+
+  // Ελέγχοι κλεισίματος: εμφανίζονται αυτόματα μετά τις 15:30, μία φορά τη μέρα, στο πρώτο άνοιγμα της εφαρμογής μετά την ώρα αυτή
+  useEffect(() => {
+    if (!ready || !me) return;
+    (async () => {
+      const now = new Date();
+      if (now.getHours() < 15 || (now.getHours() === 15 && now.getMinutes() < 30)) return;
+      const meta = await load("app-meta", {});
+      if (meta.lastClosingCheck === todayStr()) return;
+      await save("app-meta", { ...meta, lastClosingCheck: todayStr() });
+      await generateClosingChecks();
+    })();
+  }, [ready, me]);
 
   async function runDistribution(manual) {
     const today = todayStr();
@@ -669,6 +713,16 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     await persistNotes(notes.filter(n => n.id !== id));
     showToast("Το μήνυμα διαγράφηκε");
   };
+  const persistBoatNotes = async (next) => { setBoatNotes(next); await save("app-boatnotes", next); };
+  const addBoatNote = async (boatId, text) => {
+    const n = { id: "bn" + Date.now(), boatId, text, by: acting.id, at: new Date().toISOString() };
+    await persistBoatNotes([n, ...boatNotes]);
+    showToast("Η παρατήρηση καταχωρήθηκε");
+  };
+  const deleteBoatNote = async (id) => {
+    await persistBoatNotes(boatNotes.filter(n => n.id !== id));
+    showToast("Η παρατήρηση διαγράφηκε");
+  };
 
   // Αναχώρηση σκάφους: ορισμός ημερομηνίας + αυτόματο checklist
   const setDeparture = async (boat, date, returnDate) => {
@@ -760,10 +814,10 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} />}
         {tab === "new" && <NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} />}
         {tab === "service" && <ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} />}
-        {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} absences={absences}
-          persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist}
+        {tab === "admin" && isMgr && <AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} absences={absences}
+          persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
-          onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} effectiveDeadline={effectiveDeadline}
+          onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
           persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
           onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} />}
       </div>
@@ -996,6 +1050,12 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                   ✏ {fmtDate(p.at)}: {p.note}{isMgr ? ` — ${users.find(u => u.id === p.by)?.name || ""}` : ""}
                 </div>
               ))}
+            </div>
+          )}
+          {Array.isArray(t.reminderList) && t.reminderList.length > 0 && (
+            <div style={{ margin: "10px 0", fontSize: 13, background: COLORS.bg, borderRadius: 8, padding: "8px 12px" }}>
+              <div style={{ fontWeight: 700, color: COLORS.sub, marginBottom: 4 }}>{tr("Έλεγξε:")}</div>
+              {t.reminderList.map((item, i) => <div key={i} style={{ color: COLORS.sub, padding: "2px 0" }}>• {item}</div>)}
             </div>
           )}
           {Array.isArray(t.checklistItems) && (
@@ -1407,6 +1467,108 @@ function MyAbsences({ me, absences, onAdd, onDelete }) {
   );
 }
 
+function VoiceComplete({ tasks, boats, onComplete }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [listening, setListening] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [matches, setMatches] = useState(null);
+  const [err, setErr] = useState("");
+  const recRef = useRef(null);
+  const wakeLockRef = useRef(null);
+  const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  const requestWakeLock = async () => {
+    try { if (typeof navigator !== "undefined" && "wakeLock" in navigator) wakeLockRef.current = await navigator.wakeLock.request("screen"); } catch {}
+  };
+  const releaseWakeLock = async () => {
+    try { await wakeLockRef.current?.release(); } catch {}
+    wakeLockRef.current = null;
+  };
+  useEffect(() => {
+    const onVisibility = () => { if (document.visibilityState === "visible" && listening && !wakeLockRef.current) requestWakeLock(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [listening]);
+
+  const toggleMic = () => {
+    setErr("");
+    if (listening) { recRef.current?.stop(); setListening(false); releaseWakeLock(); return; }
+    if (!SR) { setErr(tr("Η φωνητική αναγνώριση δεν υποστηρίζεται σε αυτή τη συσκευή/browser — γράψε το κείμενο και πάτα Αναγνώριση.")); return; }
+    const rec = new SR();
+    rec.lang = LANG === "en" ? "en-US" : "el-GR";
+    rec.continuous = true; rec.interimResults = false;
+    rec.onresult = (e) => {
+      let add = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) add += e.results[i][0].transcript + " ";
+      if (add) setText(t => (t + " " + add).trim());
+    };
+    rec.onerror = () => { setListening(false); releaseWakeLock(); setErr(tr("Πρόβλημα μικροφώνου — δοκίμασε ξανά ή γράψε το κείμενο.")); };
+    rec.onend = () => { setListening(false); releaseWakeLock(); };
+    recRef.current = rec; rec.start(); setListening(true); requestWakeLock();
+  };
+
+  const analyze = async () => {
+    if (!text.trim() || busy || !tasks.length) return;
+    setBusy(true); setErr(""); setMatches(null);
+    try {
+      const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
+      const list = tasks.map(t => `${t.id}: "${t.desc}" [σκάφος: ${bn(t.boatId)}]`).join("; ");
+      const prompt = `Είσαι βοηθός βάσης σκαφών. Ο χρήστης λέει προφορικά ότι ολοκλήρωσε κάποια/ες από τις παρακάτω δικές του ανοιχτές εργασίες. Βρες ΠΟΙΕΣ εργασίες εννοεί, με βάση το σκάφος και την περιγραφή. Να είσαι συντηρητικός — βάλε μόνο ό,τι ταιριάζει με σιγουριά.
+ΕΡΓΑΣΙΕΣ: ${list}
+ΚΕΙΜΕΝΟ: "${text.trim()}"
+Απάντησε ΜΟΝΟ με JSON χωρίς markdown: {"taskIds":["..."]}`;
+      const raw = await askClaude(prompt, 300);
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      const found = tasks.filter(t => (parsed.taskIds || []).includes(t.id));
+      if (!found.length) setErr(tr("Δεν βρέθηκε αντίστοιχη εργασία — δοκίμασε πιο συγκεκριμένα (π.χ. όνομα σκάφους)."));
+      else setMatches(found);
+    } catch { setErr(tr("Η αναγνώριση απέτυχε — δοκίμασε ξανά.")); }
+    setBusy(false);
+  };
+
+  const confirm = () => {
+    matches.forEach(t => onComplete(t));
+    setMatches(null); setText(""); setOpen(false);
+  };
+
+  return (
+    <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12, border: `1.5px solid ${open ? COLORS.green : COLORS.line}` }}>
+      <button onClick={() => setOpen(!open)} style={{ width: "100%", background: "none", border: "none", textAlign: "left", fontSize: 15, fontWeight: 700, color: COLORS.green }}>
+        🎤 {tr("Ολοκλήρωση με φωνή")} {open ? "▾" : "▸"}
+      </button>
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          <button onClick={toggleMic} style={{
+            width: "100%", padding: 12, borderRadius: 10, fontWeight: 700, fontSize: 14.5,
+            border: `2px solid ${listening ? COLORS.red : COLORS.green}`,
+            background: listening ? COLORS.red : "transparent", color: listening ? "#fff" : COLORS.green,
+          }}>{listening ? "⏹ " + tr("Σταμάτημα") : "🎤 " + tr("Μίλα")}</button>
+          <textarea value={text} onChange={e => setText(e.target.value)} rows={2}
+            placeholder={tr("π.χ. Στο Σοφία 2 το πόμολο το έφτιαξα")} style={{ ...inputStyle, marginTop: 8 }} />
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <Btn color={COLORS.green} onClick={analyze}>{busy ? tr("Αναγνώριση…") : "✨ " + tr("Αναγνώριση")}</Btn>
+            {text && <Btn color={COLORS.sub} outline onClick={() => { setText(""); setMatches(null); }}>{tr("Καθάρισμα")}</Btn>}
+          </div>
+          {err && <div style={{ color: COLORS.red, fontSize: 13, marginTop: 8 }}>{err}</div>}
+          {matches && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.sub, marginBottom: 6 }}>{tr("Βρέθηκαν")}:</div>
+              {matches.map(t => (
+                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 10, marginBottom: 6, fontSize: 14 }}>
+                  <span>{t.desc} <span style={{ color: COLORS.sub, fontSize: 12.5 }}>({boats.find(b => b.id === t.boatId)?.name || "Βάση/Άλλο"})</span></span>
+                  <Btn small color={COLORS.sub} outline onClick={() => setMatches(matches.filter(x => x.id !== t.id))}>×</Btn>
+                </div>
+              ))}
+              {matches.length > 0 && <Btn color={COLORS.green} onClick={confirm}>✔ {tr("Ολοκλήρωση")} ({matches.length})</Btn>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
@@ -1417,6 +1579,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
       <MyAbsences me={me} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />
       {canAssign && <SendNote me={me} users={users} notes={notes} onSend={onSendNote} onDelete={onDeleteNote} />}
       <SectionTitle>{tr("Οι εργασίες μου")} — {new Date().toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { weekday: "long", day: "numeric", month: "long" })}</SectionTitle>
+      {tasks.length > 0 && <VoiceComplete tasks={tasks} boats={boats} onComplete={onComplete} />}
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
         onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} />)}
@@ -1723,8 +1886,8 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
-  const { me, users, boats, tasks, quick, checklist, absences, persistUsers, persistBoats, persistQuick, persistChecklist,
-    setDeparture, cancelCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence } = props;
+  const { me, users, boats, tasks, quick, checklist, closingChecklist, boatNotes, onAddBoatNote, onDeleteBoatNote, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
+    setDeparture, cancelCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence } = props;
   const [section, setSection] = useState("overview");
   const isOwner = me.role === "owner";
   const sections = [
@@ -1744,10 +1907,10 @@ function AdminView(props) {
           }}>{label}</button>
         ))}
       </div>
-      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} users={users} me={me} absences={absences} />}
+      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} users={users} me={me} absences={absences} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
-      {section === "boats" && <BoatsAdmin boats={boats} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} showToast={showToast} />}
-      {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} persistQuick={persistQuick} persistChecklist={persistChecklist} />}
+      {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} showToast={showToast} />}
+      {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} />}
@@ -1820,7 +1983,7 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
   );
 }
 
-function Overview({ boats, tasks, effectiveDeadline, runDistribution, users, me, absences }) {
+function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateClosingChecks, users, me, absences }) {
   const departing = boats.filter(b => !b.atSea && b.departureDate).sort((a, b) => a.departureDate.localeCompare(b.departureDate));
   const urgent = tasks.filter(t => t.status === "open" && t.urgent);
   const external = tasks.filter(t => t.status === "external");
@@ -1869,7 +2032,9 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, users, me,
         ))}
       </div>
       <Btn color={COLORS.teal} onClick={runDistribution}>▶ Εκτέλεση κατανομής ημέρας (AI) τώρα</Btn>
-      <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 6 }}>Η κατανομή τρέχει αυτόματα μία φορά την ημέρα στο πρώτο άνοιγμα.</div>
+      <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 6, marginBottom: 14 }}>Η κατανομή τρέχει αυτόματα μία φορά την ημέρα στο πρώτο άνοιγμα.</div>
+      <Btn color={COLORS.amber} outline onClick={generateClosingChecks}>🔒 Δημιουργία ελέγχων κλεισίματος τώρα</Btn>
+      <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 6 }}>Τρέχει αυτόματα μετά τις 15:30, στο πρώτο άνοιγμα της εφαρμογής μετά την ώρα αυτή. Το κουμπί εδώ είναι για χειροκίνητη εκτέλεση εκτός ώρας.</div>
     </div>
   );
 }
@@ -1966,13 +2131,78 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
 
 const addDays = (dateStr, days) => { const d = new Date(dateStr); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
 
-function BoatsAdmin({ boats, persistBoats, setDeparture, cancelCharter, showToast }) {
+function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr }) {
+  const [noteText, setNoteText] = useState("");
+  const [aiQ, setAiQ] = useState("");
+  const [aiAns, setAiAns] = useState("");
+  const [busy, setBusy] = useState(false);
+  const myNotes = boatNotes.filter(n => n.boatId === boat.id).sort((a, b) => b.at.localeCompare(a.at));
+  const serviceHistory = tasks.filter(t => t.boatId === boat.id && t.status === "done" && t.serviceRelevant)
+    .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
+  const allDone = tasks.filter(t => t.boatId === boat.id && t.status === "done");
+
+  const ask = async (customQ) => {
+    const q = (customQ || aiQ).trim();
+    if (!q || busy) return;
+    setBusy(true); setAiAns("");
+    try {
+      const serviceText = serviceHistory.map(t => `"${t.desc}" (${fmtDate(t.completedAt)})`).join("; ") || "(κενό)";
+      const notesText = myNotes.map(n => `"${n.text}" (${fmtDate(n.at)})`).join("; ") || "(κενό)";
+      const routineText = allDone.map(t => `"${t.desc}" (${fmtDate(t.completedAt)})`).join("; ") || "(κενό)";
+      const prompt = `Είσαι βοηθός βάσης σκαφών, ειδικός για το σκάφος "${boat.name}". Απάντησε στην ερώτηση χρησιμοποιώντας ΜΟΝΟ τα παρακάτω δεδομένα. Αν εντοπίζεις επαναλαμβανόμενο μοτίβο (το ίδιο πρόβλημα να ξαναγίνεται) στο ιστορικό ρουτίνας, επισήμανέ το ως πιθανό υποκείμενο ζήτημα.
+ΒΙΒΛΙΟ SERVICE: ${serviceText}
+ΠΑΡΑΤΗΡΗΣΕΙΣ: ${notesText}
+ΙΣΤΟΡΙΚΟ ΡΟΥΤΙΝΑΣ (όλες οι ολοκληρωμένες εργασίες): ${routineText}
+ΕΡΩΤΗΣΗ: ${q}
+Απάντησε σύντομα και συγκεκριμένα στα ελληνικά.`;
+      setAiAns(await askClaude(prompt, 500));
+    } catch { setAiAns("Σφάλμα — δοκίμασε ξανά."); }
+    setBusy(false);
+  };
+
+  return (
+    <div style={{ marginTop: 10, background: COLORS.bg, borderRadius: 10, padding: 12 }}>
+      <div style={{ fontWeight: 700, marginBottom: 8 }}>ℹ️ {boat.name} — Πληροφορίες</div>
+      <Btn small color={COLORS.teal} onClick={() => ask("Τι θέματα ή επαναλαμβανόμενα προβλήματα έχει αυτό το σκάφος; Δώσε σύντομη επισκόπηση.")}>{busy ? "…" : "✨ Επισκόπηση AI"}</Btn>
+      <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+        <input value={aiQ} onChange={e => setAiQ(e.target.value)} placeholder="Ρώτησε κάτι για αυτό το σκάφος…" style={{ ...inputStyle, flex: 1 }} />
+        <Btn small color={COLORS.navy} onClick={() => ask()}>{busy ? "…" : "Ρώτησε"}</Btn>
+      </div>
+      {aiAns && <div style={{ marginTop: 10, fontSize: 13.5, lineHeight: 1.5, whiteSpace: "pre-wrap", background: COLORS.card, borderRadius: 8, padding: 10 }}>{aiAns}</div>}
+
+      <div style={{ fontWeight: 700, marginTop: 14, marginBottom: 6, fontSize: 13.5 }}>Παρατηρήσεις</div>
+      {myNotes.length === 0 && <div style={{ color: COLORS.sub, fontSize: 13 }}>Καμία ακόμα.</div>}
+      {myNotes.map(n => (
+        <div key={n.id} style={{ fontSize: 13, padding: "5px 0", borderBottom: `1px dashed ${COLORS.line}` }}>
+          {n.text} <span style={{ color: COLORS.sub, fontSize: 11.5 }}>— {fmtDate(n.at)}</span>
+          {isMgr && <button onClick={() => onDeleteNote(n.id)} style={{ border: "none", background: "none", color: COLORS.red, marginLeft: 6, fontSize: 12 }}>🗑</button>}
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="π.χ. Στάζει λάδι στο μηχανοστάσιο" style={{ ...inputStyle, flex: 1 }} />
+        <Btn small color={COLORS.teal} onClick={() => { if (noteText.trim()) { onAddNote(boat.id, noteText.trim()); setNoteText(""); } }}>Προσθήκη</Btn>
+      </div>
+
+      {serviceHistory.length > 0 && (
+        <>
+          <div style={{ fontWeight: 700, marginTop: 14, marginBottom: 6, fontSize: 13.5 }}>Πρόσφατο ιστορικό Service Book</div>
+          {serviceHistory.slice(0, 6).map(t => (
+            <div key={t.id} style={{ fontSize: 13, padding: "4px 0", color: COLORS.sub }}>• {t.desc} — {fmtDate(t.completedAt)}</div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, setDeparture, cancelCharter, showToast }) {
   const [dateFor, setDateFor] = useState(null);
   const [dateVal, setDateVal] = useState("");
   const [duration, setDuration] = useState(7);
   const [customReturn, setCustomReturn] = useState("");
   const [mode, setMode] = useState(null); // 'sea' | 'charter'
   const [cancelFor, setCancelFor] = useState(null);
+  const [detailFor, setDetailFor] = useState(null);
   const computedReturn = dateVal ? (duration === "custom" ? customReturn : addDays(dateVal, duration)) : "";
   return (
     <div>
@@ -1991,6 +2221,7 @@ function BoatsAdmin({ boats, persistBoats, setDeparture, cancelCharter, showToas
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexDirection: "column" }}>
+              <Btn small color={COLORS.sub} outline onClick={() => setDetailFor(detailFor === b.id ? null : b.id)}>ℹ️ Πληροφορίες</Btn>
               {b.atSea
                 ? <Btn small color={COLORS.teal} outline onClick={() => persistBoats(boats.map(x => x.id === b.id ? { ...x, atSea: false, returnDate: null } : x))}>Επέστρεψε</Btn>
                 : b.departureDate
@@ -2004,6 +2235,9 @@ function BoatsAdmin({ boats, persistBoats, setDeparture, cancelCharter, showToas
                   </>}
             </div>
           </div>
+          {detailFor === b.id && (
+            <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} />
+          )}
           {cancelFor === b.id && (
             <div style={{ marginTop: 10, background: "#FDECEA", borderRadius: 10, padding: 12 }}>
               <div style={{ fontSize: 13.5, fontWeight: 700, color: "#8A1C12", marginBottom: 8 }}>
@@ -2056,11 +2290,12 @@ function BoatsAdmin({ boats, persistBoats, setDeparture, cancelCharter, showToas
   );
 }
 
-function ListsAdmin({ quick, checklist, persistQuick, persistChecklist }) {
+function ListsAdmin({ quick, checklist, closingChecklist, persistQuick, persistChecklist, persistClosingChecklist }) {
   return (
     <div>
       <EditableList title="Γρήγορες εργασίες (quick-tasks)" items={quick} onChange={persistQuick} placeholder="π.χ. Αλλαγή impeller" />
       <EditableList title="Checklist αναχώρησης (ανοίγουν αυτόματα όταν ορίζεται αναχώρηση)" items={checklist} onChange={persistChecklist} placeholder="π.χ. Έλεγχος άγκυρας" />
+      <EditableList title="Checklist κλεισίματος βάσης (υπενθύμιση σε κάθε εργασία κλεισίματος, μετά τις 15:30)" items={closingChecklist} onChange={persistClosingChecklist} placeholder="π.χ. Φώτα σβηστά" />
     </div>
   );
 }
