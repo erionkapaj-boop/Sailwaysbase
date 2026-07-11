@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.18";
+const APP_VERSION = "v3.19";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -477,10 +477,14 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   // ---------- Ενέργειες εργασιών ----------
   const addParsed = async (items) => {
     const now = Date.now();
-    const fresh = items.map((it, i) => ({
-      id: "t" + now + "-" + i, status: "open", createdBy: acting.id, createdAt: new Date(now + i).toISOString(),
-      progress: [], returns: 0, assignedTo: null, boatId: it.boatId || null, desc: it.desc, urgent: !!it.urgent, viaVoice: true,
-    }));
+    const fresh = items.map((it, i) => {
+      const leo = it.purchase ? findLeonidas() : null;
+      return {
+        id: "t" + now + "-" + i, status: "open", createdBy: acting.id, createdAt: new Date(now + i).toISOString(),
+        progress: [], returns: 0, assignedTo: leo ? leo.id : null, boatId: it.boatId || null, desc: it.desc, urgent: !!it.urgent, purchase: !!it.purchase, viaVoice: true,
+        ...(leo ? { assignedBy: "auto-purchase" } : {}),
+      };
+    });
     await persistTasks([...fresh, ...tasks]);
     showToast(`Καταχωρήθηκαν ${fresh.length} εργασίες`);
     setTab("tasks");
@@ -1513,13 +1517,14 @@ function VoiceEntry({ boats, onAddParsed }) {
       const prompt = `Είσαι σύστημα καταγραφής εργασιών σε βάση σκαφών. Ο χρήστης περιγράφει προφορικά προβλήματα/εργασίες. Ανάλυσε το κείμενο σε ΞΕΧΩΡΙΣΤΕΣ εργασίες.
 Σκάφη της βάσης: ${boats.map(b => b.name).join(", ")}. Αν αναφέρεται σκάφος (έστω με μικρή παραλλαγή/χωρίς τόνους), αντιστοίχισέ το στο σωστό όνομα από τη λίστα, αλλιώς boat: null.
 Για κάθε εργασία: σύντομη, καθαρή, επαγγελματική περιγραφή στα ελληνικά (π.χ. "Αντικατάσταση σκότας", "Επισκευή φωτός πλώρης"). urgent: true ΜΟΝΟ αν το κείμενο δείχνει σοβαρό/επείγον πρόβλημα (διαρροή, τρύπα, κίνδυνος).
+purchase: true αν η εργασία αφορά κάτι που λείπει, δεν υπάρχει, ή πρέπει να αγοραστεί/προμηθευτεί (π.χ. "μας λείπουν 20άκια", "δεν έχουμε βίδες", "θέλει αγορά", "να το φέρουν από το γραφείο/κατάστημα") — διαφορετικά false.
 ΚΕΙΜΕΝΟ: "${text.trim()}"
-Απάντησε ΜΟΝΟ με JSON χωρίς markdown: {"tasks":[{"boat":"...ή null","desc":"...","urgent":false}]}`;
+Απάντησε ΜΟΝΟ με JSON χωρίς markdown: {"tasks":[{"boat":"...ή null","desc":"...","urgent":false,"purchase":false}]}`;
       const raw = await askClaude(prompt, 800);
       const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
       const mapped = (parsed.tasks || []).map(t => {
         const boat = boats.find(b => b.name === t.boat) || boats.find(b => t.boat && b.name.toLowerCase().includes(String(t.boat).toLowerCase()));
-        return { boatId: boat ? boat.id : "", desc: t.desc || "", urgent: !!t.urgent };
+        return { boatId: boat ? boat.id : "", desc: t.desc || "", urgent: !!t.urgent, purchase: !!t.purchase };
       }).filter(t => t.desc);
       if (!mapped.length) setErr(tr("Δεν αναγνωρίστηκαν εργασίες — δοκίμασε πιο συγκεκριμένη διατύπωση."));
       else setItems(mapped);
@@ -1566,6 +1571,10 @@ function VoiceEntry({ boats, onAddParsed }) {
                       padding: "7px 10px", borderRadius: 8, fontSize: 12.5, fontWeight: 700,
                       border: `1.5px solid ${COLORS.red}`, background: it.urgent ? COLORS.red : "transparent", color: it.urgent ? "#fff" : COLORS.red,
                     }}>🔴</button>
+                    <button onClick={() => upd(i, { purchase: !it.purchase })} title={tr("Λείπει υλικό / χρειάζεται αγορά")} style={{
+                      padding: "7px 10px", borderRadius: 8, fontSize: 12.5, fontWeight: 700,
+                      border: `1.5px solid ${COLORS.amber}`, background: it.purchase ? COLORS.amber : "transparent", color: it.purchase ? "#fff" : COLORS.amber,
+                    }}>🛒</button>
                     <Btn small color={COLORS.sub} outline onClick={() => setItems(items.filter((_, j) => j !== i))}>×</Btn>
                   </div>
                 </div>
