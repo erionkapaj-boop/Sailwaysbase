@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.16";
+const APP_VERSION = "v3.17";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -1464,11 +1464,32 @@ function VoiceEntry({ boats, onAddParsed }) {
   const [items, setItems] = useState(null);
   const [err, setErr] = useState("");
   const recRef = useRef(null);
+  const wakeLockRef = useRef(null);
   const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  const requestWakeLock = async () => {
+    try {
+      if (typeof navigator !== "undefined" && "wakeLock" in navigator) {
+        wakeLockRef.current = await navigator.wakeLock.request("screen");
+      }
+    } catch { /* not supported / denied — ignore, non-critical */ }
+  };
+  const releaseWakeLock = async () => {
+    try { await wakeLockRef.current?.release(); } catch {}
+    wakeLockRef.current = null;
+  };
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && listening && !wakeLockRef.current) requestWakeLock();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [listening]);
 
   const toggleMic = () => {
     setErr("");
-    if (listening) { recRef.current?.stop(); setListening(false); return; }
+    if (listening) { recRef.current?.stop(); setListening(false); releaseWakeLock(); return; }
     if (!SR) { setErr(tr("Η φωνητική αναγνώριση δεν υποστηρίζεται σε αυτή τη συσκευή/browser — γράψε το κείμενο και πάτα Ανάλυση.")); return; }
     const rec = new SR();
     rec.lang = LANG === "en" ? "en-US" : "el-GR";
@@ -1478,9 +1499,9 @@ function VoiceEntry({ boats, onAddParsed }) {
       for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) add += e.results[i][0].transcript + " ";
       if (add) setText(t => (t + " " + add).trim());
     };
-    rec.onerror = () => { setListening(false); setErr(tr("Πρόβλημα μικροφώνου — δοκίμασε ξανά ή γράψε το κείμενο.")); };
-    rec.onend = () => setListening(false);
-    recRef.current = rec; rec.start(); setListening(true);
+    rec.onerror = () => { setListening(false); releaseWakeLock(); setErr(tr("Πρόβλημα μικροφώνου — δοκίμασε ξανά ή γράψε το κείμενο.")); };
+    rec.onend = () => { setListening(false); releaseWakeLock(); };
+    recRef.current = rec; rec.start(); setListening(true); requestWakeLock();
   };
 
   const analyze = async () => {
