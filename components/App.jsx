@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.34";
+const APP_VERSION = "v3.37";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -421,6 +421,7 @@ function AppInner() {
   const isAbsentOn = (userId, dateStr) => absences.some(a => a.userId === userId && a.from <= dateStr && dateStr <= a.to);
 
   const generateClosingChecks = async (tasksOverride) => {
+    if (new Date().getDay() === 0) return; // Κυριακή — μη εργάσιμη, κανένα κλείσιμο/ανάθεση
     const src = tasksOverride || tasks;
     const today = todayStr();
     const inPort = boats.filter(b => !b.atSea);
@@ -815,6 +816,37 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     await persistBoatNotes(boatNotes.filter(n => n.id !== id));
     showToast("Η παρατήρηση διαγράφηκε");
   };
+  // Σάρωση ανοιχτών σκαφών: στις 22:00 καταγράφει όσα δεν κλείστηκαν, ειδοποιεί, και σβήνει τις παλιές εργασίες κλεισίματος
+  const sweepUnclosedBoats = async () => {
+    const today = todayStr();
+    const missed = tasks.filter(t => t.closingCheck && t.status === "open" && t.closingDate === today);
+    const meta = await load("app-meta", {});
+    if (!missed.length) { await save("app-meta", { ...meta, missedClosings: null }); return; }
+    const bn = (id) => boats.find(b => b.id === id)?.name || "Σκάφος";
+    const un = (id) => users.find(u => u.id === id)?.name || "";
+    const stamp = Date.now();
+    const newBoatNotes = missed.map((t, i) => ({
+      id: "bn" + stamp + "-mc" + i, boatId: t.boatId,
+      text: `⚠ ${fmtDate(today)}: Δεν κλείστηκε — ανατέθηκε στον/στην ${un(t.assignedTo) || "—"}.`,
+      by: "system", at: new Date().toISOString(),
+    }));
+    const items = missed.map(t => ({ boatId: t.boatId, boatName: bn(t.boatId), userId: t.assignedTo || null, userName: un(t.assignedTo) }));
+    const remaining = tasks.filter(t => !(t.closingCheck && t.status === "open" && t.closingDate === today));
+    await save("app-meta", { ...meta, missedClosings: { date: today, items } });
+    await persistBoatNotes([...newBoatNotes, ...boatNotes]);
+    await persistTasks(remaining);
+  };
+  useEffect(() => {
+    if (!ready || !me) return;
+    (async () => {
+      const now = new Date();
+      if (now.getHours() < 22) return;
+      const meta = await load("app-meta", {});
+      if (meta.lastClosingSweep === todayStr()) return;
+      await save("app-meta", { ...meta, lastClosingSweep: todayStr() });
+      await sweepUnclosedBoats();
+    })();
+  }, [ready, me]);
   const persistAiMemories = async (next) => { setAiMemories(next); await save("app-aimemories", next); };
   const addAiMemory = async (text) => {
     const m = { id: "am" + Date.now(), text, at: new Date().toISOString(), by: acting.id };
@@ -1691,9 +1723,32 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   );
 }
 
+function MissedClosingBanner({ me }) {
+  const [mine, setMine] = useState(null);
+  useEffect(() => {
+    (async () => {
+      const meta = await load("app-meta", {});
+      const mc = meta.missedClosings;
+      if (mc && mc.date && mc.date !== todayStr() && daysUntil(mc.date) >= -3 && Array.isArray(mc.items)) {
+        const m = mc.items.filter(x => x.userId === me.id);
+        if (m.length) setMine(m);
+      }
+    })();
+  }, []);
+  if (!mine) return null;
+  return (
+    <div style={{ background: "#FFF3E0", border: `1px solid ${COLORS.amber}`, borderRadius: 12, padding: 14, marginBottom: 12, fontSize: 14 }}>
+      <div style={{ fontWeight: 700, color: "#8A5A00" }}>🔓 Χθες έμεινε ανοιχτό:</div>
+      {mine.map((m, i) => <div key={i} style={{ fontSize: 13.5, color: "#5B4A00", paddingLeft: 8, marginTop: 3 }}>• {m.boatName}</div>)}
+      <div style={{ fontSize: 12.5, color: COLORS.sub, marginTop: 6 }}>Φρόντισέ το σήμερα να κλείσει σωστά. 🔒</div>
+    </div>
+  );
+}
+
 function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
+      <MissedClosingBanner me={me} />
       <ExternalReminders me={me} tasks={allTasks} boats={boats} onAck={onAckExternal} onProgress={onProgress} onCloseExternal={onCloseExternal} onDelete={onDelete} onEdit={onEdit} />
       <MyNotes me={me} notes={notes} users={users} />
       <DailyGreeting me={me} />
@@ -2129,6 +2184,14 @@ ${prevText ? `ΠΡΟΗΓΟΥΜΕΝΗ ΕΒΔΟΜΑΔΙΑΙΑ ΑΝΑΦΟΡΑ (γι
 }
 
 function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateClosingChecks, users, me, absences }) {
+  const [missed, setMissed] = useState(null);
+  useEffect(() => {
+    (async () => {
+      const meta = await load("app-meta", {});
+      const mc = meta.missedClosings;
+      if (mc && mc.date && mc.date !== todayStr() && daysUntil(mc.date) >= -3 && Array.isArray(mc.items) && mc.items.length) setMissed(mc);
+    })();
+  }, [tasks]);
   const departing = boats.filter(b => !b.atSea && b.departureDate).sort((a, b) => a.departureDate.localeCompare(b.departureDate));
   const urgent = tasks.filter(t => t.status === "open" && t.urgent);
   const external = tasks.filter(t => t.status === "external");
@@ -2139,6 +2202,13 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
     <div>
       <SectionTitle>Εικόνα εβδομάδας</SectionTitle>
       <WeeklyReport tasks={tasks} users={users} me={me} boats={boats} absences={absences} />
+      {missed && (
+        <div style={{ background: "#FDECEA", borderRadius: 12, padding: 14, marginBottom: 12, fontSize: 14 }}>
+          <div style={{ fontWeight: 700, color: COLORS.red }}>🔓 Χθες έμειναν ανοιχτά:</div>
+          {missed.items.map((m, i) => <div key={i} style={{ fontSize: 13, color: COLORS.red, paddingLeft: 8, marginTop: 3 }}>• {m.boatName}{m.userName ? ` — ${m.userName}` : ""}</div>)}
+          <div style={{ fontSize: 12.5, color: COLORS.sub, marginTop: 4 }}>Καταγράφηκε και στο προφίλ κάθε σκάφους.</div>
+        </div>
+      )}
       {(urgent.length > 0 || external.length > 0) && (
         <div style={{ background: "#FDECEA", borderRadius: 12, padding: 14, marginBottom: 12, fontSize: 14 }}>
           {urgent.length > 0 && <div style={{ fontWeight: 700, color: COLORS.red }}>🔴 {urgent.length} επείγουσες εργασίες σοβαρότητας</div>}
@@ -2179,7 +2249,7 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
       <Btn color={COLORS.teal} onClick={runDistribution}>▶ Εκτέλεση κατανομής ημέρας (AI) τώρα</Btn>
       <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 6, marginBottom: 14 }}>Η κατανομή τρέχει αυτόματα μία φορά την ημέρα στο πρώτο άνοιγμα.</div>
       <Btn color={COLORS.amber} outline onClick={generateClosingChecks}>🔒 Δημιουργία ελέγχων κλεισίματος τώρα</Btn>
-      <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 6 }}>Τρέχει αυτόματα μετά τις 15:30, στο πρώτο άνοιγμα της εφαρμογής μετά την ώρα αυτή. Το κουμπί εδώ είναι για χειροκίνητη εκτέλεση εκτός ώρας.</div>
+      <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 6 }}>Τρέχει αυτόματα μετά τις 15:30, στο πρώτο άνοιγμα της εφαρμογής μετά την ώρα αυτή. Το κουμπί εδώ είναι για χειροκίνητη εκτέλεση εκτός ώρας. Την Κυριακή δεν δημιουργούνται εργασίες κλεισίματος (μη εργάσιμη μέρα).</div>
     </div>
   );
 }
