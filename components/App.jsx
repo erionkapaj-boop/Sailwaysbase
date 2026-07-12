@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.37";
+const APP_VERSION = "v3.38";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -603,6 +603,38 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     })();
   }, [ready]);
 
+  // Σάρωση ανοιχτών σκαφών: στις 22:00 καταγράφει όσα δεν κλείστηκαν, ειδοποιεί, και σβήνει τις παλιές εργασίες κλεισίματος
+  const sweepUnclosedBoats = async () => {
+    const today = todayStr();
+    const missed = tasks.filter(t => t.closingCheck && t.status === "open" && t.closingDate === today);
+    const meta = await load("app-meta", {});
+    if (!missed.length) { await save("app-meta", { ...meta, missedClosings: null }); return; }
+    const bn = (id) => boats.find(b => b.id === id)?.name || "Σκάφος";
+    const un = (id) => users.find(u => u.id === id)?.name || "";
+    const stamp = Date.now();
+    const newBoatNotes = missed.map((t, i) => ({
+      id: "bn" + stamp + "-mc" + i, boatId: t.boatId,
+      text: `⚠ ${fmtDate(today)}: Δεν κλείστηκε — ανατέθηκε στον/στην ${un(t.assignedTo) || "—"}.`,
+      by: "system", at: new Date().toISOString(),
+    }));
+    const items = missed.map(t => ({ boatId: t.boatId, boatName: bn(t.boatId), userId: t.assignedTo || null, userName: un(t.assignedTo) }));
+    const remaining = tasks.filter(t => !(t.closingCheck && t.status === "open" && t.closingDate === today));
+    await save("app-meta", { ...meta, missedClosings: { date: today, items } });
+    await persistBoatNotes([...newBoatNotes, ...boatNotes]);
+    await persistTasks(remaining);
+  };
+  useEffect(() => {
+    if (!ready || !me) return;
+    (async () => {
+      const now = new Date();
+      if (now.getHours() < 22) return;
+      const meta = await load("app-meta", {});
+      if (meta.lastClosingSweep === todayStr()) return;
+      await save("app-meta", { ...meta, lastClosingSweep: todayStr() });
+      await sweepUnclosedBoats();
+    })();
+  }, [ready, me]);
+
   const logout = async () => {
     try { await winStorage.delete("my-code", false); } catch {}
     setMe(null);
@@ -816,37 +848,6 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     await persistBoatNotes(boatNotes.filter(n => n.id !== id));
     showToast("Η παρατήρηση διαγράφηκε");
   };
-  // Σάρωση ανοιχτών σκαφών: στις 22:00 καταγράφει όσα δεν κλείστηκαν, ειδοποιεί, και σβήνει τις παλιές εργασίες κλεισίματος
-  const sweepUnclosedBoats = async () => {
-    const today = todayStr();
-    const missed = tasks.filter(t => t.closingCheck && t.status === "open" && t.closingDate === today);
-    const meta = await load("app-meta", {});
-    if (!missed.length) { await save("app-meta", { ...meta, missedClosings: null }); return; }
-    const bn = (id) => boats.find(b => b.id === id)?.name || "Σκάφος";
-    const un = (id) => users.find(u => u.id === id)?.name || "";
-    const stamp = Date.now();
-    const newBoatNotes = missed.map((t, i) => ({
-      id: "bn" + stamp + "-mc" + i, boatId: t.boatId,
-      text: `⚠ ${fmtDate(today)}: Δεν κλείστηκε — ανατέθηκε στον/στην ${un(t.assignedTo) || "—"}.`,
-      by: "system", at: new Date().toISOString(),
-    }));
-    const items = missed.map(t => ({ boatId: t.boatId, boatName: bn(t.boatId), userId: t.assignedTo || null, userName: un(t.assignedTo) }));
-    const remaining = tasks.filter(t => !(t.closingCheck && t.status === "open" && t.closingDate === today));
-    await save("app-meta", { ...meta, missedClosings: { date: today, items } });
-    await persistBoatNotes([...newBoatNotes, ...boatNotes]);
-    await persistTasks(remaining);
-  };
-  useEffect(() => {
-    if (!ready || !me) return;
-    (async () => {
-      const now = new Date();
-      if (now.getHours() < 22) return;
-      const meta = await load("app-meta", {});
-      if (meta.lastClosingSweep === todayStr()) return;
-      await save("app-meta", { ...meta, lastClosingSweep: todayStr() });
-      await sweepUnclosedBoats();
-    })();
-  }, [ready, me]);
   const persistAiMemories = async (next) => { setAiMemories(next); await save("app-aimemories", next); };
   const addAiMemory = async (text) => {
     const m = { id: "am" + Date.now(), text, at: new Date().toISOString(), by: acting.id };
