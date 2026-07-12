@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.31";
+const APP_VERSION = "v3.33";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2021,9 +2021,8 @@ function AdminView(props) {
   const isOwner = me.role === "owner";
   const sections = [
     ["overview", "Επισκόπηση"], ["control", "Έλεγχος"], ["boats", "Σκάφη"],
-    ["lists", "Λίστες"], ["absences", "Απουσίες"], ["stats", "Στατιστικά"], ["ai", "AI"],
-    ["profiles", "Ομάδα"], ["errors", "Σφάλματα"],
-    ...(isOwner ? [["usersS", "Χρήστες"]] : []),
+    ["lists", "Λίστες"], ["absences", "Απουσίες"], ["team", "Ομάδα"], ["ai", "AI"],
+    ["errors", "Σφάλματα"],
   ];
   return (
     <div>
@@ -2041,11 +2040,9 @@ function AdminView(props) {
       {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
-      {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
+      {section === "team" && <TeamView users={users} me={me} tasks={tasks} boats={boats} onViewAs={onViewAs} persistUsers={persistUsers} isOwner={isOwner} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
-      {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} />}
       {section === "errors" && <ErrorsAdmin />}
-      {section === "usersS" && isOwner && <UsersAdmin users={users} persistUsers={persistUsers} me={me} onViewAs={realOwner ? onViewAs : null} />}
     </div>
   );
 }
@@ -2075,9 +2072,27 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
         const absNote = absPeriods.length ? ` ΑΠΟΥΣΙΑΣΕ αυτή την εβδομάδα: ${absPeriods.join(", ")}.` : "";
         return `${u.name}: Ολοκλήρωσε [${done.join("; ") || "τίποτα"}]. Πρόοδοι σε μεγάλες εργασίες: ${prog}. Εντόπισε/κατέγραψε νέες: ${found}.${absNote}`;
       }).join("\n");
-      const prompt = `Είσαι σύμβουλος απόδοσης ομάδας σε βάση σκαφών charter. Γράψε ΣΥΝΟΠΤΙΚΗ εβδομαδιαία αναφορά (150-250 λέξεις, ελληνικά) για τη διοίκηση, με βάση τα δεδομένα.
-ΟΔΗΓΙΕΣ: Κρίνε κάθε ολοκληρωμένη εργασία με συντελεστή βαρύτητας 1-5 (1=ασήμαντη π.χ. βίδωμα/λάμπα/απλό πλύσιμο, 5=βαριά π.χ. αλλαγή θερμοσίφωνα, στεγανοποίηση παραθύρων, επισκευή μηχανισμών). Όπου υπάρχει "αξιολόγηση manager" σε μια εργασία, αυτή είναι η δική του κρίση για την ΠΟΙΟΤΗΤΑ εκτέλεσης (1=κακή, 5=άριστη) — συνυπολόγισέ την ΞΕΧΩΡΙΣΤΑ από τη δική σου εκτίμηση βαρύτητας, καθώς αντικατοπτρίζει άμεση επιτόπια κρίση. Οι εργασίες με ένδειξη "αυτόματη ανάθεση χαμηλού φόρτου" δόθηκαν επειδή ο υπάλληλος δεν είχε άλλη δουλειά εκείνη τη στιγμή — μέτρα τες κανονικά αλλά μην τις θεωρήσεις σημάδι χαμηλής απόδοσης από μόνες τους. Η ένδειξη "ΧΩΡΙΣ φωτογραφία αποτελέσματος" σε εργασία που τη ζητούσε είναι αρνητικό σημάδι — ο υπάλληλος δεν τεκμηρίωσε τη δουλειά του παρότι έπρεπε· ανάφερέ το. Σύγκρινε κάθε άτομο με τον μέσο όρο της ομάδας σε ΣΤΑΘΜΙΣΜΕΝΟ έργο (όχι σκέτο πλήθος). Επισήμανε μοτίβα: ποιος σηκώνει βαριές δουλειές, ποιος διαλέγει μόνο εύκολες (π.χ. μόνο πλυσίματα), ποιος έχει χαμηλή παραγωγή, ποιος εντοπίζει προβλήματα, επιστροφές ατελών, χαμηλές/υψηλές αξιολογήσεις manager, λείπουσες φωτογραφίες τεκμηρίωσης. Ευθύς αλλά δίκαιος. ΣΗΜΑΝΤΙΚΟ: αν κάποιος είχε δηλωμένη απουσία μέρος ή όλη την εβδομάδα, ΜΗΝ τον συγκρίνεις άδικα με όσους ήταν παρόντες όλη την εβδομάδα — ανάφερε ουδέτερα ότι απουσίαζε τις συγκεκριμένες μέρες και αξιολόγησε μόνο τις μέρες παρουσίας του.
-ΔΕΔΟΜΕΝΑ ΕΒΔΟΜΑΔΑΣ:\n${data}`;
+      // Φέρνουμε την προηγούμενη αναφορά ώστε το AI να μπορεί να εντοπίσει θετική μεταστροφή (π.χ. κάποιος που βελτιώθηκε σε σχέση με πέρυσι την εβδομάδα)
+      let prevText = "";
+      try {
+        const prevD = new Date(weekKey); prevD.setDate(prevD.getDate() - 7);
+        const prevKey = prevD.toISOString().slice(0, 10);
+        const prevRep = await load("weekly-report-" + prevKey, null);
+        if (prevRep && prevRep.text) prevText = prevRep.text;
+      } catch {}
+      const prompt = `Είσαι σύμβουλος της διοίκησης σε βάση σκαφών charter. Γράφεις ΣΥΝΟΠΤΙΚΗ εβδομαδιαία αναφορά (150-250 λέξεις, ελληνικά).
+
+ΣΚΟΠΟΣ ΤΗΣ ΑΝΑΦΟΡΑΣ: Να βοηθήσει τη διοίκηση να πάρει καλύτερες αποφάσεις οργάνωσης της δουλειάς — ΟΧΙ να αξιολογήσει, κατατάξει ή "τιμωρήσει" άτομα. Η αναφορά ΔΕΝ είναι κριτική προσώπων. Μη χρησιμοποιείς χαρακτηρισμούς για ανθρώπους (π.χ. "αδιάφορος", "τεμπέλης", "αργός", "κακή στάση") και μην αποδίδεις προθέσεις ή κίνητρα. Περιέγραψε γεγονότα και μοτίβα δουλειάς, ποτέ τον χαρακτήρα κάποιου.
+
+ΔΟΜΗ ΤΗΣ ΑΝΑΦΟΡΑΣ — δύο ξεχωριστά μέρη:
+
+1) «Τι πήγε καλά αυτή την εβδομάδα» (το κύριο και μεγαλύτερο μέρος): Ανάφερε ονομαστικά όποιον ξεχώρισε — βαριά/απαιτητική δουλειά, καλές αξιολογήσεις manager, πρωτοβουλία σε εντοπισμό προβλημάτων, συνέπεια. Αν έχεις ΠΡΟΗΓΟΥΜΕΝΗ ΑΝΑΦΟΡΑ σε αυτό το prompt και κάποιος φέτος έδειξε ξεκάθαρη θετική μεταστροφή σε σχέση με την προηγούμενη εβδομάδα (π.χ. κάποιος που δεν ξεχώρισε τότε αλλά αυτή την εβδομάδα σήκωσε πολύ βάρος), ανάφερέ το ρητά και θετικά — αυτό έχει ιδιαίτερη αξία. ΜΗΝ αναφέρεις ονομαστικά όποιον δεν ξεχώρισε ή είχε μέτρια/χαμηλή εβδομάδα — η απουσία αναφοράς είναι αρκετή, δεν χρειάζεται εξήγηση ή δικαιολογία γι' αυτούς. Αν κάποιος είχε δηλωμένη απουσία μέρος ή όλη την εβδομάδα, μην τον συγκρίνεις με όσους ήταν παρόντες όλη την εβδομάδα.
+
+2) «Λειτουργικά σημεία προς παρακολούθηση» (μόνο αν υπάρχει κάτι πραγματικά αναγκαίο, σύντομο, μπορεί και να λείπει εντελώς): ΜΟΝΟ γεγονότα με πραγματικό επιχειρησιακό ρίσκο — π.χ. επαναλαμβανόμενο πρόβλημα σε συγκεκριμένο σκάφος, εργασία που επιστράφηκε πολλές φορές ατελής, λείπουσα τεκμηρίωση φωτογραφίας σε απαιτητική εργασία. Γράψε τα ως ΚΑΤΑΣΤΑΣΕΙΣ/ΓΕΓΟΝΟΤΑ ("το σκάφος Χ χρειάζεται έλεγχο στο Υ, έχει επαναληφθεί"), ποτέ ως κρίση προσώπου ("ο Χ δεν πρόσεξε"). Αν δεν υπάρχει τίποτα τέτοιο, μην γράψεις καθόλου αυτό το μέρος.
+
+Κρίνε τη βαρύτητα κάθε εργασίας 1-5 (1=απλή π.χ. βίδωμα/πλύσιμο, 5=βαριά π.χ. αλλαγή θερμοσίφωνα, στεγανοποίηση, επισκευή μηχανισμών) και σύγκρινε σε ΣΤΑΘΜΙΣΜΕΝΟ έργο, όχι πλήθος, όταν αποφασίζεις ποιος ξεχώρισε. Οι εργασίες με ένδειξη "αυτόματη ανάθεση χαμηλού φόρτου" δόθηκαν επειδή δεν υπήρχε άλλη δουλειά — μην τις θεωρήσεις σημάδι τίποτα.
+
+${prevText ? `ΠΡΟΗΓΟΥΜΕΝΗ ΕΒΔΟΜΑΔΙΑΙΑ ΑΝΑΦΟΡΑ (για σύγκριση μεταστροφών):\n${prevText}\n\n` : ""}ΔΕΔΟΜΕΝΑ ΑΥΤΗΣ ΤΗΣ ΕΒΔΟΜΑΔΑΣ:\n${data}`;
       const text = await askClaude(prompt, 900);
       if (text) { await save("weekly-report-" + weekKey, { text, at: new Date().toISOString() }); setRep({ text }); if (!auto) setOpen(true); }
     } catch {}
@@ -2506,10 +2521,18 @@ function EditableList({ title, items, onChange, placeholder }) {
   );
 }
 
-function Stats({ users, tasks, boats }) {
+function TeamView({ users, me, tasks, boats, onViewAs, persistUsers, isOwner }) {
   const [sel, setSel] = useState(null);
   const [range, setRange] = useState("week");
+  const [profFor, setProfFor] = useState(null);
+  const [prof, setProf] = useState("");
+  const [name, setName] = useState("");
+  const roleLabel = (r) => r === "manager" ? "Base Manager" : r === "owner" ? "Διαχειριστής" : r === "associate" ? "Στέλεχος" : "Υπάλληλος";
+  const canViewAs = (u) => onViewAs && (u.role === "employee" || u.role === "associate");
+
   if (sel) {
+    const u = users.find(x => x.id === sel);
+    if (!u) { setSel(null); return null; }
     const now = new Date();
     const from = new Date(now);
     if (range === "week") from.setDate(now.getDate() - 7);
@@ -2517,17 +2540,21 @@ function Stats({ users, tasks, boats }) {
     else from.setFullYear(2000);
     const inR = (d) => d && new Date(d) >= from;
     const bn = (id) => boats?.find(b => b.id === id)?.name || "Βάση/Άλλο";
-    const done = tasks.filter(t => t.completedBy === sel.id && t.status === "done" && inR(t.completedAt)).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||""));
-    const created = tasks.filter(t => t.createdBy === sel.id && inR(t.createdAt));
-    const prog = tasks.flatMap(t => (t.progress||[]).filter(p => p.by === sel.id && inR(p.at)).map(p => ({...p, desc: t.desc, boatId: t.boatId})));
+    const done = tasks.filter(t => t.completedBy === u.id && t.status === "done" && inR(t.completedAt)).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||""));
+    const created = tasks.filter(t => t.createdBy === u.id && inR(t.createdAt));
+    const prog = tasks.flatMap(t => (t.progress||[]).filter(p => p.by === u.id && inR(p.at)).map(p => ({...p, desc: t.desc, boatId: t.boatId})));
     return (
       <div>
-        <SectionTitle>👤 {sel.name} — ιστορικό</SectionTitle>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "6px 0 10px" }}>
+          <SectionTitle>👤 {u.name} · {roleLabel(u.role)}</SectionTitle>
+          <Btn small color={COLORS.sub} outline onClick={() => { setSel(null); setProfFor(null); }}>← Πίσω</Btn>
+        </div>
+        {canViewAs(u) && <div style={{ marginBottom: 10 }}><Btn small color={COLORS.teal} onClick={() => onViewAs(u)}>👁 Προβολή ως {u.name}</Btn></div>}
+        <SectionTitle>Ιστορικό</SectionTitle>
         <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
           {[["week","Εβδομάδα"],["month","Μήνας"],["all","Όλα"]].map(([id,l]) => (
             <Btn key={id} small color={COLORS.navy} outline={range!==id} onClick={()=>setRange(id)}>{l}</Btn>
           ))}
-          <Btn small color={COLORS.sub} outline onClick={()=>setSel(null)}>← Πίσω</Btn>
         </div>
         <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 10, fontSize: 14 }}>
           <b>Σύνοψη:</b> {done.length} ολοκληρώσεις · {created.length} καταχωρήσεις · {prog.length} πρόοδοι
@@ -2553,34 +2580,152 @@ function Stats({ users, tasks, boats }) {
             {t.desc} — {bn(t.boatId)} · {fmtDate(t.createdAt)}
           </div>
         ))}
+        {isOwner && u.role !== "owner" && (
+          <div>
+            <SectionTitle>Διαχείριση (ορατό μόνο σε σένα)</SectionTitle>
+            <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 8, fontSize: 14 }}>
+              <div style={{ fontSize: 12.5, marginBottom: 10 }}>
+                Κωδικός: <b style={{ letterSpacing: 1 }}>{u.code}</b>{" "}
+                <button onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, code: genCode(x.name) } : x))}
+                  style={{ border: "none", background: "none", color: COLORS.teal, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>↻ νέος</button>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <Btn small color={COLORS.navy} outline onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, role: x.role === "employee" ? "associate" : x.role === "associate" ? "manager" : "employee" } : x))}>
+                  {u.role === "manager" ? "Manager → Υπάλληλος" : u.role === "associate" ? "Στέλεχος → Manager" : "Υπάλληλος → Στέλεχος"}
+                </Btn>
+                {u.role === "employee" && (
+                  <Btn small color={u.noAutoAssign ? COLORS.red : COLORS.green} outline
+                    onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, noAutoAssign: !x.noAutoAssign } : x))}>
+                    AI κατανομή: {u.noAutoAssign ? "όχι" : "ναι"}
+                  </Btn>
+                )}
+                <Btn small color={COLORS.navy} outline
+                  onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, lang: x.lang === "en" ? "el" : "en" } : x))}>
+                  Γλώσσα: {u.lang === "en" ? "EN" : "ΕΛ"}
+                </Btn>
+                <Btn small color={COLORS.teal} outline onClick={() => { setProfFor(u.id); setProf(u.profile || ""); }}>Προφίλ</Btn>
+                <Btn small color={COLORS.amber} outline onClick={() => { setProfFor("h-" + u.id); setProf(u.humor || ""); }}>Ύφος 😄</Btn>
+                <Btn small color={COLORS.red} outline onClick={() => { if (confirm(`Αφαίρεση πρόσβασης: ${u.name};`)) { persistUsers(users.filter(x => x.id !== u.id)); setSel(null); } }}>Αφαίρεση</Btn>
+              </div>
+              {u.profile && profFor !== u.id && <div style={{ fontSize: 12.5, color: COLORS.sub, marginTop: 10 }}>Προφίλ: {u.profile}</div>}
+              {profFor === u.id && (
+                <div style={{ marginTop: 10 }}>
+                  <textarea value={prof} onChange={e => setProf(e.target.value)} rows={2} placeholder="Δεξιότητες / τι κάνει κυρίως — το χρησιμοποιεί το AI για τις αναθέσεις" style={inputStyle} />
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <Btn small color={COLORS.navy} onClick={() => { persistUsers(users.map(x => x.id === u.id ? { ...x, profile: prof.trim() } : x)); setProfFor(null); }}>Αποθήκευση</Btn>
+                    <Btn small color={COLORS.sub} outline onClick={() => setProfFor(null)}>Άκυρο</Btn>
+                  </div>
+                </div>
+              )}
+              {profFor === "h-" + u.id && (
+                <div style={{ marginTop: 10 }}>
+                  <textarea value={prof} onChange={e => setProf(e.target.value)} rows={2} placeholder="Ύφος ημερήσιου μηνύματος (χιούμορ, πειράγματα, running jokes) — κενό = χωρίς μήνυμα" style={inputStyle} />
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <Btn small color={COLORS.navy} onClick={() => { persistUsers(users.map(x => x.id === u.id ? { ...x, humor: prof.trim() } : x)); setProfFor(null); }}>Αποθήκευση</Btn>
+                    <Btn small color={COLORS.sub} outline onClick={() => setProfFor(null)}>Άκυρο</Btn>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
-  const rows = users.filter(u => u.role === "employee" && !u.noStats).map(u => ({
-    name: u.name,
-    created: tasks.filter(t => t.createdBy === u.id).length,
-    done: tasks.filter(t => t.completedBy === u.id && t.status === "done").length,
-    prog: tasks.reduce((s, t) => s + (t.progress || []).filter(p => p.by === u.id).length, 0),
-    returns: tasks.filter(t => t.completedBy === u.id || (t.status === "open" && t.assignedTo === u.id && t.returnNote)).reduce((s, t) => s + (t.returns || 0), 0),
-  }));
+
+  // Δείκτες Πορείας/Βάσης — τοπικός υπολογισμός, χωρίς AI. Στάθμιση: intensive εργασία=3, απλή=1, κάθε πρόοδος=1.
+  const emps = users.filter(u => u.role === "employee" && !u.noStats);
+  const wkStart = (d) => { const x = new Date(d); const g = x.getDay(); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - (g === 0 ? 6 : g - 1)); return x; };
+  const curWkStart = wkStart(new Date());
+  const WEEKS = 5; // τρέχουσα + 4 προηγούμενες
+  const winStart = (i) => { const d = new Date(curWkStart); d.setDate(d.getDate() - i * 7); return d; };
+  const wkScore = (uid, from) => {
+    const to = new Date(from); to.setDate(to.getDate() + 7);
+    const inW = (d) => d && new Date(d) >= from && new Date(d) < to;
+    let s = 0;
+    tasks.forEach(t => {
+      if (t.completedBy === uid && t.status === "done" && inW(t.completedAt)) s += t.intensive ? 3 : 1;
+      (t.progress || []).forEach(p => { if (p.by === uid && inW(p.at)) s += 1; });
+    });
+    return s;
+  };
+  const fullyAbsent = (uid, from) => {
+    const to = new Date(from); to.setDate(to.getDate() + 6);
+    const fs = from.toISOString().slice(0, 10), ts = to.toISOString().slice(0, 10);
+    return (absences || []).some(a => a.userId === uid && a.from <= fs && a.to >= ts);
+  };
+  const weeklyScores = (uid) => {
+    const arr = [];
+    for (let i = 0; i < WEEKS; i++) { const from = winStart(i); if (fullyAbsent(uid, from)) continue; arr.push({ i, score: wkScore(uid, from) }); }
+    return arr;
+  };
+  let tTot = 0, tN = 0;
+  emps.forEach(e => weeklyScores(e.id).forEach(w => { tTot += w.score; tN += 1; }));
+  const teamBase = tN ? tTot / tN : 0; // η «βάση»: μέσος όρος εβδομάδας ανά παρόν άτομο
+  const perf = (uid) => {
+    const ws = weeklyScores(uid);
+    const cur = ws.find(w => w.i === 0);
+    const prior = ws.filter(w => w.i > 0);
+    const curScore = cur ? cur.score : wkScore(uid, winStart(0));
+    if (fullyAbsent(uid, winStart(0))) return { trend: "away", base: null };
+    let trend = "new";
+    if (prior.length >= 1) {
+      const pm = prior.reduce((s, w) => s + w.score, 0) / prior.length;
+      if (pm === 0 && curScore === 0) trend = "flat";
+      else if (pm === 0) trend = "up";
+      else { const r = curScore / pm; trend = r >= 1.2 ? "up" : r <= 0.8 ? "down" : "flat"; }
+    }
+    let base = null;
+    if (prior.length >= 3 && teamBase > 0) { // «Βάση» ξεκλειδώνει με ≥3 εβδομάδες παρουσίας
+      const mine = ws.reduce((s, w) => s + w.score, 0) / (ws.length || 1);
+      const r = mine / teamBase;
+      base = r >= 1.15 ? "above" : r <= 0.85 ? "below" : "at";
+    }
+    return { trend, base };
+  };
+  const others = users.filter(u => u.id !== me.id && u.role !== "owner" && !(u.role === "employee" && !u.noStats) && (isOwner || u.role !== "manager"));
   return (
     <div>
-      <SectionTitle>Στατιστικά ομάδας (ορατά μόνο σε managers)</SectionTitle>
-      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, overflowX: "auto" }}>
-        <table style={{ width: "100%", fontSize: 13.5, borderCollapse: "collapse" }}>
-          <thead><tr style={{ color: COLORS.sub, textAlign: "left" }}>
-            <th style={th}>Άτομο</th><th style={th}>Εντόπισε</th><th style={th}>Ολοκλήρωσε</th><th style={th}>Πρόοδοι</th><th style={th}>↩ Επιστρ.</th>
-          </tr></thead>
-          <tbody>
-            {rows.map(r => (
-              <tr key={r.name} style={{ borderTop: `1px solid ${COLORS.line}` }} onClick={() => setSel(users.find(u => u.name === r.name))}>
-                <td style={td}><b style={{ color: COLORS.teal, textDecoration: "underline" }}>{r.name}</b></td><td style={td}>{r.created}</td><td style={td}>{r.done}</td><td style={td}>{r.prog}</td>
-                <td style={{ ...td, color: r.returns > 0 ? COLORS.red : COLORS.text }}>{r.returns}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <SectionTitle>Πορεία ομάδας (ορατό μόνο σε managers)</SectionTitle>
+      {emps.length === 0 && <Empty>Κανένας υπάλληλος.</Empty>}
+      {emps.map(u => {
+        const { trend, base } = perf(u.id);
+        const tc = { up: { t: "↑ ανεβαίνει", c: COLORS.green }, flat: { t: "→ σταθερός", c: COLORS.sub }, down: { t: "↓ πέφτει", c: COLORS.amber }, new: { t: "🆕 νέος", c: COLORS.sub }, away: { t: "• απών αυτή την εβδομάδα", c: COLORS.sub } }[trend];
+        const bc = base && { above: { t: "πάνω από τη βάση", c: COLORS.green }, at: { t: "στη βάση", c: COLORS.sub }, below: { t: "κάτω από τη βάση", c: COLORS.amber } }[base];
+        return (
+          <div key={u.id} onClick={() => { setSel(u.id); setRange("week"); }} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <b style={{ color: COLORS.teal }}>{u.name}</b>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: tc.c }}>{tc.t}</span>
+              {bc && <span style={{ fontSize: 11.5, fontWeight: 700, color: bc.c, background: bc.c + "18", padding: "2px 8px", borderRadius: 20 }}>{bc.t}</span>}
+            </div>
+          </div>
+        );
+      })}
+      <div style={{ fontSize: 11.5, color: COLORS.sub, marginBottom: 12, marginTop: 2, lineHeight: 1.5 }}>
+        «Πορεία» = κάθε άτομο σε σχέση με τον δικό του ρυθμό. «Βάση» = ο μέσος όρος της ομάδας· εμφανίζεται μόλις το άτομο έχει αρκετές εβδομάδες παρουσίας. Πάτα ένα όνομα για αναλυτικά νούμερα.
       </div>
+      <SectionTitle>Στελέχη & διοίκηση</SectionTitle>
+      {others.length === 0 && <Empty>Κανένας άλλος χρήστης.</Empty>}
+      {others.map(u => (
+        <div key={u.id} onClick={() => { setSel(u.id); setRange("week"); }} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div><b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{roleLabel(u.role)}</span></div>
+          {canViewAs(u) && <Btn small color={COLORS.teal} onClick={(e) => { e.stopPropagation(); onViewAs(u); }}>👁 Προβολή ως</Btn>}
+        </div>
+      ))}
+      {isOwner && (
+        <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginTop: 12 }}>
+          <label style={lbl}>Νέος χρήστης</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="Όνομα" style={inputStyle} />
+            <Btn small color={COLORS.navy} onClick={() => {
+              if (!name.trim()) return;
+              persistUsers([...users, { id: "u" + Date.now(), name: name.trim(), role: "employee", profile: "", code: genCode(name.trim()) }]);
+              setName("");
+            }}>+</Btn>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2715,104 +2860,6 @@ function ErrorsAdmin() {
     </div>
   );
 }
-
-function ProfilesView({ users, me, onViewAs }) {
-  const roleLabel = (r) => r === "manager" ? "Base Manager" : r === "owner" ? "Διαχειριστής" : r === "associate" ? "Στέλεχος" : "Υπάλληλος";
-  const shown = users.filter(u => (u.role === "employee" || u.role === "associate") && u.id !== me.id);
-  return (
-    <div>
-      <SectionTitle>Ομάδα</SectionTitle>
-      {shown.length === 0 && <Empty>Κανένας χρήστης ακόμα.</Empty>}
-      {shown.map(u => (
-        <div key={u.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <div>
-              <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{roleLabel(u.role)}</span>
-            </div>
-            {onViewAs && <Btn small color={COLORS.teal} onClick={() => onViewAs(u)}>👁 Προβολή ως</Btn>}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function UsersAdmin({ users, persistUsers, me, onViewAs }) {
-  const [name, setName] = useState("");
-  const [profFor, setProfFor] = useState(null);
-  const [prof, setProf] = useState("");
-  return (
-    <div>
-      <SectionTitle>Χρήστες & ρόλοι (μόνο owner)</SectionTitle>
-      {users.filter(u => u.id !== me.id).map(u => (
-        <div key={u.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{u.role === "manager" ? "Base Manager" : u.role === "owner" ? "Διαχειριστής" : u.role === "associate" ? "Στέλεχος" : "Υπάλληλος"}</span>
-              <div style={{ fontSize: 12.5, marginTop: 2 }}>
-                Κωδικός: <b style={{ letterSpacing: 1 }}>{u.code}</b>{" "}
-                <button onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, code: genCode(x.name) } : x))}
-                  style={{ border: "none", background: "none", color: COLORS.teal, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>↻ νέος</button>
-              </div>
-              {u.profile && <div style={{ fontSize: 12.5, color: COLORS.sub, marginTop: 2 }}>{u.profile}</div>}
-            </div>
-            <div style={{ display: "flex", gap: 6, flexDirection: "column", alignItems: "flex-end" }}>
-              {u.role !== "owner" && (
-                <Btn small color={COLORS.navy} outline onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, role: x.role === "employee" ? "associate" : x.role === "associate" ? "manager" : "employee" } : x))}>
-                  {u.role === "manager" ? "Manager → Υπάλληλος" : u.role === "associate" ? "Στέλεχος → Manager" : "Υπάλληλος → Στέλεχος"}
-                </Btn>
-              )}
-              {u.role === "employee" && (
-                <Btn small color={u.noAutoAssign ? COLORS.red : COLORS.green} outline
-                  onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, noAutoAssign: !x.noAutoAssign } : x))}>
-                  AI κατανομή: {u.noAutoAssign ? "όχι" : "ναι"}
-                </Btn>
-              )}
-              <Btn small color={COLORS.navy} outline
-                onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, lang: x.lang === "en" ? "el" : "en" } : x))}>
-                Γλώσσα: {u.lang === "en" ? "EN" : "ΕΛ"}
-              </Btn>
-              <Btn small color={COLORS.teal} outline onClick={() => { setProfFor(u.id); setProf(u.profile || ""); }}>Προφίλ</Btn>
-              <Btn small color={COLORS.amber} outline onClick={() => { setProfFor("h-" + u.id); setProf(u.humor || ""); }}>Ύφος 😄</Btn>
-              {onViewAs && <Btn small color={COLORS.teal} onClick={() => onViewAs(u)}>👁 Προβολή ως</Btn>}
-              {u.role !== "owner" && <Btn small color={COLORS.red} outline onClick={() => { if (confirm(`Αφαίρεση πρόσβασης: ${u.name};`)) persistUsers(users.filter(x => x.id !== u.id)); }}>Αφαίρεση</Btn>}
-            </div>
-          </div>
-          {profFor === u.id && (
-            <div style={{ marginTop: 10 }}>
-              <textarea value={prof} onChange={e => setProf(e.target.value)} rows={2} placeholder="Δεξιότητες / τι κάνει κυρίως — το χρησιμοποιεί το AI για τις αναθέσεις" style={inputStyle} />
-              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <Btn small color={COLORS.navy} onClick={() => { persistUsers(users.map(x => x.id === u.id ? { ...x, profile: prof.trim() } : x)); setProfFor(null); }}>Αποθήκευση</Btn>
-                <Btn small color={COLORS.sub} outline onClick={() => setProfFor(null)}>Άκυρο</Btn>
-              </div>
-            </div>
-          )}
-          {profFor === "h-" + u.id && (
-            <div style={{ marginTop: 10 }}>
-              <textarea value={prof} onChange={e => setProf(e.target.value)} rows={2} placeholder="Ύφος ημερήσιου μηνύματος (χιούμορ, πειράγματα, running jokes) — κενό = χωρίς μήνυμα" style={inputStyle} />
-              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <Btn small color={COLORS.navy} onClick={() => { persistUsers(users.map(x => x.id === u.id ? { ...x, humor: prof.trim() } : x)); setProfFor(null); }}>Αποθήκευση</Btn>
-                <Btn small color={COLORS.sub} outline onClick={() => setProfFor(null)}>Άκυρο</Btn>
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginTop: 12 }}>
-        <label style={lbl}>Νέος χρήστης</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Όνομα" style={inputStyle} />
-          <Btn small color={COLORS.navy} onClick={() => {
-            if (!name.trim()) return;
-            persistUsers([...users, { id: "u" + Date.now(), name: name.trim(), role: "employee", profile: "", code: genCode(name.trim()) }]);
-            setName("");
-          }}>+</Btn>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 
 export default function App() {
   return (
