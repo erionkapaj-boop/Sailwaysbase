@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.33";
+const APP_VERSION = "v3.34";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2040,7 +2040,7 @@ function AdminView(props) {
       {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
-      {section === "team" && <TeamView users={users} me={me} tasks={tasks} boats={boats} onViewAs={onViewAs} persistUsers={persistUsers} isOwner={isOwner} />}
+      {section === "team" && <TeamView users={users} me={me} tasks={tasks} boats={boats} absences={absences} onViewAs={onViewAs} persistUsers={persistUsers} isOwner={isOwner} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
       {section === "errors" && <ErrorsAdmin />}
     </div>
@@ -2521,7 +2521,7 @@ function EditableList({ title, items, onChange, placeholder }) {
   );
 }
 
-function TeamView({ users, me, tasks, boats, onViewAs, persistUsers, isOwner }) {
+function TeamView({ users, me, tasks, boats, absences, onViewAs, persistUsers, isOwner }) {
   const [sel, setSel] = useState(null);
   const [range, setRange] = useState("week");
   const [profFor, setProfFor] = useState(null);
