@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.30";
+const APP_VERSION = "v3.31";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -686,7 +686,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       patchTask(t.id, { serviceRelevant: /yes/i.test(raw) });
     } catch { /* ταξινόμηση απέτυχε — η εργασία απλά δεν εμφανίζεται στο βιβλίο service, δεν χάνεται τίποτα */ }
   };
-  const completeTask = async (t, attributedTo, afterPhotoFiles) => {
+  const completeTask = async (t, attributedTo, afterPhotoFiles, confidence) => {
     const finalBy = attributedTo || acting.id;
     let afterUrls = [];
     if (afterPhotoFiles?.length) {
@@ -694,10 +694,19 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     }
     await persistTasks(tasks.map(x => x.id === t.id ? {
       ...x, status: "done", completedBy: finalBy, completedByActor: acting.id, completedAt: new Date().toISOString(),
+      ...(confidence ? { completionConfidence: confidence } : {}),
       ...(afterUrls.length ? { photosAfter: [...(x.photosAfter || []), ...afterUrls] } : {}),
     } : x));
     showToast("Ολοκληρώθηκε ✔");
     classifyServiceRelevance(t);
+    // Η επιλογή «τέλεια / με επιφυλάξεις» τροφοδοτεί αυτόματα το ίδιο χρονολόγιο παρατηρήσεων που βλέπει το AI
+    // στο προφίλ του σκάφους — χωρίς να χρειάζεται κανείς να το ξαναγράψει χειροκίνητα.
+    if (confidence && t.boatId) {
+      const text = confidence === "good"
+        ? `🟢 "${t.desc}" — ολοκληρώθηκε, δούλευε τέλεια κατά τον έλεγχο`
+        : `🟡 "${t.desc}" — ολοκληρώθηκε, αλλά με επιφυλάξεις για την ποιότητα/διάρκεια`;
+      addBoatNote(t.boatId, text);
+    }
   };
   const addBeforePhotos = async (t, files) => {
     if (!files?.length) return;
@@ -1071,6 +1080,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const [afterPhotos, setAfterPhotos] = useState([]);
   const [assignMinutes, setAssignMinutes] = useState("");
   const [customMins, setCustomMins] = useState("");
+  const [confidence, setConfidence] = useState(null);
   const afterFileRef = useRef(null);
   const boat = boats.find(b => b.id === t.boatId);
   const dl = deadline(t);
@@ -1078,6 +1088,12 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const spine = t.urgent ? COLORS.red : (dl && du !== null && du <= 7 ? COLORS.amber : COLORS.line);
   const assignee = users.find(u => u.id === t.assignedTo);
   const employees = users.filter(u => u.role === "employee" && !u.noStats);
+  const startComplete = (conf) => {
+    setConfidence(conf);
+    if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); }
+    else if (t.intensive) { setMode("completeSimple"); }
+    else { onComplete(t, undefined, undefined, conf); }
+  };
 
   return (
     <div style={{ background: COLORS.card, borderRadius: 12, marginBottom: 10, borderLeft: `5px solid ${spine}`, boxShadow: "0 1px 2px rgba(10,30,50,.06)" }}>
@@ -1169,7 +1185,14 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           {mode === null && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
               {!Array.isArray(t.checklistItems) && !t.findMode && (
-                <Btn color={COLORS.green} onClick={() => { if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); } else if (t.intensive) { setMode("completeSimple"); } else { onComplete(t); } }}>{tr("Ολοκληρώθηκε ✔")}</Btn>
+                t.boatId ? (
+                  <>
+                    <Btn color={COLORS.green} onClick={() => startComplete("good")}>🟢 {tr("Τέλεια ολοκλήρωση")}</Btn>
+                    <Btn color={COLORS.amber} outline onClick={() => startComplete("reservations")}>🟡 {tr("Με επιφυλάξεις")}</Btn>
+                  </>
+                ) : (
+                  <Btn color={COLORS.green} onClick={() => startComplete(null)}>{tr("Ολοκληρώθηκε ✔")}</Btn>
+                )
               )}
               <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
               {t.intensive && !(t.photosBefore?.length) && <Btn color={COLORS.teal} outline onClick={() => setMode("beforePhoto")}>📷 {tr("Φωτογραφία πριν")}</Btn>}
@@ -1262,6 +1285,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           )}
           {mode === "completeAs" && isMgr && (
             <div style={{ marginTop: 10 }}>
+              {t.boatId && <div style={{ fontSize: 12.5, marginBottom: 8, color: confidence === "reservations" ? COLORS.amber : COLORS.green, fontWeight: 700 }}>{confidence === "reservations" ? "🟡 " + tr("Με επιφυλάξεις") : "🟢 " + tr("Τέλεια ολοκλήρωση")}</div>}
               <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 8 }}>{tr("Ολοκληρώθηκε από:")}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {employees.map(u => (
@@ -1281,8 +1305,8 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <Btn color={COLORS.green} onClick={() => { onComplete(t, completeAsId, afterPhotos); setMode(null); setOpen(false); setAfterPhotos([]); }}>{tr("Επιβεβαίωση ✔")}</Btn>
-                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); }}>{tr("Άκυρο")}</Btn>
+                <Btn color={COLORS.green} onClick={() => { onComplete(t, completeAsId, afterPhotos, confidence); setMode(null); setOpen(false); setAfterPhotos([]); setConfidence(null); }}>{tr("Επιβεβαίωση ✔")}</Btn>
+                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); setConfidence(null); }}>{tr("Άκυρο")}</Btn>
               </div>
             </div>
           )}
@@ -1294,8 +1318,8 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               <Btn small color={COLORS.teal} outline onClick={() => afterFileRef.current?.click()}>📷 {tr("Προσθήκη φωτογραφίας")}</Btn>
               {afterPhotos.length > 0 && <span style={{ fontSize: 12.5, color: COLORS.sub, marginLeft: 8 }}>{afterPhotos.length} {tr("επιλεγμένες")}</span>}
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <Btn color={COLORS.green} onClick={() => { onComplete(t, null, afterPhotos); setMode(null); setOpen(false); setAfterPhotos([]); }}>{tr("Επιβεβαίωση ✔")}</Btn>
-                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); }}>{tr("Άκυρο")}</Btn>
+                <Btn color={COLORS.green} onClick={() => { onComplete(t, null, afterPhotos, confidence); setMode(null); setOpen(false); setAfterPhotos([]); setConfidence(null); }}>{tr("Επιβεβαίωση ✔")}</Btn>
+                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); setConfidence(null); }}>{tr("Άκυρο")}</Btn>
               </div>
             </div>
           )}
@@ -2253,11 +2277,14 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr }) 
     setBusy(true); setAiAns("");
     try {
       const serviceText = serviceHistory.map(t => `"${t.desc}" (${fmtDate(t.completedAt)})`).join("; ") || "(κενό)";
-      const notesText = myNotes.map(n => `"${n.text}" (${fmtDate(n.at)})`).join("; ") || "(κενό)";
+      // Χρονολογική σειρά (παλιότερο → νεότερο) ώστε το AI να «διαβάζει» εξέλιξη — π.χ. θετική παρατήρηση παλιότερα, πρόβλημα μεταγενέστερα, άρα νέο ζήτημα.
+      const notesChrono = [...myNotes].sort((a, b) => a.at.localeCompare(b.at));
+      const notesText = notesChrono.map(n => `"${n.text}" (${fmtDate(n.at)})`).join("; ") || "(κενό)";
       const routineText = allDone.map(t => `"${t.desc}" (${fmtDate(t.completedAt)})`).join("; ") || "(κενό)";
-      const prompt = `Είσαι βοηθός βάσης σκαφών, ειδικός για το σκάφος "${boat.name}". Απάντησε στην ερώτηση χρησιμοποιώντας ΜΟΝΟ τα παρακάτω δεδομένα. Αν εντοπίζεις επαναλαμβανόμενο μοτίβο (το ίδιο πρόβλημα να ξαναγίνεται) στο ιστορικό ρουτίνας, επισήμανέ το ως πιθανό υποκείμενο ζήτημα.
+      const prompt = `Είσαι βοηθός βάσης σκαφών, ειδικός για το σκάφος "${boat.name}". Απάντησε στην ερώτηση χρησιμοποιώντας ΜΟΝΟ τα παρακάτω δεδομένα.
+Οι ΠΑΡΑΤΗΡΗΣΕΙΣ είναι σε χρονολογική σειρά (παλιότερη → νεότερη) και μπορεί να είναι είτε θετικές (κάτι δουλεύει καλά) είτε αρνητικές (πρόβλημα). Χρησιμοποίησέ τες σαν χρονικά σημεία αναφοράς: αν κάτι έχει σημειωθεί ότι δούλευε καλά σε μια ημερομηνία και αργότερα εμφανίζεται πρόβλημα για το ίδιο πράγμα (είτε σε παρατήρηση είτε στο ιστορικό ρουτίνας/service), ανάφερε ρητά ότι πρόκειται πιθανότατα για νέο ζήτημα και ανάφερε από πότε υπάρχει η τελευταία ένδειξη καλής λειτουργίας. Αν εντοπίζεις επαναλαμβανόμενο μοτίβο (το ίδιο πρόβλημα να ξαναγίνεται) στο ιστορικό ρουτίνας, επισήμανέ το ως πιθανό υποκείμενο ζήτημα.
 ΒΙΒΛΙΟ SERVICE: ${serviceText}
-ΠΑΡΑΤΗΡΗΣΕΙΣ: ${notesText}
+ΠΑΡΑΤΗΡΗΣΕΙΣ (παλιότερη → νεότερη): ${notesText}
 ΙΣΤΟΡΙΚΟ ΡΟΥΤΙΝΑΣ (όλες οι ολοκληρωμένες εργασίες): ${routineText}
 ΕΡΩΤΗΣΗ: ${q}
 Απάντησε σύντομα και συγκεκριμένα στα ελληνικά.`;
@@ -2269,14 +2296,14 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr }) 
   return (
     <div style={{ marginTop: 10, background: COLORS.bg, borderRadius: 10, padding: 12 }}>
       <div style={{ fontWeight: 700, marginBottom: 8 }}>ℹ️ {boat.name} — Πληροφορίες</div>
-      <Btn small color={COLORS.teal} onClick={() => ask("Τι θέματα ή επαναλαμβανόμενα προβλήματα έχει αυτό το σκάφος; Δώσε σύντομη επισκόπηση.")}>{busy ? "…" : "✨ Επισκόπηση AI"}</Btn>
+      <Btn small color={COLORS.teal} onClick={() => ask("Τι θέματα ή επαναλαμβανόμενα προβλήματα έχει αυτό το σκάφος; Αν κάτι φαίνεται καινούργιο (δηλαδή υπάρχει παλιότερη ένδειξη ότι δούλευε καλά), ανάφερέ το ρητά. Δώσε σύντομη επισκόπηση.")}>{busy ? "…" : "✨ Επισκόπηση AI"}</Btn>
       <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
         <input value={aiQ} onChange={e => setAiQ(e.target.value)} placeholder="Ρώτησε κάτι για αυτό το σκάφος…" style={{ ...inputStyle, flex: 1 }} />
         <Btn small color={COLORS.navy} onClick={() => ask()}>{busy ? "…" : "Ρώτησε"}</Btn>
       </div>
       {aiAns && <div style={{ marginTop: 10, fontSize: 13.5, lineHeight: 1.5, whiteSpace: "pre-wrap", background: COLORS.card, borderRadius: 8, padding: 10 }}>{aiAns}</div>}
 
-      <div style={{ fontWeight: 700, marginTop: 14, marginBottom: 6, fontSize: 13.5 }}>Παρατηρήσεις</div>
+      <div style={{ fontWeight: 700, marginTop: 14, marginBottom: 6, fontSize: 13.5 }}>Παρατηρήσεις <span style={{ fontWeight: 400, color: COLORS.sub, fontSize: 11.5 }}>(θετικές ή αρνητικές — και τα δύο βοηθούν)</span></div>
       {myNotes.length === 0 && <div style={{ color: COLORS.sub, fontSize: 13 }}>Καμία ακόμα.</div>}
       {myNotes.map(n => (
         <div key={n.id} style={{ fontSize: 13, padding: "5px 0", borderBottom: `1px dashed ${COLORS.line}` }}>
@@ -2285,7 +2312,7 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr }) 
         </div>
       ))}
       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-        <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="π.χ. Στάζει λάδι στο μηχανοστάσιο" style={{ ...inputStyle, flex: 1 }} />
+        <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="π.χ. Ο αυτόματος πιλότος δουλεύει τέλεια — ή: Στάζει λάδι στο μηχανοστάσιο" style={{ ...inputStyle, flex: 1 }} />
         <Btn small color={COLORS.teal} onClick={() => { if (noteText.trim()) { onAddNote(boat.id, noteText.trim()); setNoteText(""); } }}>Προσθήκη</Btn>
       </div>
 
