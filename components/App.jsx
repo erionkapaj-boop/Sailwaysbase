@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.33";
+const APP_VERSION = "v3.34";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2355,11 +2355,46 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   const [newBoatName, setNewBoatName] = useState("");
   const [newBoatType, setNewBoatType] = useState("");
   const computedReturn = dateVal ? (duration === "custom" ? customReturn : addDays(dateVal, duration)) : "";
+  const today = todayStr();
+  const weekAhead = addDays(today, 7);
+  const groupOf = (b) => {
+    if (!b.atSea) return 0; // στη βάση — ετοιμάζονται ή απλά εκεί
+    if (b.returnDate && b.returnDate <= weekAhead) return 1; // επιστρέφουν από ναύλο, εντός της εβδομάδας
+    return 2; // εν πλω, δεν επιστρέφουν σύντομα
+  };
+  const sortedBoats = [...boats].sort((a, b) => {
+    const ga = groupOf(a), gb = groupOf(b);
+    if (ga !== gb) return ga - gb;
+    if (ga === 0) {
+      if (a.departureDate && b.departureDate) return a.departureDate.localeCompare(b.departureDate);
+      if (a.departureDate) return -1;
+      if (b.departureDate) return 1;
+      return a.name.localeCompare(b.name);
+    }
+    if (a.returnDate && b.returnDate) return a.returnDate.localeCompare(b.returnDate);
+    if (a.returnDate) return -1;
+    if (b.returnDate) return 1;
+    return a.name.localeCompare(b.name);
+  });
+  const groupInfo = {
+    0: { label: "🔧 Στη βάση / ετοιμάζονται", color: COLORS.amber },
+    1: { label: "🌊 Επιστρέφουν από ναύλο (εντός εβδομάδας)", color: COLORS.teal },
+    2: { label: "⛵ Εν πλω — δεν επιστρέφουν σύντομα", color: COLORS.sub },
+  };
+  let lastGroup = null;
   return (
     <div>
       <SectionTitle>Σκάφη ({boats.length})</SectionTitle>
-      {boats.map(b => (
-        <div key={b.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
+      {sortedBoats.map(b => {
+        const g = groupOf(b);
+        const showHeader = g !== lastGroup;
+        lastGroup = g;
+        return (
+        <React.Fragment key={b.id}>
+          {showHeader && (
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: groupInfo[g].color, margin: "14px 0 6px", textTransform: "uppercase", letterSpacing: 0.5 }}>{groupInfo[g].label}</div>
+          )}
+          <div style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14, borderLeft: `4px solid ${groupInfo[g].color}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <b>{b.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{b.type}</span>
@@ -2436,7 +2471,9 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
             </div>
           )}
         </div>
-      ))}
+        </React.Fragment>
+        );
+      })}
       <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginTop: 12 }}>
         <label style={lbl}>Νέο σκάφος</label>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
