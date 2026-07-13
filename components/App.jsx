@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.39";
+const APP_VERSION = "v3.40";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2418,6 +2418,47 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, on
   );
 }
 
+function CharterCalendar({ charters }) {
+  const [monthOffset, setMonthOffset] = useState(0);
+  const base = new Date();
+  base.setDate(1);
+  base.setMonth(base.getMonth() + monthOffset);
+  const year = base.getFullYear(), month = base.getMonth();
+  const startWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // Δευτέρα πρώτη
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const dateStrOf = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const isBooked = (d) => { const ds = dateStrOf(d); return charters.some(c => c.from <= ds && ds < c.to); };
+  const monthLabel = base.toLocaleDateString("el-GR", { month: "long", year: "numeric" });
+  const todayS = todayStr();
+  return (
+    <div style={{ marginTop: 10, marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <button onClick={() => setMonthOffset(monthOffset - 1)} style={{ border: "none", background: "none", color: COLORS.navy, fontSize: 17, padding: "2px 10px" }}>‹</button>
+        <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "capitalize" }}>{monthLabel}</div>
+        <button onClick={() => setMonthOffset(monthOffset + 1)} style={{ border: "none", background: "none", color: COLORS.navy, fontSize: 17, padding: "2px 10px" }}>›</button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
+        {["Δ", "Τ", "Τ", "Π", "Π", "Σ", "Κ"].map((d, i) => <div key={i} style={{ fontSize: 10, color: COLORS.sub, textAlign: "center" }}>{d}</div>)}
+        {cells.map((d, i) => {
+          if (d === null) return <div key={i} />;
+          const booked = isBooked(d);
+          const isToday = dateStrOf(d) === todayS;
+          return (
+            <div key={i} style={{
+              fontSize: 11, textAlign: "center", padding: "4px 0", borderRadius: 6,
+              background: booked ? COLORS.teal : "transparent", color: booked ? "#fff" : COLORS.text,
+              border: isToday ? `1.5px solid ${COLORS.navy}` : "none", fontWeight: isToday ? 700 : 400,
+            }}>{d}</div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, showToast }) {
   const [detailFor, setDetailFor] = useState(null);
   const [schedFor, setSchedFor] = useState(null);
@@ -2426,42 +2467,38 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   const [newBoatName, setNewBoatName] = useState("");
   const [newBoatType, setNewBoatType] = useState("");
 
-  // Προτεραιότητα σε 3 επίπεδα:
-  // 1. Επείγον (≤6 μέρες μέχρι αναχώρηση/επιστροφή) — ανακατεμένα φεύγει/έρχεται, μικρότερος αριθμός ημερών πρώτα
-  // 2. Στη βάση χωρίς άμεσο θέμα — πάντα πιο ψηλά από όσα λείπουν μακριά, ακόμα κι αν αυτά έχουν "κοντινότερη" ημερομηνία
-  // 3. Εν πλω, μακριά — τελευταία
-  const URGENT_DAYS = 6;
-  const tierOf = (s) => {
-    if (s.nextEventDays !== null && s.nextEventDays <= URGENT_DAYS) return 0;
-    if (!s.atSea) return 1;
-    return 2;
+  // Προτεραιότητα σε 4 επίπεδα, με απλή χρωματική σήμανση:
+  // 1. Στη βάση + φεύγει σύντομα — ΠΡΑΣΙΝΟ
+  // 2. Στη βάση + τίποτα προγραμματισμένο — ΓΚΡΙ
+  // 3. Έρχεται + έχει ήδη επόμενο ναύλο μετά — ΠΟΡΤΟΚΑΛΙ (έρχεται) + ΠΡΑΣΙΝΟ (μετά φεύγει)
+  // 4. Έρχεται + τίποτα μετά — ΠΟΡΤΟΚΑΛΙ
+  const rank = (b) => {
+    const s = boatStatus(b);
+    const charters = getCharters(b);
+    if (!s.atSea) {
+      if (s.nextEventType === "depart") {
+        return { tier: 1, sortDate: s.departureDate, s,
+          statusText: "Στη βάση", statusColor: COLORS.green,
+          extra: { text: `Φεύγει ${fmtDate(s.departureDate)}`, color: COLORS.green } };
+      }
+      return { tier: 2, sortDate: null, s, statusText: "Στη βάση", statusColor: COLORS.sub, extra: null };
+    }
+    const after = charters.filter(c => c.from >= s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
+    if (after) {
+      return { tier: 3, sortDate: s.returnDate, s,
+        statusText: "Έρχεται", statusColor: COLORS.amber,
+        extra: { text: `Μετά φεύγει ${fmtDate(after.from)}`, color: COLORS.green } };
+    }
+    return { tier: 4, sortDate: s.returnDate, s, statusText: "Έρχεται", statusColor: COLORS.amber, extra: null };
   };
-  const withStatus = boats.map(b => ({ b, s: boatStatus(b) }));
+  const withStatus = boats.map(b => ({ b, r: rank(b) }));
   const sorted = [...withStatus].sort((x, y) => {
-    const tx = tierOf(x.s), ty = tierOf(y.s);
-    if (tx !== ty) return tx - ty;
-    if (tx === 0) return x.s.nextEventDays - y.s.nextEventDays || x.b.name.localeCompare(y.b.name);
-    // εντός του ίδιου ήρεμου επιπέδου: όσα έχουν έστω μακρινή ημερομηνία πάνε πρώτα, μετά αλφαβητικά
-    const dx = x.s.nextEventDays, dy = y.s.nextEventDays;
-    if (dx !== null && dy !== null) return dx - dy || x.b.name.localeCompare(y.b.name);
-    if (dx !== null) return -1;
-    if (dy !== null) return 1;
+    if (x.r.tier !== y.r.tier) return x.r.tier - y.r.tier;
+    if (x.r.sortDate && y.r.sortDate) return x.r.sortDate.localeCompare(y.r.sortDate) || x.b.name.localeCompare(y.b.name);
+    if (x.r.sortDate) return -1;
+    if (y.r.sortDate) return 1;
     return x.b.name.localeCompare(y.b.name);
   });
-
-  // Η κατάσταση (Στη βάση / Εν πλω) φαίνεται ΠΑΝΤΑ· το επείγον προστίθεται δίπλα της σαν ξεχωριστή ένδειξη βαρύτητας, δεν την αντικαθιστά.
-  const chip = (s) => {
-    const statusText = s.atSea ? "Εν πλω" : "Στη βάση";
-    const statusColor = s.atSea ? COLORS.teal : COLORS.sub;
-    if (!s.nextEventType) return { statusText, statusColor, urgency: null };
-    const d = s.nextEventDays;
-    const soon = d <= 1, near = d <= URGENT_DAYS;
-    const color = soon ? COLORS.red : near ? COLORS.amber : COLORS.sub;
-    const bg = soon ? "#FDECEA" : near ? "#FEF6E7" : "#EEF1F4";
-    const when = d <= 0 ? "σήμερα" : d === 1 ? "αύριο" : `σε ${d}μ`;
-    const verb = s.nextEventType === "depart" ? "Φεύγει" : "Επιστρέφει";
-    return { statusText, statusColor, urgency: { text: `${verb} ${when}`, color, bg, sub: fmtDate(s.nextEventDate) } };
-  };
 
   const saveCharter = (b) => {
     if (!newFrom || !newTo) { showToast("Συμπλήρωσε από/έως"); return; }
@@ -2480,9 +2517,9 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   return (
     <div>
       <SectionTitle>Σκάφη ({boats.length})</SectionTitle>
-      <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 10 }}>Πρώτα ό,τι είναι επείγον (≤{URGENT_DAYS}μ), μετά ό,τι είναι στη βάση, τελευταία ό,τι λείπει μακριά.</div>
-      {sorted.map(({ b, s }) => {
-        const c = chip(s);
+      <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 10 }}>Πρώτα στη βάση (φεύγει πράσινο, ήρεμο γκρι), μετά έρχονται (πορτοκαλί· πράσινο αν έχουν ήδη επόμενο ναύλο).</div>
+      {sorted.map(({ b, r }) => {
+        const s = r.s;
         return (
         <React.Fragment key={b.id}>
           <div style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
@@ -2491,18 +2528,18 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <b>{b.name}</b>
                   <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{b.type}</span>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: c.statusColor, background: "#EEF1F4", padding: "2px 8px", borderRadius: 999 }}>
-                    {s.atSea ? "🌊 " : ""}{c.statusText}
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: r.statusColor, background: "#EEF1F4", padding: "2px 8px", borderRadius: 999 }}>
+                    {s.atSea ? "🌊 " : ""}{r.statusText}{s.atSea ? ` ${fmtDate(s.returnDate)}` : ""}
                   </span>
-                  {c.urgency && (
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: c.urgency.color, background: c.urgency.bg, padding: "2px 8px", borderRadius: 999 }}>
-                      {c.urgency.text}{c.urgency.sub ? ` · ${c.urgency.sub}` : ""}
+                  {r.extra && (
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: r.extra.color, background: "#E9F7EF", padding: "2px 8px", borderRadius: 999 }}>
+                      {r.extra.text}
                     </span>
                   )}
                 </div>
                 {getCharters(b).length > 0 && (
                   <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 3 }}>
-                    {getCharters(b).length} ναύλα σεζόν{s.atSea ? ` · τώρα εν πλω ως ${fmtDate(s.returnDate)}` : ""}
+                    {getCharters(b).length} ναύλα σεζόν
                   </div>
                 )}
               </div>
@@ -2515,6 +2552,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
             {schedFor === b.id && (
               <div style={{ marginTop: 10, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 10 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.sub, marginBottom: 6 }}>Πρόγραμμα ναύλων σεζόν</div>
+                <CharterCalendar charters={getCharters(b)} />
                 {getCharters(b).length === 0 && <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 6 }}>Κανένα ναύλο ακόμα.</div>}
                 {getCharters(b).map(ch => {
                   const active = ch.from <= todayStr() && todayStr() < ch.to;
