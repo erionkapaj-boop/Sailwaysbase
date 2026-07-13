@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.40";
+const APP_VERSION = "v3.41";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -206,8 +206,13 @@ function AppInner() {
   const [viewAs, setViewAs] = useState(null);
   const [tab, setTab] = useState("today");
   const [toast, setToast] = useState(null);
+  const [tasksBoatFilter, setTasksBoatFilter] = useState("");
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
+  // Πλοήγηση από «Επισκόπηση» → «Εργασίες» με το σκάφος ήδη φιλτραρισμένο
+  const goToBoatTasks = (boatId) => { setTasksBoatFilter(boatId || ""); setTab("tasks"); };
+  // Όταν ο χρήστης πάει στις Εργασίες από το κάτω μενού, καθαρίζουμε τυχόν προηγούμενο φίλτρο σκάφους
+  const selectTab = (id) => { if (id === "tasks") setTasksBoatFilter(""); setTab(id); };
 
   // Φόρτωση
   useEffect(() => {
@@ -965,6 +970,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
         {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
+          boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} /></ErrorBoundary>}
         {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
@@ -974,9 +980,9 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={returnBoat} onSetNextCharter={setNextCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
           persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
-          onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} /></ErrorBoundary>}
+          onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} onGoToBoatTasks={goToBoatTasks} /></ErrorBoundary>}
       </div>
-      <TabBar tabs={tabs} tab={tab} setTab={setTab} />
+      <TabBar tabs={tabs} tab={tab} setTab={selectTab} />
       {toast && <div style={{ position: "fixed", bottom: 86, left: "50%", transform: "translateX(-50%)", background: COLORS.navy, color: "#fff", padding: "10px 18px", borderRadius: 24, fontSize: 14, zIndex: 50, maxWidth: "90%" }}>{toast}</div>}
     </div>
   );
@@ -1752,8 +1758,11 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
   );
 }
 
-function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding }) {
-  const [boatFilter, setBoatFilter] = useState("");
+function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, boatFilter: boatFilterProp, onBoatFilterChange }) {
+  const [boatFilterLocal, setBoatFilterLocal] = useState("");
+  // Το φίλτρο μπορεί να ελέγχεται από τον γονέα (π.χ. deep-link από «Επισκόπηση»), αλλιώς τοπικό state
+  const boatFilter = onBoatFilterChange ? (boatFilterProp || "") : boatFilterLocal;
+  const setBoatFilter = onBoatFilterChange || setBoatFilterLocal;
   const shown = boatFilter ? tasks.filter(t => t.boatId === boatFilter || (boatFilter === "other" && !t.boatId)) : tasks;
   return (
     <div>
@@ -2058,7 +2067,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
   const { me, users, boats, tasks, quick, checklist, closingChecklist, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
-    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence } = props;
+    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, onGoToBoatTasks } = props;
   const [section, setSection] = useState("overview");
   const isOwner = me.role === "owner";
   const sections = [
@@ -2078,7 +2087,7 @@ function AdminView(props) {
           }}>{label}</button>
         ))}
       </div>
-      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} users={users} me={me} absences={absences} />}
+      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} users={users} me={me} absences={absences} onBoatClick={onGoToBoatTasks} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
       {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={onReturnBoat} onSetNextCharter={onSetNextCharter} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} />}
@@ -2155,13 +2164,29 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
   );
 }
 
-function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateClosingChecks, users, me, absences }) {
-  const departing = boats.map(b => ({ b, s: boatStatus(b) })).filter(({ s }) => s.nextEventType === "depart").sort((x, y) => x.s.nextEventDays - y.s.nextEventDays);
+function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateClosingChecks, users, me, absences, onBoatClick }) {
   const urgent = tasks.filter(t => t.status === "open" && t.urgent);
   const external = tasks.filter(t => t.status === "external");
   const purchases = tasks.filter(t => t.status === "open" && t.purchase);
   const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
-  const openPerBoat = boats.filter(b => !boatStatus(b).atSea).map(b => ({ b, n: tasks.filter(t => t.boatId === b.id && t.status === "open").length })).filter(x => x.n > 0);
+  // Ενοποιημένη λίστα σκαφών: αναχωρήσεις + ανοιχτές εργασίες μαζί, ένα card, tap → Εργασίες φιλτραρισμένες
+  const boatRows = boats
+    .filter(b => !boatStatus(b).atSea)
+    .map(b => {
+      const s = boatStatus(b);
+      const hasDeparture = s.nextEventType === "depart";
+      const openCount = tasks.filter(t => t.boatId === b.id && t.status === "open").length;
+      return { b, s, hasDeparture, openCount };
+    })
+    .filter(x => x.hasDeparture || x.openCount > 0)
+    .sort((x, y) => {
+      const xUrgent = x.hasDeparture && x.openCount > 0;
+      const yUrgent = y.hasDeparture && y.openCount > 0;
+      if (xUrgent !== yUrgent) return xUrgent ? -1 : 1;
+      if (x.hasDeparture !== y.hasDeparture) return x.hasDeparture ? -1 : 1;
+      if (x.hasDeparture && y.hasDeparture) return x.s.nextEventDays - y.s.nextEventDays;
+      return y.openCount - x.openCount;
+    });
   return (
     <div>
       <SectionTitle>Εικόνα εβδομάδας</SectionTitle>
@@ -2181,27 +2206,38 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
         </div>
       )}
       <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Αναχωρήσεις</div>
-        {departing.length === 0 && <div style={{ color: COLORS.sub, fontSize: 14 }}>Καμία δηλωμένη αναχώρηση. Όρισε από «Σκάφη».</div>}
-        {departing.map(({ b, s }) => {
-          const open = tasks.filter(t => t.boatId === b.id && t.status === "open" && !t.excludedFromDeadline).length;
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>Σκάφη — αναχωρήσεις & ανοιχτές εργασίες</div>
+        {boatRows.length === 0 && <div style={{ color: COLORS.sub, fontSize: 14 }}>Καμία δηλωμένη αναχώρηση ή ανοιχτή εργασία αυτή τη στιγμή.</div>}
+        {boatRows.map(({ b, s, hasDeparture, openCount }) => {
           const du = s.nextEventDays;
+          const urgentRow = hasDeparture && du <= 2;
           return (
-            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 14 }}>
-              <span style={{ fontWeight: 600 }}>{b.name}</span>
-              <span style={{ color: du <= 2 ? COLORS.red : COLORS.sub }}>{fmtDate(s.departureDate)} ({du <= 0 ? "σήμερα" : `σε ${du}μ`}) · {open} ανοιχτές</span>
-            </div>
+            <button key={b.id} onClick={() => onBoatClick && onBoatClick(b.id)} style={{
+              width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "10px 2px", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 14,
+              background: "none", border: "none", borderBottomStyle: "dashed", textAlign: "left", cursor: onBoatClick ? "pointer" : "default",
+            }}>
+              <span style={{ fontWeight: 600, color: COLORS.text }}>{b.name}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {hasDeparture && (
+                  <span style={{ color: urgentRow ? COLORS.red : COLORS.sub, fontSize: 13 }}>
+                    {fmtDate(s.departureDate)} ({du <= 0 ? "σήμερα" : `σε ${du}μ`})
+                  </span>
+                )}
+                {openCount > 0 ? (
+                  <span style={{
+                    minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, fontSize: 12.5, fontWeight: 800,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: urgentRow ? COLORS.red : COLORS.amber, color: "#fff",
+                  }}>{openCount}</span>
+                ) : (
+                  <span style={{ color: COLORS.green, fontSize: 15 }}>✓</span>
+                )}
+                {onBoatClick && <span style={{ color: COLORS.sub, fontSize: 13 }}>›</span>}
+              </span>
+            </button>
           );
         })}
-      </div>
-      <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Ανοιχτές εργασίες ανά σκάφος</div>
-        {openPerBoat.length === 0 && <div style={{ color: COLORS.sub, fontSize: 14 }}>Καμία ανοιχτή εργασία σε σκάφη.</div>}
-        {openPerBoat.map(({ b, n }) => (
-          <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14 }}>
-            <span>{b.name}</span><b>{n}</b>
-          </div>
-        ))}
       </div>
       <Btn color={COLORS.teal} onClick={runDistribution}>▶ Εκτέλεση κατανομής ημέρας (AI) τώρα</Btn>
       <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 6, marginBottom: 14 }}>Η κατανομή τρέχει αυτόματα μία φορά την ημέρα στο πρώτο άνοιγμα.</div>
