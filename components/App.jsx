@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.32";
+const APP_VERSION = "v3.33";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2261,11 +2261,12 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
 
 const addDays = (dateStr, days) => { const d = new Date(dateStr); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
 
-function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr }) {
+function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, onDeleteBoat }) {
   const [noteText, setNoteText] = useState("");
   const [aiQ, setAiQ] = useState("");
   const [aiAns, setAiAns] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const myNotes = boatNotes.filter(n => n.boatId === boat.id).sort((a, b) => b.at.localeCompare(a.at));
   const serviceHistory = tasks.filter(t => t.boatId === boat.id && t.status === "done" && t.serviceRelevant)
     .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
@@ -2324,6 +2325,21 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr }) 
           ))}
         </>
       )}
+      {isMgr && onDeleteBoat && (
+        <div style={{ marginTop: 20, paddingTop: 12, borderTop: `1px dashed ${COLORS.line}` }}>
+          {!confirmDelete ? (
+            <button onClick={() => setConfirmDelete(true)} style={{ border: "none", background: "none", color: COLORS.sub, fontSize: 12, textDecoration: "underline" }}>Διαγραφή σκάφους</button>
+          ) : (
+            <div>
+              <div style={{ fontSize: 12.5, color: COLORS.red, marginBottom: 8 }}>Διαγραφή «{boat.name}»; Το ιστορικό/Βιβλίο Service παραμένουν καταγεγραμμένα, απλά το σκάφος δεν θα εμφανίζεται πλέον.</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn small color={COLORS.red} onClick={onDeleteBoat}>Ναι, διαγραφή</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => setConfirmDelete(false)}>Άκυρο</Btn>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2336,7 +2352,6 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   const [mode, setMode] = useState(null); // 'sea' | 'charter'
   const [cancelFor, setCancelFor] = useState(null);
   const [detailFor, setDetailFor] = useState(null);
-  const [deleteFor, setDeleteFor] = useState(null);
   const [newBoatName, setNewBoatName] = useState("");
   const [newBoatType, setNewBoatType] = useState("");
   const computedReturn = dateVal ? (duration === "custom" ? customReturn : addDays(dateVal, duration)) : "";
@@ -2369,22 +2384,10 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
                     <Btn small color={COLORS.navy} outline onClick={() => { setDateFor(b.id); setMode("charter"); setDateVal(""); setDuration(7); setCustomReturn(""); }}>Ναύλο</Btn>
                     <Btn small color={COLORS.teal} outline onClick={() => { setDateFor(b.id); setMode("sea"); setDateVal(""); }}>Εν πλω (έκτακτο)</Btn>
                   </>}
-              <Btn small color={COLORS.red} outline onClick={() => setDeleteFor(b.id)}>🗑 Διαγραφή σκάφους</Btn>
             </div>
           </div>
           {detailFor === b.id && (
-            <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} />
-          )}
-          {deleteFor === b.id && (
-            <div style={{ marginTop: 10, background: "#FDECEA", borderRadius: 10, padding: 12 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#8A1C12", marginBottom: 8 }}>
-                Διαγραφή του «{b.name}»; Το ιστορικό εργασιών και το Βιβλίο Service που το αφορούν παραμένουν καταγεγραμμένα, απλά δεν θα εμφανίζεται πλέον στη λίστα σκαφών.
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <Btn small color={COLORS.red} onClick={() => { persistBoats(boats.filter(x => x.id !== b.id)); setDeleteFor(null); showToast(`Το ${b.name} διαγράφηκε`); }}>Ναι, διαγραφή</Btn>
-                <Btn small color={COLORS.sub} outline onClick={() => setDeleteFor(null)}>Όχι</Btn>
-              </div>
-            </div>
+            <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} onDeleteBoat={() => { persistBoats(boats.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
           )}
           {cancelFor === b.id && (
             <div style={{ marginTop: 10, background: "#FDECEA", borderRadius: 10, padding: 12 }}>
