@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.36";
+const APP_VERSION = "v3.38";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -424,7 +424,7 @@ function AppInner() {
   const generateClosingChecks = async (tasksOverride) => {
     const src = tasksOverride || tasks;
     const today = todayStr();
-    const inPort = boats.filter(b => !b.atSea);
+    const inPort = boats.filter(b => !boatStatus(b).atSea);
     if (!inPort.length) return;
     const alreadyBoatIds = new Set(src.filter(t => t.closingCheck && t.closingDate === today).map(t => t.boatId));
     const need = inPort.filter(b => !alreadyBoatIds.has(b.id));
@@ -545,7 +545,7 @@ ${rules.map(r => "- " + r).join("\n")}
       return;
     }
     try {
-      const inPort = boats.filter(b => !b.atSea);
+      const inPort = boats.filter(b => !boatStatus(b).atSea);
       // Πρόσφατο ιστορικό ανά σκάφος για να αποφευχθεί επανάληψη ίδιου σημείου
       const recentByBoat = Object.fromEntries(inPort.map(b => [b.id,
         src.filter(t => t.boatId === b.id && t.completedAt && (Date.now() - new Date(t.completedAt).getTime()) <= 21 * 24 * 60 * 60 * 1000)
@@ -621,7 +621,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   const isMgr = me.role === "manager" || me.role === "owner";
   const canAssign = isMgr || me.role === "associate";
   LANG = acting.lang === "en" ? "en" : "el";
-  const activeBoats = boats.filter(b => !b.atSea);
+  const activeBoats = boats.filter(b => !boatStatus(b).atSea);
 
   // ---------- Ενέργειες εργασιών ----------
   const addParsed = async (items) => {
@@ -882,7 +882,13 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   const activateDepartureChecklists = async (tasksOverride) => {
     const src = tasksOverride || tasks;
     if (!checklist.length) return src;
-    const need = boats.filter(b => !b.atSea && b.departureDate && !src.some(t => t.boatId === b.id && t.status === "open" && t.checklistItems));
+    // Ενεργοποίηση ελέγχου αναχώρησης για σκάφη στη βάση που έχουν επόμενη αναχώρηση εντός 2 ημερών —
+    // ώστε να υπάρχει χρόνος ετοιμασίας, χωρίς να ανοίγει πολύ νωρίς.
+    const need = boats.filter(b => {
+      const s = boatStatus(b);
+      return !s.atSea && s.nextEventType === "depart" && s.nextEventDays !== null && s.nextEventDays <= 2
+        && !src.some(t => t.boatId === b.id && t.status === "open" && t.checklistItems);
+    });
     if (!need.length) return src;
     const newTasks = need.map((b, i) => ({
       id: "t" + Date.now() + "-dc" + i, status: "open", createdBy: "system", createdAt: new Date().toISOString(),
@@ -920,7 +926,10 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     if (t.manualDeadline) return t.manualDeadline;
     if (t.excludedFromDeadline) return null;
     const b = boats.find(x => x.id === t.boatId);
-    return b?.departureDate || null;
+    if (!b) return null;
+    const s = boatStatus(b);
+    // Προθεσμία = επόμενη αναχώρηση του σκάφους (αν είναι στη βάση με προγραμματισμένο ναύλο)
+    return s.nextEventType === "depart" ? s.departureDate : null;
   };
   const sortTasks = (list) => [...list].sort((a, b) => {
     if (!!b.urgent - !!a.urgent) return !!b.urgent - !!a.urgent;
@@ -1404,29 +1413,27 @@ function DailyGreeting({ me }) {
 
 function DeparturesWidget({ boats }) {
   const soon = boats
-    .filter(b => !b.atSea && b.departureDate)
-    .map(b => ({ ...b, _du: daysUntil(b.departureDate) }))
-    .filter(b => b._du !== null && b._du <= 7)
-    .sort((a, b) => a.departureDate.localeCompare(b.departureDate));
+    .map(b => ({ b, s: boatStatus(b) }))
+    .filter(({ s }) => s.nextEventType === "depart" && s.nextEventDays !== null && s.nextEventDays <= 7)
+    .sort((x, y) => x.s.nextEventDays - y.s.nextEventDays);
   const returning = boats
-    .filter(b => b.atSea && b.returnDate)
-    .map(b => ({ ...b, _du: daysUntil(b.returnDate) }))
-    .filter(b => b._du !== null && b._du <= 7)
-    .sort((a, b) => a.returnDate.localeCompare(b.returnDate));
+    .map(b => ({ b, s: boatStatus(b) }))
+    .filter(({ s }) => s.nextEventType === "return" && s.nextEventDays !== null && s.nextEventDays <= 7)
+    .sort((x, y) => x.s.nextEventDays - y.s.nextEventDays);
   if (!soon.length && !returning.length) return null;
   return (
     <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${COLORS.line}` }}>
       <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 8 }}>⚓ Αναχωρήσεις & Επιστροφές (7 μέρες)</div>
-      {soon.map(b => (
+      {soon.map(({ b, s }) => (
         <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
           <span>⏰ {b.name}</span>
-          <span style={{ color: b._du <= 1 ? COLORS.red : COLORS.amber, fontWeight: 700 }}>{b._du <= 0 ? "Φεύγει σήμερα" : `Φεύγει σε ${b._du}μ — ${fmtDate(b.departureDate)}`}</span>
+          <span style={{ color: s.nextEventDays <= 1 ? COLORS.red : COLORS.amber, fontWeight: 700 }}>{s.nextEventDays <= 0 ? "Φεύγει σήμερα" : `Φεύγει σε ${s.nextEventDays}μ — ${fmtDate(s.nextEventDate)}`}</span>
         </div>
       ))}
-      {returning.map(b => (
+      {returning.map(({ b, s }) => (
         <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
           <span>🌊 {b.name}</span>
-          <span style={{ color: COLORS.teal, fontWeight: 700 }}>{b._du <= 0 ? "Επιστρέφει σήμερα" : `Επιστρέφει σε ${b._du}μ — ${fmtDate(b.returnDate)}`}</span>
+          <span style={{ color: COLORS.teal, fontWeight: 700 }}>{s.nextEventDays <= 0 ? "Επιστρέφει σήμερα" : `Επιστρέφει σε ${s.nextEventDays}μ — ${fmtDate(s.nextEventDate)}`}</span>
         </div>
       ))}
     </div>
@@ -1753,7 +1760,7 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
       <SectionTitle>{tr("Διαθέσιμες εργασίες")} ({tasks.length})</SectionTitle>
       <select value={boatFilter} onChange={e => setBoatFilter(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }}>
         <option value="">{tr("Όλα τα σκάφη")}</option>
-        {boats.filter(b => !b.atSea).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+        {boats.filter(b => !boatStatus(b).atSea).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         <option value="other">{tr("Βάση / Άλλο")}</option>
       </select>
       {shown.length === 0 && <Empty>{tr("Καμία εργασία εδώ.")}</Empty>}
@@ -2001,7 +2008,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
       <SectionTitle>{tr("Βιβλίο service")}</SectionTitle>
       <select value={boatId} onChange={e => setBoatId(e.target.value)} style={{ ...inputStyle, marginBottom: 10 }}>
         <option value="">{tr("Όλα τα σκάφη")}</option>
-        {boats.map(b => <option key={b.id} value={b.id}>{b.name}{b.atSea ? " (εν πλω)" : ""}</option>)}
+        {boats.map(b => <option key={b.id} value={b.id}>{b.name}{boatStatus(b).atSea ? " (εν πλω)" : ""}</option>)}
       </select>
       {isMgr && (
         <button onClick={() => setShowAll(!showAll)} style={{
@@ -2149,12 +2156,12 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
 }
 
 function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateClosingChecks, users, me, absences }) {
-  const departing = boats.filter(b => !b.atSea && b.departureDate).sort((a, b) => a.departureDate.localeCompare(b.departureDate));
+  const departing = boats.map(b => ({ b, s: boatStatus(b) })).filter(({ s }) => s.nextEventType === "depart").sort((x, y) => x.s.nextEventDays - y.s.nextEventDays);
   const urgent = tasks.filter(t => t.status === "open" && t.urgent);
   const external = tasks.filter(t => t.status === "external");
   const purchases = tasks.filter(t => t.status === "open" && t.purchase);
   const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
-  const openPerBoat = boats.filter(b => !b.atSea).map(b => ({ b, n: tasks.filter(t => t.boatId === b.id && t.status === "open").length })).filter(x => x.n > 0);
+  const openPerBoat = boats.filter(b => !boatStatus(b).atSea).map(b => ({ b, n: tasks.filter(t => t.boatId === b.id && t.status === "open").length })).filter(x => x.n > 0);
   return (
     <div>
       <SectionTitle>Εικόνα εβδομάδας</SectionTitle>
@@ -2176,13 +2183,13 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
       <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12 }}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>Αναχωρήσεις</div>
         {departing.length === 0 && <div style={{ color: COLORS.sub, fontSize: 14 }}>Καμία δηλωμένη αναχώρηση. Όρισε από «Σκάφη».</div>}
-        {departing.map(b => {
+        {departing.map(({ b, s }) => {
           const open = tasks.filter(t => t.boatId === b.id && t.status === "open" && !t.excludedFromDeadline).length;
-          const du = daysUntil(b.departureDate);
+          const du = s.nextEventDays;
           return (
             <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 14 }}>
               <span style={{ fontWeight: 600 }}>{b.name}</span>
-              <span style={{ color: du <= 2 ? COLORS.red : COLORS.sub }}>{fmtDate(b.departureDate)} ({du <= 0 ? "σήμερα" : `σε ${du}μ`}) · {open} ανοιχτές</span>
+              <span style={{ color: du <= 2 ? COLORS.red : COLORS.sub }}>{fmtDate(s.departureDate)} ({du <= 0 ? "σήμερα" : `σε ${du}μ`}) · {open} ανοιχτές</span>
             </div>
           );
         })}
@@ -2296,6 +2303,38 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
 
 const addDays = (dateStr, days) => { const d = new Date(dateStr); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
 
+// ---------- Πρόγραμμα ναύλων σεζόν ----------
+// Κάθε σκάφος έχει προαιρετικά boat.charters = [{ id, from: "YYYY-MM-DD", to: "YYYY-MM-DD" }, ...].
+// Η κατάσταση (εν πλω / στη βάση / επόμενο γεγονός) υπολογίζεται ΑΠΟ το πρόγραμμα + σημερινή ημερομηνία,
+// ώστε να μη χρειάζεται χειροκίνητη διαχείριση. Τα παλιά πεδία (atSea/departureDate/returnDate) παραμένουν
+// ως υποστήριξη για σκάφη χωρίς πρόγραμμα και για τη γρήγορη χειροκίνητη επιλογή.
+const getCharters = (b) => Array.isArray(b?.charters) ? [...b.charters].filter(c => c && c.from && c.to).sort((a, c) => a.from.localeCompare(c.from)) : [];
+
+// Επιστρέφει live κατάσταση σκάφους: { atSea, departureDate, returnDate, nextEventType, nextEventDate, nextEventDays }
+// nextEventType: "return" (επιστρέφει από τρέχον ναύλο) | "depart" (φεύγει σε επόμενο ναύλο) | null
+const boatStatus = (b) => {
+  const today = todayStr();
+  const charters = getCharters(b);
+  if (charters.length) {
+    const current = charters.find(c => c.from <= today && today < c.to); // μέσα σε ναύλο (η μέρα επιστροφής μετράει ως «στη βάση»)
+    const upcoming = charters.filter(c => c.from >= today).sort((a, c) => a.from.localeCompare(c.from));
+    if (current) {
+      const du = daysUntil(current.to);
+      return { atSea: true, departureDate: null, returnDate: current.to, nextEventType: "return", nextEventDate: current.to, nextEventDays: du };
+    }
+    const next = upcoming[0];
+    if (next) {
+      const du = daysUntil(next.from);
+      return { atSea: false, departureDate: next.from, returnDate: next.to, nextEventType: "depart", nextEventDate: next.from, nextEventDays: du };
+    }
+    return { atSea: false, departureDate: null, returnDate: null, nextEventType: null, nextEventDate: null, nextEventDays: null };
+  }
+  // Fallback: παλιά μεμονωμένα πεδία (σκάφη χωρίς πρόγραμμα)
+  if (b?.atSea) return { atSea: true, departureDate: null, returnDate: b.returnDate || null, nextEventType: b.returnDate ? "return" : null, nextEventDate: b.returnDate || null, nextEventDays: b.returnDate ? daysUntil(b.returnDate) : null };
+  if (b?.departureDate) return { atSea: false, departureDate: b.departureDate, returnDate: b.returnDate || null, nextEventType: "depart", nextEventDate: b.departureDate, nextEventDays: daysUntil(b.departureDate) };
+  return { atSea: false, departureDate: null, returnDate: null, nextEventType: null, nextEventDate: null, nextEventDays: null };
+};
+
 function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, onDeleteBoat }) {
   const [noteText, setNoteText] = useState("");
   const [aiQ, setAiQ] = useState("");
@@ -2380,176 +2419,108 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, on
 }
 
 function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, showToast }) {
-  const [dateFor, setDateFor] = useState(null);
-  const [dateVal, setDateVal] = useState("");
-  const [duration, setDuration] = useState(7);
-  const [customReturn, setCustomReturn] = useState("");
-  const [mode, setMode] = useState(null); // 'sea' | 'charter'
-  const [cancelFor, setCancelFor] = useState(null);
   const [detailFor, setDetailFor] = useState(null);
+  const [schedFor, setSchedFor] = useState(null);
+  const [newFrom, setNewFrom] = useState("");
+  const [newTo, setNewTo] = useState("");
   const [newBoatName, setNewBoatName] = useState("");
   const [newBoatType, setNewBoatType] = useState("");
-  const [nextFor, setNextFor] = useState(null);
-  const [nextDateVal, setNextDateVal] = useState("");
-  const [nextDuration, setNextDuration] = useState(7);
-  const [nextCustomReturn, setNextCustomReturn] = useState("");
-  const computedReturn = dateVal ? (duration === "custom" ? customReturn : addDays(dateVal, duration)) : "";
-  const computedNextReturn = nextDateVal ? (nextDuration === "custom" ? nextCustomReturn : addDays(nextDateVal, nextDuration)) : "";
-  const today = todayStr();
-  const weekAhead = addDays(today, 7);
-  const groupOf = (b) => {
-    if (!b.atSea) return 0; // στη βάση — ετοιμάζονται ή απλά εκεί
-    if (b.returnDate && b.returnDate <= weekAhead) return 1; // επιστρέφουν από ναύλο, εντός της εβδομάδας
-    return 2; // εν πλω, δεν επιστρέφουν σύντομα
-  };
-  const sortedBoats = [...boats].sort((a, b) => {
-    const ga = groupOf(a), gb = groupOf(b);
-    if (ga !== gb) return ga - gb;
-    if (ga === 0) {
-      if (a.departureDate && b.departureDate) return a.departureDate.localeCompare(b.departureDate);
-      if (a.departureDate) return -1;
-      if (b.departureDate) return 1;
-      return a.name.localeCompare(b.name);
-    }
-    if (a.returnDate && b.returnDate) return a.returnDate.localeCompare(b.returnDate);
-    if (a.returnDate) return -1;
-    if (b.returnDate) return 1;
-    return a.name.localeCompare(b.name);
+
+  // Ταξινόμηση κατά επείγον: μικρότερος αριθμός ημερών ως το επόμενο γεγονός (αναχώρηση ή επιστροφή) = πιο πάνω.
+  // Σκάφη χωρίς επόμενο γεγονός πάνε στο τέλος. Έτσι «έρχεται αύριο» και «φεύγει αύριο» έχουν ίδια βαρύτητα.
+  const withStatus = boats.map(b => ({ b, s: boatStatus(b) }));
+  const sorted = [...withStatus].sort((x, y) => {
+    const dx = x.s.nextEventDays, dy = y.s.nextEventDays;
+    if (dx === null && dy === null) return x.b.name.localeCompare(y.b.name);
+    if (dx === null) return 1;
+    if (dy === null) return -1;
+    if (dx !== dy) return dx - dy;
+    return x.b.name.localeCompare(y.b.name);
   });
-  const groupInfo = {
-    0: { label: "Στη βάση", color: COLORS.amber },
-    1: { label: "Επιστρέφουν από ναύλο", color: COLORS.teal },
-    2: { label: "Δεν επιστρέφουν σύντομα", color: COLORS.sub },
+
+  const chip = (s) => {
+    if (!s.nextEventType) return { text: "Στη βάση", color: COLORS.sub, bg: "#EEF1F4" };
+    const d = s.nextEventDays;
+    const soon = d <= 1, near = d <= 6;
+    const color = soon ? COLORS.red : near ? COLORS.amber : COLORS.sub;
+    const bg = soon ? "#FDECEA" : near ? "#FEF6E7" : "#EEF1F4";
+    const when = d <= 0 ? "σήμερα" : d === 1 ? "αύριο" : `σε ${d}μ`;
+    const verb = s.nextEventType === "depart" ? "Φεύγει" : "Έρχεται";
+    return { text: `${verb} ${when}`, color, bg, sub: fmtDate(s.nextEventDate) };
   };
-  let lastGroup = null;
+
+  const saveCharter = (b) => {
+    if (!newFrom || !newTo) { showToast("Συμπλήρωσε από/έως"); return; }
+    if (newTo < newFrom) { showToast("Η λήξη πρέπει να είναι μετά την έναρξη"); return; }
+    const charters = getCharters(b);
+    const overlap = charters.some(c => newFrom < c.to && c.from < newTo);
+    if (overlap) { showToast("Επικαλύπτεται με υπάρχον ναύλο"); return; }
+    const next = [...charters, { id: "c" + Date.now(), from: newFrom, to: newTo }].sort((a, c) => a.from.localeCompare(c.from));
+    persistBoats(boats.map(x => x.id === b.id ? { ...x, charters: next, atSea: false, departureDate: null, returnDate: null } : x));
+    setNewFrom(""); setNewTo(""); showToast("Προστέθηκε ναύλο");
+  };
+  const removeCharter = (b, cid) => {
+    persistBoats(boats.map(x => x.id === b.id ? { ...x, charters: getCharters(b).filter(c => c.id !== cid) } : x));
+  };
+
   return (
     <div>
       <SectionTitle>Σκάφη ({boats.length})</SectionTitle>
-      {sortedBoats.map(b => {
-        const g = groupOf(b);
-        const showHeader = g !== lastGroup;
-        lastGroup = g;
+      <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 10 }}>Ταξινομημένα κατά επόμενο γεγονός — όσα χρειάζονται προσοχή σύντομα, στην κορυφή.</div>
+      {sorted.map(({ b, s }) => {
+        const c = chip(s);
         return (
         <React.Fragment key={b.id}>
-          {showHeader && (
-            <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.sub, margin: g === 0 ? "4px 0 6px" : "16px 0 6px", display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: groupInfo[g].color, display: "inline-block" }} />
-              {groupInfo[g].label}
-            </div>
-          )}
           <div style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <b>{b.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{b.type}</span>
-              <div style={{ fontSize: 12.5, marginTop: 2 }}>
-                {b.atSea
-                  ? <span style={{ color: COLORS.teal, fontWeight: 700 }}>
-                      🌊 Εν πλω — επιστρέφει {fmtDate(b.returnDate)}
-                      {b.nextDepartureDate && <span style={{ color: COLORS.navy }}> · επόμενο ναύλο {fmtDate(b.nextDepartureDate)}</span>}
-                    </span>
-                  : b.departureDate
-                    ? <span style={{ color: COLORS.amber, fontWeight: 700 }}>⏰ Φεύγει {fmtDate(b.departureDate)}{b.returnDate ? ` — επιστρέφει ${fmtDate(b.returnDate)}` : ""}</span>
-                    : <span style={{ color: COLORS.sub }}>Στη βάση</span>}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <b>{b.name}</b>
+                  <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{b.type}</span>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: c.color, background: c.bg, padding: "2px 8px", borderRadius: 999 }}>
+                    {s.atSea ? "🌊 " : ""}{c.text}{c.sub ? ` · ${c.sub}` : ""}
+                  </span>
+                </div>
+                {getCharters(b).length > 0 && (
+                  <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 3 }}>
+                    {getCharters(b).length} ναύλα σεζόν{s.atSea ? ` · τώρα εν πλω ως ${fmtDate(s.returnDate)}` : ""}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 6, flexDirection: "column", flexShrink: 0 }}>
+                <Btn small color={COLORS.navy} outline onClick={() => { setSchedFor(schedFor === b.id ? null : b.id); setNewFrom(""); setNewTo(""); }}>📅 Ναύλα</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => setDetailFor(detailFor === b.id ? null : b.id)}>ℹ️ Πληροφορίες</Btn>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 6, flexDirection: "column" }}>
-              <Btn small color={COLORS.sub} outline onClick={() => setDetailFor(detailFor === b.id ? null : b.id)}>ℹ️ Πληροφορίες</Btn>
-              {b.atSea
-                ? <>
-                  <Btn small color={COLORS.teal} outline onClick={() => onReturnBoat(b)}>Επέστρεψε</Btn>
-                  <Btn small color={COLORS.navy} outline onClick={() => { setNextFor(b.id); setNextDateVal(b.nextDepartureDate || ""); setNextDuration(7); setNextCustomReturn(b.nextReturnDate || ""); }}>
-                    📅 {b.nextDepartureDate ? "Αλλαγή προγρ. ναύλου" : "Προγρ. επόμενου ναύλου"}
-                  </Btn>
-                </>
-                : b.departureDate
-                  ? <>
-                    <Btn small color={COLORS.navy} outline onClick={() => { setDateFor(b.id); setMode("charter"); setDateVal(b.departureDate || ""); setDuration(7); setCustomReturn(""); }}>Αλλαγή</Btn>
-                    <Btn small color={COLORS.red} outline onClick={() => setCancelFor(b.id)}>Ακύρωση ναύλου</Btn>
-                  </>
-                  : <>
-                    <Btn small color={COLORS.navy} outline onClick={() => { setDateFor(b.id); setMode("charter"); setDateVal(""); setDuration(7); setCustomReturn(""); }}>Ναύλο</Btn>
-                    <Btn small color={COLORS.teal} outline onClick={() => { setDateFor(b.id); setMode("sea"); setDateVal(""); }}>Εν πλω (έκτακτο)</Btn>
-                  </>}
-            </div>
+
+            {schedFor === b.id && (
+              <div style={{ marginTop: 10, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 10 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.sub, marginBottom: 6 }}>Πρόγραμμα ναύλων σεζόν</div>
+                {getCharters(b).length === 0 && <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 6 }}>Κανένα ναύλο ακόμα.</div>}
+                {getCharters(b).map(ch => {
+                  const active = ch.from <= todayStr() && todayStr() < ch.to;
+                  const past = ch.to <= todayStr();
+                  return (
+                    <div key={ch.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "5px 0", borderBottom: `1px dashed ${COLORS.line}`, opacity: past ? 0.5 : 1 }}>
+                      <span>{active && <span style={{ color: COLORS.teal, fontWeight: 700 }}>● </span>}{fmtDate(ch.from)} → {fmtDate(ch.to)}{active ? " (τώρα)" : past ? " (πέρασε)" : ""}</span>
+                      <button onClick={() => removeCharter(b, ch.id)} style={{ border: "none", background: "none", color: COLORS.red, fontSize: 12 }}>🗑</button>
+                    </div>
+                  );
+                })}
+                <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
+                  <input type="date" value={newFrom} onChange={e => setNewFrom(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
+                  <span style={{ color: COLORS.sub }}>→</span>
+                  <input type="date" min={newFrom} value={newTo} onChange={e => setNewTo(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
+                  <Btn small color={COLORS.navy} onClick={() => saveCharter(b)}>+ Προσθήκη</Btn>
+                </div>
+                <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 6 }}>Η κατάσταση (εν πλω / στη βάση) και ο έλεγχος αναχώρησης υπολογίζονται αυτόματα από το πρόγραμμα.</div>
+              </div>
+            )}
+
+            {detailFor === b.id && (
+              <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} onDeleteBoat={() => { persistBoats(boats.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
+            )}
           </div>
-          {nextFor === b.id && (
-            <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <input type="date" value={nextDateVal} onChange={e => setNextDateVal(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
-              {nextDateVal && (
-                <>
-                  <div style={{ display: "flex", gap: 6, width: "100%" }}>
-                    <Btn small color={COLORS.navy} outline={nextDuration !== 7} onClick={() => setNextDuration(7)}>1 εβδομάδα</Btn>
-                    <Btn small color={COLORS.navy} outline={nextDuration !== 14} onClick={() => setNextDuration(14)}>2 εβδομάδες</Btn>
-                    <Btn small color={COLORS.navy} outline={nextDuration !== "custom"} onClick={() => setNextDuration("custom")}>Συγκεκριμένη ημερομηνία</Btn>
-                  </div>
-                  {nextDuration === "custom" && (
-                    <div style={{ width: "100%" }}>
-                      <label style={{ fontSize: 12, color: COLORS.sub }}>Ημερομηνία επιστροφής</label>
-                      <input type="date" min={nextDateVal} value={nextCustomReturn} onChange={e => setNextCustomReturn(e.target.value)} style={{ ...inputStyle, width: "auto", display: "block", marginTop: 4 }} />
-                    </div>
-                  )}
-                  {computedNextReturn && <div style={{ fontSize: 12.5, color: COLORS.sub, width: "100%" }}>Αναμενόμενη επιστροφή επόμενου ναύλου: {fmtDate(computedNextReturn)}</div>}
-                </>
-              )}
-              <Btn small color={COLORS.navy} onClick={() => {
-                if (nextDateVal && nextDuration === "custom" && !nextCustomReturn) { showToast("Διάλεξε ημερομηνία επιστροφής"); return; }
-                onSetNextCharter(b, nextDateVal || null, nextDateVal ? (computedNextReturn || null) : null);
-                setNextFor(null);
-              }}>{nextDateVal ? "Αποθήκευση προγραμματισμού" : "Αφαίρεση προγραμματισμού"}</Btn>
-              <Btn small color={COLORS.sub} outline onClick={() => setNextFor(null)}>Άκυρο</Btn>
-              <div style={{ fontSize: 12, color: COLORS.sub, width: "100%" }}>Ο έλεγχος αναχώρησης δεν ανοίγει τώρα — ενεργοποιείται μόνος του το πρωί μετά την επιστροφή του σκάφους.</div>
-            </div>
-          )}
-          {detailFor === b.id && (
-            <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} onDeleteBoat={() => { persistBoats(boats.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
-          )}
-          {cancelFor === b.id && (
-            <div style={{ marginTop: 10, background: "#FDECEA", borderRadius: 10, padding: 12 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#8A1C12", marginBottom: 8 }}>
-                Ακύρωση ναύλου για {b.name}; Ο έλεγχος αναχώρησης θα φύγει από τις εργασίες — τυχόν προβλήματα που είχαν ήδη καταγραφεί παραμένουν κανονικά.
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <Btn small color={COLORS.red} onClick={() => { cancelCharter(b); setCancelFor(null); }}>Ναι, ακύρωση</Btn>
-                <Btn small color={COLORS.sub} outline onClick={() => setCancelFor(null)}>Όχι</Btn>
-              </div>
-            </div>
-          )}
-          {dateFor === b.id && (
-            <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <input type="date" value={dateVal} onChange={e => setDateVal(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
-              {mode === "charter" && dateVal && (
-                <>
-                  <div style={{ display: "flex", gap: 6, width: "100%" }}>
-                    <Btn small color={COLORS.navy} outline={duration !== 7} onClick={() => setDuration(7)}>1 εβδομάδα</Btn>
-                    <Btn small color={COLORS.navy} outline={duration !== 14} onClick={() => setDuration(14)}>2 εβδομάδες</Btn>
-                    <Btn small color={COLORS.navy} outline={duration !== "custom"} onClick={() => setDuration("custom")}>Συγκεκριμένη ημερομηνία</Btn>
-                  </div>
-                  {duration === "custom" && (
-                    <div style={{ width: "100%" }}>
-                      <label style={{ fontSize: 12, color: COLORS.sub }}>Ημερομηνία επιστροφής</label>
-                      <input type="date" min={dateVal} value={customReturn} onChange={e => setCustomReturn(e.target.value)} style={{ ...inputStyle, width: "auto", display: "block", marginTop: 4 }} />
-                    </div>
-                  )}
-                  {computedReturn && <div style={{ fontSize: 12.5, color: COLORS.sub, width: "100%" }}>Επιστρέφει: <b>{fmtDate(computedReturn)}</b> — γίνεται αυτόματα «εν πλω» την {fmtDate(dateVal)} και επιστρέφει μόνο του την ίδια μέρα.</div>}
-                </>
-              )}
-              <Btn small color={COLORS.navy} onClick={() => {
-                if (mode === "sea") {
-                  if (!dateVal) { showToast("Η ημερομηνία επιστροφής είναι υποχρεωτική"); return; }
-                  persistBoats(boats.map(x => x.id === b.id ? { ...x, atSea: true, returnDate: dateVal, departureDate: null } : x));
-                } else if (dateVal) {
-                  if (duration === "custom" && !customReturn) { showToast("Διάλεξε ημερομηνία επιστροφής"); return; }
-                  setDeparture(b, dateVal, computedReturn || null);
-                } else {
-                  setDeparture(b, null);
-                }
-                setDateFor(null);
-              }}>{mode === "sea" ? "Ορισμός εν πλω" : dateVal ? "Ορισμός ναύλου" : "Αφαίρεση αναχώρησης"}</Btn>
-              <Btn small color={COLORS.sub} outline onClick={() => setDateFor(null)}>Άκυρο</Btn>
-              {mode === "sea" && <div style={{ fontSize: 12, color: COLORS.sub, width: "100%" }}>Για έκτακτες περιπτώσεις εκτός συνηθισμένου ναύλου. Υποχρεωτική ημερομηνία επιστροφής.</div>}
-            </div>
-          )}
-        </div>
         </React.Fragment>
         );
       })}
@@ -2560,7 +2531,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
           <input value={newBoatType} onChange={e => setNewBoatType(e.target.value)} placeholder="Τύπος (π.χ. Bavaria 46)" style={{ ...inputStyle, flex: 1, minWidth: 140 }} />
           <Btn small color={COLORS.navy} onClick={() => {
             if (!newBoatName.trim()) return;
-            persistBoats([...boats, { id: "b" + Date.now(), name: newBoatName.trim(), type: newBoatType.trim(), atSea: false, returnDate: null, departureDate: null }]);
+            persistBoats([...boats, { id: "b" + Date.now(), name: newBoatName.trim(), type: newBoatType.trim(), atSea: false, returnDate: null, departureDate: null, charters: [] }]);
             setNewBoatName(""); setNewBoatType(""); showToast(`Προστέθηκε: ${newBoatName.trim()}`);
           }}>+</Btn>
         </div>
@@ -2777,7 +2748,13 @@ function AiSearch({ tasks, boats, users, aiMemories, onAddMemory, onDeleteMemory
 3. "answer" — κάνει ερώτηση (για υπάλληλο, σκάφος, ιστορικό, στατιστικά) και θέλει απάντηση ΤΩΡΑ.
 ΔΕΔΟΜΕΝΑ ΓΙΑ ΑΠΑΝΤΗΣΕΙΣ (χρησιμοποίησέ τα μόνο αν action="answer"):
 ΠΡΟΦΙΛ ΥΠΑΛΛΗΛΩΝ:\n${profiles}
-ΣΚΑΦΗ: ${boats.map(b => b.name).join(", ")}
+ΣΚΑΦΗ & ΠΡΟΓΡΑΜΜΑ ΝΑΥΛΩΝ ΣΕΖΟΝ:\n${boats.map(b => {
+        const s = boatStatus(b);
+        const chs = getCharters(b);
+        const now = s.atSea ? `τώρα ΕΝ ΠΛΩ (επιστρέφει ${fmtDate(s.returnDate)})` : s.nextEventType === "depart" ? `τώρα στη βάση (επόμενη αναχώρηση ${fmtDate(s.departureDate)})` : "τώρα στη βάση (κανένα προγραμματισμένο ναύλο)";
+        const list = chs.length ? chs.map(c => `${c.from}→${c.to}`).join(", ") : "κανένα";
+        return `${b.name}: ${now}. Ναύλα σεζόν: ${list}`;
+      }).join("\n")}
 ΑΠΟΘΗΚΕΥΜΕΝΕΣ ΣΗΜΕΙΩΣΕΙΣ: ${memText}
 ΙΣΤΟΡΙΚΟ ΕΡΓΑΣΙΩΝ:\n${history || "(κενό)"}
 ΜΗΝΥΜΑ ΧΡΗΣΤΗ: "${q.trim()}"
