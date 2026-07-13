@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.41";
+const APP_VERSION = "v3.42";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -626,7 +626,6 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   const isMgr = me.role === "manager" || me.role === "owner";
   const canAssign = isMgr || me.role === "associate";
   LANG = acting.lang === "en" ? "en" : "el";
-  const activeBoats = boats.filter(b => !boatStatus(b).atSea);
 
   // ---------- Ενέργειες εργασιών ----------
   const addParsed = async (items) => {
@@ -973,7 +972,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} /></ErrorBoundary>}
-        {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={activeBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
+        {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={boats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
         {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
         {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
@@ -1810,7 +1809,7 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
         <label style={lbl}>{tr("Σκάφος")}</label>
         <select value={boatId} onChange={e => setBoatId(e.target.value)} style={inputStyle}>
           <option value="">{tr("Βάση / Άλλο (van, εργαλεία…)")}</option>
-          {boats.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          {boats.map(b => <option key={b.id} value={b.id}>{b.name}{boatStatus(b).atSea ? ` (${tr("εν πλω")})` : ""}</option>)}
         </select>
 
         <label style={lbl}>{tr("Περιγραφή")}</label>
