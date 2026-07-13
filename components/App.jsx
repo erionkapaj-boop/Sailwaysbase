@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.35";
+const APP_VERSION = "v3.36";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -413,7 +413,8 @@ function AppInner() {
       const meta = await load("app-meta", {});
       if (meta.lastDistribution === todayStr()) return;
       await save("app-meta", { ...meta, lastDistribution: todayStr() });
-      const freshTasks = await runDistribution(false);
+      let freshTasks = await runDistribution(false);
+      freshTasks = await activateDepartureChecklists(freshTasks);
       await generateAutoTasks(freshTasks);
     })();
   }, [ready, me]);
@@ -858,6 +859,40 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     if (stillOpen.length !== tasks.length) await persistTasks(stillOpen);
     showToast("Ο ναύλος ακυρώθηκε — οι εργασίες του σκάφους βγήκαν από προτεραιότητα");
   };
+  // Προγραμματισμός επόμενου ναύλου ενώ το σκάφος είναι ακόμα εν πλω — απλή αποθήκευση ημερομηνιών,
+  // ΧΩΡΙΣ να ανοίγει έλεγχος αναχώρησης (δεν μπορεί κανείς να ετοιμάσει σκάφος που δεν έχει καν επιστρέψει).
+  const setNextCharter = async (boat, date, returnDate) => {
+    await persistBoats(boats.map(b => b.id === boat.id ? { ...b, nextDepartureDate: date || null, nextReturnDate: date ? (returnDate || null) : null } : b));
+    showToast(date ? "Προγραμματίστηκε ο επόμενος ναύλος" : "Ο προγραμματισμός αφαιρέθηκε");
+  };
+  // Επιστροφή σκάφους: αν είχε προγραμματιστεί επόμενος ναύλος, ενεργοποιείται τώρα ως ο τρέχων —
+  // αλλά ο έλεγχος αναχώρησης ΔΕΝ ανοίγει αμέσως· ενεργοποιείται το επόμενο πρωί (βλ. activateDepartureChecklists).
+  const returnBoat = async (boat) => {
+    const promoted = boat.nextDepartureDate || null;
+    const promotedReturn = boat.nextReturnDate || null;
+    await persistBoats(boats.map(x => x.id === boat.id ? {
+      ...x, atSea: false, departureDate: promoted, returnDate: promoted ? promotedReturn : null,
+      nextDepartureDate: null, nextReturnDate: null,
+    } : x));
+    showToast(promoted ? `Το ${boat.name} επέστρεψε — ο προγραμματισμένος ναύλος ενεργοποιείται το πρωί` : `Το ${boat.name} επέστρεψε`);
+  };
+  // Ανοίγει τον έλεγχο αναχώρησης για σκάφη που είναι ήδη στη βάση με ορισμένη ημερομηνία ναύλου αλλά δεν έχουν
+  // ακόμα το checklist — καλύπτει ειδικά τα σκάφη που μόλις επέστρεψαν, με φυσική καθυστέρηση ως το επόμενο πρωί
+  // (τρέχει μία φορά τη μέρα, στο πρώτο άνοιγμα της εφαρμογής, μαζί με την υπόλοιπη καθημερινή ροή).
+  const activateDepartureChecklists = async (tasksOverride) => {
+    const src = tasksOverride || tasks;
+    if (!checklist.length) return src;
+    const need = boats.filter(b => !b.atSea && b.departureDate && !src.some(t => t.boatId === b.id && t.status === "open" && t.checklistItems));
+    if (!need.length) return src;
+    const newTasks = need.map((b, i) => ({
+      id: "t" + Date.now() + "-dc" + i, status: "open", createdBy: "system", createdAt: new Date().toISOString(),
+      progress: [], returns: 0, assignedTo: null, boatId: b.id, desc: "Έλεγχος αναχώρησης",
+      checklistItems: checklist.map((c, j) => ({ id: "ci" + j, text: c, status: "pending", problemTaskId: null })),
+    }));
+    const merged = [...newTasks, ...src];
+    await persistTasks(merged);
+    return merged;
+  };
 
   const resolveChecklistItem = async (task, itemId, outcome, note) => {
     let base = tasks;
@@ -927,7 +962,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
         {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
         {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
-          setDeparture={setDeparture} cancelCharter={cancelCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
+          setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={returnBoat} onSetNextCharter={setNextCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
           persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
           onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} /></ErrorBoundary>}
@@ -2016,7 +2051,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
   const { me, users, boats, tasks, quick, checklist, closingChecklist, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
-    setDeparture, cancelCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence } = props;
+    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence } = props;
   const [section, setSection] = useState("overview");
   const isOwner = me.role === "owner";
   const sections = [
@@ -2038,7 +2073,7 @@ function AdminView(props) {
       </div>
       {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} users={users} me={me} absences={absences} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
-      {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} showToast={showToast} />}
+      {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={onReturnBoat} onSetNextCharter={onSetNextCharter} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
@@ -2344,7 +2379,7 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, on
   );
 }
 
-function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, setDeparture, cancelCharter, showToast }) {
+function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, showToast }) {
   const [dateFor, setDateFor] = useState(null);
   const [dateVal, setDateVal] = useState("");
   const [duration, setDuration] = useState(7);
@@ -2354,7 +2389,12 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   const [detailFor, setDetailFor] = useState(null);
   const [newBoatName, setNewBoatName] = useState("");
   const [newBoatType, setNewBoatType] = useState("");
+  const [nextFor, setNextFor] = useState(null);
+  const [nextDateVal, setNextDateVal] = useState("");
+  const [nextDuration, setNextDuration] = useState(7);
+  const [nextCustomReturn, setNextCustomReturn] = useState("");
   const computedReturn = dateVal ? (duration === "custom" ? customReturn : addDays(dateVal, duration)) : "";
+  const computedNextReturn = nextDateVal ? (nextDuration === "custom" ? nextCustomReturn : addDays(nextDateVal, nextDuration)) : "";
   const today = todayStr();
   const weekAhead = addDays(today, 7);
   const groupOf = (b) => {
@@ -2403,7 +2443,10 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
               <b>{b.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{b.type}</span>
               <div style={{ fontSize: 12.5, marginTop: 2 }}>
                 {b.atSea
-                  ? <span style={{ color: COLORS.teal, fontWeight: 700 }}>🌊 Εν πλω — επιστρέφει {fmtDate(b.returnDate)}</span>
+                  ? <span style={{ color: COLORS.teal, fontWeight: 700 }}>
+                      🌊 Εν πλω — επιστρέφει {fmtDate(b.returnDate)}
+                      {b.nextDepartureDate && <span style={{ color: COLORS.navy }}> · επόμενο ναύλο {fmtDate(b.nextDepartureDate)}</span>}
+                    </span>
                   : b.departureDate
                     ? <span style={{ color: COLORS.amber, fontWeight: 700 }}>⏰ Φεύγει {fmtDate(b.departureDate)}{b.returnDate ? ` — επιστρέφει ${fmtDate(b.returnDate)}` : ""}</span>
                     : <span style={{ color: COLORS.sub }}>Στη βάση</span>}
@@ -2412,7 +2455,12 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
             <div style={{ display: "flex", gap: 6, flexDirection: "column" }}>
               <Btn small color={COLORS.sub} outline onClick={() => setDetailFor(detailFor === b.id ? null : b.id)}>ℹ️ Πληροφορίες</Btn>
               {b.atSea
-                ? <Btn small color={COLORS.teal} outline onClick={() => persistBoats(boats.map(x => x.id === b.id ? { ...x, atSea: false, returnDate: null } : x))}>Επέστρεψε</Btn>
+                ? <>
+                  <Btn small color={COLORS.teal} outline onClick={() => onReturnBoat(b)}>Επέστρεψε</Btn>
+                  <Btn small color={COLORS.navy} outline onClick={() => { setNextFor(b.id); setNextDateVal(b.nextDepartureDate || ""); setNextDuration(7); setNextCustomReturn(b.nextReturnDate || ""); }}>
+                    📅 {b.nextDepartureDate ? "Αλλαγή προγρ. ναύλου" : "Προγρ. επόμενου ναύλου"}
+                  </Btn>
+                </>
                 : b.departureDate
                   ? <>
                     <Btn small color={COLORS.navy} outline onClick={() => { setDateFor(b.id); setMode("charter"); setDateVal(b.departureDate || ""); setDuration(7); setCustomReturn(""); }}>Αλλαγή</Btn>
@@ -2424,6 +2472,34 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
                   </>}
             </div>
           </div>
+          {nextFor === b.id && (
+            <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <input type="date" value={nextDateVal} onChange={e => setNextDateVal(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
+              {nextDateVal && (
+                <>
+                  <div style={{ display: "flex", gap: 6, width: "100%" }}>
+                    <Btn small color={COLORS.navy} outline={nextDuration !== 7} onClick={() => setNextDuration(7)}>1 εβδομάδα</Btn>
+                    <Btn small color={COLORS.navy} outline={nextDuration !== 14} onClick={() => setNextDuration(14)}>2 εβδομάδες</Btn>
+                    <Btn small color={COLORS.navy} outline={nextDuration !== "custom"} onClick={() => setNextDuration("custom")}>Συγκεκριμένη ημερομηνία</Btn>
+                  </div>
+                  {nextDuration === "custom" && (
+                    <div style={{ width: "100%" }}>
+                      <label style={{ fontSize: 12, color: COLORS.sub }}>Ημερομηνία επιστροφής</label>
+                      <input type="date" min={nextDateVal} value={nextCustomReturn} onChange={e => setNextCustomReturn(e.target.value)} style={{ ...inputStyle, width: "auto", display: "block", marginTop: 4 }} />
+                    </div>
+                  )}
+                  {computedNextReturn && <div style={{ fontSize: 12.5, color: COLORS.sub, width: "100%" }}>Αναμενόμενη επιστροφή επόμενου ναύλου: {fmtDate(computedNextReturn)}</div>}
+                </>
+              )}
+              <Btn small color={COLORS.navy} onClick={() => {
+                if (nextDateVal && nextDuration === "custom" && !nextCustomReturn) { showToast("Διάλεξε ημερομηνία επιστροφής"); return; }
+                onSetNextCharter(b, nextDateVal || null, nextDateVal ? (computedNextReturn || null) : null);
+                setNextFor(null);
+              }}>{nextDateVal ? "Αποθήκευση προγραμματισμού" : "Αφαίρεση προγραμματισμού"}</Btn>
+              <Btn small color={COLORS.sub} outline onClick={() => setNextFor(null)}>Άκυρο</Btn>
+              <div style={{ fontSize: 12, color: COLORS.sub, width: "100%" }}>Ο έλεγχος αναχώρησης δεν ανοίγει τώρα — ενεργοποιείται μόνος του το πρωί μετά την επιστροφή του σκάφους.</div>
+            </div>
+          )}
           {detailFor === b.id && (
             <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} onDeleteBoat={() => { persistBoats(boats.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
           )}
