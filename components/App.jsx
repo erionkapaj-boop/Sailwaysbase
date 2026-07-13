@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.34";
+const APP_VERSION = "v3.35";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2377,9 +2377,9 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
     return a.name.localeCompare(b.name);
   });
   const groupInfo = {
-    0: { label: "🔧 Στη βάση / ετοιμάζονται", color: COLORS.amber },
-    1: { label: "🌊 Επιστρέφουν από ναύλο (εντός εβδομάδας)", color: COLORS.teal },
-    2: { label: "⛵ Εν πλω — δεν επιστρέφουν σύντομα", color: COLORS.sub },
+    0: { label: "Στη βάση", color: COLORS.amber },
+    1: { label: "Επιστρέφουν από ναύλο", color: COLORS.teal },
+    2: { label: "Δεν επιστρέφουν σύντομα", color: COLORS.sub },
   };
   let lastGroup = null;
   return (
@@ -2392,9 +2392,12 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
         return (
         <React.Fragment key={b.id}>
           {showHeader && (
-            <div style={{ fontSize: 12.5, fontWeight: 800, color: groupInfo[g].color, margin: "14px 0 6px", textTransform: "uppercase", letterSpacing: 0.5 }}>{groupInfo[g].label}</div>
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.sub, margin: g === 0 ? "4px 0 6px" : "16px 0 6px", display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: groupInfo[g].color, display: "inline-block" }} />
+              {groupInfo[g].label}
+            </div>
           )}
-          <div style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14, borderLeft: `4px solid ${groupInfo[g].color}` }}>
+          <div style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <b>{b.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{b.type}</span>
