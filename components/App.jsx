@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.38";
+const APP_VERSION = "v3.39";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2426,27 +2426,41 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   const [newBoatName, setNewBoatName] = useState("");
   const [newBoatType, setNewBoatType] = useState("");
 
-  // Ταξινόμηση κατά επείγον: μικρότερος αριθμός ημερών ως το επόμενο γεγονός (αναχώρηση ή επιστροφή) = πιο πάνω.
-  // Σκάφη χωρίς επόμενο γεγονός πάνε στο τέλος. Έτσι «έρχεται αύριο» και «φεύγει αύριο» έχουν ίδια βαρύτητα.
+  // Προτεραιότητα σε 3 επίπεδα:
+  // 1. Επείγον (≤6 μέρες μέχρι αναχώρηση/επιστροφή) — ανακατεμένα φεύγει/έρχεται, μικρότερος αριθμός ημερών πρώτα
+  // 2. Στη βάση χωρίς άμεσο θέμα — πάντα πιο ψηλά από όσα λείπουν μακριά, ακόμα κι αν αυτά έχουν "κοντινότερη" ημερομηνία
+  // 3. Εν πλω, μακριά — τελευταία
+  const URGENT_DAYS = 6;
+  const tierOf = (s) => {
+    if (s.nextEventDays !== null && s.nextEventDays <= URGENT_DAYS) return 0;
+    if (!s.atSea) return 1;
+    return 2;
+  };
   const withStatus = boats.map(b => ({ b, s: boatStatus(b) }));
   const sorted = [...withStatus].sort((x, y) => {
+    const tx = tierOf(x.s), ty = tierOf(y.s);
+    if (tx !== ty) return tx - ty;
+    if (tx === 0) return x.s.nextEventDays - y.s.nextEventDays || x.b.name.localeCompare(y.b.name);
+    // εντός του ίδιου ήρεμου επιπέδου: όσα έχουν έστω μακρινή ημερομηνία πάνε πρώτα, μετά αλφαβητικά
     const dx = x.s.nextEventDays, dy = y.s.nextEventDays;
-    if (dx === null && dy === null) return x.b.name.localeCompare(y.b.name);
-    if (dx === null) return 1;
-    if (dy === null) return -1;
-    if (dx !== dy) return dx - dy;
+    if (dx !== null && dy !== null) return dx - dy || x.b.name.localeCompare(y.b.name);
+    if (dx !== null) return -1;
+    if (dy !== null) return 1;
     return x.b.name.localeCompare(y.b.name);
   });
 
+  // Η κατάσταση (Στη βάση / Εν πλω) φαίνεται ΠΑΝΤΑ· το επείγον προστίθεται δίπλα της σαν ξεχωριστή ένδειξη βαρύτητας, δεν την αντικαθιστά.
   const chip = (s) => {
-    if (!s.nextEventType) return { text: "Στη βάση", color: COLORS.sub, bg: "#EEF1F4" };
+    const statusText = s.atSea ? "Εν πλω" : "Στη βάση";
+    const statusColor = s.atSea ? COLORS.teal : COLORS.sub;
+    if (!s.nextEventType) return { statusText, statusColor, urgency: null };
     const d = s.nextEventDays;
-    const soon = d <= 1, near = d <= 6;
+    const soon = d <= 1, near = d <= URGENT_DAYS;
     const color = soon ? COLORS.red : near ? COLORS.amber : COLORS.sub;
     const bg = soon ? "#FDECEA" : near ? "#FEF6E7" : "#EEF1F4";
     const when = d <= 0 ? "σήμερα" : d === 1 ? "αύριο" : `σε ${d}μ`;
-    const verb = s.nextEventType === "depart" ? "Φεύγει" : "Έρχεται";
-    return { text: `${verb} ${when}`, color, bg, sub: fmtDate(s.nextEventDate) };
+    const verb = s.nextEventType === "depart" ? "Φεύγει" : "Επιστρέφει";
+    return { statusText, statusColor, urgency: { text: `${verb} ${when}`, color, bg, sub: fmtDate(s.nextEventDate) } };
   };
 
   const saveCharter = (b) => {
@@ -2466,7 +2480,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   return (
     <div>
       <SectionTitle>Σκάφη ({boats.length})</SectionTitle>
-      <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 10 }}>Ταξινομημένα κατά επόμενο γεγονός — όσα χρειάζονται προσοχή σύντομα, στην κορυφή.</div>
+      <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 10 }}>Πρώτα ό,τι είναι επείγον (≤{URGENT_DAYS}μ), μετά ό,τι είναι στη βάση, τελευταία ό,τι λείπει μακριά.</div>
       {sorted.map(({ b, s }) => {
         const c = chip(s);
         return (
@@ -2477,9 +2491,14 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <b>{b.name}</b>
                   <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{b.type}</span>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: c.color, background: c.bg, padding: "2px 8px", borderRadius: 999 }}>
-                    {s.atSea ? "🌊 " : ""}{c.text}{c.sub ? ` · ${c.sub}` : ""}
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: c.statusColor, background: "#EEF1F4", padding: "2px 8px", borderRadius: 999 }}>
+                    {s.atSea ? "🌊 " : ""}{c.statusText}
                   </span>
+                  {c.urgency && (
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: c.urgency.color, background: c.urgency.bg, padding: "2px 8px", borderRadius: 999 }}>
+                      {c.urgency.text}{c.urgency.sub ? ` · ${c.urgency.sub}` : ""}
+                    </span>
+                  )}
                 </div>
                 {getCharters(b).length > 0 && (
                   <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 3 }}>
