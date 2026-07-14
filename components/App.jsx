@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.57";
+const APP_VERSION = "v3.58";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2419,18 +2419,21 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
         </div>
       )}
       <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Σκάφη — αναχωρήσεις & ανοιχτές εργασίες</div>
+        <div style={{ fontWeight: 700, fontSize: 15.5, color: COLORS.navy, marginBottom: 10 }}>Σκάφη — αναχωρήσεις & ανοιχτές εργασίες</div>
         {boatRows.length === 0 && <div style={{ color: COLORS.sub, fontSize: 14 }}>Καμία δηλωμένη αναχώρηση ή ανοιχτή εργασία αυτή τη στιγμή.</div>}
-        {boatRows.map(({ b, s, hasDeparture, openCount }) => {
+        {boatRows.map(({ b, s, hasDeparture, openCount }, i) => {
           const du = s.nextEventDays;
           const urgentRow = hasDeparture && du <= 2;
+          const soonRow = !urgentRow && hasDeparture && du <= 7;
+          const badgeBg = urgentRow ? COLORS.red : soonRow ? COLORS.amber : COLORS.bg;
+          const badgeColor = urgentRow || soonRow ? "#fff" : COLORS.sub;
           return (
             <button key={b.id} onClick={() => onBoatClick && onBoatClick(b.id)} style={{
               width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "10px 2px", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 14,
-              background: "none", border: "none", borderBottomStyle: "dashed", textAlign: "left", cursor: onBoatClick ? "pointer" : "default",
+              padding: "12px 2px", borderBottom: i < boatRows.length - 1 ? `1px solid ${COLORS.line}` : "none", fontSize: 14,
+              background: "none", border: "none", borderBottomStyle: i < boatRows.length - 1 ? "solid" : "none", textAlign: "left", cursor: onBoatClick ? "pointer" : "default",
             }}>
-              <span style={{ fontWeight: 600, color: COLORS.text }}>{b.name}</span>
+              <span style={{ fontWeight: 500, color: COLORS.text }}>{b.name}</span>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {hasDeparture && (
                   <span style={{ color: urgentRow ? COLORS.red : COLORS.sub, fontSize: 13 }}>
@@ -2439,9 +2442,9 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
                 )}
                 {openCount > 0 ? (
                   <span style={{
-                    minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, fontSize: 12.5, fontWeight: 800,
+                    minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, fontSize: 12.5, fontWeight: 700,
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    background: urgentRow ? COLORS.red : COLORS.amber, color: "#fff",
+                    background: badgeBg, color: badgeColor,
                   }}>{openCount}</span>
                 ) : (
                   <span style={{ color: COLORS.green, fontSize: 15 }}>✓</span>
