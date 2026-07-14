@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.55";
+const APP_VERSION = "v3.56";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2718,11 +2718,14 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
 
   // Προτεραιότητα σε 4 επίπεδα, με απλή χρωματική σήμανση:
   // 1. Στη βάση + φεύγει σύντομα — ΠΡΑΣΙΝΟ
-  // 2. Στη βάση + τίποτα προγραμματισμένο — ΓΚΡΙ
-  // 3. Έρχεται + έχει ήδη επόμενο ναύλο μετά — ΠΟΡΤΟΚΑΛΙ/ΜΠΛΕ (έρχεται) + ΠΡΑΣΙΝΟ (μετά φεύγει)
+  // 2. Έρχεται + έχει ήδη επόμενο ναύλο μετά — ΠΟΡΤΟΚΑΛΙ/ΜΠΛΕ (έρχεται) + ΠΡΑΣΙΝΟ (μετά φεύγει)
+  //    Διπλή πληροφορία σκόπιμα ψηλά: το σκάφος χρειάζεται προσοχή και για την άφιξη ΚΑΙ για γρήγορη ετοιμασία μετά.
+  // 3. Στη βάση + τίποτα προγραμματισμένο — ΓΚΡΙ
   // 4. Έρχεται + τίποτα μετά — ΠΟΡΤΟΚΑΛΙ/ΜΠΛΕ
   // Το "έρχεται" παίρνει πορτοκαλί μόνο αν η επιστροφή είναι μέσα στις επόμενες 7 μέρες (κάτι να προσέχει κανείς
-  // άμεσα)· αν αργεί πάνω από μία εβδομάδα, παίρνει ένα ήρεμο, ουδέτερο μπλε — δεν χρειάζεται να «χτυπάει».
+  // άμεσα)· αν αργεί πάνω από μία εβδομάδα, παίρνει ένα ήρεμο, ουδέτερο μπλε — δεν χρειάζεται να «χτυπάει». Επειδή η
+  // ταξινόμηση μέσα σε κάθε επίπεδο γίνεται πάντα με την πλησιέστερη ημερομηνία πρώτα, τα πορτοκαλί βγαίνουν φυσικά
+  // πριν τα γαλάζια, χωρίς να χρειάζεται ξεχωριστό επίπεδο για αυτά.
   const rank = (b) => {
     const s = boatStatus(b);
     const charters = getCharters(b);
@@ -2732,12 +2735,12 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
           statusText: "Στη βάση", statusColor: COLORS.green,
           extra: { text: `Φεύγει ${fmtDate(s.departureDate)}`, color: COLORS.green } };
       }
-      return { tier: 2, sortDate: null, s, statusText: "Στη βάση", statusColor: COLORS.sub, extra: null };
+      return { tier: 3, sortDate: null, s, statusText: "Στη βάση", statusColor: COLORS.sub, extra: null };
     }
     const returnColor = (s.nextEventDays !== null && s.nextEventDays > 7) ? COLORS.blue : COLORS.amber;
     const after = charters.filter(c => c.from >= s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
     if (after) {
-      return { tier: 3, sortDate: s.returnDate, s,
+      return { tier: 2, sortDate: s.returnDate, s,
         statusText: "Έρχεται", statusColor: returnColor,
         extra: { text: `Μετά φεύγει ${fmtDate(after.from)}`, color: COLORS.green } };
     }
@@ -2769,7 +2772,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   return (
     <div>
       <SectionTitle>Σκάφη ({boats.length})</SectionTitle>
-      <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 10 }}>Πρώτα στη βάση (φεύγει πράσινο, ήρεμο γκρι), μετά έρχονται (πορτοκαλί αν μέσα σε 7 μέρες, γαλάζιο αν αργούν περισσότερο· πράσινο αν έχουν ήδη επόμενο ναύλο).</div>
+      <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 10 }}>Σειρά: πρώτα όσα φεύγουν σύντομα (πράσινο), μετά όσα έρχονται ΚΑΙ φεύγουν ξανά σύντομα μετά (πορτοκαλί/γαλάζιο + πράσινο), μετά τα ήρεμα στη βάση (γκρι), τέλος όσα απλώς έρχονται (πορτοκαλί αν μέσα σε 7 μέρες, γαλάζιο αν αργούν).</div>
       {sorted.map(({ b, r }) => {
         const s = r.s;
         return (
