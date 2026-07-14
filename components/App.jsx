@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.58";
+const APP_VERSION = "v3.59";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -234,14 +234,26 @@ function AppInner() {
   const [me, setMe] = useState(null);
   const [viewAs, setViewAs] = useState(null);
   const [tab, setTab] = useState("today");
+  const [adminSection, setAdminSection] = useState("overview");
   const [toast, setToast] = useState(null);
   const [tasksBoatFilter, setTasksBoatFilter] = useState("");
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
   // Πλοήγηση από «Επισκόπηση» → «Εργασίες» με το σκάφος ήδη φιλτραρισμένο
   const goToBoatTasks = (boatId) => { setTasksBoatFilter(boatId || ""); setTab("tasks"); };
-  // Όταν ο χρήστης πάει στις Εργασίες από το κάτω μενού, καθαρίζουμε τυχόν προηγούμενο φίλτρο σκάφους
-  const selectTab = (id) => { if (id === "tasks") setTasksBoatFilter(""); setTab(id); };
+  // Όταν ο χρήστης πάει στις Εργασίες από το κάτω μενού, καθαρίζουμε τυχόν προηγούμενο φίλτρο σκάφους.
+  // Όταν φεύγει από τη Διοίκηση, η υπο-ενότητά της επαναφέρεται πάντα στην «Επισκόπηση» — έτσι το «πίσω» είναι
+  // πάντα προβλέψιμο (σταθερή ιεραρχία), όχι εξαρτημένο από το πώς έφτασε ο χρήστης εκεί (ιστορικό πλοήγησης).
+  const selectTab = (id) => { if (id === "tasks") setTasksBoatFilter(""); if (id !== "admin") setAdminSection("overview"); setTab(id); };
+  // Κουμπί «‹ Πίσω»: πηγαίνει πάντα ένα σταθερό, προκαθορισμένο επίπεδο προς τα πίσω — ποτέ με βάση το browser
+  // history — μέχρι να φτάσει στην πρώτη σελίδα («☀ Σήμερα»). Ιεραρχία: υπο-ενότητα Διοίκησης → Επισκόπηση →
+  // Σήμερα → (αν είναι ενεργή η «Προβολή ως») έξοδος από αυτήν.
+  const canGoBack = tab !== "today" || !!viewAs;
+  const goBack = () => {
+    if (tab === "admin" && adminSection !== "overview") { setAdminSection("overview"); return; }
+    if (tab !== "today") { setTab("today"); return; }
+    if (viewAs) { setViewAs(null); return; }
+  };
 
   // Φόρτωση
   useEffect(() => {
@@ -639,7 +651,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
 
   const logout = async () => {
     try { await winStorage.delete("my-code", false); } catch {}
-    setMe(null);
+    setMe(null); setViewAs(null); setTab("today"); setAdminSection("overview");
   };
 
   if (!ready) return <Center><div style={{ color: COLORS.sub }}>Φόρτωση…</div></Center>;
@@ -1066,6 +1078,12 @@ ${histLines}
   return (
     <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "system-ui, -apple-system, sans-serif", paddingBottom: 76 }}>
       <Header me={acting} onLogout={logout} />
+      {canGoBack && (
+        <button onClick={goBack} style={{
+          width: "100%", display: "flex", alignItems: "center", gap: 6, background: COLORS.card, border: "none",
+          borderBottom: `1px solid ${COLORS.line}`, padding: "9px 14px", fontSize: 13.5, fontWeight: 700, color: COLORS.navy, textAlign: "left",
+        }}>‹ Πίσω</button>
+      )}
       {viewAs && (
         <div style={{ background: COLORS.amber, color: "#3A2600", padding: "9px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13.5, fontWeight: 700 }}>
           👁 Προβολή ως: {viewAs.name}
@@ -1088,7 +1106,7 @@ ${histLines}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={returnBoat} onSetNextCharter={setNextCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
           persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
-          onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} onGoToBoatTasks={goToBoatTasks} /></ErrorBoundary>}
+          onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} onGoToBoatTasks={goToBoatTasks} section={adminSection} setSection={setAdminSection} /></ErrorBoundary>}
       </div>
       <TabBar tabs={tabs} tab={tab} setTab={selectTab} />
       {toast && <div style={{ position: "fixed", bottom: 86, left: "50%", transform: "translateX(-50%)", background: COLORS.navy, color: "#fff", padding: "10px 18px", borderRadius: 24, fontSize: 14, zIndex: 50, maxWidth: "90%" }}>{toast}</div>}
@@ -2280,8 +2298,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
   const { me, users, boats, tasks, quick, checklist, closingChecklist, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
-    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, onGoToBoatTasks } = props;
-  const [section, setSection] = useState("overview");
+    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, onGoToBoatTasks, section, setSection } = props;
   const isOwner = me.role === "owner";
   const sections = [
     ["overview", "Επισκόπηση"], ["control", "Έλεγχος"], ["boats", "Σκάφη"],
