@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.59";
+const APP_VERSION = "v3.60";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2303,8 +2303,8 @@ function AdminView(props) {
   const sections = [
     ["overview", "Επισκόπηση"], ["control", "Έλεγχος"], ["boats", "Σκάφη"],
     ["lists", "Λίστες"], ["absences", "Απουσίες"], ["stats", "Στατιστικά"], ["ai", "AI"],
-    ["profiles", "Ομάδα"], ["errors", "Σφάλματα"],
-    ...(isOwner ? [["usersS", "Χρήστες"]] : []),
+    ["profiles", "Ομάδα"],
+    ...(isOwner ? [["errors", "Σφάλματα"], ["usersS", "Χρήστες"]] : []),
   ];
   return (
     <div>
@@ -2325,7 +2325,7 @@ function AdminView(props) {
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
       {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} />}
-      {section === "errors" && <ErrorsAdmin />}
+      {section === "errors" && isOwner && <ErrorsAdmin />}
       {section === "usersS" && isOwner && <UsersAdmin users={users} persistUsers={persistUsers} me={me} onViewAs={realOwner ? onViewAs : null} />}
     </div>
   );
