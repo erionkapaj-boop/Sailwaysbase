@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.44";
+const APP_VERSION = "v3.48";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -719,16 +719,18 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       patchTask(t.id, { serviceRelevant: /yes/i.test(raw) });
     } catch { /* ταξινόμηση απέτυχε — η εργασία απλά δεν εμφανίζεται στο βιβλίο service, δεν χάνεται τίποτα */ }
   };
-  const completeTask = async (t, attributedTo, afterPhotoFiles, confidence) => {
+  const completeTask = async (t, attributedTo, afterPhotoFiles, confidence, problemNote, solutionNote) => {
     const finalBy = attributedTo || acting.id;
     let afterUrls = [];
     if (afterPhotoFiles?.length) {
       try { afterUrls = await uploadTaskPhotos(afterPhotoFiles, t.id); } catch {}
     }
+    const hasProblemNote = !!(problemNote && problemNote.trim()) || !!(solutionNote && solutionNote.trim());
     await persistTasks(tasks.map(x => x.id === t.id ? {
       ...x, status: "done", completedBy: finalBy, completedByActor: acting.id, completedAt: new Date().toISOString(),
       ...(confidence ? { completionConfidence: confidence } : {}),
       ...(afterUrls.length ? { photosAfter: [...(x.photosAfter || []), ...afterUrls] } : {}),
+      ...(hasProblemNote ? { problemDesc: problemNote?.trim() || "", problemSolution: solutionNote?.trim() || "" } : {}),
     } : x));
     showToast("Ολοκληρώθηκε ✔");
     classifyServiceRelevance(t);
@@ -739,6 +741,14 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
         ? `🟢 "${t.desc}" — ολοκληρώθηκε, δούλευε τέλεια κατά τον έλεγχο`
         : `🟡 "${t.desc}" — ολοκληρώθηκε, αλλά με επιφυλάξεις για την ποιότητα/διάρκεια`;
       addBoatNote(t.boatId, text);
+    }
+    // Πρόβλημα & λύση κατά την ολοκλήρωση → καταγράφεται μόνιμα στη μνήμη του AI (και στο ιστορικό του σκάφους, αν υπάρχει)
+    // ώστε ο βοηθός AI να θυμάται τι προβλήματα έχουν εμφανιστεί και πώς λύθηκαν, χωρίς να χρειάζεται χειροκίνητη καταχώρηση.
+    if (hasProblemNote) {
+      const boatName = t.boatId ? (boats.find(b => b.id === t.boatId)?.name || "") : "";
+      const memText = `🛠 ${boatName ? boatName + " — " : ""}"${t.desc}" — Πρόβλημα: ${problemNote?.trim() || "-"} · Λύση: ${solutionNote?.trim() || "-"}`;
+      await addAiMemory(memText);
+      if (t.boatId) addBoatNote(t.boatId, memText);
     }
   };
   const addBeforePhotos = async (t, files) => {
@@ -794,6 +804,35 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       setTasks(cur => { const nx = cur.map(x => x.id === t.id ? { ...x, descEn: clean || t.desc, translating: false } : x); save("app-tasks", nx); return nx; });
     } catch {
       setTasks(cur => cur.map(x => x.id === t.id ? { ...x, translating: false } : x));
+    }
+  };
+  // "💡 Βοήθεια": φιλτράρει ΤΟΠΙΚΑ (χωρίς AI) το ιστορικό για ό,τι μοιάζει με το τρέχον πρόβλημα — ίδιο σκάφος ή κοινές λέξεις-
+  // κλειδιά — και δίνει μόνο τα πιο σχετικά 6-10 περιστατικά στο AI. Έτσι μένει γρήγορο και φθηνό ό,τι κι αν μεγαλώσει η βάση.
+  const STOP_WORDS = new Set(["και", "του", "της", "το", "τα", "με", "για", "στο", "στη", "στον", "στην", "από", "είναι", "να", "σε", "μια", "ένα", "που", "δεν", "ή", "αλλά", "αυτό", "αυτή", "θα", "έχει", "τον", "την"]);
+  const getTaskHelp = async (t) => {
+    try {
+      const boatName = t.boatId ? (boats.find(b => b.id === t.boatId)?.name || "") : "";
+      const words = (t.desc || "").toLowerCase().split(/[^a-zά-ωΐάέήίόύώ0-9]+/i).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+      const scoreText = (txt) => { const low = (txt || "").toLowerCase(); return words.reduce((s, w) => s + (low.includes(w) ? 1 : 0), 0); };
+      const past = tasks
+        .filter(x => x.id !== t.id && (x.problemDesc || x.problemSolution))
+        .map(x => ({ x, score: (x.boatId === t.boatId ? 2 : 0) + scoreText(x.desc) + scoreText(x.problemDesc) + scoreText(x.problemSolution) }))
+        .filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
+      const mems = aiMemories
+        .map(m => ({ m, score: scoreText(m.text) }))
+        .filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 4);
+      const histLines = [
+        ...past.map(({ x }) => `- [${boats.find(b => b.id === x.boatId)?.name || "Βάση"}] "${x.desc}" — Πρόβλημα: ${x.problemDesc || "-"} · Λύση: ${x.problemSolution || "-"}`),
+        ...mems.map(({ m }) => `- ${m.text}`),
+      ].join("\n") || "(κανένα σχετικό ιστορικό ακόμα)";
+      const prompt = `Είσαι έμπειρος τεχνικός σε βάση yacht charter (σκάφη ιστιοπλοΐας/μηχανοκίνητα). Ένας εργαζόμενος αντιμετωπίζει πρόβλημα σε εργασία${boatName ? ` στο σκάφος "${boatName}"` : ""}: "${t.desc}".
+ΣΧΕΤΙΚΟ ΙΣΤΟΡΙΚΟ ΑΠΟ ΤΗ ΒΑΣΗ (προηγούμενα παρόμοια προβλήματα/λύσεις, αν υπάρχουν):
+${histLines}
+Δώσε ΣΥΝΤΟΜΗ πρακτική πρόταση λύσης (2-4 προτάσεις). Αν το ιστορικό δείχνει τι δούλεψε ξανά σε παρόμοιο πρόβλημα, ανάφερέ το ΠΡΩΤΟ και ρητά. Αν δεν υπάρχει σχετικό ιστορικό, χρησιμοποίησε τη γενική τεχνική σου γνώση για σκάφη/θαλάσσιο εξοπλισμό. Μίλα απευθείας, χωρίς εισαγωγικές φράσεις τύπου "Ορίστε η πρόταση".`;
+      const raw = await askClaude(prompt, 350);
+      return (raw || "").trim() || null;
+    } catch {
+      return null;
     }
   };
   const setTaskDeadline = async (t, isoDeadline) => {
@@ -1005,13 +1044,13 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
         {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={tasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
-          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask}
+          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
         {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} /></ErrorBoundary>}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
         {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={boats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
         {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
         {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
@@ -1161,7 +1200,36 @@ function ChecklistItems({ t, onChecklistItem }) {
   );
 }
 
-function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onTranslate }) {
+// Μικρό κουμπί μικροφώνου για υπαγόρευση κειμένου σε οποιοδήποτε πεδίο (π.χ. Πρόβλημα/Λύση) —
+// ξεχωριστό από το VoiceComplete: εδώ απλά μετατρέπει ομιλία σε κείμενο, χωρίς αναγνώριση εργασίας από AI.
+function MicButton({ onResult }) {
+  const [listening, setListening] = useState(false);
+  const recRef = useRef(null);
+  const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  if (!SR) return null;
+  const toggle = () => {
+    if (listening) { recRef.current?.stop(); setListening(false); return; }
+    const rec = new SR();
+    rec.lang = LANG === "en" ? "en-US" : "el-GR";
+    rec.continuous = true; rec.interimResults = false;
+    rec.onresult = (e) => {
+      let add = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) add += e.results[i][0].transcript + " ";
+      if (add) onResult(add.trim());
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recRef.current = rec; rec.start(); setListening(true);
+  };
+  return (
+    <button type="button" onClick={toggle} style={{
+      border: `1.5px solid ${listening ? COLORS.red : COLORS.teal}`, background: listening ? COLORS.red : "transparent",
+      color: listening ? "#fff" : COLORS.teal, borderRadius: 8, padding: "3px 9px", fontSize: 12.5, fontWeight: 700, marginLeft: 8, lineHeight: 1.4,
+    }}>{listening ? "⏹" : "🎤"}</button>
+  );
+}
+
+function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onTranslate, onHelp }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign' | 'completeAs'
   const [note, setNote] = useState("");
@@ -1171,6 +1239,10 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const [customMins, setCustomMins] = useState("");
   const [confidence, setConfidence] = useState(null);
   const [showOriginal, setShowOriginal] = useState(false);
+  const [problemNote, setProblemNote] = useState("");
+  const [solutionNote, setSolutionNote] = useState("");
+  const [helpText, setHelpText] = useState(null);
+  const [helpBusy, setHelpBusy] = useState(false);
   const afterFileRef = useRef(null);
   const boat = boats.find(b => b.id === t.boatId);
   const dl = deadline(t);
@@ -1187,6 +1259,13 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
     if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); }
     else if (t.intensive) { setMode("completeSimple"); }
     else { onComplete(t, undefined, undefined, conf); }
+  };
+  // Ίδια δρομολόγηση με το startComplete, αλλά περνάει και το πρόβλημα/λύση που καταγράφηκε πριν την ολοκλήρωση
+  const finishWithProblem = (conf) => {
+    setConfidence(conf);
+    if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); }
+    else if (t.intensive) { setMode("completeSimple"); }
+    else { onComplete(t, undefined, undefined, conf, problemNote.trim(), solutionNote.trim()); setMode(null); setOpen(false); }
   };
 
   return (
@@ -1218,6 +1297,12 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
       </div>
       {open && (
         <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${COLORS.line}` }}>
+          {(t.problemDesc || t.problemSolution) && (
+            <div style={{ background: "#FFF6E5", color: "#5B4A00", padding: "8px 10px", borderRadius: 8, fontSize: 13, margin: "10px 0" }}>
+              <div><b>🛠 {tr("Πρόβλημα:")}</b> {t.problemDesc || "-"}</div>
+              <div style={{ marginTop: 4 }}><b>{tr("Λύση:")}</b> {t.problemSolution || "-"}</div>
+            </div>
+          )}
           {t.returnNote && t.status === "open" && (
             <div style={{ background: "#FDECEA", color: "#8A1C12", padding: "8px 10px", borderRadius: 8, fontSize: 13, margin: "10px 0" }}>
               <b>{tr("Σημείωση manager:")}</b> {t.returnNote}
@@ -1297,6 +1382,13 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                 )
               )}
               <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
+              {!Array.isArray(t.checklistItems) && !t.findMode && <Btn color={COLORS.navy} outline onClick={() => setMode("problem")}>🛠 {tr("Πρόβλημα & Λύση")}</Btn>}
+              {onHelp && (
+                <Btn color="#6B3FA0" outline onClick={() => {
+                  setMode("help");
+                  if (!helpText && !helpBusy) { setHelpBusy(true); onHelp(t).then(r => { setHelpText(r || tr("Δεν βρέθηκε πρόταση αυτή τη στιγμή — δοκίμασε ξανά σε λίγο.")); setHelpBusy(false); }); }
+                }}>💡 {tr("Βοήθεια")}</Btn>
+              )}
               {t.intensive && !(t.photosBefore?.length) && <Btn color={COLORS.teal} outline onClick={() => setMode("beforePhoto")}>📷 {tr("Φωτογραφία πριν")}</Btn>}
               <Btn color={COLORS.amber} outline onClick={() => { setMode("external"); setNote(""); }}>{tr("Χρειάζεται ειδικός ⚠")}</Btn>
               {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.sub} outline onClick={() => { setMode("edit"); setNote(t.desc); }}>✎ {tr("Διόρθωση")}</Btn>}
@@ -1385,6 +1477,42 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               </div>
             </div>
           )}
+          {mode === "help" && (
+            <div style={{ marginTop: 10, background: "#F5F0FA", borderRadius: 10, padding: 12, border: "1px solid #E1D3F0" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: "#6B3FA0" }}>💡 {tr("Πρόταση AI")}</div>
+              {helpBusy && <div style={{ color: COLORS.sub, fontSize: 13.5 }}>{tr("Σκέφτεται…")}</div>}
+              {!helpBusy && helpText && <div style={{ fontSize: 13.5, whiteSpace: "pre-wrap", lineHeight: 1.5, color: COLORS.text }}>{helpText}</div>}
+              <div style={{ marginTop: 10 }}>
+                <Btn small color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Κλείσιμο")}</Btn>
+              </div>
+            </div>
+          )}
+          {mode === "problem" && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
+                <div style={{ fontSize: 12.5, color: COLORS.sub }}>{tr("Τι πρόβλημα υπήρχε;")}</div>
+                <MicButton onResult={(txt) => setProblemNote(p => (p ? p.trim() + " " : "") + txt)} />
+              </div>
+              <textarea value={problemNote} onChange={e => setProblemNote(e.target.value)} rows={2} placeholder={tr("π.χ. Η αντλία σεντίνας δεν λειτουργούσε — γράψε ή πάτα 🎤")} style={inputStyle} />
+              <div style={{ display: "flex", alignItems: "center", margin: "8px 0 6px" }}>
+                <div style={{ fontSize: 12.5, color: COLORS.sub }}>{tr("Πώς λύθηκε;")}</div>
+                <MicButton onResult={(txt) => setSolutionNote(s => (s ? s.trim() + " " : "") + txt)} />
+              </div>
+              <textarea value={solutionNote} onChange={e => setSolutionNote(e.target.value)} rows={2} placeholder={tr("π.χ. Καθαρίστηκε το φίλτρο, μπήκε νέα ασφάλεια — γράψε ή πάτα 🎤")} style={inputStyle} />
+              <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 6 }}>🧠 {tr("Καταγράφεται μόνιμα στη μνήμη του AI και στο ιστορικό του σκάφους.")}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                {t.boatId ? (
+                  <>
+                    <Btn color={COLORS.green} onClick={() => finishWithProblem("good")}>🟢 {tr("Τέλεια ολοκλήρωση")}</Btn>
+                    <Btn color={COLORS.amber} outline onClick={() => finishWithProblem("reservations")}>🟡 {tr("Με επιφυλάξεις")}</Btn>
+                  </>
+                ) : (
+                  <Btn color={COLORS.green} onClick={() => finishWithProblem(null)}>{tr("Ολοκλήρωση ✔")}</Btn>
+                )}
+                <Btn color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
+              </div>
+            </div>
+          )}
           {mode === "completeAs" && isMgr && (
             <div style={{ marginTop: 10 }}>
               {t.boatId && <div style={{ fontSize: 12.5, marginBottom: 8, color: confidence === "reservations" ? COLORS.amber : COLORS.green, fontWeight: 700 }}>{confidence === "reservations" ? "🟡 " + tr("Με επιφυλάξεις") : "🟢 " + tr("Τέλεια ολοκλήρωση")}</div>}
@@ -1407,8 +1535,8 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <Btn color={COLORS.green} onClick={() => { onComplete(t, completeAsId, afterPhotos, confidence); setMode(null); setOpen(false); setAfterPhotos([]); setConfidence(null); }}>{tr("Επιβεβαίωση ✔")}</Btn>
-                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); setConfidence(null); }}>{tr("Άκυρο")}</Btn>
+                <Btn color={COLORS.green} onClick={() => { onComplete(t, completeAsId, afterPhotos, confidence, problemNote.trim(), solutionNote.trim()); setMode(null); setOpen(false); setAfterPhotos([]); setConfidence(null); setProblemNote(""); setSolutionNote(""); }}>{tr("Επιβεβαίωση ✔")}</Btn>
+                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); setConfidence(null); setProblemNote(""); setSolutionNote(""); }}>{tr("Άκυρο")}</Btn>
               </div>
             </div>
           )}
@@ -1420,8 +1548,8 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               <Btn small color={COLORS.teal} outline onClick={() => afterFileRef.current?.click()}>📷 {tr("Προσθήκη φωτογραφίας")}</Btn>
               {afterPhotos.length > 0 && <span style={{ fontSize: 12.5, color: COLORS.sub, marginLeft: 8 }}>{afterPhotos.length} {tr("επιλεγμένες")}</span>}
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <Btn color={COLORS.green} onClick={() => { onComplete(t, null, afterPhotos, confidence); setMode(null); setOpen(false); setAfterPhotos([]); setConfidence(null); }}>{tr("Επιβεβαίωση ✔")}</Btn>
-                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); setConfidence(null); }}>{tr("Άκυρο")}</Btn>
+                <Btn color={COLORS.green} onClick={() => { onComplete(t, null, afterPhotos, confidence, problemNote.trim(), solutionNote.trim()); setMode(null); setOpen(false); setAfterPhotos([]); setConfidence(null); setProblemNote(""); setSolutionNote(""); }}>{tr("Επιβεβαίωση ✔")}</Btn>
+                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); setConfidence(null); setProblemNote(""); setSolutionNote(""); }}>{tr("Άκυρο")}</Btn>
               </div>
             </div>
           )}
@@ -1736,21 +1864,26 @@ function VoiceComplete({ tasks, boats, onComplete }) {
     try {
       const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
       const list = tasks.map(t => `${t.id}: "${t.desc}" [σκάφος: ${bn(t.boatId)}]`).join("; ");
-      const prompt = `Είσαι βοηθός βάσης σκαφών. Ο χρήστης λέει προφορικά ότι ολοκλήρωσε κάποια/ες από τις παρακάτω δικές του ανοιχτές εργασίες. Βρες ΠΟΙΕΣ εργασίες εννοεί, με βάση το σκάφος και την περιγραφή. Να είσαι συντηρητικός — βάλε μόνο ό,τι ταιριάζει με σιγουριά.
+      const prompt = `Είσαι βοηθός βάσης σκαφών. Ο χρήστης λέει προφορικά ότι ολοκλήρωσε κάποια/ες από τις παρακάτω δικές του ανοιχτές εργασίες, και μπορεί να αναφέρει και τυχόν πρόβλημα που βρήκε ή/και πώς το έλυσε (π.χ. "στο Σοφία 2 έφτιαξα την τουαλέτα, είχε πρόβλημα το μοτέρ"). Βρες ΠΟΙΕΣ εργασίες εννοεί, με βάση το σκάφος και την περιγραφή — να είσαι συντηρητικός, βάλε μόνο ό,τι ταιριάζει με σιγουριά. Για κάθε εργασία, αν αναφέρεται πρόβλημα ή/και λύση στο κείμενο, εξήγαγέ τα σύντομα στα ελληνικά (αλλιώς κενά strings).
 ΕΡΓΑΣΙΕΣ: ${list}
 ΚΕΙΜΕΝΟ: "${text.trim()}"
-Απάντησε ΜΟΝΟ με JSON χωρίς markdown: {"taskIds":["..."]}`;
-      const raw = await askClaude(prompt, 300);
+Απάντησε ΜΟΝΟ με JSON χωρίς markdown: {"items":[{"taskId":"...","problem":"...","solution":"..."}]}`;
+      const raw = await askClaude(prompt, 400);
       const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
-      const found = tasks.filter(t => (parsed.taskIds || []).includes(t.id));
-      if (!found.length) setErr(tr("Δεν βρέθηκε αντίστοιχη εργασία — δοκίμασε πιο συγκεκριμένα (π.χ. όνομα σκάφους)."));
-      else setMatches(found);
+      const items = (parsed.items || [])
+        .map(it => ({ task: tasks.find(t => t.id === it.taskId), problem: (it.problem || "").trim(), solution: (it.solution || "").trim() }))
+        .filter(x => x.task);
+      if (!items.length) setErr(tr("Δεν βρέθηκε αντίστοιχη εργασία — δοκίμασε πιο συγκεκριμένα (π.χ. όνομα σκάφους)."));
+      else setMatches(items);
     } catch { setErr(tr("Η αναγνώριση απέτυχε — δοκίμασε ξανά.")); }
     setBusy(false);
   };
 
   const confirm = () => {
-    matches.forEach(t => onComplete(t));
+    matches.forEach(({ task: t, problem, solution }) => {
+      const conf = t.boatId ? "good" : null;
+      onComplete(t, undefined, undefined, conf, problem, solution);
+    });
     setMatches(null); setText(""); setOpen(false);
   };
 
@@ -1776,10 +1909,17 @@ function VoiceComplete({ tasks, boats, onComplete }) {
           {matches && (
             <div style={{ marginTop: 12 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.sub, marginBottom: 6 }}>{tr("Βρέθηκαν")}:</div>
-              {matches.map(t => (
-                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 10, marginBottom: 6, fontSize: 14 }}>
-                  <span>{t.desc} <span style={{ color: COLORS.sub, fontSize: 12.5 }}>({boats.find(b => b.id === t.boatId)?.name || "Βάση/Άλλο"})</span></span>
-                  <Btn small color={COLORS.sub} outline onClick={() => setMatches(matches.filter(x => x.id !== t.id))}>×</Btn>
+              {matches.map(({ task: t, problem, solution }) => (
+                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 10, marginBottom: 6, fontSize: 14, gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div>{t.desc} <span style={{ color: COLORS.sub, fontSize: 12.5 }}>({boats.find(b => b.id === t.boatId)?.name || "Βάση/Άλλο"})</span></div>
+                    {(problem || solution) && (
+                      <div style={{ fontSize: 12, color: "#8A5A00", marginTop: 3 }}>
+                        🛠 {problem}{solution ? ` → ${solution}` : ""}
+                      </div>
+                    )}
+                  </div>
+                  <Btn small color={COLORS.sub} outline onClick={() => setMatches(matches.filter(x => x.task.id !== t.id))}>×</Btn>
                 </div>
               ))}
               {matches.length > 0 && <Btn color={COLORS.green} onClick={confirm}>✔ {tr("Ολοκλήρωση")} ({matches.length})</Btn>}
@@ -1791,7 +1931,7 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onTranslate, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
+function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
       <ExternalReminders me={me} tasks={allTasks} boats={boats} onAck={onAckExternal} onProgress={onProgress} onCloseExternal={onCloseExternal} onDelete={onDelete} onEdit={onEdit} />
@@ -1804,13 +1944,13 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
       {tasks.length > 0 && <VoiceComplete tasks={tasks} boats={boats} onComplete={onComplete} />}
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp}
         onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} canAssign={canAssign} showAssignee={isMgr} />)}
     </div>
   );
 }
 
-function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onTranslate, boatFilter: boatFilterProp, onBoatFilterChange }) {
+function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
   const [boatFilterLocal, setBoatFilterLocal] = useState("");
   // Το φίλτρο μπορεί να ελέγχεται από τον γονέα (π.χ. deep-link από «Επισκόπηση»), αλλιώς τοπικό state
   const boatFilter = onBoatFilterChange ? (boatFilterProp || "") : boatFilterLocal;
@@ -1826,7 +1966,7 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
       </select>
       {shown.length === 0 && <Empty>{tr("Καμία εργασία εδώ.")}</Empty>}
       {shown.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} />)}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />)}
     </div>
   );
 }
