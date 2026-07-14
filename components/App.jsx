@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.49";
+const APP_VERSION = "v3.52";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -719,18 +719,18 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       patchTask(t.id, { serviceRelevant: /yes/i.test(raw) });
     } catch { /* ταξινόμηση απέτυχε — η εργασία απλά δεν εμφανίζεται στο βιβλίο service, δεν χάνεται τίποτα */ }
   };
-  const completeTask = async (t, attributedTo, afterPhotoFiles, confidence, problemNote, solutionNote) => {
+  const completeTask = async (t, attributedTo, afterPhotoFiles, confidence, note) => {
     const finalBy = attributedTo || acting.id;
     let afterUrls = [];
     if (afterPhotoFiles?.length) {
       try { afterUrls = await uploadTaskPhotos(afterPhotoFiles, t.id); } catch {}
     }
-    const hasProblemNote = !!(problemNote && problemNote.trim()) || !!(solutionNote && solutionNote.trim());
+    const cleanNote = (note || "").trim();
     await persistTasks(tasks.map(x => x.id === t.id ? {
       ...x, status: "done", completedBy: finalBy, completedByActor: acting.id, completedAt: new Date().toISOString(),
       ...(confidence ? { completionConfidence: confidence } : {}),
       ...(afterUrls.length ? { photosAfter: [...(x.photosAfter || []), ...afterUrls] } : {}),
-      ...(hasProblemNote ? { problemDesc: problemNote?.trim() || "", problemSolution: solutionNote?.trim() || "" } : {}),
+      ...(cleanNote ? { completionNote: cleanNote } : {}),
     } : x));
     showToast("Ολοκληρώθηκε ✔");
     classifyServiceRelevance(t);
@@ -742,11 +742,11 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
         : `🟡 "${t.desc}" — ολοκληρώθηκε, αλλά με επιφυλάξεις για την ποιότητα/διάρκεια`;
       addBoatNote(t.boatId, text);
     }
-    // Πρόβλημα & λύση κατά την ολοκλήρωση → καταγράφεται μόνιμα στη μνήμη του AI (και στο ιστορικό του σκάφους, αν υπάρχει)
-    // ώστε ο βοηθός AI να θυμάται τι προβλήματα έχουν εμφανιστεί και πώς λύθηκαν, χωρίς να χρειάζεται χειροκίνητη καταχώρηση.
-    if (hasProblemNote) {
+    // Το υποχρεωτικό «τι είχε/τι έκανες» κάθε ολοκλήρωσης → καταγράφεται μόνιμα στη μνήμη του AI (και στο ιστορικό
+    // του σκάφους, αν υπάρχει) ώστε ο βοηθός AI να θυμάται τι έχει συμβεί και πώς λύθηκε, χωρίς χειροκίνητη καταχώρηση.
+    if (cleanNote) {
       const boatName = t.boatId ? (boats.find(b => b.id === t.boatId)?.name || "") : "";
-      const memText = `🛠 ${boatName ? boatName + " — " : ""}"${t.desc}" — Πρόβλημα: ${problemNote?.trim() || "-"} · Λύση: ${solutionNote?.trim() || "-"}`;
+      const memText = `📝 ${boatName ? boatName + " — " : ""}"${t.desc}" — ${cleanNote}`;
       await addAiMemory(memText);
       if (t.boatId) addBoatNote(t.boatId, memText);
     }
@@ -817,14 +817,14 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       const words = combinedText.toLowerCase().split(/[^a-zά-ωΐάέήίόύώ0-9]+/i).filter(w => w.length > 2 && !STOP_WORDS.has(w));
       const scoreText = (txt) => { const low = (txt || "").toLowerCase(); return words.reduce((s, w) => s + (low.includes(w) ? 1 : 0), 0); };
       const past = tasks
-        .filter(x => x.id !== t.id && (x.problemDesc || x.problemSolution))
-        .map(x => ({ x, score: (x.boatId === t.boatId ? 2 : 0) + scoreText(x.desc) + scoreText(x.problemDesc) + scoreText(x.problemSolution) }))
+        .filter(x => x.id !== t.id && (x.completionNote || x.problemDesc || x.problemSolution))
+        .map(x => ({ x, score: (x.boatId === t.boatId ? 2 : 0) + scoreText(x.desc) + scoreText(x.completionNote) + scoreText(x.problemDesc) + scoreText(x.problemSolution) }))
         .filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
       const mems = aiMemories
         .map(m => ({ m, score: scoreText(m.text) }))
         .filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 4);
       const histLines = [
-        ...past.map(({ x }) => `- [${boats.find(b => b.id === x.boatId)?.name || "Βάση"}] "${x.desc}" — Πρόβλημα: ${x.problemDesc || "-"} · Λύση: ${x.problemSolution || "-"}`),
+        ...past.map(({ x }) => `- [${boats.find(b => b.id === x.boatId)?.name || "Βάση"}] "${x.desc}" — ${x.completionNote || `Πρόβλημα: ${x.problemDesc || "-"} · Λύση: ${x.problemSolution || "-"}`}`),
         ...mems.map(({ m }) => `- ${m.text}`),
       ].join("\n") || "(κανένα σχετικό ιστορικό ακόμα)";
       const prompt = `Είσαι έμπειρος τεχνικός σε βάση yacht charter (σκάφη ιστιοπλοΐας/μηχανοκίνητα). Ένας εργαζόμενος αντιμετωπίζει πρόβλημα σε εργασία${boatName ? ` στο σκάφος "${boatName}"` : ""}: "${t.desc}".${extraText ? `
@@ -1158,7 +1158,7 @@ function FindingsFlow({ t, onLogFinding, onComplete, isMgr, me, setCompleteAsId,
       <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
         <Btn small color={COLORS.teal} onClick={() => { if (!text.trim()) return; onLogFinding(t, text.trim()); setText(""); }}>{tr("Προσθήκη εύρεσης")}</Btn>
         {canComplete && (
-          <Btn small color={COLORS.green} onClick={() => { if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); } else { onComplete(t); } }}>{tr("Ολοκληρώθηκε ✔")}</Btn>
+          <Btn small color={COLORS.green} onClick={() => { setCompleteAsId(t.assignedTo || me.id); setMode("confirmComplete"); }}>{tr("Ολοκληρώθηκε ✔")}</Btn>
         )}
       </div>
     </div>
@@ -1242,8 +1242,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const [customMins, setCustomMins] = useState("");
   const [confidence, setConfidence] = useState(null);
   const [showOriginal, setShowOriginal] = useState(false);
-  const [problemNote, setProblemNote] = useState("");
-  const [solutionNote, setSolutionNote] = useState("");
+  const [completionNote, setCompletionNote] = useState("");
   const [helpText, setHelpText] = useState(null);
   const [helpBusy, setHelpBusy] = useState(false);
   const [helpQuery, setHelpQuery] = useState("");
@@ -1258,18 +1257,17 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   // Αυτόματη μετάφραση της περιγραφής (γραμμένη στα ελληνικά από τον manager) όταν ο χρήστης έχει lang="en" — μία φορά, μένει cached
   useEffect(() => { if (needsTranslation && !t.translating && onTranslate) onTranslate(t); }, [t.id, needsTranslation, t.translating]);
   const shownDesc = (me?.lang === "en" && t.descEn && !showOriginal) ? t.descEn : t.desc;
+  // Κάθε ολοκλήρωση περνάει πλέον από ΕΝΑ ενιαίο panel επιβεβαίωσης, με υποχρεωτικό πεδίο "τι είχε/τι έκανες" —
+  // ανεξάρτητα από ρόλο (manager/employee) ή τύπο εργασίας (απλή/εντατική/checklist).
   const startComplete = (conf) => {
     setConfidence(conf);
-    if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); }
-    else if (t.intensive) { setMode("completeSimple"); }
-    else { onComplete(t, undefined, undefined, conf); }
+    setCompleteAsId(t.assignedTo || me.id);
+    setMode("confirmComplete");
   };
-  // Ίδια δρομολόγηση με το startComplete, αλλά περνάει και το πρόβλημα/λύση που καταγράφηκε πριν την ολοκλήρωση
-  const finishWithProblem = (conf) => {
-    setConfidence(conf);
-    if (isMgr) { setCompleteAsId(t.assignedTo || me.id); setMode("completeAs"); }
-    else if (t.intensive) { setMode("completeSimple"); }
-    else { onComplete(t, undefined, undefined, conf, problemNote.trim(), solutionNote.trim()); setMode(null); setOpen(false); }
+  const confirmComplete = () => {
+    if (!completionNote.trim()) return;
+    onComplete(t, isMgr ? completeAsId : null, afterPhotos, confidence, completionNote.trim());
+    setMode(null); setOpen(false); setAfterPhotos([]); setConfidence(null); setCompletionNote("");
   };
 
   return (
@@ -1301,10 +1299,16 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
       </div>
       {open && (
         <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${COLORS.line}` }}>
-          {(t.problemDesc || t.problemSolution) && (
+          {(t.completionNote || t.problemDesc || t.problemSolution) && (
             <div style={{ background: "#FFF6E5", color: "#5B4A00", padding: "8px 10px", borderRadius: 8, fontSize: 13, margin: "10px 0" }}>
-              <div><b>🛠 {tr("Πρόβλημα:")}</b> {t.problemDesc || "-"}</div>
-              <div style={{ marginTop: 4 }}><b>{tr("Λύση:")}</b> {t.problemSolution || "-"}</div>
+              {t.completionNote ? (
+                <div><b>📝 {tr("Ολοκλήρωση:")}</b> {t.completionNote}</div>
+              ) : (
+                <>
+                  <div><b>🛠 {tr("Πρόβλημα:")}</b> {t.problemDesc || "-"}</div>
+                  <div style={{ marginTop: 4 }}><b>{tr("Λύση:")}</b> {t.problemSolution || "-"}</div>
+                </>
+              )}
             </div>
           )}
           {t.returnNote && t.status === "open" && (
@@ -1386,7 +1390,6 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                 )
               )}
               <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
-              {!Array.isArray(t.checklistItems) && !t.findMode && <Btn color={COLORS.navy} outline onClick={() => setMode("problem")}>🛠 {tr("Πρόβλημα & Λύση")}</Btn>}
               {onHelp && <Btn color="#6B3FA0" outline onClick={() => setMode("help")}>💡 {tr("Βοήθεια")}</Btn>}
               {t.intensive && !(t.photosBefore?.length) && <Btn color={COLORS.teal} outline onClick={() => setMode("beforePhoto")}>📷 {tr("Φωτογραφία πριν")}</Btn>}
               <Btn color={COLORS.amber} outline onClick={() => { setMode("external"); setNote(""); }}>{tr("Χρειάζεται ειδικός ⚠")}</Btn>
@@ -1497,46 +1500,28 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               </div>
             </div>
           )}
-          {mode === "problem" && (
+          {mode === "confirmComplete" && (
             <div style={{ marginTop: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
-                <div style={{ fontSize: 12.5, color: COLORS.sub }}>{tr("Τι πρόβλημα υπήρχε;")}</div>
-                <MicButton onResult={(txt) => setProblemNote(p => (p ? p.trim() + " " : "") + txt)} />
-              </div>
-              <textarea value={problemNote} onChange={e => setProblemNote(e.target.value)} rows={2} placeholder={tr("π.χ. Η αντλία σεντίνας δεν λειτουργούσε — γράψε ή πάτα 🎤")} style={inputStyle} />
-              <div style={{ display: "flex", alignItems: "center", margin: "8px 0 6px" }}>
-                <div style={{ fontSize: 12.5, color: COLORS.sub }}>{tr("Πώς λύθηκε;")}</div>
-                <MicButton onResult={(txt) => setSolutionNote(s => (s ? s.trim() + " " : "") + txt)} />
-              </div>
-              <textarea value={solutionNote} onChange={e => setSolutionNote(e.target.value)} rows={2} placeholder={tr("π.χ. Καθαρίστηκε το φίλτρο, μπήκε νέα ασφάλεια — γράψε ή πάτα 🎤")} style={inputStyle} />
-              <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 6 }}>🧠 {tr("Καταγράφεται μόνιμα στη μνήμη του AI και στο ιστορικό του σκάφους.")}</div>
-              <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                {t.boatId ? (
-                  <>
-                    <Btn color={COLORS.green} onClick={() => finishWithProblem("good")}>🟢 {tr("Τέλεια ολοκλήρωση")}</Btn>
-                    <Btn color={COLORS.amber} outline onClick={() => finishWithProblem("reservations")}>🟡 {tr("Με επιφυλάξεις")}</Btn>
-                  </>
-                ) : (
-                  <Btn color={COLORS.green} onClick={() => finishWithProblem(null)}>{tr("Ολοκλήρωση ✔")}</Btn>
-                )}
-                <Btn color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
-              </div>
-            </div>
-          )}
-          {mode === "completeAs" && isMgr && (
-            <div style={{ marginTop: 10 }}>
-              {t.boatId && <div style={{ fontSize: 12.5, marginBottom: 8, color: confidence === "reservations" ? COLORS.amber : COLORS.green, fontWeight: 700 }}>{confidence === "reservations" ? "🟡 " + tr("Με επιφυλάξεις") : "🟢 " + tr("Τέλεια ολοκλήρωση")}</div>}
-              <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 8 }}>{tr("Ολοκληρώθηκε από:")}</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {employees.map(u => (
-                  <Btn key={u.id} small color={completeAsId === u.id ? COLORS.teal : COLORS.navy} outline={completeAsId !== u.id}
-                    onClick={() => setCompleteAsId(u.id)}>{u.name}</Btn>
-                ))}
-                <Btn small color={completeAsId === me.id ? COLORS.teal : COLORS.navy} outline={completeAsId !== me.id}
-                  onClick={() => setCompleteAsId(me.id)}>{tr("Εγώ")} ({me.name})</Btn>
-              </div>
+              {t.boatId && confidence && (
+                <div style={{ fontSize: 12.5, marginBottom: 8, color: confidence === "reservations" ? COLORS.amber : COLORS.green, fontWeight: 700 }}>
+                  {confidence === "reservations" ? "🟡 " + tr("Με επιφυλάξεις") : "🟢 " + tr("Τέλεια ολοκλήρωση")}
+                </div>
+              )}
+              {isMgr && (
+                <>
+                  <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 8 }}>{tr("Ολοκληρώθηκε από:")}</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                    {employees.map(u => (
+                      <Btn key={u.id} small color={completeAsId === u.id ? COLORS.teal : COLORS.navy} outline={completeAsId !== u.id}
+                        onClick={() => setCompleteAsId(u.id)}>{u.name}</Btn>
+                    ))}
+                    <Btn small color={completeAsId === me.id ? COLORS.teal : COLORS.navy} outline={completeAsId !== me.id}
+                      onClick={() => setCompleteAsId(me.id)}>{tr("Εγώ")} ({me.name})</Btn>
+                  </div>
+                </>
+              )}
               {t.intensive && (
-                <div style={{ marginTop: 10 }}>
+                <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 12.5, color: COLORS.sub, marginBottom: 6 }}>{tr("Φωτογραφία αποτελέσματος (προαιρετικό):")}</div>
                   <input ref={afterFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }}
                     onChange={e => setAfterPhotos(prev => [...prev, ...Array.from(e.target.files || [])])} />
@@ -1544,22 +1529,16 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                   {afterPhotos.length > 0 && <span style={{ fontSize: 12.5, color: COLORS.sub, marginLeft: 8 }}>{afterPhotos.length} {tr("επιλεγμένες")}</span>}
                 </div>
               )}
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <Btn color={COLORS.green} onClick={() => { onComplete(t, completeAsId, afterPhotos, confidence, problemNote.trim(), solutionNote.trim()); setMode(null); setOpen(false); setAfterPhotos([]); setConfidence(null); setProblemNote(""); setSolutionNote(""); }}>{tr("Επιβεβαίωση ✔")}</Btn>
-                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); setConfidence(null); setProblemNote(""); setSolutionNote(""); }}>{tr("Άκυρο")}</Btn>
+              <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
+                <div style={{ fontSize: 12.5, color: COLORS.sub, fontWeight: 700 }}>{tr("Πώς ολοκληρώθηκε *")}</div>
+                <MicButton onResult={(txt) => setCompletionNote(p => (p ? p.trim() + " " : "") + txt)} />
               </div>
-            </div>
-          )}
-          {mode === "completeSimple" && !isMgr && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 12.5, color: COLORS.sub, marginBottom: 6 }}>{tr("Φωτογραφία αποτελέσματος (προαιρετικό, αλλά συνιστάται):")}</div>
-              <input ref={afterFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }}
-                onChange={e => setAfterPhotos(prev => [...prev, ...Array.from(e.target.files || [])])} />
-              <Btn small color={COLORS.teal} outline onClick={() => afterFileRef.current?.click()}>📷 {tr("Προσθήκη φωτογραφίας")}</Btn>
-              {afterPhotos.length > 0 && <span style={{ fontSize: 12.5, color: COLORS.sub, marginLeft: 8 }}>{afterPhotos.length} {tr("επιλεγμένες")}</span>}
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <Btn color={COLORS.green} onClick={() => { onComplete(t, null, afterPhotos, confidence, problemNote.trim(), solutionNote.trim()); setMode(null); setOpen(false); setAfterPhotos([]); setConfidence(null); setProblemNote(""); setSolutionNote(""); }}>{tr("Επιβεβαίωση ✔")}</Btn>
-                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); setConfidence(null); setProblemNote(""); setSolutionNote(""); }}>{tr("Άκυρο")}</Btn>
+              <div style={{ fontSize: 11.5, color: COLORS.sub, marginBottom: 6 }}>{tr("Πες σύντομα τι έκανες — και τι πρόβλημα αντιμετώπισες, αν υπήρχε.")}</div>
+              <textarea value={completionNote} onChange={e => setCompletionNote(e.target.value)} rows={2} placeholder={tr("π.χ. Η αντλία σεντίνας δεν λειτουργούσε· καθάρισα το φίλτρο και δούλεψε κανονικά — γράψε ή πάτα 🎤")} style={inputStyle} />
+              <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 6 }}>🧠 {tr("Υποχρεωτικό — καταγράφεται μόνιμα στη μνήμη του AI και στο ιστορικό του σκάφους.")}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                <Btn color={completionNote.trim() ? COLORS.green : COLORS.line} onClick={confirmComplete}>{tr("Επιβεβαίωση ✔")}</Btn>
+                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); setConfidence(null); setCompletionNote(""); }}>{tr("Άκυρο")}</Btn>
               </div>
             </div>
           )}
@@ -1874,14 +1853,14 @@ function VoiceComplete({ tasks, boats, onComplete }) {
     try {
       const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
       const list = tasks.map(t => `${t.id}: "${t.desc}" [σκάφος: ${bn(t.boatId)}]`).join("; ");
-      const prompt = `Είσαι βοηθός βάσης σκαφών. Ο χρήστης λέει προφορικά ότι ολοκλήρωσε κάποια/ες από τις παρακάτω δικές του ανοιχτές εργασίες, και μπορεί να αναφέρει και τυχόν πρόβλημα που βρήκε ή/και πώς το έλυσε (π.χ. "στο Σοφία 2 έφτιαξα την τουαλέτα, είχε πρόβλημα το μοτέρ"). Βρες ΠΟΙΕΣ εργασίες εννοεί, με βάση το σκάφος και την περιγραφή — να είσαι συντηρητικός, βάλε μόνο ό,τι ταιριάζει με σιγουριά. Για κάθε εργασία, αν αναφέρεται πρόβλημα ή/και λύση στο κείμενο, εξήγαγέ τα σύντομα στα ελληνικά (αλλιώς κενά strings).
+      const prompt = `Είσαι βοηθός βάσης σκαφών. Ο χρήστης λέει προφορικά ότι ολοκλήρωσε κάποια/ες από τις παρακάτω δικές του ανοιχτές εργασίες, περιγράφοντας τι έκανε ή/και τι πρόβλημα υπήρχε (π.χ. "στο Σοφία 2 έφτιαξα την τουαλέτα, είχε πρόβλημα το μοτέρ"). Βρες ΠΟΙΕΣ εργασίες εννοεί, με βάση το σκάφος και την περιγραφή — να είσαι συντηρητικός, βάλε μόνο ό,τι ταιριάζει με σιγουριά. Για κάθε εργασία, γράψε ΣΥΝΤΟΜΑ στα ελληνικά τι έγινε/τι πρόβλημα υπήρχε, όπως προκύπτει από το κείμενο.
 ΕΡΓΑΣΙΕΣ: ${list}
 ΚΕΙΜΕΝΟ: "${text.trim()}"
-Απάντησε ΜΟΝΟ με JSON χωρίς markdown: {"items":[{"taskId":"...","problem":"...","solution":"..."}]}`;
+Απάντησε ΜΟΝΟ με JSON χωρίς markdown: {"items":[{"taskId":"...","note":"..."}]}`;
       const raw = await askClaude(prompt, 400);
       const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
       const items = (parsed.items || [])
-        .map(it => ({ task: tasks.find(t => t.id === it.taskId), problem: (it.problem || "").trim(), solution: (it.solution || "").trim() }))
+        .map(it => ({ task: tasks.find(t => t.id === it.taskId), note: (it.note || "").trim() || text.trim() }))
         .filter(x => x.task);
       if (!items.length) setErr(tr("Δεν βρέθηκε αντίστοιχη εργασία — δοκίμασε πιο συγκεκριμένα (π.χ. όνομα σκάφους)."));
       else setMatches(items);
@@ -1890,9 +1869,9 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   };
 
   const confirm = () => {
-    matches.forEach(({ task: t, problem, solution }) => {
+    matches.forEach(({ task: t, note }) => {
       const conf = t.boatId ? "good" : null;
-      onComplete(t, undefined, undefined, conf, problem, solution);
+      onComplete(t, undefined, undefined, conf, note);
     });
     setMatches(null); setText(""); setOpen(false);
   };
@@ -1919,13 +1898,13 @@ function VoiceComplete({ tasks, boats, onComplete }) {
           {matches && (
             <div style={{ marginTop: 12 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.sub, marginBottom: 6 }}>{tr("Βρέθηκαν")}:</div>
-              {matches.map(({ task: t, problem, solution }) => (
+              {matches.map(({ task: t, note }) => (
                 <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 10, marginBottom: 6, fontSize: 14, gap: 8 }}>
                   <div style={{ flex: 1 }}>
                     <div>{t.desc} <span style={{ color: COLORS.sub, fontSize: 12.5 }}>({boats.find(b => b.id === t.boatId)?.name || "Βάση/Άλλο"})</span></div>
-                    {(problem || solution) && (
+                    {note && (
                       <div style={{ fontSize: 12, color: "#8A5A00", marginTop: 3 }}>
-                        🛠 {problem}{solution ? ` → ${solution}` : ""}
+                        📝 {note}
                       </div>
                     )}
                   </div>
