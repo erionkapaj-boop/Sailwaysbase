@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.48";
+const APP_VERSION = "v3.49";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -809,10 +809,12 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   // "💡 Βοήθεια": φιλτράρει ΤΟΠΙΚΑ (χωρίς AI) το ιστορικό για ό,τι μοιάζει με το τρέχον πρόβλημα — ίδιο σκάφος ή κοινές λέξεις-
   // κλειδιά — και δίνει μόνο τα πιο σχετικά 6-10 περιστατικά στο AI. Έτσι μένει γρήγορο και φθηνό ό,τι κι αν μεγαλώσει η βάση.
   const STOP_WORDS = new Set(["και", "του", "της", "το", "τα", "με", "για", "στο", "στη", "στον", "στην", "από", "είναι", "να", "σε", "μια", "ένα", "που", "δεν", "ή", "αλλά", "αυτό", "αυτή", "θα", "έχει", "τον", "την"]);
-  const getTaskHelp = async (t) => {
+  const getTaskHelp = async (t, extra) => {
     try {
+      const extraText = (extra || "").trim();
       const boatName = t.boatId ? (boats.find(b => b.id === t.boatId)?.name || "") : "";
-      const words = (t.desc || "").toLowerCase().split(/[^a-zά-ωΐάέήίόύώ0-9]+/i).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+      const combinedText = `${t.desc || ""} ${extraText}`;
+      const words = combinedText.toLowerCase().split(/[^a-zά-ωΐάέήίόύώ0-9]+/i).filter(w => w.length > 2 && !STOP_WORDS.has(w));
       const scoreText = (txt) => { const low = (txt || "").toLowerCase(); return words.reduce((s, w) => s + (low.includes(w) ? 1 : 0), 0); };
       const past = tasks
         .filter(x => x.id !== t.id && (x.problemDesc || x.problemSolution))
@@ -825,10 +827,11 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
         ...past.map(({ x }) => `- [${boats.find(b => b.id === x.boatId)?.name || "Βάση"}] "${x.desc}" — Πρόβλημα: ${x.problemDesc || "-"} · Λύση: ${x.problemSolution || "-"}`),
         ...mems.map(({ m }) => `- ${m.text}`),
       ].join("\n") || "(κανένα σχετικό ιστορικό ακόμα)";
-      const prompt = `Είσαι έμπειρος τεχνικός σε βάση yacht charter (σκάφη ιστιοπλοΐας/μηχανοκίνητα). Ένας εργαζόμενος αντιμετωπίζει πρόβλημα σε εργασία${boatName ? ` στο σκάφος "${boatName}"` : ""}: "${t.desc}".
+      const prompt = `Είσαι έμπειρος τεχνικός σε βάση yacht charter (σκάφη ιστιοπλοΐας/μηχανοκίνητα). Ένας εργαζόμενος αντιμετωπίζει πρόβλημα σε εργασία${boatName ? ` στο σκάφος "${boatName}"` : ""}: "${t.desc}".${extraText ? `
+ΕΠΙΠΛΕΟΝ ΣΥΜΠΤΩΜΑΤΑ / ΛΕΠΤΟΜΕΡΕΙΕΣ ΠΟΥ ΕΔΩΣΕ Ο ΕΡΓΑΖΟΜΕΝΟΣ: "${extraText}"` : ""}
 ΣΧΕΤΙΚΟ ΙΣΤΟΡΙΚΟ ΑΠΟ ΤΗ ΒΑΣΗ (προηγούμενα παρόμοια προβλήματα/λύσεις, αν υπάρχουν):
 ${histLines}
-Δώσε ΣΥΝΤΟΜΗ πρακτική πρόταση λύσης (2-4 προτάσεις). Αν το ιστορικό δείχνει τι δούλεψε ξανά σε παρόμοιο πρόβλημα, ανάφερέ το ΠΡΩΤΟ και ρητά. Αν δεν υπάρχει σχετικό ιστορικό, χρησιμοποίησε τη γενική τεχνική σου γνώση για σκάφη/θαλάσσιο εξοπλισμό. Μίλα απευθείας, χωρίς εισαγωγικές φράσεις τύπου "Ορίστε η πρόταση".`;
+Δώσε ΣΥΝΤΟΜΗ πρακτική πρόταση λύσης (2-4 προτάσεις)${extraText ? ", προσαρμοσμένη ειδικά στα συμπτώματα που περιγράφηκαν" : ""}. Αν το ιστορικό δείχνει τι δούλεψε ξανά σε παρόμοιο πρόβλημα, ανάφερέ το ΠΡΩΤΟ και ρητά. Αν δεν υπάρχει σχετικό ιστορικό, χρησιμοποίησε τη γενική τεχνική σου γνώση για σκάφη/θαλάσσιο εξοπλισμό. Μίλα απευθείας, χωρίς εισαγωγικές φράσεις τύπου "Ορίστε η πρόταση".`;
       const raw = await askClaude(prompt, 350);
       return (raw || "").trim() || null;
     } catch {
@@ -1243,6 +1246,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const [solutionNote, setSolutionNote] = useState("");
   const [helpText, setHelpText] = useState(null);
   const [helpBusy, setHelpBusy] = useState(false);
+  const [helpQuery, setHelpQuery] = useState("");
   const afterFileRef = useRef(null);
   const boat = boats.find(b => b.id === t.boatId);
   const dl = deadline(t);
@@ -1383,12 +1387,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               )}
               <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
               {!Array.isArray(t.checklistItems) && !t.findMode && <Btn color={COLORS.navy} outline onClick={() => setMode("problem")}>🛠 {tr("Πρόβλημα & Λύση")}</Btn>}
-              {onHelp && (
-                <Btn color="#6B3FA0" outline onClick={() => {
-                  setMode("help");
-                  if (!helpText && !helpBusy) { setHelpBusy(true); onHelp(t).then(r => { setHelpText(r || tr("Δεν βρέθηκε πρόταση αυτή τη στιγμή — δοκίμασε ξανά σε λίγο.")); setHelpBusy(false); }); }
-                }}>💡 {tr("Βοήθεια")}</Btn>
-              )}
+              {onHelp && <Btn color="#6B3FA0" outline onClick={() => setMode("help")}>💡 {tr("Βοήθεια")}</Btn>}
               {t.intensive && !(t.photosBefore?.length) && <Btn color={COLORS.teal} outline onClick={() => setMode("beforePhoto")}>📷 {tr("Φωτογραφία πριν")}</Btn>}
               <Btn color={COLORS.amber} outline onClick={() => { setMode("external"); setNote(""); }}>{tr("Χρειάζεται ειδικός ⚠")}</Btn>
               {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.sub} outline onClick={() => { setMode("edit"); setNote(t.desc); }}>✎ {tr("Διόρθωση")}</Btn>}
@@ -1479,9 +1478,20 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           )}
           {mode === "help" && (
             <div style={{ marginTop: 10, background: "#F5F0FA", borderRadius: 10, padding: 12, border: "1px solid #E1D3F0" }}>
-              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: "#6B3FA0" }}>💡 {tr("Πρόταση AI")}</div>
-              {helpBusy && <div style={{ color: COLORS.sub, fontSize: 13.5 }}>{tr("Σκέφτεται…")}</div>}
-              {!helpBusy && helpText && <div style={{ fontSize: 13.5, whiteSpace: "pre-wrap", lineHeight: 1.5, color: COLORS.text }}>{helpText}</div>}
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: "#6B3FA0" }}>💡 {tr("Βοήθεια AI")}</div>
+              <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
+                <div style={{ fontSize: 12.5, color: COLORS.sub }}>{tr("Συμπτώματα ή λεπτομέρειες (προαιρετικό — κάνε την ερώτηση πιο συγκεκριμένη):")}</div>
+                <MicButton onResult={(txt) => setHelpQuery(q => (q ? q.trim() + " " : "") + txt)} />
+              </div>
+              <textarea value={helpQuery} onChange={e => setHelpQuery(e.target.value)} rows={2} placeholder={tr("π.χ. κάνει περίεργο θόρυβο όταν ξεκινάει, μυρίζει καμένο, δεν παίρνει καθόλου μπρος…")} style={inputStyle} />
+              <div style={{ marginTop: 8 }}>
+                <Btn small color="#6B3FA0" onClick={() => {
+                  setHelpBusy(true); setHelpText(null);
+                  onHelp(t, helpQuery.trim()).then(r => { setHelpText(r || tr("Δεν βρέθηκε πρόταση αυτή τη στιγμή — δοκίμασε ξανά σε λίγο.")); setHelpBusy(false); });
+                }}>{helpText ? "🔄 " + tr("Ρώτα ξανά") : "💡 " + tr("Ρώτα το AI")}</Btn>
+              </div>
+              {helpBusy && <div style={{ color: COLORS.sub, fontSize: 13.5, marginTop: 10 }}>{tr("Σκέφτεται…")}</div>}
+              {!helpBusy && helpText && <div style={{ fontSize: 13.5, whiteSpace: "pre-wrap", lineHeight: 1.5, color: COLORS.text, marginTop: 10, paddingTop: 10, borderTop: "1px dashed #E1D3F0" }}>{helpText}</div>}
               <div style={{ marginTop: 10 }}>
                 <Btn small color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Κλείσιμο")}</Btn>
               </div>
