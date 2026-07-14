@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.52";
+const APP_VERSION = "v3.53";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -1378,27 +1378,32 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
             <FindingsFlow t={t} onLogFinding={onLogFinding} onComplete={onComplete} isMgr={isMgr} me={me} setCompleteAsId={setCompleteAsId} setMode={setMode} employees={employees} completeAsId={completeAsId} />
           )}
           {mode === null && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            <div style={{ marginTop: 10 }}>
               {!Array.isArray(t.checklistItems) && !t.findMode && (
-                t.boatId ? (
-                  <>
-                    <Btn color={COLORS.green} onClick={() => startComplete("good")}>🟢 {tr("Τέλεια ολοκλήρωση")}</Btn>
-                    <Btn color={COLORS.amber} outline onClick={() => startComplete("reservations")}>🟡 {tr("Με επιφυλάξεις")}</Btn>
-                  </>
-                ) : (
-                  <Btn color={COLORS.green} onClick={() => startComplete(null)}>{tr("Ολοκληρώθηκε ✔")}</Btn>
-                )
+                <div style={{ background: "#EFF8F0", border: "1.5px solid #CFE8D1", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: "#3C7A40", fontWeight: 800, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.4 }}>✔ {tr("Ολοκλήρωση εργασίας")}</div>
+                  {t.boatId ? (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <Btn color={COLORS.green} onClick={() => startComplete("good")}>🟢 {tr("Τέλεια")}</Btn>
+                      <Btn color={COLORS.amber} outline onClick={() => startComplete("reservations")}>🟡 {tr("Με επιφυλάξεις")}</Btn>
+                    </div>
+                  ) : (
+                    <Btn color={COLORS.green} onClick={() => startComplete(null)}>{tr("Ολοκληρώθηκε ✔")}</Btn>
+                  )}
+                </div>
               )}
-              <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
-              {onHelp && <Btn color="#6B3FA0" outline onClick={() => setMode("help")}>💡 {tr("Βοήθεια")}</Btn>}
-              {t.intensive && !(t.photosBefore?.length) && <Btn color={COLORS.teal} outline onClick={() => setMode("beforePhoto")}>📷 {tr("Φωτογραφία πριν")}</Btn>}
-              <Btn color={COLORS.amber} outline onClick={() => { setMode("external"); setNote(""); }}>{tr("Χρειάζεται ειδικός ⚠")}</Btn>
-              {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.sub} outline onClick={() => { setMode("edit"); setNote(t.desc); }}>✎ {tr("Διόρθωση")}</Btn>}
-              {isMgr && <Btn color={COLORS.amber} outline onClick={() => setMode("deadline")}>⏱ {tr("Deadline")}</Btn>}
-              {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.red} outline onClick={() => setMode("confirmDel")}>🗑 {tr("Διαγραφή")}</Btn>}
-              {(isMgr || canAssign) && <Btn color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>}
-              {!t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>🔴 {tr("Μαρκάρισμα ως επείγον")}</Btn>}
-              {isMgr && t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>Υποβάθμιση επείγοντος</Btn>}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Btn color={COLORS.teal} outline onClick={() => { setMode("progress"); setNote(""); }}>{tr("➕ Πρόοδος")}</Btn>
+                {onHelp && <Btn color="#6B3FA0" outline onClick={() => setMode("help")}>💡 {tr("Βοήθεια")}</Btn>}
+                {t.intensive && !(t.photosBefore?.length) && <Btn color={COLORS.teal} outline onClick={() => setMode("beforePhoto")}>📷 {tr("Φωτογραφία πριν")}</Btn>}
+                <Btn color={COLORS.amber} outline onClick={() => { setMode("external"); setNote(""); }}>{tr("Χρειάζεται ειδικός ⚠")}</Btn>
+                {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.sub} outline onClick={() => { setMode("edit"); setNote(t.desc); }}>✎ {tr("Διόρθωση")}</Btn>}
+                {isMgr && <Btn color={COLORS.amber} outline onClick={() => setMode("deadline")}>⏱ {tr("Deadline")}</Btn>}
+                {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn color={COLORS.red} outline onClick={() => setMode("confirmDel")}>🗑 {tr("Διαγραφή")}</Btn>}
+                {(isMgr || canAssign) && <Btn color={COLORS.navy} outline onClick={() => setMode("assign")}>Ανάθεση →</Btn>}
+                {!t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>🔴 {tr("Μαρκάρισμα ως επείγον")}</Btn>}
+                {isMgr && t.urgent && <Btn color={COLORS.red} outline onClick={() => onDowngrade(t)}>Υποβάθμιση επείγοντος</Btn>}
+              </div>
             </div>
           )}
           {mode === "confirmDel" && (
