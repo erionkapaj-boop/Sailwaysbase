@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.62";
+const APP_VERSION = "v3.64";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -89,6 +89,18 @@ const deadlineLabel = (t, dl) => {
 };
 const localMidnight = (dateStr) => { const [y, m, d] = String(dateStr).slice(0, 10).split("-").map(Number); return new Date(y, m - 1, d); };
 const daysUntil = (d) => { if (!d) return null; return Math.ceil((new Date(d) - localMidnight(todayStr())) / 86400000); };
+
+// Λήψη CSV από τον browser — rows: array of arrays, το πρώτο row είναι πάντα η επικεφαλίδα.
+// \uFEFF (BOM) μπροστά ώστε το Excel να διαβάζει σωστά τους ελληνικούς χαρακτήρες.
+const downloadCsv = (filename, rows) => {
+  const esc = (v) => { const s = String(v ?? ""); const needsQuotes = s.includes(",") || s.includes('"') || s.includes("\n") || s.includes(";"); return needsQuotes ? `"${s.split('"').join('""')}"` : s; };
+  const csv = "\uFEFF" + rows.map(r => r.map(esc).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+};
 
 // ---------- Ωράριο εργασίας για deadlines (09:15–17:00, Κυριακή μη εργάσιμη) ----------
 const WORK_START = { h: 9, m: 15 };
@@ -254,6 +266,14 @@ function AppInner() {
     if (tab !== "today") { setTab("today"); return; }
     if (viewAs) { setViewAs(null); return; }
   };
+
+  // Καταχώρηση service worker — προϋπόθεση για εγκατάσταση στην αρχική οθόνη και (σε επόμενο βήμα) ειδοποιήσεις.
+  // Ήσυχη αποτυχία αν δεν υποστηρίζεται (π.χ. παλιό browser) — δεν επηρεάζει καθόλου την υπόλοιπη εφαρμογή.
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
 
   // Φόρτωση
   useEffect(() => {
@@ -811,9 +831,16 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, urgent: next, ...(next ? { upgradedBy: acting.id } : { downgradedBy: acting.id }) } : x));
     showToast(next ? "Μαρκαρίστηκε ως επείγον 🔴" : "Υποβαθμίστηκε σε κανονική");
   };
+  // Η διαγραφή είναι πλέον «μαλακή»: η εργασία μένει στη βάση με status="deleted" (κρατάει και την προηγούμενη
+  // κατάστασή της σε prevStatus, ώστε η επαναφορά να την ξαναβάλει ακριβώς εκεί που ήταν) και εξαφανίζεται από
+  // όλες τις κανονικές λίστες (καμία από αυτές δεν ψάχνει status="deleted"). Ορατή μόνο στον «Κάδο» της Διοίκησης.
   const deleteTask = async (t) => {
-    await persistTasks(tasks.filter(x => x.id !== t.id));
-    showToast("Η εργασία διαγράφηκε");
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, prevStatus: x.status, status: "deleted", deletedBy: acting.id, deletedAt: new Date().toISOString() } : x));
+    showToast("Μετακινήθηκε στον κάδο — μπορεί να επαναφερθεί από τη Διοίκηση");
+  };
+  const restoreTask = async (t) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: x.prevStatus || "open", prevStatus: undefined, deletedBy: undefined, deletedAt: undefined } : x));
+    showToast("Η εργασία επαναφέρθηκε");
   };
   const editTask = async (t, desc) => {
     let finalDesc = desc, descEn = null;
@@ -1066,6 +1093,10 @@ ${histLines}
 
   const myTasks = sortTasks(tasks.filter(t => t.status === "open" && t.assignedTo === acting.id));
   const freeTasks = sortTasks(tasks.filter(t => t.status === "open" && (!t.assignedTo || t.assignedTo !== acting.id)));
+  // Τα διαγραμμένα (status="deleted") φιλτράρονται εδώ, ΜΙΑ φορά, κεντρικά — έτσι καμία οθόνη, στατιστικό ή
+  // αναφορά δεν τα βλέπει ποτέ κατά λάθος. Μόνο ο «Κάδος» της Διοίκησης παίρνει την πλήρη λίστα (tasksRaw).
+  const activeTasks = tasks.filter(t => t.status !== "deleted");
+  const deletedTasks = tasks.filter(t => t.status === "deleted");
 
   const tabs = [
     { id: "today", label: tr("Σήμερα"), icon: "☀" },
@@ -1091,7 +1122,7 @@ ${histLines}
         </div>
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 14px" }}>
-        {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={tasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
+        {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
@@ -1100,12 +1131,12 @@ ${histLines}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
         {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={boats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
-        {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={tasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
-        {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={tasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
+        {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={activeTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
+        {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={returnBoat} onSetNextCharter={setNextCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
-          persistTasks={persistTasks} tasksRaw={tasks} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
+          persistTasks={persistTasks} tasksRaw={deletedTasks} onRestore={restoreTask} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
           onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} onGoToBoatTasks={goToBoatTasks} section={adminSection} setSection={setAdminSection} /></ErrorBoundary>}
       </div>
       <TabBar tabs={tabs} tab={tab} setTab={selectTab} />
@@ -1121,9 +1152,12 @@ function Header({ me, onLogout }) {
   const roleLabel = me.role === "owner" ? "Διαχειριστής" : me.role === "manager" ? "Base Manager" : me.role === "associate" ? "Στέλεχος" : tr("Συνεργείο βάσης");
   return (
     <div style={{ background: COLORS.navy, color: "#fff", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <div>
-        <div style={{ fontWeight: 800, letterSpacing: 0.5, fontSize: 17 }}>SAILWAYS <span style={{ fontWeight: 300 }}>| Βάση Αλίμου</span></div>
-        <div style={{ fontSize: 12, opacity: 0.75 }}>{me.name} · {roleLabel}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <img src="/icon-192.png" alt="" width={34} height={34} style={{ borderRadius: 8, flexShrink: 0 }} />
+        <div>
+          <div style={{ fontWeight: 800, letterSpacing: 0.5, fontSize: 17 }}>SAILWAYS <span style={{ fontWeight: 300 }}>| Βάση Αλίμου</span></div>
+          <div style={{ fontSize: 12, opacity: 0.75 }}>{me.name} · {roleLabel}</div>
+        </div>
       </div>
       <button onClick={onLogout} style={{ background: "transparent", border: "1px solid rgba(255,255,255,.35)", color: "#fff", borderRadius: 8, padding: "6px 12px", fontSize: 13 }}>{tr("Έξοδος")}</button>
     </div>
@@ -1157,6 +1191,7 @@ function Login({ users, onPick }) {
     <Center>
       <div style={{ width: "100%", maxWidth: 380, padding: 24 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <img src="/icon-192.png" alt="" width={72} height={72} style={{ borderRadius: 16, marginBottom: 12 }} />
           <div style={{ fontSize: 26, fontWeight: 800, color: COLORS.navy, letterSpacing: 1 }}>SAILWAYS</div>
           <div style={{ color: COLORS.sub, marginTop: 4 }}>Βάση Μαρίνας Αλίμου <span style={{ fontSize: 11, opacity: .6 }}>· {APP_VERSION}</span></div>
         </div>
@@ -1991,18 +2026,22 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
 
 function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
   const [boatFilterLocal, setBoatFilterLocal] = useState("");
+  const [q, setQ] = useState("");
   // Το φίλτρο μπορεί να ελέγχεται από τον γονέα (π.χ. deep-link από «Επισκόπηση»), αλλιώς τοπικό state
   const boatFilter = onBoatFilterChange ? (boatFilterProp || "") : boatFilterLocal;
   const setBoatFilter = onBoatFilterChange || setBoatFilterLocal;
-  const shown = boatFilter ? tasks.filter(t => t.boatId === boatFilter || (boatFilter === "other" && !t.boatId)) : tasks;
+  const byBoat = boatFilter ? tasks.filter(t => t.boatId === boatFilter || (boatFilter === "other" && !t.boatId)) : tasks;
+  const qLower = q.trim().toLowerCase();
+  const shown = qLower ? byBoat.filter(t => (t.desc || "").toLowerCase().includes(qLower)) : byBoat;
   return (
     <div>
       <SectionTitle>{tr("Διαθέσιμες εργασίες")} ({tasks.length})</SectionTitle>
-      <select value={boatFilter} onChange={e => setBoatFilter(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }}>
+      <select value={boatFilter} onChange={e => setBoatFilter(e.target.value)} style={{ ...inputStyle, marginBottom: 10 }}>
         <option value="">{tr("Όλα τα σκάφη")}</option>
         {boats.filter(b => !boatStatus(b).atSea).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         <option value="other">{tr("Βάση / Άλλο")}</option>
       </select>
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Αναζήτηση στις εργασίες…" style={{ ...inputStyle, marginBottom: 12 }} />
       {shown.length === 0 && <Empty>{tr("Καμία εργασία εδώ.")}</Empty>}
       {shown.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
         onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />)}
@@ -2240,9 +2279,18 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
   const [boatId, setBoatId] = useState("");
   const [confirmId, setConfirmId] = useState(null);
   const [showAll, setShowAll] = useState(false);
+  const [q, setQ] = useState("");
   const doneAll = tasks.filter(t => t.status === "done" && (boatId ? t.boatId === boatId : true))
     .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
-  const done = showAll ? doneAll : doneAll.filter(t => t.serviceRelevant);
+  const bn = (id) => boats.find(b => b.id === id)?.name || tr("Βάση / Άλλο");
+  const visible = showAll ? doneAll : doneAll.filter(t => t.serviceRelevant);
+  const qLower = q.trim().toLowerCase();
+  const done = qLower ? visible.filter(t => (t.desc || "").toLowerCase().includes(qLower) || (t.completionNote || "").toLowerCase().includes(qLower) || bn(t.boatId).toLowerCase().includes(qLower)) : visible;
+  const exportCsv = () => {
+    const rows = [["Σκάφος", "Περιγραφή", "Ημερομηνία", "Ολοκληρώθηκε από", "Σημείωση"]];
+    done.forEach(t => rows.push([bn(t.boatId), t.desc || "", fmtDate(t.completedAt), users.find(u => u.id === t.completedBy)?.name || "", t.completionNote || ""]));
+    downloadCsv(`service-book-${todayStr()}.csv`, rows);
+  };
   return (
     <div>
       <SectionTitle>{tr("Βιβλίο service")}</SectionTitle>
@@ -2250,12 +2298,21 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
         <option value="">{tr("Όλα τα σκάφη")}</option>
         {boats.map(b => <option key={b.id} value={b.id}>{b.name}{boatStatus(b).atSea ? " (εν πλω)" : ""}</option>)}
       </select>
-      {isMgr && (
-        <button onClick={() => setShowAll(!showAll)} style={{
-          marginBottom: 12, padding: "8px 12px", borderRadius: 9, fontSize: 13, fontWeight: 700,
-          border: `1.5px solid ${COLORS.sub}`, background: showAll ? COLORS.sub : "transparent", color: showAll ? "#fff" : COLORS.sub,
-        }}>{showAll ? "Δείχνω όλες τις ολοκληρωμένες" : "Δείξε και τις ρουτίνας"}</button>
-      )}
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Αναζήτηση σε περιγραφή, σημείωση, σκάφος…" style={{ ...inputStyle, marginBottom: 10 }} />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        {isMgr && (
+          <button onClick={() => setShowAll(!showAll)} style={{
+            padding: "8px 12px", borderRadius: 9, fontSize: 13, fontWeight: 700,
+            border: `1.5px solid ${COLORS.sub}`, background: showAll ? COLORS.sub : "transparent", color: showAll ? "#fff" : COLORS.sub,
+          }}>{showAll ? "Δείχνω όλες τις ολοκληρωμένες" : "Δείξε και τις ρουτίνας"}</button>
+        )}
+        {isMgr && done.length > 0 && (
+          <button onClick={exportCsv} style={{
+            padding: "8px 12px", borderRadius: 9, fontSize: 13, fontWeight: 700,
+            border: `1.5px solid ${COLORS.teal}`, background: "transparent", color: COLORS.teal,
+          }}>⬇ Εξαγωγή CSV</button>
+        )}
+      </div>
       {done.length === 0 && <Empty>{tr("Καμία ολοκληρωμένη εργασία ακόμα.")}</Empty>}
       {done.map(t => {
         const boat = boats.find(b => b.id === t.boatId);
@@ -2298,12 +2355,12 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
   const { me, users, boats, tasks, quick, checklist, closingChecklist, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
-    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, onGoToBoatTasks, section, setSection } = props;
+    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, onGoToBoatTasks, section, setSection, tasksRaw, onRestore } = props;
   const isOwner = me.role === "owner";
   const sections = [
     ["overview", "Επισκόπηση"], ["control", "Έλεγχος"], ["boats", "Σκάφη"],
     ["lists", "Λίστες"], ["absences", "Απουσίες"], ["stats", "Στατιστικά"], ["ai", "AI"],
-    ["profiles", "Ομάδα"],
+    ["profiles", "Ομάδα"], ["trash", `Κάδος${tasksRaw?.length ? ` (${tasksRaw.length})` : ""}`],
     ...(isOwner ? [["errors", "Σφάλματα"], ["usersS", "Χρήστες"]] : []),
   ];
   return (
@@ -2325,8 +2382,34 @@ function AdminView(props) {
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
       {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} persistUsers={persistUsers} />}
+      {section === "trash" && <TrashAdmin tasks={tasksRaw} boats={boats} users={users} onRestore={onRestore} />}
       {section === "errors" && isOwner && <ErrorsAdmin />}
       {section === "usersS" && isOwner && <UsersAdmin users={users} persistUsers={persistUsers} me={me} onViewAs={realOwner ? onViewAs : null} />}
+    </div>
+  );
+}
+
+// ---------- Κάδος ανακύκλωσης: διαγραμμένες εργασίες, ανακτήσιμες ----------
+function TrashAdmin({ tasks, boats, users, onRestore }) {
+  const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
+  const un = (id) => users.find(u => u.id === id)?.name || "";
+  const sorted = [...(tasks || [])].sort((a, b) => (b.deletedAt || "").localeCompare(a.deletedAt || ""));
+  return (
+    <div>
+      <SectionTitle>Κάδος ανακύκλωσης</SectionTitle>
+      <div style={{ fontSize: 12.5, color: COLORS.sub, marginBottom: 10 }}>Διαγραμμένες εργασίες — η επαναφορά τις ξαναβάζει ακριβώς στην κατάσταση που ήταν πριν διαγραφούν.</div>
+      {sorted.length === 0 && <Empty>Ο κάδος είναι άδειος.</Empty>}
+      {sorted.map(t => (
+        <div key={t.id} style={{ background: COLORS.card, borderRadius: 10, padding: "11px 14px", marginBottom: 8, fontSize: 14 }}>
+          <div style={{ fontWeight: 600 }}>{t.desc}</div>
+          <div style={{ fontSize: 12.5, color: COLORS.sub, marginTop: 3 }}>
+            {bn(t.boatId)} · διαγράφηκε {fmtDate(t.deletedAt)}{t.deletedBy ? ` από ${un(t.deletedBy)}` : ""}
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <Btn small color={COLORS.teal} onClick={() => onRestore(t)}>↺ Επαναφορά</Btn>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
