@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.56";
+const APP_VERSION = "v3.57";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2565,7 +2565,7 @@ const boatStatus = (b) => {
   const today = todayStr();
   const charters = getCharters(b);
   if (charters.length) {
-    const current = charters.find(c => c.from <= today && today < c.to); // μέσα σε ναύλο (η μέρα επιστροφής μετράει ως «στη βάση»)
+    const current = charters.find(c => c.from <= today && today <= c.to); // μέσα σε ναύλο — η μέρα επιστροφής μετράει ΑΚΟΜΑ ως πλήρης μέρα ναύλου· το σκάφος είναι ελεύθερο μόνο από την επόμενη μέρα
     const upcoming = charters.filter(c => c.from >= today).sort((a, c) => a.from.localeCompare(c.from));
     if (current) {
       const du = daysUntil(current.to);
@@ -2679,7 +2679,7 @@ function CharterCalendar({ charters }) {
   for (let i = 0; i < startWeekday; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   const dateStrOf = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  const isBooked = (d) => { const ds = dateStrOf(d); return charters.some(c => c.from <= ds && ds < c.to); };
+  const isBooked = (d) => { const ds = dateStrOf(d); return charters.some(c => c.from <= ds && ds <= c.to); };
   const monthLabel = base.toLocaleDateString("el-GR", { month: "long", year: "numeric" });
   const todayS = todayStr();
   return (
@@ -2713,6 +2713,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   const [schedFor, setSchedFor] = useState(null);
   const [newFrom, setNewFrom] = useState("");
   const [newTo, setNewTo] = useState("");
+  const [customDays, setCustomDays] = useState("");
   const [newBoatName, setNewBoatName] = useState("");
   const [newBoatType, setNewBoatType] = useState("");
 
@@ -2738,7 +2739,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
       return { tier: 3, sortDate: null, s, statusText: "Στη βάση", statusColor: COLORS.sub, extra: null };
     }
     const returnColor = (s.nextEventDays !== null && s.nextEventDays > 7) ? COLORS.blue : COLORS.amber;
-    const after = charters.filter(c => c.from >= s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
+    const after = charters.filter(c => c.from > s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
     if (after) {
       return { tier: 2, sortDate: s.returnDate, s,
         statusText: "Έρχεται", statusColor: returnColor,
@@ -2759,11 +2760,11 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
     if (!newFrom || !newTo) { showToast("Συμπλήρωσε από/έως"); return; }
     if (newTo < newFrom) { showToast("Η λήξη πρέπει να είναι μετά την έναρξη"); return; }
     const charters = getCharters(b);
-    const overlap = charters.some(c => newFrom < c.to && c.from < newTo);
+    const overlap = charters.some(c => newFrom <= c.to && c.from <= newTo);
     if (overlap) { showToast("Επικαλύπτεται με υπάρχον ναύλο"); return; }
     const next = [...charters, { id: "c" + Date.now(), from: newFrom, to: newTo }].sort((a, c) => a.from.localeCompare(c.from));
     persistBoats(boats.map(x => x.id === b.id ? { ...x, charters: next, atSea: false, departureDate: null, returnDate: null } : x));
-    setNewFrom(""); setNewTo(""); showToast("Προστέθηκε ναύλο");
+    setNewFrom(""); setNewTo(""); setCustomDays(""); showToast("Προστέθηκε ναύλο");
   };
   const removeCharter = (b, cid) => {
     persistBoats(boats.map(x => x.id === b.id ? { ...x, charters: getCharters(b).filter(c => c.id !== cid) } : x));
@@ -2810,8 +2811,8 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
                 <CharterCalendar charters={getCharters(b)} />
                 {getCharters(b).length === 0 && <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 6 }}>Κανένα ναύλο ακόμα.</div>}
                 {getCharters(b).map(ch => {
-                  const active = ch.from <= todayStr() && todayStr() < ch.to;
-                  const past = ch.to <= todayStr();
+                  const active = ch.from <= todayStr() && todayStr() <= ch.to;
+                  const past = ch.to < todayStr();
                   return (
                     <div key={ch.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "5px 0", borderBottom: `1px dashed ${COLORS.line}`, opacity: past ? 0.5 : 1 }}>
                       <span>{active && <span style={{ color: COLORS.teal, fontWeight: 700 }}>● </span>}{fmtDate(ch.from)} → {fmtDate(ch.to)}{active ? " (τώρα)" : past ? " (πέρασε)" : ""}</span>
@@ -2825,7 +2826,16 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
                   <input type="date" min={newFrom} value={newTo} onChange={e => setNewTo(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
                   <Btn small color={COLORS.navy} onClick={() => saveCharter(b)}>+ Προσθήκη</Btn>
                 </div>
-                <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 6 }}>Η κατάσταση (εν πλω / στη βάση) και ο έλεγχος αναχώρησης υπολογίζονται αυτόματα από το πρόγραμμα.</div>
+                {newFrom && (
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 11.5, color: COLORS.sub }}>Γρήγορη διάρκεια από {fmtDate(newFrom)}:</span>
+                    <Btn small color={COLORS.teal} outline onClick={() => setNewTo(addDays(newFrom, 6))}>1 εβδομάδα</Btn>
+                    <Btn small color={COLORS.teal} outline onClick={() => setNewTo(addDays(newFrom, 13))}>2 εβδομάδες</Btn>
+                    <input type="number" min="1" value={customDays} onChange={e => setCustomDays(e.target.value)} placeholder="μέρες" style={{ ...inputStyle, width: 64 }} />
+                    <Btn small color={COLORS.sub} outline onClick={() => { if (customDays && Number(customDays) > 0) setNewTo(addDays(newFrom, Number(customDays) - 1)); }}>Ορισμός</Btn>
+                  </div>
+                )}
+                <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 6 }}>Η μέρα επιστροφής μετράει ως πλήρης μέρα ναύλου — το σκάφος είναι ελεύθερο από την επόμενη. Η κατάσταση (εν πλω / στη βάση) και ο έλεγχος αναχώρησης υπολογίζονται αυτόματα από το πρόγραμμα.</div>
               </div>
             )}
 
