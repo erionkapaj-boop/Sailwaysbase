@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.60";
+const APP_VERSION = "v3.62";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2324,7 +2324,7 @@ function AdminView(props) {
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
-      {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} />}
+      {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} persistUsers={persistUsers} />}
       {section === "errors" && isOwner && <ErrorsAdmin />}
       {section === "usersS" && isOwner && <UsersAdmin users={users} persistUsers={persistUsers} me={me} onViewAs={realOwner ? onViewAs : null} />}
     </div>
@@ -3181,23 +3181,45 @@ function ErrorsAdmin() {
   );
 }
 
-function ProfilesView({ users, me, onViewAs }) {
+function ProfilesView({ users, me, onViewAs, persistUsers }) {
+  const [phoneFor, setPhoneFor] = useState(null);
+  const [phoneVal, setPhoneVal] = useState("");
   const roleLabel = (r) => r === "manager" ? "Base Manager" : r === "owner" ? "Διαχειριστής" : r === "associate" ? "Στέλεχος" : "Υπάλληλος";
-  const shown = users.filter(u => (u.role === "employee" || u.role === "associate") && u.id !== me.id);
+  // Όλη η ομάδα εδώ — Διαχειριστής, Base Managers, Στελέχη, Υπάλληλοι — ώστε το τηλέφωνο του καθενός να
+  // βρίσκεται εύκολα σε ένα σημείο. Η «Προβολή ως» παραμένει διαθέσιμη μόνο για υπαλλήλους/στελέχη, ποτέ για
+  // Base Manager ή τον Διαχειριστή, και ποτέ για τον εαυτό σου.
+  const shown = users;
   return (
     <div>
       <SectionTitle>Ομάδα</SectionTitle>
       {shown.length === 0 && <Empty>Κανένας χρήστης ακόμα.</Empty>}
-      {shown.map(u => (
+      {shown.map(u => {
+        const showViewAs = onViewAs && u.role !== "manager" && u.role !== "owner" && u.id !== me.id;
+        return (
         <div key={u.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, fontSize: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div>
-              <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{roleLabel(u.role)}</span>
+              <div><b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{roleLabel(u.role)}</span></div>
+              {u.phone ? (
+                <a href={`tel:${u.phone}`} style={{ fontSize: 12.5, color: COLORS.sub, textDecoration: "none", marginTop: 2, display: "inline-block" }}>📞 {u.phone}</a>
+              ) : (
+                <span style={{ fontSize: 12, color: COLORS.sub, opacity: 0.6 }}>Χωρίς τηλέφωνο</span>
+              )}
             </div>
-            {onViewAs && <Btn small color={COLORS.teal} onClick={() => onViewAs(u)}>👁 Προβολή ως</Btn>}
+            <div style={{ display: "flex", gap: 6, flexDirection: "column", alignItems: "flex-end" }}>
+              {persistUsers && <Btn small color={COLORS.sub} outline onClick={() => { setPhoneFor(phoneFor === u.id ? null : u.id); setPhoneVal(u.phone || ""); }}>☎ Τηλέφωνο</Btn>}
+              {showViewAs && <Btn small color={COLORS.teal} onClick={() => onViewAs(u)}>👁 Προβολή ως</Btn>}
+            </div>
           </div>
+          {phoneFor === u.id && (
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <input value={phoneVal} onChange={e => setPhoneVal(e.target.value)} placeholder="π.χ. 6912345678" style={{ ...inputStyle, flex: 1 }} />
+              <Btn small color={COLORS.navy} onClick={() => { persistUsers(users.map(x => x.id === u.id ? { ...x, phone: phoneVal.trim() } : x)); setPhoneFor(null); }}>Αποθήκευση</Btn>
+            </div>
+          )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
