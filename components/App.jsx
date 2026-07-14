@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.53";
+const APP_VERSION = "v3.55";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -15,6 +15,7 @@ const COLORS = {
   red: "#D93025",
   amber: "#E8930C",
   green: "#1E8E3E",
+  blue: "#3B6FA6",
   text: "#1A2733",
   sub: "#5B6B7A",
   line: "#E3E8ED",
@@ -673,9 +674,12 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   const addTasks = async (base, descs) => {
     const now = Date.now();
     const leo = (base.purchase && !base.backlog) ? findLeonidas() : null;
-    const fresh = descs.map((d, i) => ({
+    const finalDescs = acting.lang === "en"
+      ? await Promise.all(descs.map(async d => ({ el: await translateToGreek(d), en: d })))
+      : descs.map(d => ({ el: d }));
+    const fresh = finalDescs.map((d, i) => ({
       id: "t" + now + "-" + i, status: base.backlog ? "backlog" : "open", createdBy: acting.id, createdAt: new Date(now + i).toISOString(),
-      progress: [], returns: 0, assignedTo: base.backlog ? null : (leo ? leo.id : (base.assignedTo || null)), boatId: base.boatId || null, desc: d, urgent: !!base.urgent, purchase: !!base.purchase,
+      progress: [], returns: 0, assignedTo: base.backlog ? null : (leo ? leo.id : (base.assignedTo || null)), boatId: base.boatId || null, desc: d.el, ...(d.en ? { descEn: d.en } : {}), urgent: !!base.urgent, purchase: !!base.purchase,
       ...(leo ? { assignedBy: "auto-purchase" } : {}),
     }));
     await persistTasks([...fresh, ...tasks]);
@@ -686,9 +690,12 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   const addTask = async (task, photoFiles) => {
     const leo = task.purchase ? findLeonidas() : null;
     const id = "t" + Date.now();
+    let desc = task.desc, descEn;
+    if (acting.lang === "en" && desc?.trim()) { descEn = desc.trim(); desc = await translateToGreek(desc); }
     const t = {
       id, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
-      progress: [], returns: 0, assignedTo: null, photos: [], ...task, ...(leo ? { assignedTo: leo.id, assignedBy: "auto-purchase" } : {}),
+      progress: [], returns: 0, assignedTo: null, photos: [], ...task, desc, ...(descEn ? { descEn } : {}),
+      ...(leo ? { assignedTo: leo.id, assignedBy: "auto-purchase" } : {}),
     };
     await persistTasks([t, ...tasks]);
     showToast("Η εργασία καταχωρήθηκε");
@@ -701,11 +708,13 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   const logFinding = async (findTask, desc) => {
     if (!desc?.trim()) return;
     const newId = "t" + Date.now() + "-f";
+    let finalDesc = desc.trim(), descEn;
+    if (acting.lang === "en") { descEn = finalDesc; finalDesc = await translateToGreek(finalDesc); }
     const newTask = {
       id: newId, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
-      progress: [], returns: 0, assignedTo: null, photos: [], boatId: findTask.boatId, desc: desc.trim(), foundVia: findTask.id,
+      progress: [], returns: 0, assignedTo: null, photos: [], boatId: findTask.boatId, desc: finalDesc, ...(descEn ? { descEn } : {}), foundVia: findTask.id,
     };
-    const findings = [...(findTask.findings || []), { taskId: newId, desc: desc.trim(), at: new Date().toISOString() }];
+    const findings = [...(findTask.findings || []), { taskId: newId, desc: finalDesc, at: new Date().toISOString() }];
     await persistTasks([newTask, ...tasks.map(x => x.id === findTask.id ? { ...x, findings } : x)]);
     showToast(`Καταχωρήθηκε (${findings.length}/${findTask.findMin || 3})`);
   };
@@ -725,12 +734,15 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     if (afterPhotoFiles?.length) {
       try { afterUrls = await uploadTaskPhotos(afterPhotoFiles, t.id); } catch {}
     }
-    const cleanNote = (note || "").trim();
+    let cleanNote = (note || "").trim();
+    let cleanNoteEn;
+    if (acting.lang === "en" && cleanNote) { cleanNoteEn = cleanNote; cleanNote = await translateToGreek(cleanNote); }
     await persistTasks(tasks.map(x => x.id === t.id ? {
       ...x, status: "done", completedBy: finalBy, completedByActor: acting.id, completedAt: new Date().toISOString(),
       ...(confidence ? { completionConfidence: confidence } : {}),
       ...(afterUrls.length ? { photosAfter: [...(x.photosAfter || []), ...afterUrls] } : {}),
       ...(cleanNote ? { completionNote: cleanNote } : {}),
+      ...(cleanNoteEn ? { completionNoteEn: cleanNoteEn } : {}),
     } : x));
     showToast("Ολοκληρώθηκε ✔");
     classifyServiceRelevance(t);
@@ -757,7 +769,8 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     if (urls.length) await persistTasks(tasks.map(x => x.id === t.id ? { ...x, photosBefore: [...(x.photosBefore || []), ...urls] } : x));
   };
   const externalTask = async (t, note) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "external", externalBy: acting.id, externalAt: new Date().toISOString(), externalNote: note } : x));
+    const finalNote = (acting.lang === "en" && note?.trim()) ? await translateToGreek(note) : note;
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "external", externalBy: acting.id, externalAt: new Date().toISOString(), externalNote: finalNote } : x));
     showToast("Καταγράφηκε: χρειάζεται εξωτερικό συνεργάτη ⚠");
   };
   const acknowledgeExternal = async (t) => {
@@ -791,7 +804,9 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     showToast("Η εργασία διαγράφηκε");
   };
   const editTask = async (t, desc) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, desc, editedBy: acting.id, editedAt: new Date().toISOString(), descEn: null } : x));
+    let finalDesc = desc, descEn = null;
+    if (acting.lang === "en" && desc?.trim()) { descEn = desc.trim(); finalDesc = await translateToGreek(desc); }
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, desc: finalDesc, editedBy: acting.id, editedAt: new Date().toISOString(), descEn } : x));
     showToast("Η εργασία διορθώθηκε");
   };
   // Μετάφραση περιγραφής εργασίας στα αγγλικά (για χρήστες με lang="en", π.χ. Martin) — γίνεται μία φορά και μένει cached στην εργασία
@@ -805,6 +820,18 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     } catch {
       setTasks(cur => cur.map(x => x.id === t.id ? { ...x, translating: false } : x));
     }
+  };
+  // Μετάφραση ελεύθερου κειμένου ΠΡΟΣ τα ελληνικά (για χρήστες με lang="en", π.χ. Martin, όταν γράφουν οι ίδιοι κάτι) —
+  // η βάση κρατάει πάντα το κύριο κείμενο (περιγραφή εργασίας, σημείωση ολοκλήρωσης, εύρημα) στα ελληνικά, ώστε να είναι
+  // ενιαία αναζητήσιμο και κατανοητό από όλη την ομάδα, το Service Book και τη μνήμη του AI. Αν η μετάφραση αποτύχει,
+  // επιστρέφεται το πρωτότυπο κείμενο αμετάβλητο, ώστε να μη χαθεί ποτέ καταχώρηση.
+  const translateToGreek = async (text) => {
+    const clean = (text || "").trim();
+    if (!clean) return clean;
+    try {
+      const out = await askClaude(`Translate the following boat-maintenance related text from English to Greek. Reply with ONLY the translation, no quotes, no explanation:\n\n${clean}`, 200);
+      return (out || "").trim().replace(/^"|"$/g, "") || clean;
+    } catch { return clean; }
   };
   // "💡 Βοήθεια": φιλτράρει ΤΟΠΙΚΑ (χωρίς AI) το ιστορικό για ό,τι μοιάζει με το τρέχον πρόβλημα — ίδιο σκάφος ή κοινές λέξεις-
   // κλειδιά — και δίνει μόνο τα πιο σχετικά 6-10 περιστατικά στο AI. Έτσι μένει γρήγορο και φθηνό ό,τι κι αν μεγαλώσει η βάση.
@@ -1302,7 +1329,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           {(t.completionNote || t.problemDesc || t.problemSolution) && (
             <div style={{ background: "#FFF6E5", color: "#5B4A00", padding: "8px 10px", borderRadius: 8, fontSize: 13, margin: "10px 0" }}>
               {t.completionNote ? (
-                <div><b>📝 {tr("Ολοκλήρωση:")}</b> {t.completionNote}</div>
+                <div><b>📝 {tr("Ολοκλήρωση:")}</b> {(me?.lang === "en" && t.completionNoteEn) ? t.completionNoteEn : t.completionNote}</div>
               ) : (
                 <>
                   <div><b>🛠 {tr("Πρόβλημα:")}</b> {t.problemDesc || "-"}</div>
@@ -2692,8 +2719,10 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   // Προτεραιότητα σε 4 επίπεδα, με απλή χρωματική σήμανση:
   // 1. Στη βάση + φεύγει σύντομα — ΠΡΑΣΙΝΟ
   // 2. Στη βάση + τίποτα προγραμματισμένο — ΓΚΡΙ
-  // 3. Έρχεται + έχει ήδη επόμενο ναύλο μετά — ΠΟΡΤΟΚΑΛΙ (έρχεται) + ΠΡΑΣΙΝΟ (μετά φεύγει)
-  // 4. Έρχεται + τίποτα μετά — ΠΟΡΤΟΚΑΛΙ
+  // 3. Έρχεται + έχει ήδη επόμενο ναύλο μετά — ΠΟΡΤΟΚΑΛΙ/ΜΠΛΕ (έρχεται) + ΠΡΑΣΙΝΟ (μετά φεύγει)
+  // 4. Έρχεται + τίποτα μετά — ΠΟΡΤΟΚΑΛΙ/ΜΠΛΕ
+  // Το "έρχεται" παίρνει πορτοκαλί μόνο αν η επιστροφή είναι μέσα στις επόμενες 7 μέρες (κάτι να προσέχει κανείς
+  // άμεσα)· αν αργεί πάνω από μία εβδομάδα, παίρνει ένα ήρεμο, ουδέτερο μπλε — δεν χρειάζεται να «χτυπάει».
   const rank = (b) => {
     const s = boatStatus(b);
     const charters = getCharters(b);
@@ -2705,13 +2734,14 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
       }
       return { tier: 2, sortDate: null, s, statusText: "Στη βάση", statusColor: COLORS.sub, extra: null };
     }
+    const returnColor = (s.nextEventDays !== null && s.nextEventDays > 7) ? COLORS.blue : COLORS.amber;
     const after = charters.filter(c => c.from >= s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
     if (after) {
       return { tier: 3, sortDate: s.returnDate, s,
-        statusText: "Έρχεται", statusColor: COLORS.amber,
+        statusText: "Έρχεται", statusColor: returnColor,
         extra: { text: `Μετά φεύγει ${fmtDate(after.from)}`, color: COLORS.green } };
     }
-    return { tier: 4, sortDate: s.returnDate, s, statusText: "Έρχεται", statusColor: COLORS.amber, extra: null };
+    return { tier: 4, sortDate: s.returnDate, s, statusText: "Έρχεται", statusColor: returnColor, extra: null };
   };
   const withStatus = boats.map(b => ({ b, r: rank(b) }));
   const sorted = [...withStatus].sort((x, y) => {
@@ -2739,7 +2769,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   return (
     <div>
       <SectionTitle>Σκάφη ({boats.length})</SectionTitle>
-      <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 10 }}>Πρώτα στη βάση (φεύγει πράσινο, ήρεμο γκρι), μετά έρχονται (πορτοκαλί· πράσινο αν έχουν ήδη επόμενο ναύλο).</div>
+      <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 10 }}>Πρώτα στη βάση (φεύγει πράσινο, ήρεμο γκρι), μετά έρχονται (πορτοκαλί αν μέσα σε 7 μέρες, γαλάζιο αν αργούν περισσότερο· πράσινο αν έχουν ήδη επόμενο ναύλο).</div>
       {sorted.map(({ b, r }) => {
         const s = r.s;
         return (
