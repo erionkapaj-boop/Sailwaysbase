@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.64";
+const APP_VERSION = "v3.65";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2027,15 +2027,41 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
 function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
   const [boatFilterLocal, setBoatFilterLocal] = useState("");
   const [q, setQ] = useState("");
+  // Παρατεταμένο πάτημα σε μια εργασία → μπαίνει σε «λειτουργία επιλογής»: εμφανίζεται τσεκ σε όλες τις κάρτες,
+  // κι από κει και πέρα ένα απλό πάτημα σε οποιαδήποτε άλλη επιλέγει/αποεπιλέγει — χρήσιμο για μαζική διαγραφή.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState({});
+  const pressTimer = useRef(null);
+  const startPress = (id) => {
+    pressTimer.current = setTimeout(() => { setSelectMode(true); setSelected(s => ({ ...s, [id]: true })); }, 450);
+  };
+  const cancelPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+  const toggleSelect = (id) => setSelected(s => ({ ...s, [id]: !s[id] }));
+  const exitSelectMode = () => { setSelectMode(false); setSelected({}); };
   // Το φίλτρο μπορεί να ελέγχεται από τον γονέα (π.χ. deep-link από «Επισκόπηση»), αλλιώς τοπικό state
   const boatFilter = onBoatFilterChange ? (boatFilterProp || "") : boatFilterLocal;
   const setBoatFilter = onBoatFilterChange || setBoatFilterLocal;
   const byBoat = boatFilter ? tasks.filter(t => t.boatId === boatFilter || (boatFilter === "other" && !t.boatId)) : tasks;
   const qLower = q.trim().toLowerCase();
   const shown = qLower ? byBoat.filter(t => (t.desc || "").toLowerCase().includes(qLower)) : byBoat;
+  const selectedCount = Object.values(selected).filter(Boolean).length;
+  const bulkDelete = () => {
+    const toDelete = shown.filter(t => selected[t.id]);
+    if (!toDelete.length) return;
+    if (!window.confirm(`Διαγραφή ${toDelete.length} εργασιών; Θα μπουν στον κάδο — μπορείς να τις επαναφέρεις από τη Διοίκηση.`)) return;
+    toDelete.forEach(t => onDelete(t));
+    exitSelectMode();
+  };
   return (
     <div>
       <SectionTitle>{tr("Διαθέσιμες εργασίες")} ({tasks.length})</SectionTitle>
+      {selectMode && (
+        <div style={{ position: "sticky", top: 0, zIndex: 20, background: COLORS.navy, color: "#fff", borderRadius: 10, padding: "10px 14px", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <button onClick={exitSelectMode} style={{ background: "none", border: "none", color: "#fff", fontSize: 14 }}>✕ {tr("Άκυρο")}</button>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{selectedCount} {tr("επιλεγμένες")}</span>
+          <button onClick={bulkDelete} disabled={!selectedCount} style={{ background: "none", border: "none", color: selectedCount ? "#FF7A6E" : "rgba(255,255,255,.4)", fontSize: 14, fontWeight: 700 }}>🗑 {tr("Διαγραφή")}</button>
+        </div>
+      )}
       <select value={boatFilter} onChange={e => setBoatFilter(e.target.value)} style={{ ...inputStyle, marginBottom: 10 }}>
         <option value="">{tr("Όλα τα σκάφη")}</option>
         {boats.filter(b => !boatStatus(b).atSea).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -2043,8 +2069,25 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
       </select>
       <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Αναζήτηση στις εργασίες…" style={{ ...inputStyle, marginBottom: 12 }} />
       {shown.length === 0 && <Empty>{tr("Καμία εργασία εδώ.")}</Empty>}
-      {shown.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />)}
+      {shown.map(t => (
+        <div key={t.id} style={{ position: "relative" }}
+          onTouchStart={() => startPress(t.id)} onTouchEnd={cancelPress} onTouchMove={cancelPress}
+          onMouseDown={() => startPress(t.id)} onMouseUp={cancelPress} onMouseLeave={cancelPress}
+          onContextMenu={(e) => { if (selectMode) e.preventDefault(); }}>
+          {selectMode && (
+            <div onClick={() => toggleSelect(t.id)} style={{ position: "absolute", inset: 0, zIndex: 5, cursor: "pointer" }} />
+          )}
+          {selectMode && (
+            <div style={{
+              position: "absolute", top: 10, right: 10, zIndex: 6, width: 24, height: 24, borderRadius: 7,
+              border: `2px solid ${COLORS.teal}`, background: selected[t.id] ? COLORS.teal : "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 3px rgba(0,0,0,.15)",
+            }}>{selected[t.id] && <span style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>✓</span>}</div>
+          )}
+          <TaskCard t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
+            onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />
+        </div>
+      ))}
     </div>
   );
 }
