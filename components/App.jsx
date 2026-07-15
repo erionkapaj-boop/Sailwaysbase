@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.74";
+const APP_VERSION = "v3.76";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -1313,7 +1313,7 @@ function FindingsFlow({ t, onLogFinding, onComplete, isMgr, me, setCompleteAsId,
       <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
         <Btn small color={COLORS.teal} onClick={() => { if (!text.trim()) return; onLogFinding(t, text.trim()); setText(""); }}>{tr("Προσθήκη εύρεσης")}</Btn>
         {canComplete && (
-          <Btn small color={COLORS.green} onClick={() => { setCompleteAsId(t.assignedTo || me.id); setMode("confirmComplete"); }}>{tr("Ολοκληρώθηκε ✔")}</Btn>
+          <Btn small color={COLORS.green} onClick={() => { setCompleteAsId(me.id); setMode("confirmComplete"); }}>{tr("Ολοκληρώθηκε ✔")}</Btn>
         )}
       </div>
     </div>
@@ -1418,9 +1418,14 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const shownDesc = (me?.lang === "en" && t.descEn && !showOriginal) ? t.descEn : t.desc;
   // Κάθε ολοκλήρωση περνάει πλέον από ΕΝΑ ενιαίο panel επιβεβαίωσης, με υποχρεωτικό πεδίο "τι είχε/τι έκανες" —
   // ανεξάρτητα από ρόλο (manager/employee) ή τύπο εργασίας (απλή/εντατική/checklist).
+  // ΠΡΟΣΟΧΗ — ζήτημα δικαιοσύνης μεταξύ υπαλλήλων: η προεπιλογή «ποιος το ολοκλήρωσε» πρέπει να είναι ΠΑΝΤΑ
+  // αυτός που πραγματικά κάνει την ολοκλήρωση αυτή τη στιγμή (acting/me), ΟΧΙ ο αρχικά ανατεθειμένος. Αν π.χ. ο
+  // Φανούρης αναλάβει και ολοκληρώσει μια εργασία του Μήτσου, πρέπει να φαίνεται ο Φανούρης — ο επιλογέας
+  // παρακάτω επιτρέπει σε manager να το αλλάξει ρητά (π.χ. αν ο υπάλληλος του το ανέφερε τηλεφωνικά), αλλά ποτέ
+  // δεν πρέπει να «κληρονομεί» σιωπηλά τον αρχικό ανάδοχο σαν προεπιλογή.
   const startComplete = (conf) => {
     setConfidence(conf);
-    setCompleteAsId(t.assignedTo || me.id);
+    setCompleteAsId(me.id);
     setAiReview(null);
     setMode("confirmComplete");
   };
@@ -2057,7 +2062,7 @@ function VoiceComplete({ tasks, boats, onComplete }) {
     try {
       const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
       const list = tasks.map(t => `${t.id}: "${t.desc}" [σκάφος: ${bn(t.boatId)}]`).join("; ");
-      const prompt = `Είσαι βοηθός βάσης σκαφών. Ο χρήστης λέει προφορικά ότι ολοκλήρωσε κάποια/ες από τις παρακάτω δικές του ανοιχτές εργασίες, περιγράφοντας τι έκανε ή/και τι πρόβλημα υπήρχε (π.χ. "στο Σοφία 2 έφτιαξα την τουαλέτα, είχε πρόβλημα το μοτέρ"). Βρες ΠΟΙΕΣ εργασίες εννοεί, με βάση το σκάφος και την περιγραφή — να είσαι συντηρητικός, βάλε μόνο ό,τι ταιριάζει με σιγουριά. Για κάθε εργασία, γράψε ΣΥΝΤΟΜΑ στα ελληνικά τι έγινε/τι πρόβλημα υπήρχε, όπως προκύπτει από το κείμενο.
+      const prompt = `Είσαι βοηθός βάσης σκαφών. Ο χρήστης λέει προφορικά ότι ολοκλήρωσε κάποια/ες από τις παρακάτω ανοιχτές εργασίες της βάσης (δικές του ή όχι — μπορεί να βοήθησε σε κάτι που δεν ήταν επίσημα δικό του), περιγράφοντας τι έκανε ή/και τι πρόβλημα υπήρχε (π.χ. "στο Σοφία 2 έφτιαξα την τουαλέτα, είχε πρόβλημα το μοτέρ"). Βρες ΠΟΙΕΣ εργασίες εννοεί, με βάση το σκάφος και την περιγραφή — να είσαι συντηρητικός, βάλε μόνο ό,τι ταιριάζει με σιγουριά. Για κάθε εργασία, γράψε ΣΥΝΤΟΜΑ στα ελληνικά τι έγινε/τι πρόβλημα υπήρχε, όπως προκύπτει από το κείμενο. Αν ο χρήστης αναφέρει ότι το έκανε ΜΑΖΙ ΜΕ κάποιον συνάδελφο (π.χ. "μαζί με τον Φανούρη"), κράτα ρητά αυτή την αναφορά μέσα στη σημείωση — μην την παραλείψεις.
 ΕΡΓΑΣΙΕΣ: ${list}
 ΚΕΙΜΕΝΟ: "${text.trim()}"
 Απάντησε ΜΟΝΟ με JSON χωρίς markdown: {"items":[{"taskId":"...","note":"..."}]}`;
@@ -2093,7 +2098,8 @@ function VoiceComplete({ tasks, boats, onComplete }) {
             background: listening ? COLORS.red : "transparent", color: listening ? "#fff" : COLORS.green,
           }}>{listening ? "⏹ " + tr("Σταμάτημα") : "🎤 " + tr("Μίλα")}</button>
           <textarea value={text} onChange={e => setText(e.target.value)} rows={2}
-            placeholder={tr("π.χ. Στο Σοφία 2 το πόμολο το έφτιαξα")} style={{ ...inputStyle, marginTop: 8 }} />
+            placeholder={tr("π.χ. Στο Σοφία 2 το πόμολο το έφτιαξα μαζί με τον Φανούρη")} style={{ ...inputStyle, marginTop: 8 }} />
+          <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 4 }}>{tr("Δουλεύει σε όλες τις ανοιχτές εργασίες της βάσης, όχι μόνο τις δικές σου — και το «μαζί με τον Χ» καταγράφεται στη σημείωση.")}</div>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <Btn color={COLORS.green} onClick={analyze}>{busy ? tr("Αναγνώριση…") : "✨ " + tr("Αναγνώριση")}</Btn>
             {text && <Btn color={COLORS.sub} outline onClick={() => { setText(""); setMatches(null); }}>{tr("Καθάρισμα")}</Btn>}
@@ -2134,7 +2140,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
       <MyAbsences me={me} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />
       {canAssign && <SendNote me={me} users={users} notes={notes} onSend={onSendNote} onDelete={onDeleteNote} />}
       <SectionTitle>{tr("Οι εργασίες μου")} — {new Date().toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { weekday: "long", day: "numeric", month: "long" })}</SectionTitle>
-      {tasks.length > 0 && <VoiceComplete tasks={tasks} boats={boats} onComplete={onComplete} />}
+      {allTasks.filter(t => t.status === "open").length > 0 && <VoiceComplete tasks={allTasks.filter(t => t.status === "open")} boats={boats} onComplete={onComplete} />}
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
         onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp}
