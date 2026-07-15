@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.65";
+const APP_VERSION = "v3.66";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2081,7 +2081,7 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
             <div style={{
               position: "absolute", top: 10, right: 10, zIndex: 6, width: 24, height: 24, borderRadius: 7,
               border: `2px solid ${COLORS.teal}`, background: selected[t.id] ? COLORS.teal : "#fff",
-              display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 3px rgba(0,0,0,.15)",
+              display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 3px rgba(0,0,0,.15)", pointerEvents: "none",
             }}>{selected[t.id] && <span style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>✓</span>}</div>
           )}
           <TaskCard t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
