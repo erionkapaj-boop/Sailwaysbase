@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.71";
+const APP_VERSION = "v3.72";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -856,8 +856,10 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   const acknowledgeExternal = async (t) => {
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, ackBy: { ...(x.ackBy || {}), [acting.id]: new Date().toISOString() } } : x));
   };
-  const addProgress = async (t, note) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, progress: [...x.progress, { by: acting.id, at: new Date().toISOString(), note }] } : x));
+  const addProgress = async (t, note, photoFiles) => {
+    let urls = [];
+    if (photoFiles?.length) { try { urls = await uploadTaskPhotos(photoFiles, t.id); } catch {} }
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, progress: [...x.progress, { by: acting.id, at: new Date().toISOString(), note, ...(urls.length ? { photos: urls } : {}) }] } : x));
     showToast("Η πρόοδος καταγράφηκε");
   };
   const returnTask = async (t, note) => {
@@ -1016,8 +1018,11 @@ ${histLines}
     showToast("Το μήνυμα διαγράφηκε");
   };
   const persistBoatNotes = async (next) => { setBoatNotes(next); await save("app-boatnotes", next); };
-  const addBoatNote = async (boatId, text) => {
-    const n = { id: "bn" + Date.now(), boatId, text, by: acting.id, at: new Date().toISOString() };
+  const addBoatNote = async (boatId, text, photoFiles) => {
+    const id = "bn" + Date.now();
+    let urls = [];
+    if (photoFiles?.length) { try { urls = await uploadTaskPhotos(photoFiles, id); } catch {} }
+    const n = { id, boatId, text, by: acting.id, at: new Date().toISOString(), ...(urls.length ? { photos: urls } : {}) };
     await persistBoatNotes([n, ...boatNotes]);
     showToast("Η παρατήρηση καταχωρήθηκε");
   };
@@ -1386,6 +1391,8 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const [helpBusy, setHelpBusy] = useState(false);
   const [helpQuery, setHelpQuery] = useState("");
   const afterFileRef = useRef(null);
+  const progressFileRef = useRef(null);
+  const [progressPhotos, setProgressPhotos] = useState([]);
   const boat = boats.find(b => b.id === t.boatId);
   const dl = deadline(t);
   const du = daysUntil(dl);
@@ -1516,6 +1523,11 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               {(t.progress || []).map((p, i) => (
                 <div key={i} style={{ padding: "5px 0", borderBottom: i < (t.progress || []).length - 1 ? `1px dashed ${COLORS.line}` : "none", color: COLORS.sub }}>
                   ✏ {fmtDate(p.at)}: {p.note}{isMgr ? ` — ${users.find(u => u.id === p.by)?.name || ""}` : ""}
+                  {p.photos?.length > 0 && (
+                    <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                      {p.photos.map((url, pi) => <img key={pi} src={url} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 6 }} onClick={() => window.open(url, "_blank")} />)}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1618,9 +1630,17 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
                 placeholder={mode === "progress" ? tr("Τι έκανες; π.χ. γυάλισα τη δεξιά πλευρά της πλώρης (~1 ώρα)") : tr("Τι δοκίμασες; Τι ειδικό χρειάζεται;")}
                 style={inputStyle} />
+              {mode === "progress" && (
+                <div style={{ marginTop: 8 }}>
+                  <input ref={progressFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }}
+                    onChange={e => setProgressPhotos(prev => [...prev, ...Array.from(e.target.files || [])])} />
+                  <Btn small color={COLORS.teal} outline onClick={() => progressFileRef.current?.click()}>📷 {tr("Προσθήκη φωτογραφίας (προαιρετικό)")}</Btn>
+                  {progressPhotos.length > 0 && <span style={{ fontSize: 12.5, color: COLORS.sub, marginLeft: 8 }}>{progressPhotos.length} {tr("επιλεγμένες")}</span>}
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <Btn color={COLORS.teal} onClick={() => { if (!note.trim()) return; mode === "progress" ? onProgress(t, note.trim()) : onExternal(t, note.trim()); setMode(null); setOpen(false); }}>{tr("Καταχώρηση")}</Btn>
-                <Btn color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
+                <Btn color={COLORS.teal} onClick={() => { if (!note.trim()) return; mode === "progress" ? onProgress(t, note.trim(), progressPhotos) : onExternal(t, note.trim()); setMode(null); setOpen(false); setProgressPhotos([]); }}>{tr("Καταχώρηση")}</Btn>
+                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setProgressPhotos([]); }}>{tr("Άκυρο")}</Btn>
               </div>
             </div>
           )}
@@ -1680,15 +1700,13 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                   </div>
                 </>
               )}
-              {t.intensive && (
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 12.5, color: COLORS.sub, marginBottom: 6 }}>{tr("Φωτογραφία αποτελέσματος (προαιρετικό):")}</div>
-                  <input ref={afterFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }}
-                    onChange={e => setAfterPhotos(prev => [...prev, ...Array.from(e.target.files || [])])} />
-                  <Btn small color={COLORS.teal} outline onClick={() => afterFileRef.current?.click()}>📷 {tr("Προσθήκη φωτογραφίας")}</Btn>
-                  {afterPhotos.length > 0 && <span style={{ fontSize: 12.5, color: COLORS.sub, marginLeft: 8 }}>{afterPhotos.length} {tr("επιλεγμένες")}</span>}
-                </div>
-              )}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12.5, color: COLORS.sub, marginBottom: 6 }}>{tr("Φωτογραφία αποτελέσματος (προαιρετικό):")}</div>
+                <input ref={afterFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }}
+                  onChange={e => setAfterPhotos(prev => [...prev, ...Array.from(e.target.files || [])])} />
+                <Btn small color={COLORS.teal} outline onClick={() => afterFileRef.current?.click()}>📷 {tr("Προσθήκη φωτογραφίας")}</Btn>
+                {afterPhotos.length > 0 && <span style={{ fontSize: 12.5, color: COLORS.sub, marginLeft: 8 }}>{afterPhotos.length} {tr("επιλεγμένες")}</span>}
+              </div>
               <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
                 <div style={{ fontSize: 12.5, color: COLORS.sub, fontWeight: 700 }}>{tr("Πώς ολοκληρώθηκε *")}</div>
                 <MicButton onResult={(txt) => setCompletionNote(p => (p ? p.trim() + " " : "") + txt)} />
@@ -2820,6 +2838,8 @@ const boatStatus = (b) => {
 
 function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, onDeleteBoat }) {
   const [noteText, setNoteText] = useState("");
+  const [notePhotos, setNotePhotos] = useState([]);
+  const noteFileRef = useRef(null);
   const [aiQ, setAiQ] = useState("");
   const [aiAns, setAiAns] = useState("");
   const [busy, setBusy] = useState(false);
@@ -2867,11 +2887,24 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, on
         <div key={n.id} style={{ fontSize: 13, padding: "5px 0", borderBottom: `1px dashed ${COLORS.line}` }}>
           {n.text} <span style={{ color: COLORS.sub, fontSize: 11.5 }}>— {fmtDate(n.at)}</span>
           {isMgr && <button onClick={() => onDeleteNote(n.id)} style={{ border: "none", background: "none", color: COLORS.red, marginLeft: 6, fontSize: 12 }}>🗑</button>}
+          {n.photos?.length > 0 && (
+            <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+              {n.photos.map((url, pi) => <img key={pi} src={url} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 6 }} onClick={() => window.open(url, "_blank")} />)}
+            </div>
+          )}
         </div>
       ))}
-      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-        <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="π.χ. Ο αυτόματος πιλότος δουλεύει τέλεια — ή: Στάζει λάδι στο μηχανοστάσιο" style={{ ...inputStyle, flex: 1 }} />
-        <Btn small color={COLORS.teal} onClick={() => { if (noteText.trim()) { onAddNote(boat.id, noteText.trim()); setNoteText(""); } }}>Προσθήκη</Btn>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="π.χ. Ο αυτόματος πιλότος δουλεύει τέλεια — ή: Στάζει λάδι στο μηχανοστάσιο" style={{ ...inputStyle, flex: 1 }} />
+          <Btn small color={COLORS.teal} onClick={() => { if (noteText.trim()) { onAddNote(boat.id, noteText.trim(), notePhotos); setNoteText(""); setNotePhotos([]); } }}>Προσθήκη</Btn>
+        </div>
+        <div style={{ marginTop: 6 }}>
+          <input ref={noteFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }}
+            onChange={e => setNotePhotos(prev => [...prev, ...Array.from(e.target.files || [])])} />
+          <Btn small color={COLORS.sub} outline onClick={() => noteFileRef.current?.click()}>📷 Φωτογραφία (προαιρετικό)</Btn>
+          {notePhotos.length > 0 && <span style={{ fontSize: 12, color: COLORS.sub, marginLeft: 8 }}>{notePhotos.length} επιλεγμένες</span>}
+        </div>
       </div>
 
       {serviceHistory.length > 0 && (
