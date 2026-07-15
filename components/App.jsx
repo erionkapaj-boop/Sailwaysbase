@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.70";
+const APP_VERSION = "v3.71";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -1418,7 +1418,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
     if (!completionNote.trim()) return;
     setAiReviewBusy(true);
     try {
-      const prompt = `Διόρθωσε το παρακάτω κείμενο που περιγράφει πρόβλημα/λύση σε εργασία συντήρησης σκάφους, ώστε να είναι σαφές, σωστά γραμμένο στα ελληνικά και κατανοητό από όλη την ομάδα. ΜΗΝ αλλάξεις κανένα γεγονός και μην προσθέσεις πληροφορία που δεν υπάρχει στο πρωτότυπο — μόνο διατύπωση/ορθογραφία. Κράτα το σύντομο. Απάντησε ΜΟΝΟ με το διορθωμένο κείμενο, χωρίς εισαγωγικά, χωρίς σχόλια.\n\nΚείμενο: ${completionNote.trim()}`;
+      const prompt = `Διόρθωσε το παρακάτω κείμενο που περιγράφει πρόβλημα/λύση σε εργασία συντήρησης σκάφους — μόνο ορθογραφία, στίξη και σύνταξη, ώστε να είναι καθαρό και κατανοητό από όλη την ομάδα. Κράτα φυσική, καθημερινή γλώσσα — όπως θα το έγραφε ο ίδιος ο τεχνικός σε μια σημείωση δουλειάς, όχι επίσημο ή τυπικό ύφος (όχι γλώσσα εξυπηρέτησης πελατών). ΜΗΝ αλλάξεις κανένα γεγονός και μην προσθέσεις πληροφορία που δεν υπάρχει στο πρωτότυπο — το νόημα πρέπει να μείνει ακριβώς το ίδιο. Κράτα το σύντομο. Απάντησε ΜΟΝΟ με το διορθωμένο κείμενο, χωρίς εισαγωγικά, χωρίς σχόλια.\n\nΚείμενο: ${completionNote.trim()}`;
       const out = await askClaude(prompt, 220);
       setAiReview((out || "").trim() || completionNote.trim());
     } catch { setAiReview(completionNote.trim()); }
@@ -1696,11 +1696,11 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               <div style={{ fontSize: 11.5, color: COLORS.sub, marginBottom: 6 }}>{tr("Πες σύντομα τι έκανες — και τι πρόβλημα αντιμετώπισες, αν υπήρχε.")}</div>
               {aiReview !== null ? (
                 <div>
-                  <div style={{ fontSize: 12.5, color: COLORS.sub, fontWeight: 700, marginBottom: 6 }}>✨ {tr("Διορθωμένο κείμενο — έλεγξε πριν ολοκληρώσεις:")}</div>
-                  <div style={{ background: COLORS.bg, borderRadius: 8, padding: 10, fontSize: 14, marginBottom: 10, lineHeight: 1.4 }}>{aiReview}</div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <Btn color={COLORS.green} onClick={() => finalizeComplete(aiReview)}>{tr("✔ Οκ, ολοκλήρωση")}</Btn>
-                    <Btn color={COLORS.sub} outline onClick={() => setAiReview(null)}>{tr("✎ Πίσω, να το ξαναγράψω")}</Btn>
+                  <div style={{ fontSize: 12.5, color: COLORS.sub, fontWeight: 700, marginBottom: 6 }}>✨ {tr("Διορθωμένο κείμενο — μπορείς να το επεξεργαστείς πριν ολοκληρώσεις:")}</div>
+                  <textarea value={aiReview} onChange={e => setAiReview(e.target.value)} rows={2} style={inputStyle} />
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                    <Btn color={aiReview.trim() ? COLORS.green : COLORS.line} onClick={() => aiReview.trim() && finalizeComplete(aiReview.trim())}>{tr("✔ Οκ, ολοκλήρωση")}</Btn>
+                    <Btn color={COLORS.sub} outline onClick={() => setAiReview(null)}>{tr("✎ Πίσω, να το ξαναγράψω από την αρχή")}</Btn>
                   </div>
                 </div>
               ) : (
