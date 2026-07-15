@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.78";
+const APP_VERSION = "v3.79";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2686,9 +2686,19 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
     .filter(b => { const s = boatStatus(b); return !s.atSea || s.returnDate === todayStr(); })
     .map(b => {
       const s = boatStatus(b);
-      const hasDeparture = s.nextEventType === "depart";
+      // Το boatStatus δείχνει μόνο ΕΝΑ επόμενο γεγονός. Αν το σκάφος είναι ακόμα τυπικά «εν πλω» σήμερα (επιστρέφει
+      // σήμερα), δείχνει nextEventType="return" και «κρύβει» τυχόν επόμενη αναχώρηση αμέσως μετά — γι' αυτό εδώ
+      // ψάχνουμε ρητά για ναύλο που ξεκινάει μετά την τρέχουσα επιστροφή, ώστε μια γρήγορη επόμενη αναχώρηση
+      // (π.χ. φεύγει ξανά το ίδιο απόγευμα) να μη χάνεται από την Επισκόπηση.
+      let departureDate = null, departureDays = null;
+      if (s.nextEventType === "depart") { departureDate = s.nextEventDate; departureDays = s.nextEventDays; }
+      else if (s.atSea) {
+        const after = getCharters(b).filter(c => c.from > s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
+        if (after) { departureDate = after.from; departureDays = daysUntil(after.from); }
+      }
+      const hasDeparture = !!departureDate;
       const openCount = tasks.filter(t => t.boatId === b.id && t.status === "open").length;
-      return { b, s, hasDeparture, openCount };
+      return { b, s, hasDeparture, departureDate, departureDays, openCount };
     })
     .filter(x => x.hasDeparture || x.openCount > 0)
     .sort((x, y) => {
@@ -2696,7 +2706,7 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
       const yUrgent = y.hasDeparture && y.openCount > 0;
       if (xUrgent !== yUrgent) return xUrgent ? -1 : 1;
       if (x.hasDeparture !== y.hasDeparture) return x.hasDeparture ? -1 : 1;
-      if (x.hasDeparture && y.hasDeparture) return x.s.nextEventDays - y.s.nextEventDays;
+      if (x.hasDeparture && y.hasDeparture) return x.departureDays - y.departureDays;
       return y.openCount - x.openCount;
     });
   return (
@@ -2725,8 +2735,8 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
         {boatListOpen && (
           <div style={{ marginTop: 10 }}>
             {boatRows.length === 0 && <div style={{ color: COLORS.sub, fontSize: 14 }}>Καμία δηλωμένη αναχώρηση ή ανοιχτή εργασία αυτή τη στιγμή.</div>}
-            {boatRows.map(({ b, s, hasDeparture, openCount }, i) => {
-              const du = s.nextEventDays;
+            {boatRows.map(({ b, s, hasDeparture, departureDate, departureDays, openCount }, i) => {
+              const du = departureDays;
               const urgentRow = hasDeparture && du <= 2;
               const soonRow = !urgentRow && hasDeparture && du <= 7;
               const badgeBg = urgentRow ? COLORS.red : soonRow ? COLORS.amber : COLORS.bg;
@@ -2741,7 +2751,7 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     {hasDeparture && (
                       <span style={{ color: urgentRow ? COLORS.red : COLORS.sub, fontSize: 13 }}>
-                        {fmtDate(s.departureDate)} ({du <= 0 ? "σήμερα" : `σε ${du}μ`})
+                        {fmtDate(departureDate)} ({du <= 0 ? "σήμερα" : `σε ${du}μ`})
                       </span>
                     )}
                     {openCount > 0 ? (
@@ -3084,7 +3094,10 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
     if (!newFrom || !newTo) { showToast("Συμπλήρωσε από/έως"); return; }
     if (newTo < newFrom) { showToast("Η λήξη πρέπει να είναι μετά την έναρξη"); return; }
     const charters = getCharters(b);
-    const overlap = charters.some(c => newFrom <= c.to && c.from <= newTo);
+    // Επιτρέπουμε ρητά το ίδιο σκάφος να επιστρέφει και να ξαναφεύγει την ΙΔΙΑ μέρα (π.χ. γυρίζει Σάββατο πρωί,
+    // φεύγει ξανά Σάββατο απόγευμα) — γι' αυτό ο έλεγχος επικάλυψης είναι «ανοιχτός» στα άκρα (< / >), όχι
+    // «κλειστός» (<= / >=), παρότι η κατάσταση του σκάφους μετράει την ημέρα επιστροφής ως πλήρη μέρα ναύλου.
+    const overlap = charters.some(c => newFrom < c.to && c.from < newTo);
     if (overlap) { showToast("Επικαλύπτεται με υπάρχον ναύλο"); return; }
     const next = [...charters, { id: "c" + Date.now(), from: newFrom, to: newTo }].sort((a, c) => a.from.localeCompare(c.from));
     persistBoats(boats.map(x => x.id === b.id ? { ...x, charters: next, atSea: false, departureDate: null, returnDate: null } : x));
