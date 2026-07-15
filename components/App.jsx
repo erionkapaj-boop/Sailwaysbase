@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.66";
+const APP_VERSION = "v3.68";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -89,6 +89,19 @@ const deadlineLabel = (t, dl) => {
 };
 const localMidnight = (dateStr) => { const [y, m, d] = String(dateStr).slice(0, 10).split("-").map(Number); return new Date(y, m - 1, d); };
 const daysUntil = (d) => { if (!d) return null; return Math.ceil((new Date(d) - localMidnight(todayStr())) / 86400000); };
+
+// Ορατότητα εσωτερικών μηνυμάτων. Τα κανονικά μηνύματα (ανθρώπων) μένουν ορατά 8 ώρες από την αποστολή.
+// Τα αυτόματα μηνύματα «κλείσιμο σκάφους» (kind="closing-alert") έχουν δικό τους κανόνα: μένουν ορατά μέχρι
+// τις 11:00 το επόμενο πρωί από την αποστολή τους — αρκετός χρόνος να τα δει κανείς το βράδυ, αλλά χωρίς να
+// γίνονται «θόρυβος» στην πρώτη εικόνα των εργασιών της επόμενης μέρας.
+const isNoteVisible = (n) => {
+  if (n.kind === "closing-alert") {
+    const sent = new Date(n.at);
+    const cutoff = new Date(sent.getFullYear(), sent.getMonth(), sent.getDate() + 1, 11, 0, 0, 0);
+    return Date.now() < cutoff.getTime();
+  }
+  return Date.now() - new Date(n.at).getTime() < 8 * 3600 * 1000;
+};
 
 // Λήψη CSV από τον browser — rows: array of arrays, το πρώτο row είναι πάντα η επικεφαλίδα.
 // \uFEFF (BOM) μπροστά ώστε το Excel να διαβάζει σωστά τους ελληνικούς χαρακτήρες.
@@ -512,6 +525,28 @@ function AppInner() {
     await persistTasks([...newTasks, ...src]);
   };
 
+  // Στις 19:00, ό,τι «Κλείσιμο σκάφους» δεν έχει ολοκληρωθεί ακόμα δεν πρέπει να μείνει κρεμασμένο μέχρι το πρωί —
+  // ως το πρωί τα σκάφη έχουν ήδη ανοίξει κανονικά από τους υπαλλήλους, οπότε δεν έχει νόημα να εμφανίζεται πια.
+  // Η εργασία «κλείνει» (παύει να είναι ανοιχτή), στέλνεται ενιαίο μήνυμα στους Base Managers ώστε να τηλεφωνήσουν
+  // στον υπεύθυνο το ίδιο βράδυ, και καταγράφεται μόνιμη σημείωση στη μνήμη του AI για τον καθένα.
+  const expireMissedClosings = async () => {
+    const today = todayStr();
+    const missed = tasks.filter(t => t.closingCheck && t.status === "open" && t.closingDate <= today);
+    if (!missed.length) return;
+    const boatName = (id) => boats.find(b => b.id === id)?.name || "σκάφος";
+    const empName = (id) => users.find(u => u.id === id)?.name || "άγνωστος υπάλληλος";
+    const managerIds = users.filter(u => u.role === "manager").map(u => u.id);
+    if (managerIds.length) {
+      const summary = missed.map(t => `${boatName(t.boatId)} (${empName(t.assignedTo)})`).join(" · ");
+      await sendNote(managerIds, `⚠ Δεν έκλεισαν μέχρι τις 19:00 — χρειάζεται τηλεφώνημα: ${summary}`, "system", "closing-alert");
+    }
+    for (const t of missed) {
+      await addAiMemory(`Ο/Η ${empName(t.assignedTo)} δεν ολοκλήρωσε το κλείσιμο του σκάφους ${boatName(t.boatId)} μέχρι τις 19:00 (${fmtDate(t.closingDate)}).`, "system");
+    }
+    const missedIds = new Set(missed.map(t => t.id));
+    await persistTasks(tasks.map(x => missedIds.has(x.id) ? { ...x, status: "expired", expiredAt: new Date().toISOString() } : x));
+  };
+
   // Ελέγχοι κλεισίματος: εμφανίζονται αυτόματα μετά τις 15:30, μία φορά τη μέρα, στο πρώτο άνοιγμα της εφαρμογής μετά την ώρα αυτή
   useEffect(() => {
     if (!ready || !me) return;
@@ -522,6 +557,19 @@ function AppInner() {
       if (meta.lastClosingCheck === todayStr()) return;
       await save("app-meta", { ...meta, lastClosingCheck: todayStr() });
       await generateClosingChecks();
+    })();
+  }, [ready, me]);
+
+  // Λήξη ανοιχτών ελέγχων κλεισίματος: στο πρώτο άνοιγμα της εφαρμογής μετά τις 19:00, μία φορά τη μέρα
+  useEffect(() => {
+    if (!ready || !me) return;
+    (async () => {
+      const now = new Date();
+      if (now.getHours() < 19) return;
+      const meta = await load("app-meta", {});
+      if (meta.lastClosingExpiry === todayStr()) return;
+      await save("app-meta", { ...meta, lastClosingExpiry: todayStr() });
+      await expireMissedClosings();
     })();
   }, [ready, me]);
 
@@ -949,10 +997,10 @@ ${histLines}
     showToast("Η απουσία διαγράφηκε");
   };
 
-  const sendNote = async (recipientIds, text) => {
-    const n = { id: "n" + Date.now(), from: acting.id, to: recipientIds, text, at: new Date().toISOString() };
+  const sendNote = async (recipientIds, text, fromOverride, kind) => {
+    const n = { id: "n" + Date.now(), from: fromOverride || acting.id, to: recipientIds, text, at: new Date().toISOString(), ...(kind ? { kind } : {}) };
     await persistNotes([n, ...notes]);
-    showToast("Το μήνυμα στάλθηκε");
+    if (!fromOverride) showToast("Το μήνυμα στάλθηκε");
   };
   const deleteNote = async (id) => {
     await persistNotes(notes.filter(n => n.id !== id));
@@ -969,8 +1017,8 @@ ${histLines}
     showToast("Η παρατήρηση διαγράφηκε");
   };
   const persistAiMemories = async (next) => { setAiMemories(next); await save("app-aimemories", next); };
-  const addAiMemory = async (text) => {
-    const m = { id: "am" + Date.now(), text, at: new Date().toISOString(), by: acting.id };
+  const addAiMemory = async (text, byOverride) => {
+    const m = { id: "am" + Date.now(), text, at: new Date().toISOString(), by: byOverride || acting.id };
     await persistAiMemories([m, ...aiMemories]);
   };
   const deleteAiMemory = async (id) => {
@@ -1781,12 +1829,11 @@ function ExternalReminders({ me, tasks, boats, onAck, onProgress, onCloseExterna
 
 function MyNotes({ me, notes, users }) {
   const [idx, setIdx] = useState(0);
-  const eightHoursAgo = Date.now() - 8 * 3600 * 1000;
-  const mine = notes.filter(n => n.to.includes(me.id) && new Date(n.at).getTime() >= eightHoursAgo)
+  const mine = notes.filter(n => n.to.includes(me.id) && isNoteVisible(n))
     .sort((a, b) => b.at.localeCompare(a.at));
   if (mine.length === 0) return null;
   const shown = mine[Math.min(idx, mine.length - 1)];
-  const senderName = users.find(u => u.id === shown.from)?.name || "";
+  const senderName = users.find(u => u.id === shown.from)?.name || "Σύστημα";
   const timeAgo = (() => {
     const mins = Math.round((Date.now() - new Date(shown.at).getTime()) / 60000);
     if (mins < 60) return `${mins}λ`;
