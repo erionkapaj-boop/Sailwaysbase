@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.79";
+const APP_VERSION = "v3.80";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -506,7 +506,7 @@ function AppInner() {
   const generateClosingChecks = async (tasksOverride) => {
     const src = tasksOverride || tasks;
     const today = todayStr();
-    const inPort = boats.filter(b => !boatStatus(b).atSea);
+    const inPort = boats.filter(b => !isBoatAway(b));
     if (!inPort.length) return;
     const alreadyBoatIds = new Set(src.filter(t => t.closingCheck && t.closingDate === today).map(t => t.boatId));
     const need = inPort.filter(b => !alreadyBoatIds.has(b.id));
@@ -662,7 +662,7 @@ ${rules.map(r => "- " + r).join("\n")}
       return;
     }
     try {
-      const inPort = boats.filter(b => !boatStatus(b).atSea);
+      const inPort = boats.filter(b => !isBoatAway(b));
       // Πρόσφατο ιστορικό ανά σκάφος για να αποφευχθεί επανάληψη ίδιου σημείου
       const recentByBoat = Object.fromEntries(inPort.map(b => [b.id,
         src.filter(t => t.boatId === b.id && t.completedAt && (Date.now() - new Date(t.completedAt).getTime()) <= 21 * 24 * 60 * 60 * 1000)
@@ -1115,8 +1115,8 @@ ${histLines}
     // Ενεργοποίηση ελέγχου αναχώρησης για σκάφη στη βάση που έχουν επόμενη αναχώρηση εντός 2 ημερών —
     // ώστε να υπάρχει χρόνος ετοιμασίας, χωρίς να ανοίγει πολύ νωρίς.
     const need = boats.filter(b => {
-      const s = boatStatus(b);
-      return !s.atSea && s.nextEventType === "depart" && s.nextEventDays !== null && s.nextEventDays <= 2
+      const nd = nextDeparture(b);
+      return nd && nd.days !== null && nd.days <= 2
         && !src.some(t => t.boatId === b.id && t.status === "open" && t.checklistItems);
     });
     if (!need.length) return src;
@@ -1826,12 +1826,18 @@ function DeparturesWidget({ boats }) {
               <span style={{ color: s.nextEventDays <= 1 ? COLORS.red : COLORS.amber, fontWeight: 700 }}>{s.nextEventDays <= 0 ? "Φεύγει σήμερα" : `Φεύγει σε ${s.nextEventDays}μ — ${fmtDate(s.nextEventDate)}`}</span>
             </div>
           ))}
-          {returning.map(({ b, s }) => (
-            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
-              <span>🌊 {b.name}</span>
-              <span style={{ color: COLORS.teal, fontWeight: 700 }}>{s.nextEventDays <= 0 ? "Επιστρέφει σήμερα" : `Επιστρέφει σε ${s.nextEventDays}μ — ${fmtDate(s.nextEventDate)}`}</span>
-            </div>
-          ))}
+          {returning.map(({ b, s }) => {
+            const isBackToday = s.nextEventDays <= 0;
+            const nd = isBackToday ? nextDeparture(b) : null;
+            return (
+              <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
+                <span>{isBackToday ? "🏠 " : "🌊 "}{b.name}</span>
+                <span style={{ color: isBackToday ? COLORS.green : COLORS.teal, fontWeight: 700 }}>
+                  {isBackToday ? (nd ? `Επέστρεψε σήμερα — φεύγει ξανά σε ${nd.days <= 0 ? "λίγο" : `${nd.days}μ`}` : "Επέστρεψε σήμερα") : `Επιστρέφει σε ${s.nextEventDays}μ — ${fmtDate(s.nextEventDate)}`}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -2183,16 +2189,7 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
   // Χωρίς συγκεκριμένο φίλτρο σκάφους, οι εργασίες σκαφών που βρίσκονται ΤΩΡΑ στη βάση έρχονται πρώτες (πιο άμεσα
   // αξιοποιήσιμες) — αλλά καμία εργασία δεν κρύβεται: όσα ανήκουν σε σκάφος εν πλω απλά ακολουθούν από κάτω, και
   // παραμένουν πάντα αναζητήσιμα επιλέγοντας το συγκεκριμένο σκάφος από το φίλτρο.
-  const atBaseNow = (t) => {
-    if (!t.boatId) return true;
-    const b = boats.find(x => x.id === t.boatId);
-    if (!b) return true;
-    const s = boatStatus(b);
-    if (!s.atSea) return true;
-    // Τυπικά «εν πλω» ακόμα, αλλά αν επιστρέφει ΣΗΜΕΡΑ μετράει σαν να είναι ήδη στη βάση — μπορεί να έχει ήδη
-    // γυρίσει νωρίτερα μέσα στη μέρα, πόσο μάλλον αν φεύγει ξανά αμέσως μετά (γρήγορη επόμενη αναχώρηση).
-    return s.returnDate === todayStr();
-  };
+  const atBaseNow = (t) => { if (!t.boatId) return true; const b = boats.find(x => x.id === t.boatId); return b ? !isBoatAway(b) : true; };
   const prioritized = boatFilter ? byBoat : [...byBoat].sort((a, c) => (atBaseNow(c) ? 1 : 0) - (atBaseNow(a) ? 1 : 0));
   const qLower = q.trim().toLowerCase();
   const shown = qLower ? prioritized.filter(t => (t.desc || "").toLowerCase().includes(qLower)) : prioritized;
@@ -2216,7 +2213,7 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
       )}
       <select value={boatFilter} onChange={e => setBoatFilter(e.target.value)} style={{ ...inputStyle, marginBottom: 10 }}>
         <option value="">{tr("Όλα τα σκάφη")}</option>
-        {boats.map(b => <option key={b.id} value={b.id}>{b.name}{boatStatus(b).atSea ? " (εν πλω)" : ""}</option>)}
+        {boats.map(b => <option key={b.id} value={b.id}>{b.name}{isBoatAway(b) ? " (εν πλω)" : ""}</option>)}
         <option value="other">{tr("Βάση / Άλλο")}</option>
       </select>
       <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Αναζήτηση στις εργασίες…" style={{ ...inputStyle, marginBottom: 12 }} />
@@ -2275,7 +2272,7 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
         <label style={lbl}>{tr("Σκάφος")}</label>
         <select value={boatId} onChange={e => setBoatId(e.target.value)} style={inputStyle}>
           <option value="">{tr("Βάση / Άλλο (van, εργαλεία…)")}</option>
-          {boats.map(b => <option key={b.id} value={b.id}>{b.name}{boatStatus(b).atSea ? ` (${tr("εν πλω")})` : ""}</option>)}
+          {boats.map(b => <option key={b.id} value={b.id}>{b.name}{isBoatAway(b) ? ` (${tr("εν πλω")})` : ""}</option>)}
         </select>
 
         <label style={lbl}>{tr("Περιγραφή")}</label>
@@ -2491,7 +2488,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
       <SectionTitle>{tr("Βιβλίο service")}</SectionTitle>
       <select value={boatId} onChange={e => setBoatId(e.target.value)} style={{ ...inputStyle, marginBottom: 10 }}>
         <option value="">{tr("Όλα τα σκάφη")}</option>
-        {boats.map(b => <option key={b.id} value={b.id}>{b.name}{boatStatus(b).atSea ? " (εν πλω)" : ""}</option>)}
+        {boats.map(b => <option key={b.id} value={b.id}>{b.name}{isBoatAway(b) ? " (εν πλω)" : ""}</option>)}
       </select>
       <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Αναζήτηση σε περιγραφή, σημείωση, σκάφος…" style={{ ...inputStyle, marginBottom: 10 }} />
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
@@ -2678,27 +2675,17 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
   const external = tasks.filter(t => t.status === "external");
   const purchases = tasks.filter(t => t.status === "open" && t.purchase);
   const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
-  // Ενοποιημένη λίστα σκαφών: αναχωρήσεις + ανοιχτές εργασίες μαζί, ένα card, tap → Εργασίες φιλτραρισμένες
-  // Σκάφος που τυπικά είναι ακόμα «εν πλω» αλλά επιστρέφει ΣΗΜΕΡΑ πρέπει να φαίνεται εδώ κανονικά — μπορεί να
-  // έχει ήδη γυρίσει νωρίτερα μέσα στη μέρα. Χωρίς αυτό, ένα σκάφος σαν το «Σοφία II» θα εξαφανιζόταν εντελώς
-  // από την Επισκόπηση όλη τη μέρα της επιστροφής, ακριβώς την ημέρα που έχει τη μεγαλύτερη σημασία να φαίνεται.
+  // Ενοποιημένη λίστα σκαφών: αναχωρήσεις + ανοιχτές εργασίες μαζί, ένα card, tap → Εργασίες φιλτραρισμένες.
+  // Χρησιμοποιεί τις κοινές συναρτήσεις isBoatAway/nextDeparture (ίδιες σε όλη την εφαρμογή) — ένα σκάφος που
+  // επιστρέφει σήμερα φαίνεται εδώ κανονικά, και τυχόν γρήγορη επόμενη αναχώρησή του δεν χάνεται.
   const boatRows = boats
-    .filter(b => { const s = boatStatus(b); return !s.atSea || s.returnDate === todayStr(); })
+    .filter(b => !isBoatAway(b))
     .map(b => {
       const s = boatStatus(b);
-      // Το boatStatus δείχνει μόνο ΕΝΑ επόμενο γεγονός. Αν το σκάφος είναι ακόμα τυπικά «εν πλω» σήμερα (επιστρέφει
-      // σήμερα), δείχνει nextEventType="return" και «κρύβει» τυχόν επόμενη αναχώρηση αμέσως μετά — γι' αυτό εδώ
-      // ψάχνουμε ρητά για ναύλο που ξεκινάει μετά την τρέχουσα επιστροφή, ώστε μια γρήγορη επόμενη αναχώρηση
-      // (π.χ. φεύγει ξανά το ίδιο απόγευμα) να μη χάνεται από την Επισκόπηση.
-      let departureDate = null, departureDays = null;
-      if (s.nextEventType === "depart") { departureDate = s.nextEventDate; departureDays = s.nextEventDays; }
-      else if (s.atSea) {
-        const after = getCharters(b).filter(c => c.from > s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
-        if (after) { departureDate = after.from; departureDays = daysUntil(after.from); }
-      }
-      const hasDeparture = !!departureDate;
+      const nd = nextDeparture(b);
+      const hasDeparture = !!nd;
       const openCount = tasks.filter(t => t.boatId === b.id && t.status === "open").length;
-      return { b, s, hasDeparture, departureDate, departureDays, openCount };
+      return { b, s, hasDeparture, departureDate: nd?.date || null, departureDays: nd?.days ?? null, openCount };
     })
     .filter(x => x.hasDeparture || x.openCount > 0)
     .sort((x, y) => {
@@ -2901,6 +2888,28 @@ const boatStatus = (b) => {
   if (b?.atSea) return { atSea: true, departureDate: null, returnDate: b.returnDate || null, nextEventType: b.returnDate ? "return" : null, nextEventDate: b.returnDate || null, nextEventDays: b.returnDate ? daysUntil(b.returnDate) : null };
   if (b?.departureDate) return { atSea: false, departureDate: b.departureDate, returnDate: b.returnDate || null, nextEventType: "depart", nextEventDate: b.departureDate, nextEventDays: daysUntil(b.departureDate) };
   return { atSea: false, departureDate: null, returnDate: null, nextEventType: null, nextEventDate: null, nextEventDays: null };
+};
+
+// ---------- Κεντρικές, ΜΟΝΑΔΙΚΕΣ συναρτήσεις για «είναι πρακτικά μακριά/στη βάση τώρα» ----------
+// Η ημέρα επιστροφής μετράει ΠΑΝΤΑ ως πλήρης μέρα ναύλου στο boatStatus/atSea (σωστό για το ημερολόγιο ναύλων —
+// βλ. σχόλιο μέσα στο boatStatus). Όμως για ΟΤΙΔΗΠΟΤΕ άλλο — λίστες, φίλτρα, αυτόματες αναθέσεις, κείμενο προς το
+// AI — ένα σκάφος που επιστρέφει σήμερα πρέπει να αντιμετωπίζεται σαν να είναι ήδη (ή σχεδόν) στη βάση, γιατί
+// μπορεί να έχει ήδη γυρίσει νωρίτερα μέσα στη μέρα. Αυτή η εξαίρεση ορίζεται ΕΔΩ, μία φορά, και χρησιμοποιείται
+// παντού — ώστε να μη χρειάζεται να ξαναγράφεται (και να ξεχνιέται) σε κάθε σημείο ξεχωριστά.
+// Εξαίρεση σε αυτόν τον κανόνα: η καρτέλα «Σκάφη» (πρόγραμμα ναύλων) δείχνει σκόπιμα το ακριβές atSea, γιατί
+// εκεί η ακρίβεια του προγράμματος έχει σημασία, όχι η πρακτική εικόνα της μέρας.
+const isBoatAway = (b) => { const s = boatStatus(b); return s.atSea && s.returnDate !== todayStr(); };
+// Επόμενη προγραμματισμένη αναχώρηση ενός σκάφους, ΑΚΟΜΑ ΚΙ ΑΝ το boatStatus δείχνει «επιστροφή» επειδή το
+// σκάφος είναι τυπικά «εν πλω» σήμερα (μέρα επιστροφής) — ψάχνει ρητά για ναύλο που ξεκινάει μετά την τρέχουσα
+// επιστροφή, ώστε μια γρήγορη επόμενη αναχώρηση (π.χ. φεύγει ξανά το ίδιο απόγευμα) να μη «χάνεται» ποτέ.
+const nextDeparture = (b) => {
+  const s = boatStatus(b);
+  if (s.nextEventType === "depart") return { date: s.nextEventDate, days: s.nextEventDays };
+  if (s.atSea) {
+    const after = getCharters(b).filter(c => c.from > s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
+    if (after) return { date: after.from, days: daysUntil(after.from) };
+  }
+  return null;
 };
 
 function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, onDeleteBoat }) {
@@ -3410,7 +3419,13 @@ function AiSearch({ tasks, boats, users, aiMemories, onAddMemory, onDeleteMemory
 ΣΚΑΦΗ & ΠΡΟΓΡΑΜΜΑ ΝΑΥΛΩΝ ΣΕΖΟΝ:\n${boats.map(b => {
         const s = boatStatus(b);
         const chs = getCharters(b);
-        const now = s.atSea ? `τώρα ΕΝ ΠΛΩ (επιστρέφει ${fmtDate(s.returnDate)})` : s.nextEventType === "depart" ? `τώρα στη βάση (επόμενη αναχώρηση ${fmtDate(s.departureDate)})` : "τώρα στη βάση (κανένα προγραμματισμένο ναύλο)";
+        const nd = nextDeparture(b);
+        const departText = nd ? ` (επόμενη αναχώρηση ${fmtDate(nd.date)})` : " (κανένα προγραμματισμένο ναύλο μετά)";
+        const now = s.atSea
+          ? (s.returnDate === todayStr()
+              ? `επιστρέφει ΣΗΜΕΡΑ (${fmtDate(s.returnDate)}) — μπορεί να έχει ήδη γυρίσει στη βάση νωρίτερα μέσα στη μέρα${departText}`
+              : `τώρα ΕΝ ΠΛΩ (επιστρέφει ${fmtDate(s.returnDate)})`)
+          : `τώρα στη βάση${departText}`;
         const list = chs.length ? chs.map(c => `${c.from}→${c.to}`).join(", ") : "κανένα";
         return `${b.name}: ${now}. Ναύλα σεζόν: ${list}`;
       }).join("\n")}
