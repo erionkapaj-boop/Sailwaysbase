@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.80";
+const APP_VERSION = "v3.81";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -89,6 +89,30 @@ const deadlineLabel = (t, dl) => {
 };
 const localMidnight = (dateStr) => { const [y, m, d] = String(dateStr).slice(0, 10).split("-").map(Number); return new Date(y, m - 1, d); };
 const daysUntil = (d) => { if (!d) return null; return Math.ceil((new Date(d) - localMidnight(todayStr())) / 86400000); };
+const dateStrOf = (d) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+
+// ---------- Ώρα αναχώρησης ναύλου που φεύγει ΣΗΜΕΡΑ ----------
+// Ένα σκάφος με ναύλο που ξεκινά σήμερα δεν θεωρείται «εν πλω» αμέσως το πρωί — μέχρι την ώρα αναχώρησης
+// συνεχίζει να δείχνει ότι έχει δουλειές στη βάση (κανονικές εργασίες/κατανομή), όπως κάθε σκάφος στο λιμάνι.
+// Κανόνας:
+// - Προεπιλογή: αναχώρηση στις 18:00 το απόγευμα της ίδιας μέρας.
+// - Αν ο ναύλος καταχωρηθεί ο ίδιος ΜΕΤΑ τις 18:00 της ίδιας μέρας αναχώρησης (καταχώρηση της τελευταίας
+//   στιγμής, π.χ. στις 19:00 για αναχώρηση «σήμερα»), δίνεται περιθώριο 2 ωρών από την ώρα καταχώρησης
+//   αντί για το σταθερό 18:00 — ώστε να προλαβαίνει να φανεί ότι υπάρχουν ακόμα δουλειές στο σκάφος.
+const DEPARTURE_CUTOFF = { h: 18, m: 0 };
+const LATE_CHARTER_GRACE_MS = 2 * 60 * 60 * 1000;
+const departureCutoffInstant = (charter) => {
+  const defaultCutoff = localMidnight(charter.from);
+  defaultCutoff.setHours(DEPARTURE_CUTOFF.h, DEPARTURE_CUTOFF.m, 0, 0);
+  if (charter.createdAt) {
+    const created = new Date(charter.createdAt);
+    if (dateStrOf(created) === charter.from && created.getTime() > defaultCutoff.getTime()) {
+      return new Date(created.getTime() + LATE_CHARTER_GRACE_MS);
+    }
+  }
+  return defaultCutoff;
+};
+const departureCutoffPassed = (charter) => Date.now() >= departureCutoffInstant(charter).getTime();
 
 // Ορατότητα εσωτερικών μηνυμάτων. Τα κανονικά μηνύματα (ανθρώπων) μένουν ορατά 8 ώρες από την αποστολή.
 // Τα αυτόματα μηνύματα «κλείσιμο σκάφους» (kind="closing-alert") έχουν δικό τους κανόνα: μένουν ορατά μέχρι
@@ -2871,7 +2895,10 @@ const boatStatus = (b) => {
   const today = todayStr();
   const charters = getCharters(b);
   if (charters.length) {
-    const current = charters.find(c => c.from <= today && today <= c.to); // μέσα σε ναύλο — η μέρα επιστροφής μετράει ΑΚΟΜΑ ως πλήρης μέρα ναύλου· το σκάφος είναι ελεύθερο μόνο από την επόμενη μέρα
+    // μέσα σε ναύλο — η μέρα επιστροφής μετράει ΑΚΟΜΑ ως πλήρης μέρα ναύλου· το σκάφος είναι ελεύθερο μόνο από την επόμενη μέρα.
+    // Εξαίρεση: αν ο ναύλος ΞΕΚΙΝΑΕΙ σήμερα, δεν θεωρείται «εν πλω» πριν περάσει η ώρα αναχώρησης (βλ. departureCutoffPassed) —
+    // μέχρι τότε παραμένει πρακτικά «επόμενος ναύλος» και το σκάφος συνεχίζει να δείχνει δουλειές στη βάση.
+    const current = charters.find(c => c.from <= today && today <= c.to && !(c.from === today && !departureCutoffPassed(c)));
     const upcoming = charters.filter(c => c.from >= today).sort((a, c) => a.from.localeCompare(c.from));
     if (current) {
       const du = daysUntil(current.to);
@@ -3108,7 +3135,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
     // «κλειστός» (<= / >=), παρότι η κατάσταση του σκάφους μετράει την ημέρα επιστροφής ως πλήρη μέρα ναύλου.
     const overlap = charters.some(c => newFrom < c.to && c.from < newTo);
     if (overlap) { showToast("Επικαλύπτεται με υπάρχον ναύλο"); return; }
-    const next = [...charters, { id: "c" + Date.now(), from: newFrom, to: newTo }].sort((a, c) => a.from.localeCompare(c.from));
+    const next = [...charters, { id: "c" + Date.now(), from: newFrom, to: newTo, createdAt: new Date().toISOString() }].sort((a, c) => a.from.localeCompare(c.from));
     persistBoats(boats.map(x => x.id === b.id ? { ...x, charters: next, atSea: false, departureDate: null, returnDate: null } : x));
     setNewFrom(""); setNewTo(""); setCustomDays(""); showToast("Προστέθηκε ναύλο");
   };
@@ -3131,7 +3158,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
                   <b>{b.name}</b>
                   <span style={{ color: COLORS.sub, fontSize: 12.5 }}>{b.type}</span>
                   <span style={{ fontSize: 11.5, fontWeight: 700, color: r.statusColor, background: "#EEF1F4", padding: "2px 8px", borderRadius: 999 }}>
-                    {s.atSea ? "🌊 " : ""}{r.statusText}{s.atSea ? ` ${fmtDate(s.returnDate)}` : ""}
+                    {s.atSea ? "🌊 " : ""}{r.statusText}{s.atSea ? ` ${s.returnDate === todayStr() ? "σήμερα" : fmtDate(s.returnDate)}` : ""}
                   </span>
                   {r.extra && (
                     <span style={{ fontSize: 11.5, fontWeight: 700, color: r.extra.color, background: "#E9F7EF", padding: "2px 8px", borderRadius: 999 }}>
