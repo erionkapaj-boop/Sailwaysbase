@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.69";
+const APP_VERSION = "v3.70";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -1380,6 +1380,8 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const [confidence, setConfidence] = useState(null);
   const [showOriginal, setShowOriginal] = useState(false);
   const [completionNote, setCompletionNote] = useState("");
+  const [aiReview, setAiReview] = useState(null);
+  const [aiReviewBusy, setAiReviewBusy] = useState(false);
   const [helpText, setHelpText] = useState(null);
   const [helpBusy, setHelpBusy] = useState(false);
   const [helpQuery, setHelpQuery] = useState("");
@@ -1399,12 +1401,28 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const startComplete = (conf) => {
     setConfidence(conf);
     setCompleteAsId(t.assignedTo || me.id);
+    setAiReview(null);
     setMode("confirmComplete");
+  };
+  const finalizeComplete = (finalNote) => {
+    onComplete(t, isMgr ? completeAsId : null, afterPhotos, confidence, finalNote);
+    setMode(null); setOpen(false); setAfterPhotos([]); setConfidence(null); setCompletionNote(""); setAiReview(null);
   };
   const confirmComplete = () => {
     if (!completionNote.trim()) return;
-    onComplete(t, isMgr ? completeAsId : null, afterPhotos, confidence, completionNote.trim());
-    setMode(null); setOpen(false); setAfterPhotos([]); setConfidence(null); setCompletionNote("");
+    finalizeComplete(completionNote.trim());
+  };
+  // Προαιρετική διόρθωση της σημείωσης ολοκλήρωσης από AI — καθαρίζει τη διατύπωση ώστε να είναι κατανοητή από
+  // όλη την ομάδα, ΧΩΡΙΣ να αλλάζει τα γεγονότα. Ο χρήστης βλέπει το αποτέλεσμα και το εγκρίνει πριν οριστικοποιηθεί.
+  const requestAiCorrection = async () => {
+    if (!completionNote.trim()) return;
+    setAiReviewBusy(true);
+    try {
+      const prompt = `Διόρθωσε το παρακάτω κείμενο που περιγράφει πρόβλημα/λύση σε εργασία συντήρησης σκάφους, ώστε να είναι σαφές, σωστά γραμμένο στα ελληνικά και κατανοητό από όλη την ομάδα. ΜΗΝ αλλάξεις κανένα γεγονός και μην προσθέσεις πληροφορία που δεν υπάρχει στο πρωτότυπο — μόνο διατύπωση/ορθογραφία. Κράτα το σύντομο. Απάντησε ΜΟΝΟ με το διορθωμένο κείμενο, χωρίς εισαγωγικά, χωρίς σχόλια.\n\nΚείμενο: ${completionNote.trim()}`;
+      const out = await askClaude(prompt, 220);
+      setAiReview((out || "").trim() || completionNote.trim());
+    } catch { setAiReview(completionNote.trim()); }
+    setAiReviewBusy(false);
   };
 
   return (
@@ -1676,12 +1694,26 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                 <MicButton onResult={(txt) => setCompletionNote(p => (p ? p.trim() + " " : "") + txt)} />
               </div>
               <div style={{ fontSize: 11.5, color: COLORS.sub, marginBottom: 6 }}>{tr("Πες σύντομα τι έκανες — και τι πρόβλημα αντιμετώπισες, αν υπήρχε.")}</div>
-              <textarea value={completionNote} onChange={e => setCompletionNote(e.target.value)} rows={2} placeholder={tr("π.χ. Η αντλία σεντίνας δεν λειτουργούσε· καθάρισα το φίλτρο και δούλεψε κανονικά — γράψε ή πάτα 🎤")} style={inputStyle} />
-              <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 6 }}>🧠 {tr("Υποχρεωτικό — καταγράφεται μόνιμα στη μνήμη του AI και στο ιστορικό του σκάφους.")}</div>
-              <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                <Btn color={completionNote.trim() ? COLORS.green : COLORS.line} onClick={confirmComplete}>{tr("Επιβεβαίωση ✔")}</Btn>
-                <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); setConfidence(null); setCompletionNote(""); }}>{tr("Άκυρο")}</Btn>
-              </div>
+              {aiReview !== null ? (
+                <div>
+                  <div style={{ fontSize: 12.5, color: COLORS.sub, fontWeight: 700, marginBottom: 6 }}>✨ {tr("Διορθωμένο κείμενο — έλεγξε πριν ολοκληρώσεις:")}</div>
+                  <div style={{ background: COLORS.bg, borderRadius: 8, padding: 10, fontSize: 14, marginBottom: 10, lineHeight: 1.4 }}>{aiReview}</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Btn color={COLORS.green} onClick={() => finalizeComplete(aiReview)}>{tr("✔ Οκ, ολοκλήρωση")}</Btn>
+                    <Btn color={COLORS.sub} outline onClick={() => setAiReview(null)}>{tr("✎ Πίσω, να το ξαναγράψω")}</Btn>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <textarea value={completionNote} onChange={e => setCompletionNote(e.target.value)} rows={2} placeholder={tr("π.χ. Η αντλία σεντίνας δεν λειτουργούσε· καθάρισα το φίλτρο και δούλεψε κανονικά — γράψε ή πάτα 🎤")} style={inputStyle} />
+                  <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 6 }}>🧠 {tr("Υποχρεωτικό — καταγράφεται μόνιμα στη μνήμη του AI και στο ιστορικό του σκάφους.")}</div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                    <Btn color={completionNote.trim() ? COLORS.green : COLORS.line} onClick={requestAiCorrection}>{aiReviewBusy ? tr("✨ Διόρθωση…") : tr("✨ Διόρθωση & Ολοκλήρωση")}</Btn>
+                    <Btn color={completionNote.trim() ? COLORS.teal : COLORS.line} outline onClick={confirmComplete}>{tr("⏭ Ολοκλήρωση όπως το έγραψα")}</Btn>
+                    <Btn color={COLORS.sub} outline onClick={() => { setMode(null); setAfterPhotos([]); setConfidence(null); setCompletionNote(""); setAiReview(null); }}>{tr("Άκυρο")}</Btn>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
