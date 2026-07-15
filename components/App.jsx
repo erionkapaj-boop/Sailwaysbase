@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.76";
+const APP_VERSION = "v3.77";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -262,19 +262,22 @@ function AppInner() {
   const [adminSection, setAdminSection] = useState("overview");
   const [toast, setToast] = useState(null);
   const [tasksBoatFilter, setTasksBoatFilter] = useState("");
+  const [cameFromOverview, setCameFromOverview] = useState(false);
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
-  // Πλοήγηση από «Επισκόπηση» → «Εργασίες» με το σκάφος ήδη φιλτραρισμένο
-  const goToBoatTasks = (boatId) => { setTasksBoatFilter(boatId || ""); setTab("tasks"); };
+  // Πλοήγηση από «Επισκόπηση» → «Εργασίες» με το σκάφος ήδη φιλτραρισμένο — σημειώνουμε ότι ήρθαμε από εκεί,
+  // ώστε το κουμπί «πίσω» να μπορεί να μας γυρίσει ακριβώς στην Επισκόπηση, όχι στο γενικό «Σήμερα».
+  const goToBoatTasks = (boatId) => { setTasksBoatFilter(boatId || ""); setCameFromOverview(true); setTab("tasks"); };
   // Όταν ο χρήστης πάει στις Εργασίες από το κάτω μενού, καθαρίζουμε τυχόν προηγούμενο φίλτρο σκάφους.
   // Όταν φεύγει από τη Διοίκηση, η υπο-ενότητά της επαναφέρεται πάντα στην «Επισκόπηση» — έτσι το «πίσω» είναι
   // πάντα προβλέψιμο (σταθερή ιεραρχία), όχι εξαρτημένο από το πώς έφτασε ο χρήστης εκεί (ιστορικό πλοήγησης).
-  const selectTab = (id) => { if (id === "tasks") setTasksBoatFilter(""); if (id !== "admin") setAdminSection("overview"); setTab(id); };
+  const selectTab = (id) => { if (id === "tasks") setTasksBoatFilter(""); if (id !== "admin") setAdminSection("overview"); setCameFromOverview(false); setTab(id); };
   // Κουμπί «‹ Πίσω»: πηγαίνει πάντα ένα σταθερό, προκαθορισμένο επίπεδο προς τα πίσω — ποτέ με βάση το browser
-  // history — μέχρι να φτάσει στην πρώτη σελίδα («☀ Σήμερα»). Ιεραρχία: υπο-ενότητα Διοίκησης → Επισκόπηση →
-  // Σήμερα → (αν είναι ενεργή η «Προβολή ως») έξοδος από αυτήν.
+  // history — μέχρι να φτάσει στην πρώτη σελίδα («☀ Σήμερα»). Ιεραρχία: (αν ήρθαμε από Επισκόπηση) Εργασίες →
+  // Επισκόπηση· αλλιώς υπο-ενότητα Διοίκησης → Επισκόπηση → Σήμερα → (αν είναι ενεργή η «Προβολή ως») έξοδος.
   const canGoBack = tab !== "today" || !!viewAs;
   const goBack = () => {
+    if (tab === "tasks" && cameFromOverview) { setCameFromOverview(false); setTab("admin"); setAdminSection("overview"); return; }
     if (tab === "admin" && adminSection !== "overview") { setAdminSection("overview"); return; }
     if (tab !== "today") { setTab("today"); return; }
     if (viewAs) { setViewAs(null); return; }
@@ -749,7 +752,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     });
     await persistTasks([...fresh, ...tasks]);
     showToast(`Καταχωρήθηκαν ${fresh.length} εργασίες`);
-    setTab("tasks");
+    setCameFromOverview(false); setTab("tasks");
   };
   const addTasks = async (base, descs) => {
     const now = Date.now();
@@ -764,7 +767,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     }));
     await persistTasks([...fresh, ...tasks]);
     showToast(base.backlog ? `Μπήκε σε αναμονή: ${fresh.length} εργασία/ίες` : `Καταχωρήθηκαν ${fresh.length} εργασίες`);
-    setTab("tasks");
+    setCameFromOverview(false); setTab("tasks");
   };
   const findLeonidas = () => users.find(x => ["λεωνιδας", "leonidas"].includes((x.name || "").toLowerCase().replace(/ί/g, "ι").trim()));
   const addTask = async (task, photoFiles) => {
@@ -779,7 +782,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     };
     await persistTasks([t, ...tasks]);
     showToast("Η εργασία καταχωρήθηκε");
-    setTab("tasks");
+    setCameFromOverview(false); setTab("tasks");
     if (photoFiles?.length) {
       const urls = await uploadTaskPhotos(photoFiles, id);
       if (urls.length) setTasks(cur => { const nx = cur.map(x => x.id === id ? { ...x, photos: [...(x.photos || []), ...urls] } : x); save("app-tasks", nx); return nx; });
@@ -1797,6 +1800,7 @@ function DailyGreeting({ me }) {
 }
 
 function DeparturesWidget({ boats }) {
+  const [open, setOpen] = useState(false);
   const soon = boats
     .map(b => ({ b, s: boatStatus(b) }))
     .filter(({ s }) => s.nextEventType === "depart" && s.nextEventDays !== null && s.nextEventDays <= 7)
@@ -1808,19 +1812,28 @@ function DeparturesWidget({ boats }) {
   if (!soon.length && !returning.length) return null;
   return (
     <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${COLORS.line}` }}>
-      <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 8 }}>⚓ Αναχωρήσεις & Επιστροφές (7 μέρες)</div>
-      {soon.map(({ b, s }) => (
-        <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
-          <span>⏰ {b.name}</span>
-          <span style={{ color: s.nextEventDays <= 1 ? COLORS.red : COLORS.amber, fontWeight: 700 }}>{s.nextEventDays <= 0 ? "Φεύγει σήμερα" : `Φεύγει σε ${s.nextEventDays}μ — ${fmtDate(s.nextEventDate)}`}</span>
+      <button onClick={() => setOpen(!open)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, textAlign: "left" }}>
+        <span style={{ fontWeight: 800, fontSize: 14 }}>⚓ Αναχωρήσεις & Επιστροφές (7 μέρες)</span>
+        <span style={{ fontSize: 13, color: COLORS.sub, fontWeight: 700 }}>
+          {!open ? `${soon.length ? `${soon.length} φεύγουν` : ""}${soon.length && returning.length ? " · " : ""}${returning.length ? `${returning.length} επιστρέφουν` : ""} ▸` : "▾"}
+        </span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          {soon.map(({ b, s }) => (
+            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
+              <span>⏰ {b.name}</span>
+              <span style={{ color: s.nextEventDays <= 1 ? COLORS.red : COLORS.amber, fontWeight: 700 }}>{s.nextEventDays <= 0 ? "Φεύγει σήμερα" : `Φεύγει σε ${s.nextEventDays}μ — ${fmtDate(s.nextEventDate)}`}</span>
+            </div>
+          ))}
+          {returning.map(({ b, s }) => (
+            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
+              <span>🌊 {b.name}</span>
+              <span style={{ color: COLORS.teal, fontWeight: 700 }}>{s.nextEventDays <= 0 ? "Επιστρέφει σήμερα" : `Επιστρέφει σε ${s.nextEventDays}μ — ${fmtDate(s.nextEventDate)}`}</span>
+            </div>
+          ))}
         </div>
-      ))}
-      {returning.map(({ b, s }) => (
-        <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
-          <span>🌊 {b.name}</span>
-          <span style={{ color: COLORS.teal, fontWeight: 700 }}>{s.nextEventDays <= 0 ? "Επιστρέφει σήμερα" : `Επιστρέφει σε ${s.nextEventDays}μ — ${fmtDate(s.nextEventDate)}`}</span>
-        </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -2660,6 +2673,7 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
 }
 
 function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateClosingChecks, users, me, absences, onBoatClick }) {
+  const [boatListOpen, setBoatListOpen] = useState(false);
   const urgent = tasks.filter(t => t.status === "open" && t.urgent);
   const external = tasks.filter(t => t.status === "external");
   const purchases = tasks.filter(t => t.status === "open" && t.purchase);
@@ -2701,41 +2715,48 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
         </div>
       )}
       <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 15.5, color: COLORS.navy, marginBottom: 10 }}>Σκάφη — αναχωρήσεις & ανοιχτές εργασίες</div>
-        {boatRows.length === 0 && <div style={{ color: COLORS.sub, fontSize: 14 }}>Καμία δηλωμένη αναχώρηση ή ανοιχτή εργασία αυτή τη στιγμή.</div>}
-        {boatRows.map(({ b, s, hasDeparture, openCount }, i) => {
-          const du = s.nextEventDays;
-          const urgentRow = hasDeparture && du <= 2;
-          const soonRow = !urgentRow && hasDeparture && du <= 7;
-          const badgeBg = urgentRow ? COLORS.red : soonRow ? COLORS.amber : COLORS.bg;
-          const badgeColor = urgentRow || soonRow ? "#fff" : COLORS.sub;
-          return (
-            <button key={b.id} onClick={() => onBoatClick && onBoatClick(b.id)} style={{
-              width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "12px 2px", borderBottom: i < boatRows.length - 1 ? `1px solid ${COLORS.line}` : "none", fontSize: 14,
-              background: "none", border: "none", borderBottomStyle: i < boatRows.length - 1 ? "solid" : "none", textAlign: "left", cursor: onBoatClick ? "pointer" : "default",
-            }}>
-              <span style={{ fontWeight: 500, color: COLORS.text }}>{b.name}</span>
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {hasDeparture && (
-                  <span style={{ color: urgentRow ? COLORS.red : COLORS.sub, fontSize: 13 }}>
-                    {fmtDate(s.departureDate)} ({du <= 0 ? "σήμερα" : `σε ${du}μ`})
+        <button onClick={() => setBoatListOpen(!boatListOpen)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, textAlign: "left" }}>
+          <span style={{ fontWeight: 700, fontSize: 15.5, color: COLORS.navy }}>Σκάφη — αναχωρήσεις & ανοιχτές εργασίες</span>
+          <span style={{ fontSize: 13, color: COLORS.sub, fontWeight: 700 }}>{!boatListOpen ? `${boatRows.length} ▸` : "▾"}</span>
+        </button>
+        {boatListOpen && (
+          <div style={{ marginTop: 10 }}>
+            {boatRows.length === 0 && <div style={{ color: COLORS.sub, fontSize: 14 }}>Καμία δηλωμένη αναχώρηση ή ανοιχτή εργασία αυτή τη στιγμή.</div>}
+            {boatRows.map(({ b, s, hasDeparture, openCount }, i) => {
+              const du = s.nextEventDays;
+              const urgentRow = hasDeparture && du <= 2;
+              const soonRow = !urgentRow && hasDeparture && du <= 7;
+              const badgeBg = urgentRow ? COLORS.red : soonRow ? COLORS.amber : COLORS.bg;
+              const badgeColor = urgentRow || soonRow ? "#fff" : COLORS.sub;
+              return (
+                <button key={b.id} onClick={() => onBoatClick && onBoatClick(b.id)} style={{
+                  width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "12px 2px", borderBottom: i < boatRows.length - 1 ? `1px solid ${COLORS.line}` : "none", fontSize: 14,
+                  background: "none", border: "none", borderBottomStyle: i < boatRows.length - 1 ? "solid" : "none", textAlign: "left", cursor: onBoatClick ? "pointer" : "default",
+                }}>
+                  <span style={{ fontWeight: 500, color: COLORS.text }}>{b.name}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {hasDeparture && (
+                      <span style={{ color: urgentRow ? COLORS.red : COLORS.sub, fontSize: 13 }}>
+                        {fmtDate(s.departureDate)} ({du <= 0 ? "σήμερα" : `σε ${du}μ`})
+                      </span>
+                    )}
+                    {openCount > 0 ? (
+                      <span style={{
+                        minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, fontSize: 12.5, fontWeight: 700,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: badgeBg, color: badgeColor,
+                      }}>{openCount}</span>
+                    ) : (
+                      <span style={{ color: COLORS.green, fontSize: 15 }}>✓</span>
+                    )}
+                    {onBoatClick && <span style={{ color: COLORS.sub, fontSize: 13 }}>›</span>}
                   </span>
-                )}
-                {openCount > 0 ? (
-                  <span style={{
-                    minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, fontSize: 12.5, fontWeight: 700,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: badgeBg, color: badgeColor,
-                  }}>{openCount}</span>
-                ) : (
-                  <span style={{ color: COLORS.green, fontSize: 15 }}>✓</span>
-                )}
-                {onBoatClick && <span style={{ color: COLORS.sub, fontSize: 13 }}>›</span>}
-              </span>
             </button>
           );
         })}
+          </div>
+        )}
       </div>
       <Btn color={COLORS.teal} onClick={runDistribution}>▶ Εκτέλεση κατανομής ημέρας (AI) τώρα</Btn>
       <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 6, marginBottom: 14 }}>Η κατανομή τρέχει αυτόματα μία φορά την ημέρα στο πρώτο άνοιγμα.</div>
