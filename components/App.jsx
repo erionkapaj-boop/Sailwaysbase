@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.73";
+const APP_VERSION = "v3.74";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2161,8 +2161,22 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
   const boatFilter = onBoatFilterChange ? (boatFilterProp || "") : boatFilterLocal;
   const setBoatFilter = onBoatFilterChange || setBoatFilterLocal;
   const byBoat = boatFilter ? tasks.filter(t => t.boatId === boatFilter || (boatFilter === "other" && !t.boatId)) : tasks;
+  // Χωρίς συγκεκριμένο φίλτρο σκάφους, οι εργασίες σκαφών που βρίσκονται ΤΩΡΑ στη βάση έρχονται πρώτες (πιο άμεσα
+  // αξιοποιήσιμες) — αλλά καμία εργασία δεν κρύβεται: όσα ανήκουν σε σκάφος εν πλω απλά ακολουθούν από κάτω, και
+  // παραμένουν πάντα αναζητήσιμα επιλέγοντας το συγκεκριμένο σκάφος από το φίλτρο.
+  const atBaseNow = (t) => {
+    if (!t.boatId) return true;
+    const b = boats.find(x => x.id === t.boatId);
+    if (!b) return true;
+    const s = boatStatus(b);
+    if (!s.atSea) return true;
+    // Τυπικά «εν πλω» ακόμα, αλλά αν επιστρέφει ΣΗΜΕΡΑ μετράει σαν να είναι ήδη στη βάση — μπορεί να έχει ήδη
+    // γυρίσει νωρίτερα μέσα στη μέρα, πόσο μάλλον αν φεύγει ξανά αμέσως μετά (γρήγορη επόμενη αναχώρηση).
+    return s.returnDate === todayStr();
+  };
+  const prioritized = boatFilter ? byBoat : [...byBoat].sort((a, c) => (atBaseNow(c) ? 1 : 0) - (atBaseNow(a) ? 1 : 0));
   const qLower = q.trim().toLowerCase();
-  const shown = qLower ? byBoat.filter(t => (t.desc || "").toLowerCase().includes(qLower)) : byBoat;
+  const shown = qLower ? prioritized.filter(t => (t.desc || "").toLowerCase().includes(qLower)) : prioritized;
   const selectedCount = Object.values(selected).filter(Boolean).length;
   const bulkDelete = () => {
     const toDelete = shown.filter(t => selected[t.id]);
@@ -2183,7 +2197,7 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
       )}
       <select value={boatFilter} onChange={e => setBoatFilter(e.target.value)} style={{ ...inputStyle, marginBottom: 10 }}>
         <option value="">{tr("Όλα τα σκάφη")}</option>
-        {boats.filter(b => !boatStatus(b).atSea).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+        {boats.map(b => <option key={b.id} value={b.id}>{b.name}{boatStatus(b).atSea ? " (εν πλω)" : ""}</option>)}
         <option value="other">{tr("Βάση / Άλλο")}</option>
       </select>
       <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Αναζήτηση στις εργασίες…" style={{ ...inputStyle, marginBottom: 12 }} />
