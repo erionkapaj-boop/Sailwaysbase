@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.77";
+const APP_VERSION = "v3.78";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -2679,8 +2679,11 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
   const purchases = tasks.filter(t => t.status === "open" && t.purchase);
   const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
   // Ενοποιημένη λίστα σκαφών: αναχωρήσεις + ανοιχτές εργασίες μαζί, ένα card, tap → Εργασίες φιλτραρισμένες
+  // Σκάφος που τυπικά είναι ακόμα «εν πλω» αλλά επιστρέφει ΣΗΜΕΡΑ πρέπει να φαίνεται εδώ κανονικά — μπορεί να
+  // έχει ήδη γυρίσει νωρίτερα μέσα στη μέρα. Χωρίς αυτό, ένα σκάφος σαν το «Σοφία II» θα εξαφανιζόταν εντελώς
+  // από την Επισκόπηση όλη τη μέρα της επιστροφής, ακριβώς την ημέρα που έχει τη μεγαλύτερη σημασία να φαίνεται.
   const boatRows = boats
-    .filter(b => !boatStatus(b).atSea)
+    .filter(b => { const s = boatStatus(b); return !s.atSea || s.returnDate === todayStr(); })
     .map(b => {
       const s = boatStatus(b);
       const hasDeparture = s.nextEventType === "depart";
