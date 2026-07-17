@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.81";
+const APP_VERSION = "v3.82";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -558,7 +558,10 @@ function AppInner() {
   // στον υπεύθυνο το ίδιο βράδυ, και καταγράφεται μόνιμη σημείωση στη μνήμη του AI για τον καθένα.
   const expireMissedClosings = async () => {
     const today = todayStr();
-    const missed = tasks.filter(t => t.closingCheck && t.status === "open" && t.closingDate <= today);
+    const isPastEvening = new Date().getHours() >= 19;
+    // Χθεσινά (ή παλαιότερα) ανοιχτά κλεισίματα λήγουν πάντα, ανεξαρτήτως ώρας — δεν έχει νόημα να περιμένουν
+    // ως τις 19:00 της τρέχουσας μέρας. Το σημερινό κλείσιμο λήγει μόνο μετά τις 19:00, όπως πριν.
+    const missed = tasks.filter(t => t.closingCheck && t.status === "open" && (t.closingDate < today || (t.closingDate === today && isPastEvening)));
     if (!missed.length) return;
     const boatName = (id) => boats.find(b => b.id === id)?.name || "σκάφος";
     const empName = (id) => users.find(u => u.id === id)?.name || "άγνωστος υπάλληλος";
@@ -587,17 +590,11 @@ function AppInner() {
     })();
   }, [ready, me]);
 
-  // Λήξη ανοιχτών ελέγχων κλεισίματος: στο πρώτο άνοιγμα της εφαρμογής μετά τις 19:00, μία φορά τη μέρα
+  // Λήξη ανοιχτών ελέγχων κλεισίματος: τρέχει σε κάθε άνοιγμα της εφαρμογής (η ίδια η συνάρτηση αποφασίζει τι
+  // πρέπει να λήξει — χθεσινά πάντα, σημερινά μόνο μετά τις 19:00 — οπότε είναι ασφαλές να τρέχει επανειλημμένα).
   useEffect(() => {
     if (!ready || !me) return;
-    (async () => {
-      const now = new Date();
-      if (now.getHours() < 19) return;
-      const meta = await load("app-meta", {});
-      if (meta.lastClosingExpiry === todayStr()) return;
-      await save("app-meta", { ...meta, lastClosingExpiry: todayStr() });
-      await expireMissedClosings();
-    })();
+    expireMissedClosings();
   }, [ready, me]);
 
   async function runDistribution(manual) {
