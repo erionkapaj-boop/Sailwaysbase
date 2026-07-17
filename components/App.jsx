@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.82";
+const APP_VERSION = "v3.84";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -88,7 +88,7 @@ const deadlineLabel = (t, dl) => {
   return du <= 0 ? tr("Σήμερα!") : (LANG === "en" ? `in ${du} days` : `σε ${du} μέρες`);
 };
 const localMidnight = (dateStr) => { const [y, m, d] = String(dateStr).slice(0, 10).split("-").map(Number); return new Date(y, m - 1, d); };
-const daysUntil = (d) => { if (!d) return null; return Math.ceil((new Date(d) - localMidnight(todayStr())) / 86400000); };
+const daysUntil = (d) => { if (!d) return null; return Math.round((localMidnight(d) - localMidnight(todayStr())) / 86400000); };
 const dateStrOf = (d) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
 
 // ---------- Ώρα αναχώρησης ναύλου που φεύγει ΣΗΜΕΡΑ ----------
@@ -549,7 +549,16 @@ function AppInner() {
         reminderList: closingChecklist,
       };
     });
-    await persistTasks([...newTasks, ...src]);
+    // Λειτουργική ενημέρωση + δεύτερος έλεγχος διπλοτύπων ΜΕΣΑ στην ενημέρωση: τρέχει παράλληλα με άλλες
+    // αυτόματες ροές στο άνοιγμα — έτσι ούτε σβήνει τις αλλαγές τους, ούτε δημιουργεί διπλό κλείσιμο για ίδιο σκάφος.
+    setTasks(cur => {
+      const curBoatIds = new Set(cur.filter(t => t.closingCheck && t.closingDate === today).map(t => t.boatId));
+      const fresh = newTasks.filter(t => !curBoatIds.has(t.boatId));
+      if (!fresh.length) return cur;
+      const nx = [...fresh, ...cur];
+      save("app-tasks", nx);
+      return nx;
+    });
   };
 
   // Στις 19:00, ό,τι «Κλείσιμο σκάφους» δεν έχει ολοκληρωθεί ακόμα δεν πρέπει να μείνει κρεμασμένο μέχρι το πρωί —
@@ -574,7 +583,9 @@ function AppInner() {
       await addAiMemory(`Ο/Η ${empName(t.assignedTo)} δεν ολοκλήρωσε το κλείσιμο του σκάφους ${boatName(t.boatId)} μέχρι τις 19:00 (${fmtDate(t.closingDate)}).`, "system");
     }
     const missedIds = new Set(missed.map(t => t.id));
-    await persistTasks(tasks.map(x => missedIds.has(x.id) ? { ...x, status: "expired", expiredAt: new Date().toISOString() } : x));
+    // Λειτουργική ενημέρωση: αυτή η συνάρτηση τρέχει στο άνοιγμα ΠΑΡΑΛΛΗΛΑ με την ημερήσια κατανομή/checklists —
+    // με πλήρη αντικατάσταση της λίστας από το closure, όποια από τις δύο έγραφε τελευταία έσβηνε τις αλλαγές της άλλης.
+    setTasks(cur => { const nx = cur.map(x => missedIds.has(x.id) ? { ...x, status: "expired", expiredAt: new Date().toISOString() } : x); save("app-tasks", nx); return nx; });
   };
 
   // Ελέγχοι κλεισίματος: εμφανίζονται αυτόματα μετά τις 15:30, μία φορά τη μέρα, στο πρώτο άνοιγμα της εφαρμογής μετά την ώρα αυτή
@@ -628,11 +639,20 @@ ${rules.map(r => "- " + r).join("\n")}
       if (!parsed.assignments?.length) return tasks;
       const valid = parsed.assignments.filter(a => free.some(t => t.id === a.taskId) && employees.some(e => e.id === a.userId));
       if (!valid.length) return tasks;
+      // Λειτουργική ενημέρωση: εφαρμόζει τις αναθέσεις μόνο σε εργασίες που είναι ΑΚΟΜΑ ανοιχτές και ελεύθερες
+      // τη στιγμή της εγγραφής — δεν πατάει πάνω σε ό,τι άλλαξε παράλληλα (π.χ. λήξη κλεισιμάτων, χειροκίνητη ανάθεση).
+      const byTaskId = Object.fromEntries(valid.map(v => [v.taskId, v.userId]));
+      setTasks(cur => {
+        const nx = cur.map(t => (byTaskId[t.id] && t.status === "open" && !t.assignedTo) ? { ...t, assignedTo: byTaskId[t.id], assignedBy: "AI" } : t);
+        save("app-tasks", nx);
+        return nx;
+      });
+      // Για την αλυσίδα (checklists/auto-tasks) επιστρέφεται η ίδια εικόνα υπολογισμένη από τα τρέχοντα δεδομένα —
+      // χρησιμοποιείται μόνο για εκτίμηση φόρτου/διπλοτύπων, όπου μικρή απόκλιση δεν βλάπτει.
       const next = tasks.map(t => {
         const a = valid.find(v => v.taskId === t.id);
         return a ? { ...t, assignedTo: a.userId, assignedBy: "AI" } : t;
       });
-      await persistTasks(next);
       showToast(`Η κατανομή ημέρας έγινε: ${valid.length} αναθέσεις`);
       return next;
     } catch (e) { console.error(e); if (manual) showToast("Η κατανομή απέτυχε — δοκίμασε ξανά"); return tasks; }
@@ -678,8 +698,13 @@ ${rules.map(r => "- " + r).join("\n")}
         const preferred = t.preferredAssignee && lowLoad.some(e => e.id === t.preferredAssignee) ? t.preferredAssignee : lowLoad[i % lowLoad.length].id;
         return { ...t, status: "open", assignedTo: preferred, assignedBy: "AI-backlog", convertedAt: new Date().toISOString() };
       });
-      const rest = src.filter(t => !toConvert.some(c => c.id === t.id));
-      await persistTasks([...converted, ...rest]);
+      // Λειτουργική ενημέρωση: μετατρέπει τα συγκεκριμένα backlog σε ανοιχτά χωρίς να πατά παράλληλες αλλαγές.
+      const convById = Object.fromEntries(converted.map(c => [c.id, c]));
+      setTasks(cur => {
+        const nx = cur.map(x => (convById[x.id] && x.status === "backlog") ? convById[x.id] : x);
+        save("app-tasks", nx);
+        return nx;
+      });
       return;
     }
     try {
@@ -719,7 +744,8 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
         intensive: !!x.intensive,
         ...(x.findMode ? { findMode: true, findMin: 3, findings: [] } : {}),
       }));
-      await persistTasks([...newTasks, ...src]);
+      // Λειτουργική ενημέρωση: προσθέτει τις νέες εργασίες χωρίς να αντικαθιστά ολόκληρη τη λίστα από παλιό closure.
+      setTasks(cur => { const nx = [...newTasks, ...cur]; save("app-tasks", nx); return nx; });
     } catch (e) { console.error("generateAutoTasks failed", e); }
   }
 
@@ -854,13 +880,20 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     let cleanNote = (note || "").trim();
     let cleanNoteEn;
     if (acting.lang === "en" && cleanNote) { cleanNoteEn = cleanNote; cleanNote = await translateToGreek(cleanNote); }
-    await persistTasks(tasks.map(x => x.id === t.id ? {
-      ...x, status: "done", completedBy: finalBy, completedByActor: acting.id, completedAt: new Date().toISOString(),
-      ...(confidence ? { completionConfidence: confidence } : {}),
-      ...(afterUrls.length ? { photosAfter: [...(x.photosAfter || []), ...afterUrls] } : {}),
-      ...(cleanNote ? { completionNote: cleanNote } : {}),
-      ...(cleanNoteEn ? { completionNoteEn: cleanNoteEn } : {}),
-    } : x));
+    // Λειτουργική ενημέρωση (setTasks(cur => ...)) αντί για ανάγνωση του tasks από το closure — απαραίτητο για
+    // την «Ολοκλήρωση με φωνή» που μπορεί να ολοκληρώσει 2+ εργασίες μαζί: με το παλιό persistTasks(tasks.map(...))
+    // κάθε κλήση διάβαζε την ίδια παλιά λίστα και έσβηνε την προηγούμενη ολοκλήρωση (ίδιο bug με τη μαζική διαγραφή).
+    setTasks(cur => {
+      const nx = cur.map(x => x.id === t.id ? {
+        ...x, status: "done", completedBy: finalBy, completedByActor: acting.id, completedAt: new Date().toISOString(),
+        ...(confidence ? { completionConfidence: confidence } : {}),
+        ...(afterUrls.length ? { photosAfter: [...(x.photosAfter || []), ...afterUrls] } : {}),
+        ...(cleanNote ? { completionNote: cleanNote } : {}),
+        ...(cleanNoteEn ? { completionNoteEn: cleanNoteEn } : {}),
+      } : x);
+      save("app-tasks", nx);
+      return nx;
+    });
     showToast("Ολοκληρώθηκε ✔");
     classifyServiceRelevance(t, cleanNote);
     // Η επιλογή «τέλεια / με επιφυλάξεις» τροφοδοτεί αυτόματα το ίδιο χρονολόγιο παρατηρήσεων που βλέπει το AI
@@ -1056,11 +1089,13 @@ ${histLines}
   };
   const persistBoatNotes = async (next) => { setBoatNotes(next); await save("app-boatnotes", next); };
   const addBoatNote = async (boatId, text, photoFiles) => {
-    const id = "bn" + Date.now();
+    const id = "bn" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
     let urls = [];
     if (photoFiles?.length) { try { urls = await uploadTaskPhotos(photoFiles, id); } catch {} }
     const n = { id, boatId, text, by: acting.id, at: new Date().toISOString(), ...(urls.length ? { photos: urls } : {}) };
-    await persistBoatNotes([n, ...boatNotes]);
+    // Λειτουργική ενημέρωση: το completeTask μπορεί να προσθέσει 2 σημειώσεις διαδοχικά (επιλογή ποιότητας +
+    // σημείωση ολοκλήρωσης) — με ανάγνωση του boatNotes από το closure η δεύτερη έσβηνε την πρώτη.
+    setBoatNotes(cur => { const nx = [n, ...cur]; save("app-boatnotes", nx); return nx; });
     showToast("Η παρατήρηση καταχωρήθηκε");
   };
   const deleteBoatNote = async (id) => {
@@ -1069,8 +1104,10 @@ ${histLines}
   };
   const persistAiMemories = async (next) => { setAiMemories(next); await save("app-aimemories", next); };
   const addAiMemory = async (text, byOverride) => {
-    const m = { id: "am" + Date.now(), text, at: new Date().toISOString(), by: byOverride || acting.id };
-    await persistAiMemories([m, ...aiMemories]);
+    const m = { id: "am" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), text, at: new Date().toISOString(), by: byOverride || acting.id };
+    // Λειτουργική ενημέρωση: όταν καταγράφονται πολλές μνήμες στη σειρά (π.χ. πολλά χαμένα κλεισίματα, ή πολλές
+    // ολοκληρώσεις με φωνή), με ανάγνωση του aiMemories από το closure επιβίωνε μόνο η τελευταία.
+    setAiMemories(cur => { const nx = [m, ...cur]; save("app-aimemories", nx); return nx; });
   };
   const deleteAiMemory = async (id) => {
     await persistAiMemories(aiMemories.filter(m => m.id !== id));
@@ -1147,7 +1184,14 @@ ${histLines}
       checklistItems: checklist.map((c, j) => ({ id: "ci" + j, text: c, status: "pending", problemTaskId: null })),
     }));
     const merged = [...newTasks, ...src];
-    await persistTasks(merged);
+    // Λειτουργική ενημέρωση + έλεγχος διπλοτύπων μέσα στην ενημέρωση — ασφαλής απέναντι σε παράλληλες ροές ανοίγματος.
+    setTasks(cur => {
+      const fresh = newTasks.filter(t => !cur.some(x => x.boatId === t.boatId && x.status === "open" && x.checklistItems));
+      if (!fresh.length) return cur;
+      const nx = [...fresh, ...cur];
+      save("app-tasks", nx);
+      return nx;
+    });
     return merged;
   };
 
@@ -2633,7 +2677,7 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const allowed = me.role === "owner" || ["Φανούρης", "Αλέξανδρος"].includes(me.name);
-  const weekKey = (() => { const d = new Date(); const day = d.getDay(); const back = day === 0 ? 0 : day; d.setDate(d.getDate() - back); return d.toISOString().slice(0, 10); })();
+  const weekKey = (() => { const d = new Date(); const day = d.getDay(); const back = day === 0 ? 0 : day; d.setDate(d.getDate() - back); return dateStrOf(d); })();
   const genReport = async (auto) => {
     if (busy) return; setBusy(true);
     try {
@@ -2642,8 +2686,6 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
       const inW = (d) => d && new Date(d) >= from;
       const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση";
       const team = users.filter(u => u.role === "employee" && !u.noStats);
-      const absDaysFor = (uid) => (absences || []).filter(a => a.userId === uid && a.from <= todayStr() && a.to >= fromStr)
-        .reduce((s, a) => s + 1, 0);
       const data = team.map(u => {
         const done = tasks.filter(t => t.completedBy === u.id && t.status === "done" && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})${t.returns ? " [επιστράφηκε " + t.returns + "x]" : ""}${t.rating ? ` [αξιολόγηση manager: ${t.rating}/5]` : ""}${t.autoGenerated ? " [αυτόματη ανάθεση χαμηλού φόρτου]" : ""}${t.intensive && !(t.photosAfter?.length) ? " [ΧΩΡΙΣ φωτογραφία αποτελέσματος, παρότι ζητήθηκε]" : ""}`);
         const prog = tasks.reduce((s2, t) => s2 + (t.progress || []).filter(p => p.by === u.id && inW(p.at)).length, 0);
@@ -2877,7 +2919,7 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
   );
 }
 
-const addDays = (dateStr, days) => { const d = new Date(dateStr); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
+const addDays = (dateStr, days) => { const d = localMidnight(dateStr); d.setDate(d.getDate() + days); return dateStrOf(d); };
 
 // ---------- Πρόγραμμα ναύλων σεζόν ----------
 // Κάθε σκάφος έχει προαιρετικά boat.charters = [{ id, from: "YYYY-MM-DD", to: "YYYY-MM-DD" }, ...].
