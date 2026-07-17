@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.84";
+const APP_VERSION = "v3.85";
 const COLORS = {
   navy: "#0B2239",
   navySoft: "#14314F",
@@ -3117,6 +3117,190 @@ function CharterCalendar({ charters }) {
   );
 }
 
+// ---------- Μαζική καταχώρηση αναχωρήσεων/επιστροφών (φωνή ή κείμενο) ----------
+// Ο χρήστης περιγράφει ελεύθερα (μιλώντας ή γράφοντας — ίδιο πεδίο, ίδιος parser) ποια σκάφη φεύγουν ή
+// επιστρέφουν και πότε, π.χ. «Παρασκευή 17 Ιουλίου γυρνάνε Λεωνίδας, Σοφία 2. Σάββατο φεύγουν Απόλλων, Κατερίνα».
+// Το AI αναγνωρίζει σκάφη/ημερομηνίες, δείχνεται ΠΑΝΤΑ προεπισκόπηση επεξεργάσιμη πριν γραφτεί οτιδήποτε.
+// Κανόνες:
+// - «Φεύγει» → νέο ναύλο, προεπιλογή διάρκειας 1 εβδομάδα (επεξεργάσιμο στην προεπισκόπηση).
+// - «Επιστρέφει» → ΔΕΝ επινοεί νέο ναύλο (δεν ξέρουμε πότε ξεκίνησε) — ενημερώνει το «έως» του πιο πρόσφατου
+//   ήδη υπάρχοντος ναύλου του σκάφους. Αν δεν βρεθεί κανένας, δεν αλλάζει τίποτα και το δηλώνει ρητά.
+const WEEKDAYS_EL = ["Κυριακή", "Δευτέρα", "Τρίτη", "Τετάρτη", "Πέμπτη", "Παρασκευή", "Σάββατο"];
+function BulkScheduleEntry({ boats, persistBoats, showToast }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [listening, setListening] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [preview, setPreview] = useState(null);
+  const recRef = useRef(null);
+  const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  const toggleMic = () => {
+    setErr("");
+    if (listening) { recRef.current?.stop(); setListening(false); return; }
+    if (!SR) { setErr("Η φωνητική αναγνώριση δεν υποστηρίζεται σε αυτή τη συσκευή/browser — γράψε το κείμενο κατευθείαν."); return; }
+    const rec = new SR();
+    rec.lang = "el-GR";
+    rec.continuous = true; rec.interimResults = false;
+    rec.onresult = (e) => {
+      let add = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) add += e.results[i][0].transcript + " ";
+      if (add) setText(t => (t + " " + add).trim());
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recRef.current = rec; rec.start(); setListening(true);
+  };
+
+  // Πιο πρόσφατος ναύλος του σκάφους που να "ταιριάζει" ως ενημέρωση επιστροφής για τη δοσμένη ημερομηνία —
+  // ήδη σωστός (to === date) ή, αλλιώς, ο πιο πρόσφατος που έχει ήδη ξεκινήσει μέχρι τη δοσμένη ημερομηνία.
+  const findReturnMatch = (boat, date) => {
+    const charters = getCharters(boat);
+    const exact = charters.find(c => c.to === date);
+    if (exact) return { id: exact.id, alreadyCorrect: true };
+    const started = charters.filter(c => c.from <= date).sort((a, c) => c.from.localeCompare(a.from))[0];
+    return { id: started ? started.id : null, alreadyCorrect: false };
+  };
+
+  const analyze = async () => {
+    if (!text.trim() || busy) return;
+    setBusy(true); setErr(""); setPreview(null);
+    try {
+      const boatList = boats.map(b => b.name).join("; ");
+      const today = todayStr();
+      const prompt = `Είσαι βοηθός βάσης σκαφών charter. Ο χρήστης περιγράφει ΜΑΖΙΚΑ ποια σκάφη φεύγουν ή επιστρέφουν, με ημερομηνίες ρητές (π.χ. "18 Ιουλίου") ή σχετικές (π.χ. "αύριο", "την Παρασκευή", "Σάββατο").
+ΣΗΜΕΡΙΝΗ ΗΜΕΡΟΜΗΝΙΑ: ${today} (${WEEKDAYS_EL[new Date().getDay()]})
+ΛΙΣΤΑ ΣΚΑΦΩΝ ΒΑΣΗΣ (χρησιμοποίησε ΜΟΝΟ αυτά τα ακριβή ονόματα — πρόσεξε ότι π.χ. "Λεωνίδας", "Λεωνίδας II", "Λεωνίδας III", "Λεωνίδας 4" είναι ΔΙΑΦΟΡΕΤΙΚΑ σκάφη): ${boatList}
+Για κάθε σκάφος που αναφέρεται εξήγαγε: boatName (το ΑΚΡΙΒΕΣ όνομα από τη λίστα, ή null αν δεν είσαι σίγουρος ποιο από τα σκάφη εννοεί), rawName (ό,τι ακριβώς είπε ο χρήστης γι' αυτό), action ("depart" αν φεύγει/αναχωρεί/βγαίνει σε ναύλο, "return" αν επιστρέφει/γυρνάει/έρχεται), date σε μορφή YYYY-MM-DD (μέρες εβδομάδας πάντα ως την ΕΠΟΜΕΝΗ εμφάνισή τους από σήμερα, ποτέ παρελθοντική, εκτός αν δόθηκε ρητή ημερομηνία).
+ΚΕΙΜΕΝΟ ΧΡΗΣΤΗ: "${text.trim()}"
+Απάντησε ΜΟΝΟ με JSON, χωρίς markdown: {"entries":[{"boatName":"..."|null,"rawName":"...","action":"depart"|"return","date":"YYYY-MM-DD"}]}`;
+      const raw = await askClaude(prompt, 900);
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      const entries = (parsed.entries || []).filter(e => e && e.action && e.date);
+      if (!entries.length) { setErr("Δεν αναγνωρίστηκε καμία καταχώρηση — δοκίμασε πιο συγκεκριμένα (ονόματα σκαφών + ημερομηνίες)."); setBusy(false); return; }
+      const rows = entries.map((e, i) => {
+        const boat = e.boatName ? boats.find(b => b.name === e.boatName) : null;
+        const row = { key: "r" + i, rawName: e.rawName || e.boatName || "?", action: e.action, date: e.date, boatId: boat ? boat.id : null };
+        if (e.action === "depart") row.toDate = addDays(e.date, 6);
+        else if (boat) { const m = findReturnMatch(boat, e.date); row.matchedCharterId = m.id; row.alreadyCorrect = m.alreadyCorrect; }
+        return row;
+      });
+      setPreview(rows);
+    } catch { setErr("Η αναγνώριση απέτυχε — δοκίμασε ξανά."); }
+    setBusy(false);
+  };
+
+  const updateRow = (key, patch) => {
+    setPreview(cur => cur.map(r => {
+      if (r.key !== key) return r;
+      const next = { ...r, ...patch };
+      // Αλλαγή σκάφους σε γραμμή "return" → ξαναβρίσκουμε τον ναύλο-στόχο για το νέο σκάφος.
+      if (patch.boatId !== undefined && next.action === "return") {
+        const boat = boats.find(b => b.id === patch.boatId);
+        if (boat) { const m = findReturnMatch(boat, next.date); next.matchedCharterId = m.id; next.alreadyCorrect = m.alreadyCorrect; }
+        else { next.matchedCharterId = null; next.alreadyCorrect = false; }
+      }
+      return next;
+    }));
+  };
+  const removeRow = (key) => setPreview(cur => cur.filter(r => r.key !== key));
+
+  const confirm = () => {
+    let nextBoats = boats;
+    let applied = 0, skipped = 0;
+    preview.forEach(row => {
+      if (!row.boatId) { skipped++; return; }
+      nextBoats = nextBoats.map(b => {
+        if (b.id !== row.boatId) return b;
+        const charters = getCharters(b);
+        if (row.action === "depart") {
+          const overlap = charters.some(c => row.date < c.to && c.from < row.toDate);
+          if (overlap) { skipped++; return b; }
+          applied++;
+          const next = [...charters, { id: "c" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), from: row.date, to: row.toDate, createdAt: new Date().toISOString() }].sort((a, c) => a.from.localeCompare(c.from));
+          return { ...b, charters: next, atSea: false, departureDate: null, returnDate: null };
+        }
+        if (!row.matchedCharterId || row.alreadyCorrect) { if (!row.matchedCharterId) skipped++; return b; }
+        applied++;
+        return { ...b, charters: charters.map(c => c.id === row.matchedCharterId ? { ...c, to: row.date } : c) };
+      });
+    });
+    persistBoats(nextBoats);
+    showToast(`Ενημερώθηκαν ${applied} σκάφη${skipped ? ` — ${skipped} παραλείφθηκαν` : ""}`);
+    setPreview(null); setText(""); setOpen(false);
+  };
+
+  return (
+    <div style={{ background: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 12, border: `1.5px solid ${open ? COLORS.teal : COLORS.line}` }}>
+      <button onClick={() => setOpen(!open)} style={{ width: "100%", background: "none", border: "none", textAlign: "left", fontSize: 15, fontWeight: 700, color: COLORS.teal }}>
+        🎙 Μαζική καταχώρηση αναχωρήσεων/επιστροφών {open ? "▾" : "▸"}
+      </button>
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          <button onClick={toggleMic} style={{
+            width: "100%", padding: 12, borderRadius: 10, fontWeight: 700, fontSize: 14.5,
+            border: `2px solid ${listening ? COLORS.red : COLORS.teal}`,
+            background: listening ? COLORS.red : "transparent", color: listening ? "#fff" : COLORS.teal,
+          }}>{listening ? "⏹ Σταμάτημα" : "🎤 Μίλα"}</button>
+          <textarea value={text} onChange={e => setText(e.target.value)} rows={3}
+            placeholder='π.χ. "Παρασκευή 17 Ιουλίου γυρνάνε Λεωνίδας, Σοφία 2, Βερόνικα 2. Σάββατο φεύγουν Απόλλων, Κατερίνα, Λίνα."'
+            style={{ ...inputStyle, marginTop: 8 }} />
+          <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 4 }}>Μπορείς να μιλήσεις ή να γράψεις απευθείας — δουλεύει το ίδιο. Τίποτα δεν καταχωρείται πριν το επιβεβαιώσεις παρακάτω.</div>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <Btn color={COLORS.teal} onClick={analyze}>{busy ? "Ανάλυση…" : "✨ Ανάλυση"}</Btn>
+            {text && <Btn color={COLORS.sub} outline onClick={() => { setText(""); setPreview(null); setErr(""); }}>Καθάρισμα</Btn>}
+          </div>
+          {err && <div style={{ color: COLORS.red, fontSize: 13, marginTop: 8 }}>{err}</div>}
+          {preview && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.sub, marginBottom: 6 }}>Προεπισκόπηση — έλεγξε πριν επιβεβαιώσεις:</div>
+              {preview.map(row => (
+                <div key={row.key} style={{ border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 10, marginBottom: 8, fontSize: 13.5 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      {row.boatId ? (
+                        <b>{boats.find(b => b.id === row.boatId)?.name}</b>
+                      ) : (
+                        <select value={row.boatId || ""} onChange={e => updateRow(row.key, { boatId: e.target.value || null })} style={{ ...inputStyle, padding: "4px 8px", fontSize: 13 }}>
+                          <option value="">— διάλεξε σκάφος για "{row.rawName}" —</option>
+                          {boats.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                      )}
+                      <span style={{ marginLeft: 8, fontSize: 11.5, fontWeight: 700, color: row.action === "depart" ? COLORS.green : COLORS.teal }}>
+                        {row.action === "depart" ? "🏁 Φεύγει" : "🏠 Επιστρέφει"}
+                      </span>
+                    </div>
+                    <button onClick={() => removeRow(row.key)} style={{ border: "none", background: "none", color: COLORS.red, fontSize: 12, fontWeight: 700 }}>×</button>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+                    <input type="date" value={row.date} onChange={e => updateRow(row.key, { date: e.target.value })} style={{ ...inputStyle, width: "auto" }} />
+                    {row.action === "depart" && (
+                      <>
+                        <span style={{ color: COLORS.sub }}>→</span>
+                        <input type="date" min={row.date} value={row.toDate} onChange={e => updateRow(row.key, { toDate: e.target.value })} style={{ ...inputStyle, width: "auto" }} />
+                        <span style={{ fontSize: 11, color: COLORS.sub }}>(προεπιλογή 1 εβδομάδα — επεξεργάσιμο)</span>
+                      </>
+                    )}
+                  </div>
+                  {row.action === "return" && row.boatId && (
+                    <div style={{ fontSize: 11.5, color: row.matchedCharterId ? (row.alreadyCorrect ? COLORS.sub : COLORS.amber) : COLORS.red, marginTop: 5 }}>
+                      {row.matchedCharterId
+                        ? (row.alreadyCorrect ? "✓ Ήδη σωστά καταχωρημένο — καμία αλλαγή." : "Θα ενημερωθεί το «έως» του πιο πρόσφατου ναύλου του σκάφους σε αυτή την ημερομηνία.")
+                        : "⚠ Δεν βρέθηκε υπάρχων ναύλος να ενημερωθεί — θα παραλειφθεί (πρόσθεσέ το χειροκίνητα στα «Ναύλα» του σκάφους αν χρειάζεται)."}
+                    </div>
+                  )}
+                </div>
+              ))}
+              <Btn color={COLORS.green} onClick={confirm}>✔ Επιβεβαίωση ({preview.filter(r => r.boatId).length})</Btn>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, showToast }) {
   const [detailFor, setDetailFor] = useState(null);
   const [schedFor, setSchedFor] = useState(null);
@@ -3185,6 +3369,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   return (
     <div>
       <SectionTitle>Σκάφη ({boats.length})</SectionTitle>
+      <BulkScheduleEntry boats={boats} persistBoats={persistBoats} showToast={showToast} />
       <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 10 }}>Σειρά: πρώτα όσα φεύγουν σύντομα (πράσινο), μετά όσα έρχονται ΚΑΙ φεύγουν ξανά σύντομα μετά (πορτοκαλί/γαλάζιο + πράσινο), μετά τα ήρεμα στη βάση (γκρι), τέλος όσα απλώς έρχονται (πορτοκαλί αν μέσα σε 7 μέρες, γαλάζιο αν αργούν).</div>
       {sorted.map(({ b, r }) => {
         const s = r.s;
