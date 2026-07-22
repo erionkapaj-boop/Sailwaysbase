@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.90";
+const APP_VERSION = "v3.91";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -124,6 +124,8 @@ const parseTime = (s, fallback) => {
   return { h, m: mi };
 };
 const TR = {
+  "Χωρίς πίεση χρόνου": "No time pressure",
+  "Δεν θα γίνεται ποτέ επείγουσα ούτε θα ανεβαίνει ψηλά όταν πλησιάζει αναχώρηση — π.χ. αισθητική δουλειά χαμηλής σοβαρότητας.": "Will never become urgent or rise in priority as a departure nears — e.g. minor cosmetic work.",
   "Με επιφυλάξεις": "With reservations", "Περισσότερα": "More", "Λιγότερα": "Less",
   "Προθεσμία": "Deadline", "Ανάθεση": "Assign", "Άρση επείγοντος": "Clear urgent",
   "Βοήθεια": "Help", "Φωτογραφία πριν": "Photo before",
@@ -1135,6 +1137,17 @@ ${histLines}
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, manualDeadline: isoDeadline, deadlineSetBy: acting.id } : x));
     showToast(isoDeadline ? "Το deadline ορίστηκε" : "Το deadline αφαιρέθηκε");
   };
+  // Κάποιες εργασίες (αισθητικές, χαμηλής σοβαρότητας) δεν πρέπει ΠΟΤΕ να πιέζονται από αναχώρηση σκάφους —
+  // μένουν διαθέσιμες για να τις διαλέξει κάποιος όποτε βολεύει, χωρίς να ανεβαίνουν ψηλά ή να γίνονται επείγουσες
+  // μόνο και μόνο επειδή πλησιάζει η αναχώρηση. Το πεδίο excludedFromDeadline το σέβεται ήδη το effectiveDeadline.
+  const toggleExcludeDeadline = (t) => {
+    setTasks(cur => {
+      const nx = cur.map(x => x.id === t.id ? { ...x, excludedFromDeadline: !x.excludedFromDeadline, manualDeadline: null } : x);
+      save("app-tasks", nx);
+      return nx;
+    });
+    showToast(!t.excludedFromDeadline ? "Δεν θα πιέζεται ποτέ από αναχώρηση σκάφους" : "Ξαναμπαίνει στην κανονική πίεση χρόνου");
+  };
   const setTaskDeadlineByDuration = async (t, minutes) => {
     let base = Date.now();
     if (t.assignedTo) {
@@ -1365,13 +1378,13 @@ ${histLines}
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 12px" }}>
         {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
-          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
+          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
         {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
         {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={boats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
         {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={activeTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
         {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
@@ -1560,7 +1573,7 @@ function MicButton({ onResult }) {
   );
 }
 
-function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onTranslate, onHelp }) {
+function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onAddBeforePhotos, onLogFinding, onTranslate, onHelp }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign' | 'completeAs'
   const [showMore, setShowMore] = useState(false); // δευτερεύουσες ενέργειες — κρυφές μέχρι να ζητηθούν
@@ -1650,6 +1663,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           {t.purchase && <span style={{ color: COLORS.amber, fontWeight: 700 }}>🛒 {tr("Αγορά")}</span>}
           {t.autoGenerated && <span style={{ color: COLORS.sub, fontWeight: 600 }}>🤖 {tr("αυτόματη")}</span>}
           {!t.urgent && dl && du !== null && du <= 7 && <span style={{ color: (t.manualDeadline && new Date(dl).getTime() < Date.now()) ? COLORS.red : COLORS.amber, fontWeight: 700 }}>⏰ {deadlineLabel(t, dl)}</span>}
+          {t.excludedFromDeadline && <span style={{ color: COLORS.sub, fontSize: 12 }}>{tr("Χωρίς πίεση χρόνου")}</span>}
           {dl && (du === null || du > 7) && <span>{tr("έως")} {fmtDate(dl)}</span>}
           {showAssignee && assignee && <span>→ {assignee.name}{t.assignedBy === "AI" ? " (AI)" : ""}</span>}
           {t.returnNote && t.status === "open" && <span style={{ color: COLORS.red }}>↩ {tr("Επιστράφηκε")}</span>}
@@ -1810,6 +1824,15 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               {t.manualDeadline && (
                 <div style={{ marginTop: 8 }}>
                   <Btn small color={COLORS.red} outline onClick={() => { onSetDeadline(t, null); setMode(null); }}>{tr("Αφαίρεση προθεσμίας")}</Btn>
+                </div>
+              )}
+              {onToggleExcludeDeadline && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 12, paddingTop: 10, borderTop: `1px dashed ${COLORS.line}` }}>
+                  <div>
+                    <div style={{ fontSize: 13 }}>{tr("Χωρίς πίεση χρόνου")}</div>
+                    <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 2 }}>{tr("Δεν θα γίνεται ποτέ επείγουσα ούτε θα ανεβαίνει ψηλά όταν πλησιάζει αναχώρηση — π.χ. αισθητική δουλειά χαμηλής σοβαρότητας.")}</div>
+                  </div>
+                  <Toggle on={!t.excludedFromDeadline} onChange={() => onToggleExcludeDeadline(t)} />
                 </div>
               )}
               <div style={{ marginTop: 8 }}>
@@ -2373,7 +2396,7 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
+function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
       {/* Πάνω-πάνω μόνο ό,τι εμφανίζεται υπό συνθήκη και απαιτεί προσοχή τώρα. */}
@@ -2387,7 +2410,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
       {allTasks.filter(t => t.status === "open").length > 0 && <VoiceComplete tasks={allTasks.filter(t => t.status === "open")} boats={boats} onComplete={onComplete} />}
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp}
         onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} canAssign={canAssign} showAssignee={isMgr} />)}
 
       {/* Σπάνια χρησιμοποιούμενα εργαλεία: στο τέλος, ως διακριτικοί σύνδεσμοι. */}
@@ -2399,7 +2422,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
   );
 }
 
-function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, onBulkDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
+function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, onBulkDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
   const [boatFilterLocal, setBoatFilterLocal] = useState("");
   const [q, setQ] = useState("");
   // Παρατεταμένο πάτημα σε μια εργασία → μπαίνει σε «λειτουργία επιλογής»: εμφανίζεται τσεκ σε όλες τις κάρτες,
@@ -2465,7 +2488,7 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
             }}>{selected[t.id] && <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>✓</span>}</div>
           )}
           <TaskCard t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-            onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />
+            onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />
         </div>
       ))}
     </div>
