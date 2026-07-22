@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.89";
+const APP_VERSION = "v3.90";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -26,6 +26,22 @@ const COLORS = {
   green: "#1A6E33",
   blue: "#33628F",
 };
+
+// ---------- Τυπογραφία & βασικά στυλ ----------
+// Inter: μία γραμματοσειρά αντί για «ό,τι έχει το κινητό», ώστε η εφαρμογή να μη μοιάζει με τις ρυθμίσεις
+// της συσκευής. Φορτώνεται με display=swap και πλήρες fallback — αν το σήμα στην προβλήτα είναι κακό,
+// το κείμενο εμφανίζεται αμέσως με τη system γραμματοσειρά και αντικαθίσταται αθόρυβα μόλις κατέβει.
+const FONT_STACK = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+
+// Κλίμακα: 6 μεγέθη αντί για 15 αυθαίρετα. Το μάτι δεν εντοπίζει συνειδητά τη διαφορά 13 από 13.5,
+// αλλά την αντιλαμβάνεται ως ακαταστασία — και αυτό κουράζει.
+const T = { caption: 12, small: 13, body: 15, title: 17, heading: 20, display: 28 };
+// Πλέγμα 8: κάθε απόσταση πολλαπλάσιο του 4. Ποτέ 11 ή 13.
+const S = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
+// Δύο ακτίνες συν pill. Η καμπύλη κίνησης ξεκινά γρήγορα και «προσγειώνεται» απαλά — αυτό διαβάζεται ως
+// φιλικό, ενώ η γραμμική κίνηση στον ίδιο χρόνο διαβάζεται ως μηχανική.
+const R = { sm: 8, lg: 12, pill: 999 };
+const EASE = "160ms cubic-bezier(0.2, 0, 0, 1)";
 
 const SEED_USERS = [
   { id: "u-owner", name: "Εριόν", role: "owner", profile: "Διαχειριστής εφαρμογής", code: "OWN-7301" },
@@ -1332,7 +1348,7 @@ ${histLines}
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: FONT_STACK, paddingBottom: 32 }}>
+    <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: FONT_STACK, paddingBottom: 88 }}>
       <BaseStyles />
       <Header me={acting} onLogout={logout} />
       {canGoBack && (
@@ -1941,21 +1957,6 @@ const Btn = ({ children, color, outline, onClick, small }) => (
 
 const inputStyle = { width: "100%", boxSizing: "border-box", padding: "12px", borderRadius: R.sm, border: `1px solid ${COLORS.line}`, fontSize: T.body, fontFamily: "inherit", background: "#fff", color: COLORS.text };
 
-// ---------- Τυπογραφία & βασικά στυλ ----------
-// Inter: μία γραμματοσειρά αντί για «ό,τι έχει το κινητό», ώστε η εφαρμογή να μη μοιάζει με τις ρυθμίσεις
-// της συσκευής. Φορτώνεται με display=swap και πλήρες fallback — αν το σήμα στην προβλήτα είναι κακό,
-// το κείμενο εμφανίζεται αμέσως με τη system γραμματοσειρά και αντικαθίσταται αθόρυβα μόλις κατέβει.
-const FONT_STACK = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-
-// Κλίμακα: 6 μεγέθη αντί για 15 αυθαίρετα. Το μάτι δεν εντοπίζει συνειδητά τη διαφορά 13 από 13.5,
-// αλλά την αντιλαμβάνεται ως ακαταστασία — και αυτό κουράζει.
-const T = { caption: 12, small: 13, body: 15, title: 17, heading: 20, display: 28 };
-// Πλέγμα 8: κάθε απόσταση πολλαπλάσιο του 4. Ποτέ 11 ή 13.
-const S = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
-// Δύο ακτίνες συν pill. Η καμπύλη κίνησης ξεκινά γρήγορα και «προσγειώνεται» απαλά — αυτό διαβάζεται ως
-// φιλικό, ενώ η γραμμική κίνηση στον ίδιο χρόνο διαβάζεται ως μηχανική.
-const R = { sm: 8, lg: 12, pill: 999 };
-const EASE = "160ms cubic-bezier(0.2, 0, 0, 1)";
 
 function BaseStyles() {
   return (
