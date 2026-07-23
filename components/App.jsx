@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.92";
+const APP_VERSION = "v3.93";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -94,7 +94,8 @@ const DEFAULT_SETTINGS = {
   // Γ. Χρόνοι εμφάνισης
   noteVisibleHours: 8,            // πόσο μένουν ορατά τα εσωτερικά μηνύματα
   closingAlertUntilHour: 11,      // ως ποια ώρα το επόμενο πρωί μένει η ειδοποίηση κλεισίματος
-  departuresWindowDays: 7,        // εύρος του πίνακα «Αναχωρήσεις & Επιστροφές»
+  departWindowDays: 6,            // εύρος αναχωρήσεων στο widget «Σκάφη» της αρχικής οθόνης
+  returnWindowDays: 5,            // εύρος επιστροφών στο ίδιο widget
   boatHistoryDays: 21,            // πόσο πίσω κοιτά το AI το ιστορικό κάθε σκάφους
   // Δ. Διακόπτες αυτοματισμών
   closingCheckMode: "auto",       // "auto" | "manual"
@@ -2057,17 +2058,22 @@ function DailyGreeting({ me }) {
 // βλέπει αποκλειστικά επιστροφές — η μεσαία ζώνη είναι το μόνο σημείο όπου συναντιούνται.
 function FleetScheduleWidget({ boats, allTasks, onBoatClick }) {
   const [open, setOpen] = useState(false);
-  const winDays = Number(SET.departuresWindowDays) || 7;
+  const departWin = Number(SET.departWindowDays) || 6;
+  const returnWin = Number(SET.returnWindowDays) || 5;
   const rows = boats.map(b => {
     const s = boatStatus(b);
     const nd = nextDeparture(b);
-    const returnDate = s.atSea ? s.nextEventDate : null;
-    const returnDays = s.atSea ? s.nextEventDays : null;
-    const departDate = nd ? nd.date : null;
-    const departDays = nd ? nd.days : null;
+    let returnDate = s.atSea ? s.nextEventDate : null;
+    let returnDays = s.atSea ? s.nextEventDays : null;
+    let departDate = nd ? nd.date : null;
+    let departDays = nd ? nd.days : null;
+    // Κάθε γεγονός κρίνεται στο ΔΙΚΟ του παράθυρο — μια αναχώρηση σε 9 μέρες δεν εμφανίζεται καν, ακόμα κι αν
+    // το ίδιο σκάφος γυρνάει σε 2 μέρες και άρα η γραμμή του παραμένει ορατή για την επιστροφή.
+    if (returnDate !== null && returnDays > returnWin) { returnDate = null; returnDays = null; }
+    if (departDate !== null && departDays > departWin) { departDate = null; departDays = null; }
     const openCount = allTasks.filter(t => t.boatId === b.id && t.status === "open").length;
     return { b, returnDate, returnDays, departDate, departDays, openCount };
-  }).filter(r => (r.departDate !== null && r.departDays <= winDays) || (r.returnDate !== null && r.returnDays <= winDays));
+  }).filter(r => r.departDate !== null || r.returnDate !== null);
 
   const departOnly = rows.filter(r => r.departDate !== null && r.returnDate === null).sort((a, c) => a.departDays - c.departDays);
   const both = rows.filter(r => r.departDate !== null && r.returnDate !== null).sort((a, c) => a.returnDays - c.returnDays);
@@ -2079,7 +2085,7 @@ function FleetScheduleWidget({ boats, allTasks, onBoatClick }) {
   return (
     <div style={{ background: COLORS.card, borderRadius: R.lg, padding: 12, marginBottom: 12, border: `1px solid ${COLORS.line}` }}>
       <button onClick={() => setOpen(!open)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, textAlign: "left" }}>
-        <span style={{ fontWeight: 700, fontSize: T.title }}>Σκάφη — αναχωρήσεις & επιστροφές ({winDays}μ)</span>
+        <span style={{ fontWeight: 700, fontSize: T.title }}>Σκάφη — αναχωρήσεις & επιστροφές</span>
         <span style={{ fontSize: T.small, color: COLORS.sub, fontWeight: 700 }}>
           {!open ? `${departingTotal} φεύγουν · ${returningTotal} γυρνάνε ▸` : "▾"}
         </span>
@@ -3777,7 +3783,8 @@ function SettingsAdmin({ settings, updateSettings, resetSettings }) {
       <SettingsGroup title="Χρόνοι εμφάνισης" subtitle="Πόσο μένουν ορατά μηνύματα και πίνακες" openKey="vis" cur={cur} setCur={setCur}>
         <SettingRow showHints={showHints} label="Ορατότητα μηνυμάτων (ώρες)" hint="Πόσο μένει ορατό ένα εσωτερικό μήνυμα από τη στιγμή αποστολής.">{numIn("noteVisibleHours", 1, 72)}</SettingRow>
         <SettingRow showHints={showHints} label="Ειδοποίηση κλεισίματος έως" hint="Ως ποια ώρα το επόμενο πρωί παραμένει ορατή η ειδοποίηση για σκάφος που δεν έκλεισε.">{hourIn("closingAlertUntilHour")}</SettingRow>
-        <SettingRow showHints={showHints} label="Παράθυρο «Αναχωρήσεις & Επιστροφές» (μέρες)" hint="Πόσες μέρες μπροστά δείχνει ο πίνακας στην αρχική οθόνη.">{numIn("departuresWindowDays", 1, 30)}</SettingRow>
+        <SettingRow showHints={showHints} label="Παράθυρο αναχωρήσεων (μέρες)" hint="Σκάφος που φεύγει πιο μακριά από αυτό δεν εμφανίζεται στο «Σήμερα».">{numIn("departWindowDays", 1, 30)}</SettingRow>
+        <SettingRow showHints={showHints} label="Παράθυρο επιστροφών (μέρες)" hint="Σκάφος που γυρνάει πιο μακριά από αυτό δεν εμφανίζεται στο «Σήμερα».">{numIn("returnWindowDays", 1, 30)}</SettingRow>
       </SettingsGroup>
 
       <SettingsGroup title="Διακόπτες αυτοματισμών" subtitle="Τι τρέχει μόνο του και τι όχι" openKey="switches" cur={cur} setCur={setCur}>
