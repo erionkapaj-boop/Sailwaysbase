@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.99";
+const APP_VERSION = "v4.00";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -411,6 +411,7 @@ function AppInner() {
   const [notes, setNotes] = useState([]);
   const [boatNotes, setBoatNotes] = useState([]);
   const [aiMemories, setAiMemories] = useState([]);
+  const [signoffs, setSignoffs] = useState([]);
   const [me, setMe] = useState(null);
   const [viewAs, setViewAs] = useState(null);
   const [tab, setTab] = useState("today");
@@ -451,9 +452,9 @@ function AppInner() {
   // Φόρτωση
   useEffect(() => {
     (async () => {
-      let [u, b, t, q, c, cc, ab, nt, bn, am, st, inv] = await Promise.all([
+      let [u, b, t, q, c, cc, ab, nt, bn, am, st, inv, so] = await Promise.all([
         load("app-users", null), load("app-boats", null), load("app-tasks", null),
-        load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null), load("app-aimemories", null), load("app-settings", null), load("app-inventory", null),
+        load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null), load("app-aimemories", null), load("app-settings", null), load("app-inventory", null), load("app-signoffs", null),
       ]);
       // Ασφάλεια: αν κάποιο key έχει corrupted/λάθος-σχήμα δεδομένα (π.χ. object αντί για array, μη-string στοιχεία),
       // κανονικοποιείται ήσυχα εδώ πριν αγγίξει οποιοδήποτε .map/.filter/.some παρακάτω — never crash, self-heal.
@@ -617,6 +618,7 @@ function AppInner() {
       setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c); setClosingChecklist(cc); setAbsences(ab); setNotes(nt); setBoatNotes(bn); setAiMemories(am);
       // Η βασική λίστα inventory: αν λείπει εντελώς, γράφεται η αρχική ώστε να υπάρχει από την πρώτη χρήση.
       if (inv && typeof inv === "object") setInventory(inv); else { setInventory(SEED_INVENTORY); save("app-inventory", SEED_INVENTORY); }
+      setSignoffs(Array.isArray(so) ? so : []);
       const merged = mergeSettings(st);
       SET = merged; setSettings(merged);
       setReady(true);
@@ -1268,6 +1270,21 @@ ${histLines}
     await persistNotes(notes.filter(n => n.id !== id));
     showToast("Το μήνυμα διαγράφηκε");
   };
+  // Κλείσιμο σκάφους = αποχώρηση από τη δουλειά για σήμερα — καταγράφεται η ώρα (ορατή στους managers) και
+  // στέλνεται αυτόματο «χαιρετισμό» στον Αλέξανδρο, χωρίς καμία επιπλέον ενέργεια από τον υπάλληλο.
+  // Ο Αλέξανδρος αναζητείται δυναμικά (κωδικός ALX-1573) — ποτέ hardcoded internal id, ώστε να μη σπάσει αν
+  // αλλάξει ποτέ ο εσωτερικός κωδικός χρήστη.
+  const recordSignoff = async (boat) => {
+    const alexandros = users.find(u => u.code === "ALX-1573" || (u.role === "manager" && (u.name || "").startsWith("Αλέξανδρ")));
+    const entry = { id: "so" + Date.now(), userId: acting.id, boatId: boat.id, at: new Date().toISOString() };
+    const nextSignoffs = [entry, ...signoffs];
+    setSignoffs(nextSignoffs);
+    save("app-signoffs", nextSignoffs);
+    if (alexandros && alexandros.id !== acting.id) {
+      const time = new Date().toLocaleTimeString("el-GR", { hour: "2-digit", minute: "2-digit" });
+      await sendNote([alexandros.id], `👋 Ο/Η ${acting.name} έκλεισε το ${boat.name} και αποχώρησε — ${time}`, "system", "signoff");
+    }
+  };
   const persistBoatNotes = async (next) => { setBoatNotes(next); await save("app-boatnotes", next); };
   const addBoatNote = async (boatId, text, photoFiles) => {
     const id = "bn" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
@@ -1486,6 +1503,10 @@ ${histLines}
       ...(allResolved ? { status: "done", completedBy: acting.id, completedAt: new Date().toISOString() } : {}),
     } : t2);
     await persistTasks(next);
+    if (task.closingCheck && allResolved) {
+      const boat = boats.find(b => b.id === task.boatId);
+      if (boat) recordSignoff(boat);
+    }
     showToast(outcome === "problem" ? "Καταγράφηκε πρόβλημα — δημιουργήθηκε νέα εργασία ⚠" : "Τσεκαρίστηκε ✔");
   };
 
@@ -1555,7 +1576,7 @@ ${histLines}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={returnBoat} onSetNextCharter={setNextCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
-          settings={settings} updateSettings={updateSettings} resetSettings={resetSettings} onStartInventory={startInventory} onConfirmInventory={confirmInventory}
+          settings={settings} updateSettings={updateSettings} resetSettings={resetSettings} onStartInventory={startInventory} onConfirmInventory={confirmInventory} signoffs={signoffs}
           persistTasks={persistTasks} tasksRaw={deletedTasks} onRestore={restoreTask} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
           onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} section={adminSection} setSection={setAdminSection} /></ErrorBoundary>}
       </div>
@@ -2777,6 +2798,9 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
 function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, onBulkDelete, canAssign, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
   const [boatFilterLocal, setBoatFilterLocal] = useState("");
   const [q, setQ] = useState("");
+  // Έξυπνη ταξινόμηση (προεπιλογή, ίδια με πάντα) ή χειροκίνητα κατά ημερομηνία δημιουργίας — μόνο managers
+  // βλέπουν τον διακόπτη· οι υπάλληλοι μένουν πάντα στην έξυπνη, που είναι και η σωστή προεπιλογή για δουλειά.
+  const [sortMode, setSortMode] = useState("smart"); // "smart" | "dateDesc" | "dateAsc"
   // Παρατεταμένο πάτημα σε μια εργασία → μπαίνει σε «λειτουργία επιλογής»: εμφανίζεται τσεκ σε όλες τις κάρτες,
   // κι από κει και πέρα ένα απλό πάτημα σε οποιαδήποτε άλλη επιλέγει/αποεπιλέγει — χρήσιμο για μαζική διαγραφή.
   const [selectMode, setSelectMode] = useState(false);
@@ -2797,8 +2821,10 @@ function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDead
   // παραμένουν πάντα αναζητήσιμα επιλέγοντας το συγκεκριμένο σκάφος από το φίλτρο.
   const atBaseNow = (t) => { if (!t.boatId) return true; const b = boats.find(x => x.id === t.boatId); return b ? !isBoatAway(b) : true; };
   const prioritized = boatFilter ? byBoat : [...byBoat].sort((a, c) => (atBaseNow(c) ? 1 : 0) - (atBaseNow(a) ? 1 : 0));
+  const byDate = [...byBoat].sort((a, c) => sortMode === "dateAsc" ? (a.createdAt || "").localeCompare(c.createdAt || "") : (c.createdAt || "").localeCompare(a.createdAt || ""));
+  const ordered = sortMode === "smart" ? prioritized : byDate;
   const qLower = q.trim().toLowerCase();
-  const shown = qLower ? prioritized.filter(t => (t.desc || "").toLowerCase().includes(qLower)) : prioritized;
+  const shown = qLower ? ordered.filter(t => (t.desc || "").toLowerCase().includes(qLower)) : ordered;
   const selectedCount = Object.values(selected).filter(Boolean).length;
   const bulkDelete = () => {
     const toDelete = shown.filter(t => selected[t.id]);
@@ -2817,6 +2843,17 @@ function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDead
           <button onClick={bulkDelete} disabled={!selectedCount} style={{ background: "none", border: "none", color: selectedCount ? "#F0857A" : "rgba(255,255,255,.4)", fontSize: 15, fontWeight: 700 }}>🗑 {tr("Διαγραφή")}</button>
         </div>
       )}
+      {isMgr && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          {[["smart", "Έξυπνη"], ["dateDesc", "Νεότερες πρώτα"], ["dateAsc", "Παλαιότερες πρώτα"]].map(([id, label]) => (
+            <button key={id} onClick={() => setSortMode(id)} style={{
+              flex: 1, padding: "7px 4px", borderRadius: R.sm, fontSize: T.caption, fontWeight: 600,
+              border: `1px solid ${sortMode === id ? COLORS.navy : COLORS.line}`,
+              background: sortMode === id ? COLORS.navy : COLORS.card, color: sortMode === id ? "#fff" : COLORS.sub,
+            }}>{label}</button>
+          ))}
+        </div>
+      )}
       <select value={boatFilter} onChange={e => setBoatFilter(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }}>
         <option value="">{tr("Όλα τα σκάφη")}</option>
         {boats.map(b => <option key={b.id} value={b.id}>{b.name}{isBoatAway(b) ? " (εν πλω)" : ""}</option>)}
@@ -2831,6 +2868,11 @@ function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDead
           onContextMenu={(e) => { if (selectMode) e.preventDefault(); }}>
           {selectMode && (
             <div onClick={() => toggleSelect(t.id)} style={{ position: "absolute", inset: 0, zIndex: 5, cursor: "pointer" }} />
+          )}
+          {sortMode !== "smart" && t.createdAt && (
+            <div style={{ fontSize: T.caption, color: COLORS.sub, marginBottom: 2, paddingLeft: 2 }}>
+              {new Date(t.createdAt).toLocaleDateString("el-GR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </div>
           )}
           {selectMode && (
             <div style={{
@@ -3184,7 +3226,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
   const { me, users, boats, tasks, quick, checklist, closingChecklist, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
-    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore } = props;
+    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, signoffs, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore } = props;
   const isOwner = me.role === "owner";
   // Δύο επίπεδα αντί για 12 καρτέλες σε οριζόντιο scroll: 4 ομάδες που χωράνε όλες στην οθόνη, και από κάτω
   // μόνο οι υποενότητες της επιλεγμένης ομάδας. Τίποτα δεν κρύβεται εκτός οθόνης πια.
@@ -3224,7 +3266,7 @@ function AdminView(props) {
           ))}
         </div>
       )}
-      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} onConfirmInventory={onConfirmInventory} />}
+      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} onConfirmInventory={onConfirmInventory} signoffs={signoffs} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
       {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={onReturnBoat} onSetNextCharter={onSetNextCharter} onStartInventory={onStartInventory} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} />}
@@ -3326,8 +3368,11 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
   );
 }
 
-function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateClosingChecks, settings, users, me, absences, onConfirmInventory }) {
+function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateClosingChecks, settings, users, me, absences, onConfirmInventory, signoffs }) {
   const un = (id) => users?.find(u => u.id === id)?.name || "";
+  const bnName = (id) => boats.find(x => x.id === id)?.name || "";
+  const todaySignoffs = (signoffs || []).filter(s => dateStrOf(new Date(s.at)) === todayStr())
+    .sort((a2, c2) => (c2.at || "").localeCompare(a2.at || ""));
   const urgent = tasks.filter(t => t.status === "open" && t.urgent);
   const external = tasks.filter(t => t.status === "external");
   const purchases = tasks.filter(t => t.status === "open" && t.purchase);
@@ -3371,6 +3416,17 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
               </div>
             );
           })}
+        </div>
+      )}
+      {todaySignoffs.length > 0 && (
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: 12, marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: T.small, marginBottom: 4 }}>Αποχωρήσεις σήμερα ({todaySignoffs.length})</div>
+          {todaySignoffs.map(s => (
+            <div key={s.id} style={{ display: "flex", justifyContent: "space-between", fontSize: T.small, padding: "6px 0", borderTop: `1px dashed ${COLORS.line}` }}>
+              <span>{un(s.userId) || "—"} <span style={{ color: COLORS.sub }}>— έκλεισε {bnName(s.boatId)}</span></span>
+              <span style={{ color: COLORS.sub, flexShrink: 0 }}>{new Date(s.at).toLocaleTimeString("el-GR", { hour: "2-digit", minute: "2-digit" })}</span>
+            </div>
+          ))}
         </div>
       )}
       <Btn color={COLORS.teal} onClick={runDistribution}>▶ Εκτέλεση κατανομής ημέρας (AI) τώρα</Btn>
