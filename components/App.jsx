@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.96";
+const APP_VERSION = "v3.97";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -1823,7 +1823,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                   <Btn small color={COLORS.amber} outline onClick={() => { setMode("external"); setNote(""); }}>{tr("Χρειάζεται ειδικός")}</Btn>
                   {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn small color={NEUTRAL} outline onClick={() => { setMode("edit"); setNote(t.desc); }}>{tr("Διόρθωση")}</Btn>}
                   {isMgr && <Btn small color={COLORS.amber} outline onClick={() => setMode("deadline")}>{tr("Προθεσμία")}</Btn>}
-                  {onSnooze && (isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn small color={NEUTRAL} outline onClick={() => setMode("snooze")}>{t.snoozedUntil ? tr("Αναβολή") + "…" : tr("Αναβολή")}</Btn>}
+                  {onSnooze && isMgr && <Btn small color={NEUTRAL} outline onClick={() => setMode("snooze")}>{t.snoozedUntil ? tr("Αναβολή") + "…" : tr("Αναβολή")}</Btn>}
                   {(isMgr || canAssign) && <Btn small color={COLORS.navy} outline onClick={() => setMode("assign")}>{tr("Ανάθεση")}</Btn>}
                   {!t.urgent && <Btn small color={COLORS.red} outline onClick={() => onDowngrade(t)}>{tr("Επείγον")}</Btn>}
                   {isMgr && t.urgent && <Btn small color={NEUTRAL} outline onClick={() => onDowngrade(t)}>{tr("Άρση επείγοντος")}</Btn>}
