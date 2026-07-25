@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.94";
+const APP_VERSION = "v3.95";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -1672,11 +1672,21 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           {!t.urgent && dl && du !== null && du <= 7 && <span style={{ color: (t.manualDeadline && new Date(dl).getTime() < Date.now()) ? COLORS.red : COLORS.amber, fontWeight: 700 }}>⏰ {deadlineLabel(t, dl)}</span>}
           {t.excludedFromDeadline && <span style={{ color: COLORS.sub, fontSize: 12 }}>{tr("Χωρίς πίεση χρόνου")}</span>}
           {dl && (du === null || du > 7) && <span>{tr("έως")} {fmtDate(dl)}</span>}
-          {showAssignee && assignee && <span>→ {assignee.name}{t.assignedBy === "AI" ? " (AI)" : ""}</span>}
-          {isMgr && creatorLabel && <span style={{ fontSize: T.caption, color: COLORS.sub }}>{tr("καταχ.")}: {creatorLabel}</span>}
           {t.returnNote && t.status === "open" && <span style={{ color: COLORS.red }}>↩ {tr("Επιστράφηκε")}</span>}
           {t.progress?.length > 0 && <span style={{ color: COLORS.teal }}>✏ {t.progress.length} {tr("πρόοδοι")}</span>}
         </div>
+        {((showAssignee && assignee) || (isMgr && creatorLabel)) && (
+          // Ξεχωριστή, σταθερή γραμμή «ταυτότητας» — πάντα στο ίδιο σημείο, ποτέ ανάμεσα στα badges κατάστασης
+          // παραπάνω, ώστε να μην μπερδεύεται με ποιον έχει ανατεθεί η εργασία. Δύο διαφορετικά βάρη σκόπιμα:
+          // η ανάθεση (σε ποιον είναι) πρέπει να ξεχωρίζει· η καταχώρηση (ποιος τη δημιούργησε) είναι δευτερεύον
+          // ιστορικό — υποτονική, πάντα δεξιά, ίδια θέση σε κάθε κάρτα.
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${COLORS.line}`, fontSize: T.caption }}>
+            <span style={{ color: COLORS.navy, fontWeight: 600 }}>
+              {showAssignee && assignee ? `→ ${assignee.name}${t.assignedBy === "AI" ? " (AI)" : ""}` : ""}
+            </span>
+            {isMgr && creatorLabel && <span style={{ color: COLORS.sub, fontWeight: 400, flexShrink: 0 }}>{tr("καταχ.")}: {creatorLabel}</span>}
+          </div>
+        )}
       </div>
       {open && (
         <div style={{ padding: "0 12px 12px", borderTop: `1px solid ${COLORS.line}` }}>
