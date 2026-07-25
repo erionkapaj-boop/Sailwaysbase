@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.98";
+const APP_VERSION = "v3.99";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -67,6 +67,44 @@ const SEED_QUICK = ["Αλλαγή λαδιών", "Καθαρισμός σεντ�
 const SEED_CHECKLIST = ["Εξωτερικό πλύσιμο", "Εσωτερικός καθαρισμός", "Έλεγχος τουαλετών", "Έλεγχος εξοπλισμού"];
 const SEED_CLOSING_CHECKLIST = ["Φώτα σβηστά", "Πασαρέλα μέσα / κλειδωμένη", "Μπαταρία στην πρίζα / φορτίζει", "Ψυγείο σωστά κλειστό", "Παράθυρα κλειστά", "Πόρτες κλειδωμένες"];
 
+// ---------- Inventory List (αντικαθιστά το έντυπο check-in) ----------
+// Οι κατηγορίες αντιγράφουν το χαρτί ώστε να είναι αναγνωρίσιμο. Κάθε κατηγορία τσεκάρεται ομαδικά («Όλα OK»)
+// ή παραλείπεται· μεμονωμένο ⚠ γίνεται αυτόματα εργασία, όπως ακριβώς στο checklist κλεισίματος.
+// Είναι η ΒΑΣΙΚΗ λίστα της βάσης — κάθε σκάφος μπορεί να έχει δικές του προσθαφαιρέσεις (boat.inventoryExtra /
+// boat.inventoryHidden), γιατί δεν έχουν όλα τα σκάφη bow thruster, γεννήτρια κ.λπ.
+const INVENTORY_CATS = [
+  ["deck", "Κατάστρωμα & Cockpit"],
+  ["locker1", "Locker 1"],
+  ["locker2", "Locker 2"],
+  ["linen", "Λευκά είδη"],
+  ["sails", "Πανιά"],
+  ["safety", "Ασφάλεια"],
+  ["nav", "Πλοήγηση"],
+];
+const SEED_INVENTORY = {
+  deck: ["Bimini", "Spray Hood", "Βιτζιρέλα (Winches)", "Μανέλες", "Πασαρέλα", "Πλατφόρμα", "Ντους καταστρώματος", "Τραπέζι cockpit", "Μαξιλάρια cockpit", "Χερούλι αντλίας", "Χειροκίνητη αντλία", "1 Σωσίβια λέμβος", "Μπαλόνια", "2 Πυξίδες", "Φως cockpit", "Άγκυρα", "Αλυσίδα άγκυρας", "Εργάτης άγκυρας", "Μανέλα εργάτη", "1 Βάρκα", "Κολονάκια", "1 Βυθόμετρο", "1 Ταχύμετρο", "1 Ανεμόμετρο", "Αυτόματος πιλότος", "1 GPS", "Προωστήρας πλώρης"],
+  locker1: ["1 Τρόμπα ποδιού", "1 Τρόμπα χεριού", "1 Εφεδρική άγκυρα", "1 Εφεδρικό πηδάλιο", "1 Βούρτσα καταστρώματος", "1 Χοάνη καυσίμων", "1 Σχοινί 50 μ.", "2 Σχοινιά 20 μ.", "2 Σχοινιά 10 μ.", "1 Κόφτης", "Βατραχοπέδιλα", "Μάσκα", "2 Σωσίβια πέταλα", "Ανατρεπόμενη λυχνία"],
+  locker2: ["1 Λάστιχο νερού", "1 Αντάπτορας λάστιχου", "1 Πλαστικός κουβάς", "1 Λάδι μηχανής", "1 Παραφλού / αντιψυκτικό", "2 Φιάλες αερίου", "2 Πυροσβεστήρες", "Δοχείο βενζίνης (άδειο)", "Καλώδιο εξωτ. παροχής ρεύματος", "1 Αντάπτορας 220V", "2 Κουπιά για τη βάρκα", "1 Γάντζος", "1 Σκάλα κολύμβησης"],
+  linen: ["Κουβέρτες", "Μαξιλάρια", "Σεντόνια", "Πετσέτες", "Μαξιλαροθήκες"],
+  sails: ["Μαΐστρα", "Σάκος μαΐστρας (Lazy Jack)", "Φλόκος (Genoa)"],
+  safety: ["Σωσίβια (ενηλίκων)", "Σωσίβια (παιδικά)", "Ζώνες ασφαλείας", "1 Φωτοβολίδα (σαλόνι)", "1 Καρεκλάκι ανύψωσης (σαλόνι)", "1 Μαύρη μπάλα αγκυροβολίας (σαλόνι)", "Κουτί πρώτων βοηθειών (σαλόνι)", "EPIRB", "Πυροσβεστήρας", "Κόρνα ομίχλης", "Πλωτή άγκυρα", "Ξύλινες σφήνες", "1 Εργαλειοθήκη", "Σετ επισκευής λέμβου", "Σετ επισκευής πανιών", "Ανταλλακτικά μηχανής"],
+  nav: ["1 Πυξίδα χειρός", "1 Διαβαθμισμένος χάρακας", "1 Κουμπάσο", "Χάρτες", "1 Greek Water Pilot", "1 Ζευγάρι κιάλια", "1 Φακός", "1 VHF", "1 CD Player"],
+};
+// Η λίστα του συγκεκριμένου σκάφους = βασική λίστα βάσης − όσα δεν έχει αυτό το σκάφος + όσα έχει επιπλέον.
+const buildInventoryItems = (boat, base) => {
+  const hidden = new Set(boat?.inventoryHidden || []);
+  const extra = boat?.inventoryExtra || {};
+  const out = [];
+  INVENTORY_CATS.forEach(([cat]) => {
+    const items = [...((base && base[cat]) || []), ...((extra && extra[cat]) || [])];
+    items.forEach((text, i) => {
+      if (hidden.has(`${cat}::${text}`)) return;
+      out.push({ id: `inv-${cat}-${i}-${Math.random().toString(36).slice(2, 5)}`, cat, text, status: "pending", problemTaskId: null, note: "" });
+    });
+  });
+  return out;
+};
+
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 let LANG = "el";
 
@@ -104,6 +142,9 @@ const DEFAULT_SETTINGS = {
   autoDepartureChecklists: true,  // checklist αναχώρησης
   autoWeeklyReport: true,         // αυτόματη εβδομαδιαία αναφορά
   // Ε. Φωτογραφίες
+  // Inventory List — έλεγχος εξοπλισμού πριν την παράδοση στον πελάτη
+  autoInventory: true,            // δημιουργείται μόνο του πριν από κάθε αναχώρηση
+  inventoryDaysBefore: 2,         // πόσες μέρες πριν την αναχώρηση εμφανίζεται
   // ΣΤ. Αναβολή εργασιών — τρεις προεπιλεγμένες διάρκειες στο κουμπί «Αναβολή» κάθε εργασίας
   snoozePreset1Days: 7,
   snoozePreset2Days: 30,
@@ -364,6 +405,7 @@ function AppInner() {
   const [quick, setQuick] = useState([]);
   const [checklist, setChecklist] = useState([]);
   const [closingChecklist, setClosingChecklist] = useState([]);
+  const [inventory, setInventory] = useState(SEED_INVENTORY);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [absences, setAbsences] = useState([]);
   const [notes, setNotes] = useState([]);
@@ -409,9 +451,9 @@ function AppInner() {
   // Φόρτωση
   useEffect(() => {
     (async () => {
-      let [u, b, t, q, c, cc, ab, nt, bn, am, st] = await Promise.all([
+      let [u, b, t, q, c, cc, ab, nt, bn, am, st, inv] = await Promise.all([
         load("app-users", null), load("app-boats", null), load("app-tasks", null),
-        load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null), load("app-aimemories", null), load("app-settings", null),
+        load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null), load("app-aimemories", null), load("app-settings", null), load("app-inventory", null),
       ]);
       // Ασφάλεια: αν κάποιο key έχει corrupted/λάθος-σχήμα δεδομένα (π.χ. object αντί για array, μη-string στοιχεία),
       // κανονικοποιείται ήσυχα εδώ πριν αγγίξει οποιοδήποτε .map/.filter/.some παρακάτω — never crash, self-heal.
@@ -573,6 +615,8 @@ function AppInner() {
       if (!bn) { bn = []; await save("app-boatnotes", bn); }
       if (!am) { am = []; await save("app-aimemories", am); }
       setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c); setClosingChecklist(cc); setAbsences(ab); setNotes(nt); setBoatNotes(bn); setAiMemories(am);
+      // Η βασική λίστα inventory: αν λείπει εντελώς, γράφεται η αρχική ώστε να υπάρχει από την πρώτη χρήση.
+      if (inv && typeof inv === "object") setInventory(inv); else { setInventory(SEED_INVENTORY); save("app-inventory", SEED_INVENTORY); }
       const merged = mergeSettings(st);
       SET = merged; setSettings(merged);
       setReady(true);
@@ -616,6 +660,7 @@ function AppInner() {
       let freshTasks = tasks;
       if (settings.autoDistribution) freshTasks = await runDistribution(false);
       if (settings.autoDepartureChecklists) freshTasks = await activateDepartureChecklists(freshTasks);
+      if (settings.autoInventory) freshTasks = await generateInventoryChecks(freshTasks);
       if (settings.autoLowLoadTasks) await generateAutoTasks(freshTasks);
     })();
   }, [ready, me]);
@@ -1331,6 +1376,97 @@ ${histLines}
     return merged;
   };
 
+  // ---------- Inventory List ----------
+  // Δημιουργείται ως ΚΑΝΟΝΙΚΗ εργασία, ώστε να κληρονομεί αυτόματα ό,τι ήδη δουλεύει: ανάθεση, ορατότητα σε
+  // όλους, καταγραφή «ποιος/πότε το ολοκλήρωσε», και μετατροπή κάθε ⚠ σε ξεχωριστή εργασία που δεν χάνεται.
+  const makeInventoryTask = (boat, byId, suffix) => ({
+    id: "t" + Date.now() + "-inv" + (suffix ?? ""), status: "open", createdBy: byId, createdAt: new Date().toISOString(),
+    progress: [], returns: 0, assignedTo: null, boatId: boat.id, desc: "Inventory List — έλεγχος εξοπλισμού",
+    inventoryItems: buildInventoryItems(boat, inventory),
+  });
+  const hasOpenInventory = (list, boatId) => list.some(t => t.boatId === boatId && t.status === "open" && t.inventoryItems);
+  const generateInventoryChecks = async (tasksOverride) => {
+    const src = tasksOverride || tasks;
+    const within = Number(SET.inventoryDaysBefore) || 2;
+    const need = boats.filter(b => {
+      const nd = nextDeparture(b);
+      return nd && nd.days !== null && nd.days <= within && !hasOpenInventory(src, b.id);
+    });
+    if (!need.length) return src;
+    const newTasks = need.map((b, i) => makeInventoryTask(b, "system", i));
+    setTasks(cur => {
+      const fresh = newTasks.filter(t => !hasOpenInventory(cur, t.boatId));
+      if (!fresh.length) return cur;
+      const nx = [...fresh, ...cur];
+      save("app-tasks", nx);
+      return nx;
+    });
+    return [...newTasks, ...src];
+  };
+  // Χειροκίνητη έναρξη για συγκεκριμένο σκάφος (π.χ. «πήγαινε τσέκαρε αν τα έχει όλα»).
+  const startInventory = (boat) => {
+    if (hasOpenInventory(tasks, boat.id)) { showToast("Υπάρχει ήδη ανοιχτό inventory γι' αυτό το σκάφος"); return; }
+    const nt = makeInventoryTask(boat, acting.id);
+    setTasks(cur => { const nx = [nt, ...cur]; save("app-tasks", nx); return nx; });
+    showToast(`Ξεκίνησε inventory για ${boat.name}`);
+  };
+  // Ένα αντικείμενο: ✔ εντάξει, ή ⚠ πρόβλημα/λείπει → γεννά ξεχωριστή εργασία με το ίδιο σκάφος.
+  const resolveInventoryItem = async (task, itemId, outcome, note) => {
+    let extraTask = null, newTaskId = null;
+    if (outcome === "problem") {
+      newTaskId = "t" + Date.now() + "-ip";
+      const item = (task.inventoryItems || []).find(it => it.id === itemId);
+      extraTask = {
+        id: newTaskId, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
+        progress: [], returns: 0, assignedTo: null, boatId: task.boatId,
+        desc: note?.trim() || `Inventory: πρόβλημα/λείπει — ${item?.text || "αντικείμενο"}`,
+      };
+    }
+    setTasks(cur => {
+      const base = extraTask ? [extraTask, ...cur] : cur;
+      const nx = base.map(t2 => {
+        if (t2.id !== task.id) return t2;
+        const items = (t2.inventoryItems || []).map(it => it.id === itemId
+          ? { ...it, status: outcome, problemTaskId: outcome === "problem" ? newTaskId : null, note: note?.trim() || "" } : it);
+        return { ...t2, inventoryItems: items };
+      });
+      save("app-tasks", nx);
+      return nx;
+    });
+    showToast(outcome === "problem" ? "Καταγράφηκε ⚠ — δημιουργήθηκε εργασία" : "Τσεκαρίστηκε ✔");
+  };
+  // «Όλα OK» / «Παράλειψη» για ολόκληρη κατηγορία — δεν αγγίζει όσα έχουν ήδη σημειωθεί ως ⚠.
+  const bulkInventoryCategory = (task, cat, outcome) => {
+    setTasks(cur => {
+      const nx = cur.map(t2 => t2.id !== task.id ? t2 : {
+        ...t2,
+        inventoryItems: (t2.inventoryItems || []).map(it => (it.cat === cat && it.status !== "problem") ? { ...it, status: outcome } : it),
+      });
+      save("app-tasks", nx);
+      return nx;
+    });
+  };
+  // Ολοκλήρωση: κρατάμε ποιος το έκανε και πότε — αυτό είναι το «ίχνος» που αντικαθιστά την υπογραφή στο χαρτί.
+  const finishInventory = (task) => {
+    setTasks(cur => {
+      const nx = cur.map(t2 => t2.id !== task.id ? t2 : {
+        ...t2, status: "done", completedBy: acting.id, completedByActor: acting.id, completedAt: new Date().toISOString(),
+      });
+      save("app-tasks", nx);
+      return nx;
+    });
+    showToast("Το inventory ολοκληρώθηκε");
+  };
+  // Επιβεβαίωση από Base Manager: «το είδα, το δέχομαι» — ξεχωριστό από το ποιος το εκτέλεσε.
+  const confirmInventory = (task) => {
+    setTasks(cur => {
+      const nx = cur.map(t2 => t2.id !== task.id ? t2 : { ...t2, inventoryConfirmedBy: acting.id, inventoryConfirmedAt: new Date().toISOString() });
+      save("app-tasks", nx);
+      return nx;
+    });
+    showToast("Επιβεβαιώθηκε");
+  };
+
   const resolveChecklistItem = async (task, itemId, outcome, note) => {
     let base = tasks;
     let newTaskId = null;
@@ -1406,20 +1542,20 @@ ${histLines}
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 12px" }}>
         {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
-          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
+          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
         {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} snoozedTasks={snoozedTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
         {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={boats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
         {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={activeTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
         {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={returnBoat} onSetNextCharter={setNextCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
-          settings={settings} updateSettings={updateSettings} resetSettings={resetSettings}
+          settings={settings} updateSettings={updateSettings} resetSettings={resetSettings} onStartInventory={startInventory} onConfirmInventory={confirmInventory}
           persistTasks={persistTasks} tasksRaw={deletedTasks} onRestore={restoreTask} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
           onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} section={adminSection} setSection={setAdminSection} /></ErrorBoundary>}
       </div>
@@ -1534,6 +1670,97 @@ function FindingsFlow({ t, onLogFinding, onComplete, isMgr, me, setCompleteAsId,
   );
 }
 
+// Inventory List: 7 αναδιπλούμενες κατηγορίες, κλειστές εξ ορισμού. Ο υπάλληλος πατάει «Όλα OK» ή «Παράλειψη»
+// ανά κατηγορία και ανοίγει μόνο εκείνη όπου βρήκε κάτι — έτσι ~80 αντικείμενα τελειώνουν σε δευτερόλεπτα
+// όταν όλα είναι εντάξει, αλλά υπάρχει πλήρες ίχνος εκεί που χρειάζεται.
+function InventoryItems({ t, onInventoryItem, onBulkCategory, onFinish, onConfirm, isMgr, users }) {
+  const [openCat, setOpenCat] = useState(null);
+  const [probFor, setProbFor] = useState(null);
+  const [note, setNote] = useState("");
+  const items = Array.isArray(t.inventoryItems) ? t.inventoryItems : [];
+  const done = t.status === "done";
+  const pending = items.filter(it => it.status === "pending").length;
+  const problems = items.filter(it => it.status === "problem");
+  const un = (id) => users?.find(u => u.id === id)?.name || "";
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ fontSize: T.small, color: COLORS.sub, marginBottom: 8 }}>
+        {items.length - pending}/{items.length} ελέγχθηκαν
+        {problems.length > 0 && <span style={{ color: COLORS.red, fontWeight: 700 }}> · {problems.length} με πρόβλημα</span>}
+      </div>
+
+      {!done && INVENTORY_CATS.map(([cat, label]) => {
+        const catItems = items.filter(it => it.cat === cat);
+        if (!catItems.length) return null;
+        const catPending = catItems.filter(it => it.status === "pending").length;
+        const catProblems = catItems.filter(it => it.status === "problem").length;
+        const skipped = catItems.every(it => it.status === "skipped");
+        const isOpen = openCat === cat;
+        const statusTxt = catProblems > 0 ? `⚠ ${catProblems}` : skipped ? "παραλείφθηκε" : catPending === 0 ? "✔" : `${catItems.length - catPending}/${catItems.length}`;
+        const statusCol = catProblems > 0 ? COLORS.red : catPending === 0 ? COLORS.green : COLORS.sub;
+        return (
+          <div key={cat} style={{ border: `1px solid ${COLORS.line}`, borderRadius: R.sm, marginBottom: 8 }}>
+            <button onClick={() => setOpenCat(isOpen ? null : cat)} style={{ width: "100%", background: "none", border: "none", padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, textAlign: "left" }}>
+              <span style={{ fontSize: T.small, fontWeight: 600 }}>{label}</span>
+              <span style={{ fontSize: T.caption, color: statusCol, fontWeight: 700 }}>{statusTxt} {isOpen ? "▾" : "▸"}</span>
+            </button>
+            <div style={{ display: "flex", gap: 8, padding: "0 12px 12px" }}>
+              <Btn small color={COLORS.green} outline onClick={() => onBulkCategory(t, cat, "ok")}>Όλα OK</Btn>
+              <Btn small color={NEUTRAL} outline onClick={() => onBulkCategory(t, cat, "skipped")}>Παράλειψη</Btn>
+            </div>
+            {isOpen && (
+              <div style={{ padding: "0 12px 8px" }}>
+                {catItems.map(it => (
+                  <div key={it.id} style={{ borderTop: `1px dashed ${COLORS.line}`, padding: "8px 0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: T.small, flex: 1, color: it.status === "skipped" ? COLORS.sub : COLORS.text }}>
+                        {it.status === "ok" && "✔ "}{it.status === "problem" && "⚠ "}{it.text}
+                      </span>
+                      <span style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                        <Btn small color={COLORS.green} outline onClick={() => onInventoryItem(t, it.id, "ok")}>✔</Btn>
+                        <Btn small color={COLORS.red} outline onClick={() => { setProbFor(it.id); setNote(""); }}>⚠</Btn>
+                      </span>
+                    </div>
+                    {it.status === "problem" && it.note && <div style={{ fontSize: T.caption, color: COLORS.red, marginTop: 2 }}>{it.note}</div>}
+                    {probFor === it.id && (
+                      <div style={{ marginTop: 8 }}>
+                        <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder="Τι λείπει ή τι πρόβλημα έχει;" style={inputStyle} />
+                        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                          <Btn small color={COLORS.red} onClick={() => { if (!note.trim()) return; onInventoryItem(t, it.id, "problem", note.trim()); setProbFor(null); }}>Καταχώρηση</Btn>
+                          <Btn small color={COLORS.sub} outline onClick={() => setProbFor(null)}>Άκυρο</Btn>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {!done && (
+        <div style={{ marginTop: 12 }}>
+          <Btn color={COLORS.green} onClick={() => onFinish(t)}>Ολοκλήρωση inventory</Btn>
+          {pending > 0 && <div style={{ fontSize: T.caption, color: COLORS.sub, marginTop: 6 }}>Μένουν {pending} αντικείμενα χωρίς έλεγχο — μπορείς να ολοκληρώσεις έτσι, θα καταγραφεί όπως είναι.</div>}
+        </div>
+      )}
+
+      {done && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${COLORS.line}` }}>
+          <div style={{ fontSize: T.small }}>
+            Ολοκληρώθηκε από <b>{un(t.completedBy) || "—"}</b>{t.completedAt ? ` · ${new Date(t.completedAt).toLocaleString("el-GR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
+          </div>
+          {t.inventoryConfirmedBy
+            ? <div style={{ fontSize: T.caption, color: COLORS.green, fontWeight: 600, marginTop: 4 }}>✔ Επιβεβαιώθηκε από {un(t.inventoryConfirmedBy)}</div>
+            : isMgr && <div style={{ marginTop: 8 }}><Btn small color={COLORS.navy} onClick={() => onConfirm(t)}>Επιβεβαίωση</Btn></div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ChecklistItems({ t, onChecklistItem }) {
   const [probFor, setProbFor] = useState(null);
   const [note, setNote] = useState("");
@@ -1601,7 +1828,7 @@ function MicButton({ onResult }) {
   );
 }
 
-function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp }) {
+function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign' | 'completeAs'
   const [showMore, setShowMore] = useState(false); // δευτερεύουσες ενέργειες — κρυφές μέχρι να ζητηθούν
@@ -1795,12 +2022,15 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           {Array.isArray(t.checklistItems) && (
             <ChecklistItems t={t} onChecklistItem={onChecklistItem} />
           )}
+          {Array.isArray(t.inventoryItems) && onInventoryItem && (
+            <InventoryItems t={t} onInventoryItem={onInventoryItem} onBulkCategory={onBulkCategory} onFinish={onFinishInventory} onConfirm={onConfirmInventory} isMgr={isMgr} users={users} />
+          )}
           {t.findMode && (
             <FindingsFlow t={t} onLogFinding={onLogFinding} onComplete={onComplete} isMgr={isMgr} me={me} setCompleteAsId={setCompleteAsId} setMode={setMode} employees={employees} completeAsId={completeAsId} />
           )}
           {mode === null && (
             <div style={{ marginTop: 8 }}>
-              {!Array.isArray(t.checklistItems) && !t.findMode && (
+              {!Array.isArray(t.checklistItems) && !Array.isArray(t.inventoryItems) && !t.findMode && (
                 <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                   {t.boatId ? (
                     <>
@@ -2143,7 +2373,11 @@ function FleetScheduleWidget({ boats, allTasks, onBoatClick }) {
     if (returnDate !== null && returnDays > returnWin) { returnDate = null; returnDays = null; }
     if (departDate !== null && departDays > departWin) { departDate = null; departDays = null; }
     const openCount = allTasks.filter(t => t.boatId === b.id && t.status === "open").length;
-    return { b, returnDate, returnDays, departDate, departDays, openCount };
+    // Κατάσταση inventory: ανοιχτό (εκκρεμεί) υπερισχύει· αλλιώς το πιο πρόσφατο ολοκληρωμένο.
+    const invOpen = allTasks.some(t => t.boatId === b.id && t.status === "open" && t.inventoryItems);
+    const invDone = allTasks.filter(t => t.boatId === b.id && t.status === "done" && t.inventoryItems)
+      .sort((x, y) => (y.completedAt || "").localeCompare(x.completedAt || ""))[0];
+    return { b, returnDate, returnDays, departDate, departDays, openCount, invOpen, invDone };
   }).filter(r => r.departDate !== null || r.returnDate !== null);
 
   const departOnly = rows.filter(r => r.departDate !== null && r.returnDate === null).sort((a, c) => a.departDays - c.departDays);
@@ -2163,7 +2397,7 @@ function FleetScheduleWidget({ boats, allTasks, onBoatClick }) {
       </button>
       {open && (
         <div style={{ marginTop: 8 }}>
-          {ordered.map(({ b, returnDate, returnDays, departDate, departDays, openCount }, i) => {
+          {ordered.map(({ b, returnDate, returnDays, departDate, departDays, openCount, invOpen, invDone }, i) => {
             const departLabel = departDate === null ? null : (departDays <= 0 ? "Φεύγει σήμερα" : `Φεύγει σε ${departDays}μ — ${fmtDate(departDate)}`);
             const departColor = departDays !== null && departDays <= 1 ? COLORS.red : COLORS.amber;
             const returnLabel = returnDate === null ? null : (returnDays <= 0 ? "Επέστρεψε σήμερα" : `Γυρνάει σε ${returnDays}μ — ${fmtDate(returnDate)}`);
@@ -2190,6 +2424,16 @@ function FleetScheduleWidget({ boats, allTasks, onBoatClick }) {
                   {returnLabel && departLabel && <span style={{ color: COLORS.sub }}> · </span>}
                   {departLabel && <span style={{ color: departColor, fontWeight: 600 }}>{departLabel}</span>}
                 </div>
+                {/* Ετοιμότητα παράδοσης με μια ματιά — αυτό που δεν έλυνε ποτέ το χαρτί. */}
+                {(invOpen || invDone || departLabel) && (
+                  <div style={{ marginTop: 2, fontSize: T.caption }}>
+                    {invOpen
+                      ? <span style={{ color: COLORS.amber, fontWeight: 600 }}>Inventory σε εξέλιξη</span>
+                      : invDone
+                        ? <span style={{ color: COLORS.green, fontWeight: 600 }}>✓ Inventory {fmtDate(invDone.completedAt)}{invDone.inventoryConfirmedBy ? " · επιβεβαιωμένο" : ""}</span>
+                        : <span style={{ color: COLORS.sub }}>Χωρίς inventory</span>}
+                  </div>
+                )}
               </button>
             );
           })}
@@ -2504,7 +2748,7 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
+function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
       {/* Πάνω-πάνω μόνο ό,τι εμφανίζεται υπό συνθήκη και απαιτεί προσοχή τώρα. */}
@@ -2518,7 +2762,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
       {allTasks.filter(t => t.status === "open").length > 0 && <VoiceComplete tasks={allTasks.filter(t => t.status === "open")} boats={boats} onComplete={onComplete} />}
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onInventoryItem={onInventoryItem} onBulkCategory={onBulkCategory} onFinishInventory={onFinishInventory} onConfirmInventory={onConfirmInventory} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp}
         onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} canAssign={canAssign} showAssignee={isMgr} />)}
 
       {/* Σπάνια χρησιμοποιούμενα εργαλεία: στο τέλος, ως διακριτικοί σύνδεσμοι. */}
@@ -2530,7 +2774,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
   );
 }
 
-function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, onBulkDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
+function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, onBulkDelete, canAssign, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
   const [boatFilterLocal, setBoatFilterLocal] = useState("");
   const [q, setQ] = useState("");
   // Παρατεταμένο πάτημα σε μια εργασία → μπαίνει σε «λειτουργία επιλογής»: εμφανίζεται τσεκ σε όλες τις κάρτες,
@@ -2596,7 +2840,7 @@ function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDead
             }}>{selected[t.id] && <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>✓</span>}</div>
           )}
           <TaskCard t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-            onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />
+            onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onInventoryItem={onInventoryItem} onBulkCategory={onBulkCategory} onFinishInventory={onFinishInventory} onConfirmInventory={onConfirmInventory} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />
         </div>
       ))}
       {isMgr && snoozedTasks?.length > 0 && <SnoozedList tasks={snoozedTasks} boats={boats} onUnsnooze={onUnsnooze} />}
@@ -2940,7 +3184,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
   const { me, users, boats, tasks, quick, checklist, closingChecklist, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
-    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore } = props;
+    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore } = props;
   const isOwner = me.role === "owner";
   // Δύο επίπεδα αντί για 12 καρτέλες σε οριζόντιο scroll: 4 ομάδες που χωράνε όλες στην οθόνη, και από κάτω
   // μόνο οι υποενότητες της επιλεγμένης ομάδας. Τίποτα δεν κρύβεται εκτός οθόνης πια.
@@ -2980,9 +3224,9 @@ function AdminView(props) {
           ))}
         </div>
       )}
-      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} />}
+      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} onConfirmInventory={onConfirmInventory} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
-      {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={onReturnBoat} onSetNextCharter={onSetNextCharter} showToast={showToast} />}
+      {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={onReturnBoat} onSetNextCharter={onSetNextCharter} onStartInventory={onStartInventory} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
@@ -3082,10 +3326,15 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
   );
 }
 
-function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateClosingChecks, settings, users, me, absences }) {
+function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateClosingChecks, settings, users, me, absences, onConfirmInventory }) {
+  const un = (id) => users?.find(u => u.id === id)?.name || "";
   const urgent = tasks.filter(t => t.status === "open" && t.urgent);
   const external = tasks.filter(t => t.status === "external");
   const purchases = tasks.filter(t => t.status === "open" && t.purchase);
+  // Ολοκληρωμένα inventory που δεν έχει δει ακόμα manager — δεν εμφανίζονται στις κανονικές λίστες (είναι «done»),
+  // οπότε χωρίς αυτό το σημείο η επιβεβαίωση θα ήταν απρόσιτη.
+  const invPending = tasks.filter(t => t.status === "done" && t.inventoryItems && !t.inventoryConfirmedBy)
+    .sort((a, c) => (c.completedAt || "").localeCompare(a.completedAt || ""));
   const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
   return (
     <div>
@@ -3103,6 +3352,25 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
         <div style={{ background: "#FDF3E3", borderRadius: 12, padding: 12, marginBottom: 12, fontSize: 15 }}>
           <div style={{ fontWeight: 700, color: "#7D5406" }}>🛒 Ελλείψεις / προς αγορά ({purchases.length}) — ανατεθειμένα στον Λεωνίδα:</div>
           {purchases.map(t => <div key={t.id} style={{ fontSize: 13, color: "#6B5410", paddingLeft: 8, marginTop: 4 }}>• {t.desc} — {bn(t.boatId)}</div>)}
+        </div>
+      )}
+      {invPending.length > 0 && (
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: 12, marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: T.small, marginBottom: 4 }}>Inventory προς επιβεβαίωση ({invPending.length})</div>
+          {invPending.map(t => {
+            const probs = (t.inventoryItems || []).filter(it => it.status === "problem").length;
+            return (
+              <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 0", borderTop: `1px dashed ${COLORS.line}` }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: T.small, fontWeight: 600 }}>{bn(t.boatId)}</div>
+                  <div style={{ fontSize: T.caption, color: probs > 0 ? COLORS.red : COLORS.sub, marginTop: 2 }}>
+                    {un(t.completedBy) || "—"} · {fmtDate(t.completedAt)}{probs > 0 ? ` · ⚠ ${probs} πρόβλημα(τα)` : " · όλα εντάξει"}
+                  </div>
+                </div>
+                <Btn small color={COLORS.navy} onClick={() => onConfirmInventory(t)}>Επιβεβαίωση</Btn>
+              </div>
+            );
+          })}
         </div>
       )}
       <Btn color={COLORS.teal} onClick={runDistribution}>▶ Εκτέλεση κατανομής ημέρας (AI) τώρα</Btn>
@@ -3598,7 +3866,7 @@ function BulkScheduleEntry({ boats, persistBoats, showToast }) {
   );
 }
 
-function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, showToast }) {
+function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onStartInventory, showToast }) {
   const [detailFor, setDetailFor] = useState(null);
   const [schedFor, setSchedFor] = useState(null);
   const [newFrom, setNewFrom] = useState("");
@@ -3696,6 +3964,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
               <div style={{ display: "flex", gap: 4, flexDirection: "column", flexShrink: 0 }}>
                 <Btn small color={COLORS.navy} outline onClick={() => { setSchedFor(schedFor === b.id ? null : b.id); setNewFrom(""); setNewTo(""); }}>Ναύλα</Btn>
                 <Btn small color={COLORS.sub} outline onClick={() => setDetailFor(detailFor === b.id ? null : b.id)}>Πληροφορίες</Btn>
+                {onStartInventory && <Btn small color={COLORS.sub} outline onClick={() => onStartInventory(b)}>Inventory</Btn>}
               </div>
             </div>
 
@@ -3915,6 +4184,10 @@ function SettingsAdmin({ settings, updateSettings, resetSettings }) {
         <SettingRow showHints={showHints} label="Checklist αναχώρησης" hint="Άνοιγμα λίστας ελέγχου όταν πλησιάζει αναχώρηση σκάφους.">
           <Toggle on={s.autoDepartureChecklists !== false} onChange={v => updateSettings({ autoDepartureChecklists: v })} />
         </SettingRow>
+        <SettingRow showHints={showHints} label="Αυτόματο Inventory List" hint={`Δημιουργείται μόνο του ${s.inventoryDaysBefore} μέρες πριν από κάθε αναχώρηση.`}>
+          <Toggle on={s.autoInventory !== false} onChange={v => updateSettings({ autoInventory: v })} />
+        </SettingRow>
+        <SettingRow showHints={showHints} label="Inventory: μέρες πριν την αναχώρηση" hint="Πόσο νωρίς εμφανίζεται ο έλεγχος εξοπλισμού.">{numIn("inventoryDaysBefore", 1, 14)}</SettingRow>
         <SettingRow showHints={showHints} label="Αυτόματη εβδομαδιαία αναφορά" hint="Αν κλείσει, η αναφορά δημιουργείται μόνο χειροκίνητα.">
           <Toggle on={s.autoWeeklyReport !== false} onChange={v => updateSettings({ autoWeeklyReport: v })} />
         </SettingRow>
