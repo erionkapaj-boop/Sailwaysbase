@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.95";
+const APP_VERSION = "v3.96";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -104,6 +104,10 @@ const DEFAULT_SETTINGS = {
   autoDepartureChecklists: true,  // checklist αναχώρησης
   autoWeeklyReport: true,         // αυτόματη εβδομαδιαία αναφορά
   // Ε. Φωτογραφίες
+  // ΣΤ. Αναβολή εργασιών — τρεις προεπιλεγμένες διάρκειες στο κουμπί «Αναβολή» κάθε εργασίας
+  snoozePreset1Days: 7,
+  snoozePreset2Days: 30,
+  snoozePreset3Days: 90,
   photoMaxDim: 1280,
   photoQuality: 0.72,
 };
@@ -125,6 +129,9 @@ const parseTime = (s, fallback) => {
   return { h, m: mi };
 };
 const TR = {
+  "Αναβολή": "Snooze", "Σε αναβολή έως": "Snoozed until", "Ακύρωση αναβολής": "Cancel snooze",
+  "Κρύψε αυτή την εργασία και ξαναφέρ' την:": "Hide this task and bring it back:",
+  "Οι προεπιλογές αλλάζουν από Ρυθμίσεις.": "Presets can be changed in Settings.",
   "καταχ.": "entered by", "Σύστημα": "System",
   "Χωρίς πίεση χρόνου": "No time pressure",
   "Δεν θα γίνεται ποτέ επείγουσα ούτε θα ανεβαίνει ψηλά όταν πλησιάζει αναχώρηση — π.χ. αισθητική δουλειά χαμηλής σοβαρότητας.": "Will never become urgent or rise in priority as a departure nears — e.g. minor cosmetic work.",
@@ -1152,6 +1159,18 @@ ${histLines}
     });
     showToast(!t.excludedFromDeadline ? "Δεν θα πιέζεται ποτέ από αναχώρηση σκάφους" : "Ξαναμπαίνει στην κανονική πίεση χρόνου");
   };
+  // Αναβολή: η εργασία μένει status="open" αναλλοίωτη (ίδια ανάθεση, ίδιο σκάφος) αλλά κρύβεται από τις κανονικές
+  // λίστες μέχρι το snoozedUntil. Δεν είναι το ίδιο με το «backlog» (που είναι ευκαιριακό — ενεργοποιείται μόνο
+  // αν αδειάσει η ουρά κάποιου): εδώ η επιστροφή είναι ΕΓΓΥΗΜΕΝΗ στην ημερομηνία-στόχο, χωρίς καμία ενέργεια.
+  const snoozeTask = (t, days) => {
+    const until = addDays(todayStr(), days);
+    setTasks(cur => { const nx = cur.map(x => x.id === t.id ? { ...x, snoozedUntil: until } : x); save("app-tasks", nx); return nx; });
+    showToast(`Σε αναβολή έως ${fmtDate(until)}`);
+  };
+  const unsnoozeTask = (t) => {
+    setTasks(cur => { const nx = cur.map(x => x.id === t.id ? { ...x, snoozedUntil: null } : x); save("app-tasks", nx); return nx; });
+    showToast("Η αναβολή ακυρώθηκε");
+  };
   const setTaskDeadlineByDuration = async (t, minutes) => {
     let base = Date.now();
     if (t.assignedTo) {
@@ -1349,8 +1368,11 @@ ${histLines}
     return (b.createdAt || "").localeCompare(a.createdAt || "");
   });
 
-  const myTasks = sortTasks(tasks.filter(t => t.status === "open" && t.assignedTo === acting.id));
-  const freeTasks = sortTasks(tasks.filter(t => t.status === "open" && (!t.assignedTo || t.assignedTo !== acting.id)));
+  // Κρυμμένη από τις κανονικές λίστες όσο snoozedUntil είναι στο μέλλον — ξαναμπαίνει μόνη της μόλις περάσει.
+  const isSnoozed = (t) => t.snoozedUntil && t.snoozedUntil > todayStr();
+  const myTasks = sortTasks(tasks.filter(t => t.status === "open" && !isSnoozed(t) && t.assignedTo === acting.id));
+  const freeTasks = sortTasks(tasks.filter(t => t.status === "open" && !isSnoozed(t) && (!t.assignedTo || t.assignedTo !== acting.id)));
+  const snoozedTasks = tasks.filter(t => t.status === "open" && isSnoozed(t)).sort((a, b) => a.snoozedUntil.localeCompare(b.snoozedUntil));
   // Τα διαγραμμένα (status="deleted") φιλτράρονται εδώ, ΜΙΑ φορά, κεντρικά — έτσι καμία οθόνη, στατιστικό ή
   // αναφορά δεν τα βλέπει ποτέ κατά λάθος. Μόνο ο «Κάδος» της Διοίκησης παίρνει την πλήρη λίστα (tasksRaw).
   const activeTasks = tasks.filter(t => t.status !== "deleted");
@@ -1382,13 +1404,13 @@ ${histLines}
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 12px" }}>
         {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
-          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
+          effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
-        {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
+        {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} snoozedTasks={snoozedTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
         {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={boats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
         {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={activeTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
         {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
@@ -1577,7 +1599,7 @@ function MicButton({ onResult }) {
   );
 }
 
-function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onAddBeforePhotos, onLogFinding, onTranslate, onHelp }) {
+function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign' | 'completeAs'
   const [showMore, setShowMore] = useState(false); // δευτερεύουσες ενέργειες — κρυφές μέχρι να ζητηθούν
@@ -1586,6 +1608,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const [afterPhotos, setAfterPhotos] = useState([]);
   const [assignMinutes, setAssignMinutes] = useState("");
   const [customMins, setCustomMins] = useState("");
+  const [snoozeDate, setSnoozeDate] = useState("");
   const [confidence, setConfidence] = useState(null);
   const [showOriginal, setShowOriginal] = useState(false);
   const [completionNote, setCompletionNote] = useState("");
@@ -1800,6 +1823,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                   <Btn small color={COLORS.amber} outline onClick={() => { setMode("external"); setNote(""); }}>{tr("Χρειάζεται ειδικός")}</Btn>
                   {(isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn small color={NEUTRAL} outline onClick={() => { setMode("edit"); setNote(t.desc); }}>{tr("Διόρθωση")}</Btn>}
                   {isMgr && <Btn small color={COLORS.amber} outline onClick={() => setMode("deadline")}>{tr("Προθεσμία")}</Btn>}
+                  {onSnooze && (isMgr || t.createdBy === me?.id || t.assignedTo === me?.id) && <Btn small color={NEUTRAL} outline onClick={() => setMode("snooze")}>{t.snoozedUntil ? tr("Αναβολή") + "…" : tr("Αναβολή")}</Btn>}
                   {(isMgr || canAssign) && <Btn small color={COLORS.navy} outline onClick={() => setMode("assign")}>{tr("Ανάθεση")}</Btn>}
                   {!t.urgent && <Btn small color={COLORS.red} outline onClick={() => onDowngrade(t)}>{tr("Επείγον")}</Btn>}
                   {isMgr && t.urgent && <Btn small color={NEUTRAL} outline onClick={() => onDowngrade(t)}>{tr("Άρση επείγοντος")}</Btn>}
@@ -1856,6 +1880,36 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               <div style={{ marginTop: 8 }}>
                 <Btn small color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
               </div>
+            </div>
+          )}
+          {mode === "snooze" && (
+            <div style={{ marginTop: 8 }}>
+              {t.snoozedUntil ? (
+                <>
+                  <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 8 }}>{tr("Σε αναβολή έως")} {fmtDate(t.snoozedUntil)}.</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Btn small color={COLORS.navy} outline onClick={() => { onUnsnooze(t); setMode(null); }}>{tr("Ακύρωση αναβολής")}</Btn>
+                    <Btn small color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 8 }}>{tr("Κρύψε αυτή την εργασία και ξαναφέρ' την:")}</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {[SET.snoozePreset1Days, SET.snoozePreset2Days, SET.snoozePreset3Days].map(d => (
+                      <Btn key={d} small color={NEUTRAL} outline onClick={() => { onSnooze(t, d); setMode(null); }}>{humanizeDays(d)}</Btn>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+                    <input type="date" min={todayStr()} value={snoozeDate} onChange={e => setSnoozeDate(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
+                    <Btn small color={NEUTRAL} outline onClick={() => { if (snoozeDate) { onSnooze(t, Math.max(1, daysUntil(snoozeDate))); setMode(null); setSnoozeDate(""); } }}>{tr("Ορισμός")}</Btn>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: COLORS.sub, marginTop: 6 }}>{tr("Οι προεπιλογές αλλάζουν από Ρυθμίσεις.")}</div>
+                  <div style={{ marginTop: 8 }}>
+                    <Btn small color={COLORS.sub} outline onClick={() => setMode(null)}>{tr("Άκυρο")}</Btn>
+                  </div>
+                </>
+              )}
             </div>
           )}
           {mode === "beforePhoto" && (
@@ -2448,7 +2502,7 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
+function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
       {/* Πάνω-πάνω μόνο ό,τι εμφανίζεται υπό συνθήκη και απαιτεί προσοχή τώρα. */}
@@ -2462,7 +2516,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
       {allTasks.filter(t => t.status === "open").length > 0 && <VoiceComplete tasks={allTasks.filter(t => t.status === "open")} boats={boats} onComplete={onComplete} />}
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp}
+        onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp}
         onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} canAssign={canAssign} showAssignee={isMgr} />)}
 
       {/* Σπάνια χρησιμοποιούμενα εργαλεία: στο τέλος, ως διακριτικοί σύνδεσμοι. */}
@@ -2474,7 +2528,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
   );
 }
 
-function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, onBulkDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
+function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, onBulkDelete, canAssign, onChecklistItem, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
   const [boatFilterLocal, setBoatFilterLocal] = useState("");
   const [q, setQ] = useState("");
   // Παρατεταμένο πάτημα σε μια εργασία → μπαίνει σε «λειτουργία επιλογής»: εμφανίζεται τσεκ σε όλες τις κάρτες,
@@ -2540,9 +2594,39 @@ function TasksView({ tasks, boats, users, isMgr, me, effectiveDeadline, onComple
             }}>{selected[t.id] && <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>✓</span>}</div>
           )}
           <TaskCard t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-            onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />
+            onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />
         </div>
       ))}
+      {isMgr && snoozedTasks?.length > 0 && <SnoozedList tasks={snoozedTasks} boats={boats} onUnsnooze={onUnsnooze} />}
+    </div>
+  );
+}
+
+// Ώστε καμία αναβεβλημένη εργασία να μη «χάνεται»: πάντα ορατή εδώ, κλειστή εξ ορισμού για να μην πιάνει χώρο,
+// με την ημερομηνία επιστροφής της και δυνατότητα να την ξαναφέρεις τώρα αν αλλάξεις γνώμη.
+function SnoozedList({ tasks, boats, onUnsnooze }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginTop: 22, paddingTop: 14, borderTop: `1px solid ${COLORS.line}` }}>
+      <button onClick={() => setOpen(!open)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, textAlign: "left" }}>
+        <span style={{ fontSize: T.small, fontWeight: 600, color: COLORS.sub }}>Σε αναβολή ({tasks.length})</span>
+        <span style={{ fontSize: T.small, color: COLORS.sub }}>{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          {tasks.map(t => (
+            <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `1px solid ${COLORS.line}` }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: T.small, fontWeight: 600 }}>{t.desc}</div>
+                <div style={{ fontSize: T.caption, color: COLORS.sub, marginTop: 2 }}>
+                  {boats.find(b => b.id === t.boatId)?.name || "Βάση/Άλλο"} · έως {fmtDate(t.snoozedUntil)}
+                </div>
+              </div>
+              <Btn small color={COLORS.sub} outline onClick={() => onUnsnooze(t)}>Τώρα</Btn>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -3123,6 +3207,14 @@ function ControlPanel({ tasks, boats, users, onReturn, onCloseExternal, onDowngr
 }
 
 const addDays = (dateStr, days) => { const d = localMidnight(dateStr); d.setDate(d.getDate() + days); return dateStrOf(d); };
+// "7" -> "1 εβδομάδα", "30" -> "1 μήνας", "10" -> "10 μέρες" — φιλική ετικέτα για τις προεπιλογές αναβολής,
+// ώστε μια ρύθμιση σε μέρες (απλή, χωρίς μονάδες) να διαβάζεται φυσικά στο κουμπί.
+const humanizeDays = (n) => {
+  n = Number(n) || 0;
+  if (n > 0 && n % 30 === 0) { const m = n / 30; return m === 1 ? "1 μήνας" : `${m} μήνες`; }
+  if (n > 0 && n % 7 === 0) { const w = n / 7; return w === 1 ? "1 εβδομάδα" : `${w} εβδομάδες`; }
+  return `${n} μέρες`;
+};
 
 // ---------- Πρόγραμμα ναύλων σεζόν ----------
 // Κάθε σκάφος έχει προαιρετικά boat.charters = [{ id, from: "YYYY-MM-DD", to: "YYYY-MM-DD" }, ...].
@@ -3793,6 +3885,12 @@ function SettingsAdmin({ settings, updateSettings, resetSettings }) {
         <SettingRow showHints={showHints} label="Όριο «χαμηλού φόρτου»" hint="Με τόσες ή λιγότερες ανοιχτές εργασίες, το άτομο θεωρείται διαθέσιμο για νέα αυτόματη εργασία.">{numIn("lowLoadThreshold", 0, 5)}</SettingRow>
         <SettingRow showHints={showHints} label="Εργασίες αναμονής ανά ενεργοποίηση" hint="Πόσες εργασίες «για όταν υπάρχει κενό» ενεργοποιούνται μαζί.">{numIn("maxBacklogConvert", 1, 10)}</SettingRow>
         <SettingRow showHints={showHints} label="Ιστορικό σκάφους για το AI (μέρες)" hint="Πόσο πίσω κοιτά το AI ώστε να μην ξαναστείλει κάποιον στο ίδιο σημείο.">{numIn("boatHistoryDays", 7, 90)}</SettingRow>
+      </SettingsGroup>
+
+      <SettingsGroup title="Αναβολή εργασιών" subtitle="Οι τρεις προεπιλογές στο κουμπί «Αναβολή»" openKey="snooze" cur={cur} setCur={setCur}>
+        <SettingRow showHints={showHints} label="Προεπιλογή 1 (μέρες)" hint="Εμφανίζεται ως πρώτο κουμπί, π.χ. 7 = «1 εβδομάδα».">{numIn("snoozePreset1Days", 1, 365)}</SettingRow>
+        <SettingRow showHints={showHints} label="Προεπιλογή 2 (μέρες)" hint="π.χ. 30 = «1 μήνας».">{numIn("snoozePreset2Days", 1, 365)}</SettingRow>
+        <SettingRow showHints={showHints} label="Προεπιλογή 3 (μέρες)" hint="π.χ. 90 = «3 μήνες».">{numIn("snoozePreset3Days", 1, 365)}</SettingRow>
       </SettingsGroup>
 
       <SettingsGroup title="Χρόνοι εμφάνισης" subtitle="Πόσο μένουν ορατά μηνύματα και πίνακες" openKey="vis" cur={cur} setCur={setCur}>
