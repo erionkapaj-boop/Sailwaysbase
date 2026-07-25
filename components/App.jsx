@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v3.93";
+const APP_VERSION = "v3.94";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -125,6 +125,7 @@ const parseTime = (s, fallback) => {
   return { h, m: mi };
 };
 const TR = {
+  "καταχ.": "entered by", "Σύστημα": "System",
   "Χωρίς πίεση χρόνου": "No time pressure",
   "Δεν θα γίνεται ποτέ επείγουσα ούτε θα ανεβαίνει ψηλά όταν πλησιάζει αναχώρηση — π.χ. αισθητική δουλειά χαμηλής σοβαρότητας.": "Will never become urgent or rise in priority as a departure nears — e.g. minor cosmetic work.",
   "Με επιφυλάξεις": "With reservations", "Περισσότερα": "More", "Λιγότερα": "Less",
@@ -1601,6 +1602,9 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const du = daysUntil(dl);
   const spine = t.urgent ? COLORS.red : (dl && du !== null && du <= 7 ? COLORS.amber : COLORS.line);
   const assignee = users.find(u => u.id === t.assignedTo);
+  // Ποιος καταχώρησε την εργασία — ξεχωριστό από το «σε ποιον ανατέθηκε» (assignee). Καλύπτει και τις
+  // αυτόματες περιπτώσεις (AI/checklist κλεισίματος/σύστημα), όχι μόνο ανθρώπους.
+  const creatorLabel = t.createdBy === "AI" ? "AI" : t.createdBy === "system" ? tr("Σύστημα") : (users.find(u => u.id === t.createdBy)?.name || null);
   const employees = users.filter(u => u.role === "employee" && !u.noStats);
   const needsTranslation = me?.lang === "en" && t.desc && !t.descEn;
   // Αυτόματη μετάφραση της περιγραφής (γραμμένη στα ελληνικά από τον manager) όταν ο χρήστης έχει lang="en" — μία φορά, μένει cached
@@ -1669,6 +1673,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           {t.excludedFromDeadline && <span style={{ color: COLORS.sub, fontSize: 12 }}>{tr("Χωρίς πίεση χρόνου")}</span>}
           {dl && (du === null || du > 7) && <span>{tr("έως")} {fmtDate(dl)}</span>}
           {showAssignee && assignee && <span>→ {assignee.name}{t.assignedBy === "AI" ? " (AI)" : ""}</span>}
+          {isMgr && creatorLabel && <span style={{ fontSize: T.caption, color: COLORS.sub }}>{tr("καταχ.")}: {creatorLabel}</span>}
           {t.returnNote && t.status === "open" && <span style={{ color: COLORS.red }}>↩ {tr("Επιστράφηκε")}</span>}
           {t.progress?.length > 0 && <span style={{ color: COLORS.teal }}>✏ {t.progress.length} {tr("πρόοδοι")}</span>}
         </div>
