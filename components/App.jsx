@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.05";
+const APP_VERSION = "v4.06";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -1576,7 +1576,7 @@ ${histLines}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 12px" }}>
         {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks} onQuickInventory={startInventory} onResetInventory={resetInventory}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks} onQuickInventory={(boat) => { startInventory(boat); goToBoatTasks(boat.id); }} onResetInventory={resetInventory}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
         {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} snoozedTasks={snoozedTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
