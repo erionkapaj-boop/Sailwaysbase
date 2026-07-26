@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.02";
+const APP_VERSION = "v4.04";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -2396,9 +2396,13 @@ function FleetScheduleWidget({ boats, allTasks, onBoatClick, onQuickInventory })
     if (returnDate !== null && returnDays > returnWin) { returnDate = null; returnDays = null; }
     if (departDate !== null && departDays > departWin) { departDate = null; departDays = null; }
     const openCount = allTasks.filter(t => t.boatId === b.id && t.status === "open").length;
-    // Κατάσταση inventory: ανοιχτό (εκκρεμεί) υπερισχύει· αλλιώς το πιο πρόσφατο ολοκληρωμένο.
+    // Κατάσταση inventory: ανοιχτό (εκκρεμεί) υπερισχύει· αλλιώς το πιο πρόσφατο ολοκληρωμένο — αλλά ΜΟΝΟ αν έγινε
+    // ΜΕΤΑ την τελευταία πραγματική αναχώρηση του σκάφους. Αλλιώς ένα παλιό ολοκληρωμένο inventory από προηγούμενο
+    // ναύλο θα εμφανιζόταν σαν έγκυρο για τον επόμενο, ενώ έπρεπε να έχει «καεί» μόλις το σκάφος έφυγε.
     const invOpen = allTasks.some(t => t.boatId === b.id && t.status === "open" && t.inventoryItems);
-    const invDone = allTasks.filter(t => t.boatId === b.id && t.status === "done" && t.inventoryItems)
+    const lastDep = lastPastDeparture(b);
+    const invDone = allTasks.filter(t => t.boatId === b.id && t.status === "done" && t.inventoryItems
+        && (!lastDep || (t.completedAt || "").slice(0, 10) > lastDep))
       .sort((x, y) => (y.completedAt || "").localeCompare(x.completedAt || ""))[0];
     return { b, returnDate, returnDays, departDate, departDays, openCount, invOpen, invDone };
   }).filter(r => r.departDate !== null || r.returnDate !== null);
@@ -3555,6 +3559,14 @@ const humanizeDays = (n) => {
 // ώστε να μη χρειάζεται χειροκίνητη διαχείριση. Τα παλιά πεδία (atSea/departureDate/returnDate) παραμένουν
 // ως υποστήριξη για σκάφη χωρίς πρόγραμμα και για τη γρήγορη χειροκίνητη επιλογή.
 const getCharters = (b) => Array.isArray(b?.charters) ? [...b.charters].filter(c => c && c.from && c.to).sort((a, c) => a.from.localeCompare(c.from)) : [];
+
+// Πιο πρόσφατη αναχώρηση του σκάφους που έχει ήδη περάσει ΠΛΗΡΩΣ (όχι σήμερα) — χρησιμοποιείται για να ξέρουμε αν
+// ένα ολοκληρωμένο inventory είναι ακόμα έγκυρο ή «έχει καεί» επειδή το σκάφος έφυγε. Το inventory παραμένει
+// έγκυρο ΚΑΘΟΛΗ την ημέρα της αναχώρησης — η μετατροπή σε «χωρίς inventory» γίνεται μία μέρα μετά.
+const lastPastDeparture = (b) => {
+  const past = getCharters(b).filter(c => c.from < todayStr());
+  return past.length ? past[past.length - 1].from : null;
+};
 
 // Επιστρέφει live κατάσταση σκάφους: { atSea, departureDate, returnDate, nextEventType, nextEventDate, nextEventDays }
 // nextEventType: "return" (επιστρέφει από τρέχον ναύλο) | "depart" (φεύγει σε επόμενο ναύλο) | null
