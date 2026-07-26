@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.06";
+const APP_VERSION = "v4.07";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -638,6 +638,7 @@ function AppInner() {
   const persistQuick = async (next) => { setQuick(next); await save("app-quicktasks", next); };
   const persistChecklist = async (next) => { setChecklist(next); await save("app-checklist", next); };
   const persistClosingChecklist = async (next) => { setClosingChecklist(next); await save("app-closingchecklist", next); };
+  const persistInventory = async (next) => { setInventory(next); await save("app-inventory", next); };
   const persistAbsences = async (next) => { setAbsences(next); await save("app-absences", next); };
   const persistNotes = async (next) => { setNotes(next); await save("app-notes", next); };
 
@@ -1584,7 +1585,7 @@ ${histLines}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
         {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={boats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
         {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={activeTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
-        {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
+        {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} inventory={inventory} persistInventory={persistInventory} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
           setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={returnBoat} onSetNextCharter={setNextCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
@@ -1609,7 +1610,7 @@ function Header({ me, onLogout }) {
         <img src="/icon-192.png" alt="" width={32} height={32} style={{ borderRadius: R.sm, flexShrink: 0 }} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 600, letterSpacing: 0.3, fontSize: T.body, lineHeight: 1.25 }}>SAILWAYS <span style={{ fontWeight: 400, opacity: 0.65 }}>Βάση Αλίμου</span></div>
-          <div style={{ fontSize: T.caption, opacity: 0.65, lineHeight: 1.35 }}>{me.name} · {roleLabel}</div>
+          <div style={{ fontSize: T.caption, opacity: 0.65, lineHeight: 1.35 }}>{me.name} · {roleLabel} <span style={{ opacity: 0.6 }}>· {APP_VERSION}</span></div>
         </div>
       </div>
       <button onClick={onLogout} style={{ background: "transparent", border: "1px solid rgba(255,255,255,.28)", color: "#fff", borderRadius: R.sm, padding: "8px 12px", fontSize: T.small, fontWeight: 500, flexShrink: 0 }}>{tr("Έξοδος")}</button>
@@ -3254,7 +3255,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
-  const { me, users, boats, tasks, quick, checklist, closingChecklist, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
+  const { me, users, boats, tasks, quick, checklist, closingChecklist, inventory, persistInventory, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
     setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, signoffs, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore } = props;
   const isOwner = me.role === "owner";
   // Δύο επίπεδα αντί για 12 καρτέλες σε οριζόντιο scroll: 4 ομάδες που χωράνε όλες στην οθόνη, και από κάτω
@@ -3298,7 +3299,7 @@ function AdminView(props) {
       {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} onConfirmInventory={onConfirmInventory} signoffs={signoffs} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
       {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={onReturnBoat} onSetNextCharter={onSetNextCharter} onStartInventory={onStartInventory} showToast={showToast} />}
-      {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} />}
+      {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} inventory={inventory} persistInventory={persistInventory} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
@@ -4308,12 +4309,39 @@ function SettingsAdmin({ settings, updateSettings, resetSettings }) {
   );
 }
 
-function ListsAdmin({ quick, checklist, closingChecklist, persistQuick, persistChecklist, persistClosingChecklist }) {
+function ListsAdmin({ quick, checklist, closingChecklist, persistQuick, persistChecklist, persistClosingChecklist, inventory, persistInventory }) {
   return (
     <div>
       <EditableList title="Γρήγορες εργασίες (quick-tasks)" items={quick} onChange={persistQuick} placeholder="π.χ. Αλλαγή impeller" />
       <EditableList title="Checklist αναχώρησης (ανοίγουν αυτόματα όταν ορίζεται αναχώρηση)" items={checklist} onChange={persistChecklist} placeholder="π.χ. Έλεγχος άγκυρας" />
       <EditableList title="Checklist κλεισίματος βάσης (υπενθύμιση σε κάθε εργασία κλεισίματος, μετά τις 15:30)" items={closingChecklist} onChange={persistClosingChecklist} placeholder="π.χ. Φώτα σβηστά" />
+      {inventory && persistInventory && <InventoryListAdmin inventory={inventory} persistInventory={persistInventory} />}
+    </div>
+  );
+}
+
+// Η βασική λίστα Inventory της βάσης, ανά κατηγορία — ξεχωριστή από τα παραπάνω checklists γιατί έχει δομή σε
+// κατηγορίες αντί για απλή λίστα. Κάθε σκάφος μπορεί να έχει επιπλέον δικές του προσθαφαιρέσεις (καρτέλα «Σκάφη»),
+// αλλά αυτή εδώ είναι η κοινή βάση που κληρονομούν όλα τα σκάφη.
+function InventoryListAdmin({ inventory, persistInventory }) {
+  const [open, setOpen] = useState(false);
+  const updateCat = (cat, items) => persistInventory({ ...inventory, [cat]: items });
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <button onClick={() => setOpen(!open)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, textAlign: "left" }}>
+        <span style={{ fontWeight: 700, fontSize: T.title }}>Inventory List σκαφών</span>
+        <span style={{ fontSize: T.small, color: COLORS.sub, fontWeight: 700 }}>{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 8 }}>
+            Η βασική λίστα εξοπλισμού που ελέγχεται σε κάθε inventory σκάφους, ανά κατηγορία. Δικές του προσθαφαιρέσεις για συγκεκριμένο σκάφος γίνονται από την καρτέλα «Σκάφη → Πληροφορίες».
+          </div>
+          {INVENTORY_CATS.map(([cat, label]) => (
+            <EditableList key={cat} title={label} items={inventory?.[cat] || []} onChange={(items) => updateCat(cat, items)} placeholder="π.χ. Σωσίβιο" />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
