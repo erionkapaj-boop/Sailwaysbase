@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.00";
+const APP_VERSION = "v4.01";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -1427,6 +1427,20 @@ ${histLines}
     setTasks(cur => { const nx = [nt, ...cur]; save("app-tasks", nx); return nx; });
     showToast(`Ξεκίνησε inventory για ${boat.name}`);
   };
+  // Γρήγορη ολοκλήρωση με ένα πάτημα (π.χ. από το widget στη «Σήμερα») — παρακάμπτει τον έλεγχο αντικείμενο-αντικείμενο
+  // και σημειώνει όλα ✔ κατευθείαν ως ολοκληρωμένο inventory. Ισχύει μέχρι την επόμενη αναχώρηση: μόλις αυτή περάσει,
+  // ο κύκλος autoInventory θα δημιουργήσει νέο ανοιχτό inventory κανονικά, όπως και με το πλήρες.
+  const quickCompleteInventory = (boat) => {
+    if (hasOpenInventory(tasks, boat.id)) { showToast("Υπάρχει ήδη ανοιχτό inventory γι' αυτό το σκάφος"); return; }
+    const items = buildInventoryItems(boat, inventory).map(it => ({ ...it, status: "ok" }));
+    const nt = {
+      id: "t" + Date.now() + "-invq", status: "done", createdBy: acting.id, createdAt: new Date().toISOString(),
+      progress: [], returns: 0, assignedTo: acting.id, boatId: boat.id, desc: "Inventory List — έλεγχος εξοπλισμού",
+      inventoryItems: items, completedBy: acting.id, completedByActor: acting.id, completedAt: new Date().toISOString(),
+    };
+    setTasks(cur => { const nx = [nt, ...cur]; save("app-tasks", nx); return nx; });
+    showToast(`Inventory ολοκληρώθηκε για ${boat.name}`);
+  };
   // Ένα αντικείμενο: ✔ εντάξει, ή ⚠ πρόβλημα/λείπει → γεννά ξεχωριστή εργασία με το ίδιο σκάφος.
   const resolveInventoryItem = async (task, itemId, outcome, note) => {
     let extraTask = null, newTaskId = null;
@@ -1564,7 +1578,7 @@ ${histLines}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 12px" }}>
         {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks} onQuickInventory={quickCompleteInventory}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
         {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} snoozedTasks={snoozedTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
@@ -2378,7 +2392,7 @@ function DailyGreeting({ me }) {
 //   1) μόνο φεύγουν      2) φεύγουν ΚΑΙ γυρνάνε (και τα δύο)      3) μόνο γυρνάνε
 // Έτσι όποιος διαβάζει μόνο την κορυφή βλέπει αποκλειστικά αναχωρήσεις, κι όποιος διαβάζει μόνο το τέλος
 // βλέπει αποκλειστικά επιστροφές — η μεσαία ζώνη είναι το μόνο σημείο όπου συναντιούνται.
-function FleetScheduleWidget({ boats, allTasks, onBoatClick }) {
+function FleetScheduleWidget({ boats, allTasks, onBoatClick, onQuickInventory }) {
   const [open, setOpen] = useState(false);
   const departWin = Number(SET.departWindowDays) || 6;
   const returnWin = Number(SET.returnWindowDays) || 5;
@@ -2424,7 +2438,7 @@ function FleetScheduleWidget({ boats, allTasks, onBoatClick }) {
             const returnLabel = returnDate === null ? null : (returnDays <= 0 ? "Επέστρεψε σήμερα" : `Γυρνάει σε ${returnDays}μ — ${fmtDate(returnDate)}`);
             const returnColor = returnDays !== null && returnDays <= 0 ? COLORS.green : COLORS.teal;
             return (
-              <button key={b.id} onClick={() => onBoatClick && onBoatClick(b.id)} style={{
+              <div key={b.id} role={onBoatClick ? "button" : undefined} tabIndex={onBoatClick ? 0 : undefined} onClick={() => onBoatClick && onBoatClick(b.id)} style={{
                 width: "100%", padding: "10px 0", borderBottom: i < ordered.length - 1 ? `1px solid ${COLORS.line}` : "none",
                 background: "none", border: "none", borderBottomStyle: i < ordered.length - 1 ? "solid" : "none", textAlign: "left", cursor: onBoatClick ? "pointer" : "default",
               }}>
@@ -2452,10 +2466,15 @@ function FleetScheduleWidget({ boats, allTasks, onBoatClick }) {
                       ? <span style={{ color: COLORS.amber, fontWeight: 600 }}>Inventory σε εξέλιξη</span>
                       : invDone
                         ? <span style={{ color: COLORS.green, fontWeight: 600 }}>✓ Inventory {fmtDate(invDone.completedAt)}{invDone.inventoryConfirmedBy ? " · επιβεβαιωμένο" : ""}</span>
-                        : <span style={{ color: COLORS.sub }}>Χωρίς inventory</span>}
+                        : onQuickInventory
+                          ? <button onClick={(e) => { e.stopPropagation(); onQuickInventory(b); }} style={{
+                              color: COLORS.sub, fontSize: T.caption, fontWeight: 600, background: "none", border: "none", padding: 0,
+                              textDecoration: "underline", cursor: "pointer",
+                            }}>Χωρίς inventory — πάτα για ολοκλήρωση</button>
+                          : <span style={{ color: COLORS.sub }}>Χωρίς inventory</span>}
                   </div>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
@@ -2769,14 +2788,14 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
+function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onQuickInventory, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
       {/* Πάνω-πάνω μόνο ό,τι εμφανίζεται υπό συνθήκη και απαιτεί προσοχή τώρα. */}
       <ExternalReminders me={me} tasks={allTasks} boats={boats} onAck={onAckExternal} onProgress={onProgress} onCloseExternal={onCloseExternal} onDelete={onDelete} onEdit={onEdit} />
       <MyNotes me={me} notes={notes} users={users} />
       <DailyGreeting me={me} />
-      <FleetScheduleWidget boats={boats} allTasks={allTasks} onBoatClick={onGoToBoatTasks} />
+      <FleetScheduleWidget boats={boats} allTasks={allTasks} onBoatClick={onGoToBoatTasks} onQuickInventory={onQuickInventory} />
 
       {/* Η δουλειά της ημέρας — φτάνει στην πρώτη οθόνη, χωρίς σκρολάρισμα πάνω από widget. */}
       <SectionTitle>{tr("Οι εργασίες μου")} — {new Date().toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { weekday: "long", day: "numeric", month: "long" })}</SectionTitle>
