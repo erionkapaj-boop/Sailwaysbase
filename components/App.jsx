@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.14";
+const APP_VERSION = "v4.15";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -1288,12 +1288,6 @@ ${histLines}
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, ...patch } : x));
     showToast(patch.manualDeadline ? `Ανατέθηκε — έως ${fmtTime(patch.manualDeadline)}` : "Ανατέθηκε");
   };
-  // Βοηθοί (assignedToMore): ξεχωριστό από τον υπεύθυνο (assignedTo). Πάντα ένας υπεύθυνος — αυτός κλείνει την
-  // εργασία στο app· οι βοηθοί απλώς εμφανίζονται στην εργασία και πιστώνονται στα στατιστικά τους ως «βοήθησε».
-  const setTaskHelpers = async (t, helperIds) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, assignedToMore: (helperIds || []).filter(id => id !== x.assignedTo) } : x));
-  };
-
   const addAbsence = async (userId, from, to, note) => {
     const a = { id: "ab" + Date.now(), userId, from, to, note: note || "", addedBy: acting.id, addedAt: new Date().toISOString() };
     await persistAbsences([a, ...absences]);
@@ -1588,12 +1582,12 @@ ${histLines}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 12px" }}>
         {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onSetHelpers={setTaskHelpers} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks} onQuickInventory={(boat) => { startInventory(boat); goToBoatTasks(boat.id); }} onResetInventory={resetInventory}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks} onQuickInventory={(boat) => { startInventory(boat); goToBoatTasks(boat.id); }} onResetInventory={resetInventory}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
         {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} snoozedTasks={snoozedTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onSetHelpers={setTaskHelpers} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
         {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={boats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
         {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={activeTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
         {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} inventory={inventory} persistInventory={persistInventory} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
@@ -1873,7 +1867,7 @@ function MicButton({ onResult }) {
   );
 }
 
-function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onSetHelpers, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp }) {
+function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign' | 'completeAs'
   const [showMore, setShowMore] = useState(false); // δευτερεύουσες ενέργειες — κρυφές μέχρι να ζητηθούν
@@ -1900,6 +1894,8 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const spine = t.urgent ? COLORS.red : (dl && du !== null && du <= 7 ? COLORS.amber : COLORS.line);
   const assignee = users.find(u => u.id === t.assignedTo);
   const helperUsers = (t.assignedToMore || []).map(id => users.find(u => u.id === id)).filter(Boolean);
+  // Σειρά για τον ενιαίο επιλογέα ανάθεσης: υπεύθυνος πρώτος, μετά οι βοηθοί — ίδια λογική με το «Νέα εργασία».
+  const assignedOrder = t.assignedTo ? [t.assignedTo, ...(t.assignedToMore || []).filter(id => id !== t.assignedTo)] : (t.assignedToMore || []);
   // Ποιος καταχώρησε την εργασία — ξεχωριστό από το «σε ποιον ανατέθηκε» (assignee). Καλύπτει και τις
   // αυτόματες περιπτώσεις (AI/checklist κλεισίματος/σύστημα), όχι μόνο ανθρώπους.
   const creatorLabel = t.createdBy === "AI" ? "AI" : t.createdBy === "system" ? tr("Σύστημα") : (users.find(u => u.id === t.createdBy)?.name || null);
@@ -2226,33 +2222,28 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                 <input type="number" min="1" placeholder={tr("Χρόνος (λεπτά, προαιρετικό)")} value={assignMinutes}
                   onChange={e => setAssignMinutes(e.target.value)} style={{ ...inputStyle, width: 180 }} />
               </div>
-              <div style={{ fontSize: 12, color: COLORS.sub, fontWeight: 700, marginBottom: 4 }}>{tr("Υπεύθυνος")}</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {users.map(u => (
-                  <Btn key={u.id} color={t.assignedTo === u.id ? COLORS.teal : COLORS.navy} outline={t.assignedTo !== u.id}
-                    onClick={() => { onAssignWithDeadline(t, u.id, assignMinutes ? Number(assignMinutes) : null, t.assignedToMore || []); setAssignMinutes(""); }}>{u.name}</Btn>
-                ))}
-                <Btn color={COLORS.sub} outline onClick={() => { onAssign(t, null); setMode(null); setAssignMinutes(""); }}>Ελεύθερη</Btn>
+              <div style={{ fontSize: 11, color: COLORS.sub, marginBottom: 4 }}>{tr("Πρώτο = υπεύθυνος (κλείνει την εργασία) · επόμενα = βοηθοί (μπαίνουν στα δικά τους στατιστικά ως «βοήθησε»)")}</div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {users.map(u => {
+                  const idx = assignedOrder.indexOf(u.id);
+                  const isPrimary = idx === 0;
+                  const isHelper = idx > 0;
+                  return (
+                    <button key={u.id} onClick={() => {
+                      const next = assignedOrder.includes(u.id) ? assignedOrder.filter(x => x !== u.id) : [...assignedOrder, u.id];
+                      onAssignWithDeadline(t, next[0] || null, assignMinutes ? Number(assignMinutes) : null, next.slice(1));
+                      setAssignMinutes("");
+                    }} style={{
+                      padding: "4px 10px", borderRadius: R.pill, fontSize: 12, fontWeight: isPrimary ? 700 : 500,
+                      border: `1px solid ${isPrimary ? COLORS.teal : isHelper ? "#8FC7CB" : COLORS.line}`,
+                      background: isPrimary ? COLORS.teal : isHelper ? "#DCF0EF" : "transparent",
+                      color: isPrimary ? "#fff" : isHelper ? COLORS.tealDark : COLORS.sub,
+                    }}>{u.name}</button>
+                  );
+                })}
               </div>
-              {t.assignedTo && onSetHelpers && (
-                <>
-                  <div style={{ fontSize: 12, color: COLORS.sub, fontWeight: 700, marginTop: 12, marginBottom: 4 }}>{tr("Βοηθοί (προαιρετικό)")}</div>
-                  <div style={{ fontSize: 11, color: COLORS.sub, marginBottom: 4 }}>{tr("Ο υπεύθυνος κλείνει την εργασία· οι βοηθοί μπαίνουν στα δικά τους στατιστικά ως «βοήθησε».")}</div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {users.filter(u => u.id !== t.assignedTo).map(u => {
-                      const isHelper = (t.assignedToMore || []).includes(u.id);
-                      return (
-                        <Btn key={u.id} small color={isHelper ? COLORS.teal : COLORS.line} outline={!isHelper}
-                          onClick={() => {
-                            const cur = t.assignedToMore || [];
-                            onSetHelpers(t, isHelper ? cur.filter(id => id !== u.id) : [...cur, u.id]);
-                          }}>{u.name}</Btn>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-              <div style={{ marginTop: 12 }}>
+              <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                <Btn small color={COLORS.sub} outline onClick={() => { onAssign(t, null); setMode(null); setAssignMinutes(""); }}>{tr("Ελεύθερη")}</Btn>
                 <Btn small color={COLORS.sub} outline onClick={() => { setMode(null); setAssignMinutes(""); }}>{tr("Κλείσιμο")}</Btn>
               </div>
             </div>
@@ -2837,7 +2828,7 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onSetHelpers, onDowngrade, onGoToBoatTasks, onQuickInventory, onResetInventory, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
+function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onQuickInventory, onResetInventory, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
       {/* Πάνω-πάνω μόνο ό,τι εμφανίζεται υπό συνθήκη και απαιτεί προσοχή τώρα. */}
@@ -2852,7 +2843,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
         onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onInventoryItem={onInventoryItem} onBulkCategory={onBulkCategory} onFinishInventory={onFinishInventory} onConfirmInventory={onConfirmInventory} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp}
-        onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onSetHelpers={onSetHelpers} onDowngrade={onDowngrade} canAssign={canAssign} showAssignee={isMgr} />)}
+        onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} canAssign={canAssign} showAssignee={isMgr} />)}
 
       {/* Σπάνια χρησιμοποιούμενα εργαλεία: στο τέλος, ως διακριτικοί σύνδεσμοι. */}
       <div style={{ marginTop: 24, paddingTop: 12, borderTop: `1px solid ${COLORS.line}`, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -2863,7 +2854,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
   );
 }
 
-function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onSetHelpers, onDowngrade, onEdit, onDelete, onBulkDelete, canAssign, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
+function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, onBulkDelete, canAssign, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
   const [boatFilterLocal, setBoatFilterLocal] = useState("");
   const [q, setQ] = useState("");
   // Έξυπνη ταξινόμηση (προεπιλογή, ίδια με πάντα) ή χειροκίνητα κατά ημερομηνία δημιουργίας — μόνο managers
@@ -2950,7 +2941,7 @@ function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDead
             }}>{selected[t.id] && <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>✓</span>}</div>
           )}
           <TaskCard t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-            onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onSetHelpers={onSetHelpers} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onInventoryItem={onInventoryItem} onBulkCategory={onBulkCategory} onFinishInventory={onFinishInventory} onConfirmInventory={onConfirmInventory} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />
+            onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onInventoryItem={onInventoryItem} onBulkCategory={onBulkCategory} onFinishInventory={onFinishInventory} onConfirmInventory={onConfirmInventory} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />
         </div>
       ))}
       {isMgr && snoozedTasks?.length > 0 && <SnoozedList tasks={snoozedTasks} boats={boats} onUnsnooze={onUnsnooze} />}
@@ -2995,6 +2986,7 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
   const [desc, setDesc] = useState("");
   const [urgent, setUrgent] = useState(false);
   const [picked, setPicked] = useState([]); // [0] = υπεύθυνος, τα υπόλοιπα = βοηθοί
+  const [assignOpen, setAssignOpen] = useState(false);
   const [multi, setMulti] = useState(false);
   const [purchase, setPurchase] = useState(false);
   const [backlog, setBacklog] = useState(false);
@@ -3012,7 +3004,7 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
     } else {
       onAdd({ boatId: boatId || null, desc: desc.trim(), urgent: backlog ? false : urgent, assignedTo: responsible, assignedToMore: helpers, purchase: backlog ? false : purchase, backlog }, photos);
     }
-    setDesc(""); setUrgent(false); setPicked([]); setBoatId(""); setMulti(false); setPurchase(false); setBacklog(false); setPhotos([]);
+    setDesc(""); setUrgent(false); setPicked([]); setAssignOpen(false); setBoatId(""); setMulti(false); setPurchase(false); setBacklog(false); setPhotos([]);
   };
   return (
     <div>
@@ -3052,22 +3044,32 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
             οπότε επιλεγμένα ονόματα θα φαίνονταν να ισχύουν ενώ θα αγνοούνταν σιωπηλά. */}
         {isMgr && !backlog && !purchase && (
           <>
-            <label style={lbl}>{tr("Ανάθεση (προαιρετικό) — πρώτο = υπεύθυνος, επόμενα = βοηθός")}</label>
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-              {users.map(u => {
-                const idx = picked.indexOf(u.id);
-                const isPrimary = idx === 0;
-                const isHelper = idx > 0;
-                return (
-                  <button key={u.id} onClick={() => togglePick(u.id)} style={{
-                    padding: "4px 10px", borderRadius: R.pill, fontSize: 12, fontWeight: isPrimary ? 700 : 500,
-                    border: `1px solid ${isPrimary ? COLORS.teal : isHelper ? "#8FC7CB" : COLORS.line}`,
-                    background: isPrimary ? COLORS.teal : isHelper ? "#DCF0EF" : "transparent",
-                    color: isPrimary ? "#fff" : isHelper ? COLORS.tealDark : COLORS.sub,
-                  }}>{u.name}</button>
-                );
-              })}
-            </div>
+            <button onClick={() => setAssignOpen(!assignOpen)} style={{
+              width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
+              background: "none", border: "none", padding: 0, margin: "12px 0 4px", textAlign: "left",
+            }}>
+              <span style={{ fontSize: T.small, fontWeight: 600, color: COLORS.sub }}>
+                {tr("Ανάθεση")}{picked.length ? `: ${users.find(u => u.id === picked[0])?.name || ""}${picked.length > 1 ? ` +${picked.length - 1}` : ""}` : ` (${tr("προαιρετικό")})`}
+              </span>
+              <span style={{ fontSize: T.caption, color: COLORS.sub, opacity: 0.7 }}>{assignOpen ? "▾" : "▸"}</span>
+            </button>
+            {assignOpen && (
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {users.map(u => {
+                  const idx = picked.indexOf(u.id);
+                  const isPrimary = idx === 0;
+                  const isHelper = idx > 0;
+                  return (
+                    <button key={u.id} onClick={() => togglePick(u.id)} style={{
+                      padding: "4px 10px", borderRadius: R.pill, fontSize: 12, fontWeight: isPrimary ? 700 : 500,
+                      border: `1px solid ${isPrimary ? COLORS.teal : isHelper ? "#8FC7CB" : COLORS.line}`,
+                      background: isPrimary ? COLORS.teal : isHelper ? "#DCF0EF" : "transparent",
+                      color: isPrimary ? "#fff" : isHelper ? COLORS.tealDark : COLORS.sub,
+                    }}>{u.name}</button>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
 
