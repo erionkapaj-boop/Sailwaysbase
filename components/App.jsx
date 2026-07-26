@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.08";
+const APP_VERSION = "v4.09";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -36,8 +36,6 @@ const FONT_STACK = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-se
 // Κλίμακα: 6 μεγέθη αντί για 15 αυθαίρετα. Το μάτι δεν εντοπίζει συνειδητά τη διαφορά 13 από 13.5,
 // αλλά την αντιλαμβάνεται ως ακαταστασία — και αυτό κουράζει.
 const T = { caption: 12, small: 13, body: 15, title: 17, heading: 20, display: 28 };
-// Πλέγμα 8: κάθε απόσταση πολλαπλάσιο του 4. Ποτέ 11 ή 13.
-const S = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
 // Δύο ακτίνες συν pill. Η καμπύλη κίνησης ξεκινά γρήγορα και «προσγειώνεται» απαλά — αυτό διαβάζεται ως
 // φιλικό, ενώ η γραμμική κίνηση στον ίδιο χρόνο διαβάζεται ως μηχανική.
 const R = { sm: 8, lg: 12, pill: 999 };
@@ -1074,10 +1072,17 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       if (t.boatId) addBoatNote(t.boatId, memText);
     }
   };
+  // Λειτουργική ενημέρωση: το ανέβασμα φωτογραφιών διαρκεί δευτερόλεπτα (4G στην προβλήτα). Με ανάγνωση του
+  // tasks από το closure, ό,τι άλλαζε στο μεταξύ (ολοκλήρωση/ανάθεση άλλης εργασίας) σβηνόταν κατά την εγγραφή.
   const addBeforePhotos = async (t, files) => {
     if (!files?.length) return;
     const urls = await uploadTaskPhotos(files, t.id);
-    if (urls.length) await persistTasks(tasks.map(x => x.id === t.id ? { ...x, photosBefore: [...(x.photosBefore || []), ...urls] } : x));
+    if (!urls.length) return;
+    setTasks(cur => {
+      const nx = cur.map(x => x.id === t.id ? { ...x, photosBefore: [...(x.photosBefore || []), ...urls] } : x);
+      save("app-tasks", nx);
+      return nx;
+    });
   };
   const externalTask = async (t, note) => {
     const finalNote = (acting.lang === "en" && note?.trim()) ? await translateToGreek(note) : note;
@@ -1090,7 +1095,12 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   const addProgress = async (t, note, photoFiles) => {
     let urls = [];
     if (photoFiles?.length) { try { urls = await uploadTaskPhotos(photoFiles, t.id); } catch {} }
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, progress: [...x.progress, { by: acting.id, at: new Date().toISOString(), note, ...(urls.length ? { photos: urls } : {}) }] } : x));
+    // Λειτουργική ενημέρωση για τον ίδιο λόγο με το addBeforePhotos — βλ. σχόλιο παραπάνω.
+    setTasks(cur => {
+      const nx = cur.map(x => x.id === t.id ? { ...x, progress: [...x.progress, { by: acting.id, at: new Date().toISOString(), note, ...(urls.length ? { photos: urls } : {}) }] } : x);
+      save("app-tasks", nx);
+      return nx;
+    });
     showToast("Η πρόοδος καταγράφηκε");
   };
   const returnTask = async (t, note) => {
@@ -1322,47 +1332,6 @@ ${histLines}
     await persistTasks([t, ...tasks]);
   };
 
-  // Αναχώρηση σκάφους: ορισμός ημερομηνίας + αυτόματο checklist
-  const setDeparture = async (boat, date, returnDate) => {
-    await persistBoats(boats.map(b => b.id === boat.id ? { ...b, departureDate: date || null, returnDate: date ? (returnDate || null) : null } : b));
-    if (date) {
-      const already = tasks.some(t => t.boatId === boat.id && t.status === "open" && t.checklistItems);
-      if (!already && checklist.length) {
-        const t = {
-          id: "t" + Date.now(), status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
-          progress: [], returns: 0, assignedTo: null, boatId: boat.id, desc: "Έλεγχος αναχώρησης",
-          checklistItems: checklist.map((c, i) => ({ id: "ci" + i, text: c, status: "pending", problemTaskId: null })),
-        };
-        await persistTasks([t, ...tasks]);
-      }
-      showToast("Ορίστηκε ναύλο" + (!already && checklist.length ? " — άνοιξε ο έλεγχος αναχώρησης" : ""));
-    } else showToast("Η αναχώρηση αφαιρέθηκε");
-  };
-
-  const cancelCharter = async (boat) => {
-    await persistBoats(boats.map(b => b.id === boat.id ? { ...b, departureDate: null, returnDate: null } : b));
-    // Το checklist ελέγχου αναχώρησης δεν έχει πια νόημα και φεύγει· τυχόν εργασίες που προέκυψαν από προβλήματα (⚠) παραμένουν κανονικά.
-    const stillOpen = tasks.filter(t => !(t.boatId === boat.id && t.status === "open" && t.checklistItems));
-    if (stillOpen.length !== tasks.length) await persistTasks(stillOpen);
-    showToast("Ο ναύλος ακυρώθηκε — οι εργασίες του σκάφους βγήκαν από προτεραιότητα");
-  };
-  // Προγραμματισμός επόμενου ναύλου ενώ το σκάφος είναι ακόμα εν πλω — απλή αποθήκευση ημερομηνιών,
-  // ΧΩΡΙΣ να ανοίγει έλεγχος αναχώρησης (δεν μπορεί κανείς να ετοιμάσει σκάφος που δεν έχει καν επιστρέψει).
-  const setNextCharter = async (boat, date, returnDate) => {
-    await persistBoats(boats.map(b => b.id === boat.id ? { ...b, nextDepartureDate: date || null, nextReturnDate: date ? (returnDate || null) : null } : b));
-    showToast(date ? "Προγραμματίστηκε ο επόμενος ναύλος" : "Ο προγραμματισμός αφαιρέθηκε");
-  };
-  // Επιστροφή σκάφους: αν είχε προγραμματιστεί επόμενος ναύλος, ενεργοποιείται τώρα ως ο τρέχων —
-  // αλλά ο έλεγχος αναχώρησης ΔΕΝ ανοίγει αμέσως· ενεργοποιείται το επόμενο πρωί (βλ. activateDepartureChecklists).
-  const returnBoat = async (boat) => {
-    const promoted = boat.nextDepartureDate || null;
-    const promotedReturn = boat.nextReturnDate || null;
-    await persistBoats(boats.map(x => x.id === boat.id ? {
-      ...x, atSea: false, departureDate: promoted, returnDate: promoted ? promotedReturn : null,
-      nextDepartureDate: null, nextReturnDate: null,
-    } : x));
-    showToast(promoted ? `Το ${boat.name} επέστρεψε — ο προγραμματισμένος ναύλος ενεργοποιείται το πρωί` : `Το ${boat.name} επέστρεψε`);
-  };
   // Ανοίγει τον έλεγχο αναχώρησης για σκάφη που είναι ήδη στη βάση με ορισμένη ημερομηνία ναύλου αλλά δεν έχουν
   // ακόμα το checklist — καλύπτει ειδικά τα σκάφη που μόλις επέστρεψαν, με φυσική καθυστέρηση ως το επόμενο πρωί
   // (τρέχει μία φορά τη μέρα, στο πρώτο άνοιγμα της εφαρμογής, μαζί με την υπόλοιπη καθημερινή ροή).
@@ -1408,7 +1377,9 @@ ${histLines}
     const within = Number(SET.inventoryDaysBefore) || 2;
     const need = boats.filter(b => {
       const nd = nextDeparture(b);
-      return nd && nd.days !== null && nd.days <= within && !hasOpenInventory(src, b.id);
+      // Δεν αρκεί να μην υπάρχει ΑΝΟΙΧΤΟ inventory: αν έχει ήδη ολοκληρωθεί έγκυρο inventory γι' αυτόν τον κύκλο,
+      // δεύτερο θα ήταν άσκοπη διπλή δουλειά. Ίδιος ορισμός εγκυρότητας με την οθόνη «Σήμερα» (validDoneInventory).
+      return nd && nd.days !== null && nd.days <= within && !hasOpenInventory(src, b.id) && !validDoneInventory(src, b);
     });
     if (!need.length) return src;
     const newTasks = need.map((b, i) => makeInventoryTask(b, "system", i));
@@ -1428,8 +1399,6 @@ ${histLines}
     setTasks(cur => { const nx = [nt, ...cur]; save("app-tasks", nx); return nx; });
     showToast(`Ξεκίνησε inventory για ${boat.name}`);
   };
-  // Γρήγορη έναρξη με ένα πάτημα (π.χ. από το widget στη «Σήμερα») — δημιουργεί ΑΝΟΙΧΤΗ εργασία inventory.
-  // Ολοκληρωμένο θεωρείται μόνο όταν γίνει πραγματικά ο έλεγχος και πατηθεί «Ολοκλήρωση inventory».
   // Ένα αντικείμενο: ✔ εντάξει, ή ⚠ πρόβλημα/λείπει → γεννά ξεχωριστή εργασία με το ίδιο σκάφος.
   const resolveInventoryItem = async (task, itemId, outcome, note) => {
     let extraTask = null, newTaskId = null;
@@ -1587,7 +1556,7 @@ ${histLines}
         {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={activeTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
         {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} inventory={inventory} persistInventory={persistInventory} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
-          setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={returnBoat} onSetNextCharter={setNextCharter} onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
+          onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
           settings={settings} updateSettings={updateSettings} resetSettings={resetSettings} onStartInventory={startInventory} onConfirmInventory={confirmInventory} signoffs={signoffs}
           persistTasks={persistTasks} tasksRaw={deletedTasks} onRestore={restoreTask} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
@@ -2407,14 +2376,9 @@ function FleetScheduleWidget({ boats, allTasks, onBoatClick, onQuickInventory, i
     if (returnDate !== null && returnDays > returnWin) { returnDate = null; returnDays = null; }
     if (departDate !== null && departDays > departWin) { departDate = null; departDays = null; }
     const openCount = allTasks.filter(t => t.boatId === b.id && t.status === "open").length;
-    // Κατάσταση inventory: ανοιχτό (εκκρεμεί) υπερισχύει· αλλιώς το πιο πρόσφατο ολοκληρωμένο — αλλά ΜΟΝΟ αν έγινε
-    // ΜΕΤΑ την τελευταία πραγματική αναχώρηση του σκάφους. Αλλιώς ένα παλιό ολοκληρωμένο inventory από προηγούμενο
-    // ναύλο θα εμφανιζόταν σαν έγκυρο για τον επόμενο, ενώ έπρεπε να έχει «καεί» μόλις το σκάφος έφυγε.
+    // Κατάσταση inventory: ανοιχτό (εκκρεμεί) υπερισχύει· αλλιώς το πιο πρόσφατο ΕΓΚΥΡΟ ολοκληρωμένο.
     const invOpen = allTasks.some(t => t.boatId === b.id && t.status === "open" && t.inventoryItems);
-    const lastDep = lastPastDeparture(b);
-    const invDone = allTasks.filter(t => t.boatId === b.id && t.status === "done" && t.inventoryItems && !t.inventoryReset
-        && (!lastDep || (t.completedAt || "").slice(0, 10) > lastDep))
-      .sort((x, y) => (y.completedAt || "").localeCompare(x.completedAt || ""))[0];
+    const invDone = validDoneInventory(allTasks, b);
     return { b, returnDate, returnDays, departDate, departDays, openCount, invOpen, invDone };
   }).filter(r => r.departDate !== null || r.returnDate !== null);
 
@@ -3256,7 +3220,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
   const { me, users, boats, tasks, quick, checklist, closingChecklist, inventory, persistInventory, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
-    setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, signoffs, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore } = props;
+    onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, signoffs, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore } = props;
   const isOwner = me.role === "owner";
   // Δύο επίπεδα αντί για 12 καρτέλες σε οριζόντιο scroll: 4 ομάδες που χωράνε όλες στην οθόνη, και από κάτω
   // μόνο οι υποενότητες της επιλεγμένης ομάδας. Τίποτα δεν κρύβεται εκτός οθόνης πια.
@@ -3298,7 +3262,7 @@ function AdminView(props) {
       )}
       {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} onConfirmInventory={onConfirmInventory} signoffs={signoffs} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
-      {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} setDeparture={setDeparture} cancelCharter={cancelCharter} onReturnBoat={onReturnBoat} onSetNextCharter={onSetNextCharter} onStartInventory={onStartInventory} showToast={showToast} />}
+      {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} onStartInventory={onStartInventory} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} inventory={inventory} persistInventory={persistInventory} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
@@ -3407,8 +3371,9 @@ function Overview({ boats, tasks, effectiveDeadline, runDistribution, generateCl
   const external = tasks.filter(t => t.status === "external");
   const purchases = tasks.filter(t => t.status === "open" && t.purchase);
   // Ολοκληρωμένα inventory που δεν έχει δει ακόμα manager — δεν εμφανίζονται στις κανονικές λίστες (είναι «done»),
-  // οπότε χωρίς αυτό το σημείο η επιβεβαίωση θα ήταν απρόσιτη.
-  const invPending = tasks.filter(t => t.status === "done" && t.inventoryItems && !t.inventoryConfirmedBy)
+  // οπότε χωρίς αυτό το σημείο η επιβεβαίωση θα ήταν απρόσιτη. Όσα έχουν επαναφερθεί χειροκίνητα εξαιρούνται:
+  // δεν έχει νόημα να ζητείται επιβεβαίωση για κάτι που μόλις ακυρώθηκε.
+  const invPending = tasks.filter(t => t.status === "done" && t.inventoryItems && !t.inventoryConfirmedBy && !t.inventoryReset)
     .sort((a, c) => (c.completedAt || "").localeCompare(a.completedAt || ""));
   const bn = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
   return (
@@ -3585,6 +3550,15 @@ const getCharters = (b) => Array.isArray(b?.charters) ? [...b.charters].filter(c
 const lastPastDeparture = (b) => {
   const past = getCharters(b).filter(c => c.from < todayStr());
   return past.length ? past[past.length - 1].from : null;
+};
+// ΜΟΝΑΔΙΚΟΣ ορισμός του «αυτό το σκάφος έχει έγκυρο ολοκληρωμένο inventory»: ολοκληρωμένο, μη χειροκίνητα
+// επαναφερμένο, και φτιαγμένο μετά την τελευταία πραγματική αναχώρηση. Ορίζεται εδώ μία φορά ώστε η οθόνη
+// «Σήμερα» και η αυτόματη δημιουργία inventory να μη μπορούν ποτέ να διαφωνήσουν μεταξύ τους.
+const validDoneInventory = (list, boat) => {
+  const lastDep = lastPastDeparture(boat);
+  return list.filter(t => t.boatId === boat.id && t.status === "done" && t.inventoryItems && !t.inventoryReset
+      && (!lastDep || (t.completedAt || "").slice(0, 10) > lastDep))
+    .sort((x, y) => (y.completedAt || "").localeCompare(x.completedAt || ""))[0] || null;
 };
 
 // Επιστρέφει live κατάσταση σκάφους: { atSea, departureDate, returnDate, nextEventType, nextEventDate, nextEventDays }
@@ -3960,7 +3934,7 @@ function BulkScheduleEntry({ boats, persistBoats, showToast }) {
   );
 }
 
-function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, setDeparture, cancelCharter, onReturnBoat, onSetNextCharter, onStartInventory, showToast }) {
+function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, onStartInventory, showToast }) {
   const [detailFor, setDetailFor] = useState(null);
   const [schedFor, setSchedFor] = useState(null);
   const [newFrom, setNewFrom] = useState("");
@@ -4328,9 +4302,9 @@ function InventoryListAdmin({ inventory, persistInventory }) {
   const updateCat = (cat, items) => persistInventory({ ...inventory, [cat]: items });
   return (
     <div style={{ marginBottom: 8 }}>
-      <button onClick={() => setOpen(!open)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, textAlign: "left" }}>
-        <span style={{ fontWeight: 700, fontSize: T.title }}>Inventory List σκαφών</span>
-        <span style={{ fontSize: T.small, color: COLORS.sub, fontWeight: 700 }}>{open ? "▾" : "▸"}</span>
+      <button onClick={() => setOpen(!open)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, margin: "32px 0 12px", textAlign: "left" }}>
+        <span style={{ fontSize: T.small, fontWeight: 600, color: COLORS.sub, letterSpacing: 0.2 }}>Inventory List</span>
+        <span style={{ fontSize: T.caption, color: COLORS.sub, opacity: 0.7 }}>{open ? "▾" : "▸"}</span>
       </button>
       {open && (
         <div style={{ marginTop: 8 }}>
@@ -4425,11 +4399,11 @@ function EditableList({ title, items, onChange, placeholder, collapsible = true 
   }
   return (
     <div style={{ marginBottom: 8 }}>
-      <button onClick={() => setOpen(!open)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, textAlign: "left" }}>
-        <span style={{ fontWeight: 700, fontSize: T.title }}>{title}</span>
-        <span style={{ fontSize: T.small, color: COLORS.sub, fontWeight: 700 }}>{open ? `▾ (${safeItems.length})` : `▸ (${safeItems.length})`}</span>
+      <button onClick={() => setOpen(!open)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, margin: "32px 0 12px", textAlign: "left" }}>
+        <span style={{ fontSize: T.small, fontWeight: 600, color: COLORS.sub, letterSpacing: 0.2 }}>{title}</span>
+        <span style={{ fontSize: T.caption, color: COLORS.sub, opacity: 0.7 }}>{safeItems.length} {open ? "▾" : "▸"}</span>
       </button>
-      {open && <div style={{ marginTop: 8 }}>{body}</div>}
+      {open && body}
     </div>
   );
 }
