@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.07";
+const APP_VERSION = "v4.08";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -4312,9 +4312,9 @@ function SettingsAdmin({ settings, updateSettings, resetSettings }) {
 function ListsAdmin({ quick, checklist, closingChecklist, persistQuick, persistChecklist, persistClosingChecklist, inventory, persistInventory }) {
   return (
     <div>
-      <EditableList title="Γρήγορες εργασίες (quick-tasks)" items={quick} onChange={persistQuick} placeholder="π.χ. Αλλαγή impeller" />
-      <EditableList title="Checklist αναχώρησης (ανοίγουν αυτόματα όταν ορίζεται αναχώρηση)" items={checklist} onChange={persistChecklist} placeholder="π.χ. Έλεγχος άγκυρας" />
-      <EditableList title="Checklist κλεισίματος βάσης (υπενθύμιση σε κάθε εργασία κλεισίματος, μετά τις 15:30)" items={closingChecklist} onChange={persistClosingChecklist} placeholder="π.χ. Φώτα σβηστά" />
+      <EditableList title="Check Out" items={quick} onChange={persistQuick} placeholder="π.χ. Αλλαγή impeller" />
+      <EditableList title="Check In (ανοίγει αυτόματα όταν ορίζεται αναχώρηση)" items={checklist} onChange={persistChecklist} placeholder="π.χ. Έλεγχος άγκυρας" />
+      <EditableList title="Κλείσιμο σκαφών (κλείσιμο βάσης, μετά τις 15:30)" items={closingChecklist} onChange={persistClosingChecklist} placeholder="π.χ. Φώτα σβηστά" />
       {inventory && persistInventory && <InventoryListAdmin inventory={inventory} persistInventory={persistInventory} />}
     </div>
   );
@@ -4338,7 +4338,7 @@ function InventoryListAdmin({ inventory, persistInventory }) {
             Η βασική λίστα εξοπλισμού που ελέγχεται σε κάθε inventory σκάφους, ανά κατηγορία. Δικές του προσθαφαιρέσεις για συγκεκριμένο σκάφος γίνονται από την καρτέλα «Σκάφη → Πληροφορίες».
           </div>
           {INVENTORY_CATS.map(([cat, label]) => (
-            <EditableList key={cat} title={label} items={inventory?.[cat] || []} onChange={(items) => updateCat(cat, items)} placeholder="π.χ. Σωσίβιο" />
+            <EditableList key={cat} title={label} items={inventory?.[cat] || []} onChange={(items) => updateCat(cat, items)} placeholder="π.χ. Σωσίβιο" collapsible={false} />
           ))}
         </div>
       )}
@@ -4397,24 +4397,39 @@ function AbsencesAdmin({ users, absences, onAdd, onDelete }) {
   );
 }
 
-function EditableList({ title, items, onChange, placeholder }) {
+function EditableList({ title, items, onChange, placeholder, collapsible = true }) {
   const [val, setVal] = useState("");
+  const [open, setOpen] = useState(!collapsible);
   const safeItems = asStringArray(items) || [];
+  const body = (
+    <div style={{ background: COLORS.card, borderRadius: 12, padding: 12 }}>
+      {safeItems.map((it, i) => (
+        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 15 }}>
+          {it}
+          <Btn small color={COLORS.red} outline onClick={() => onChange(safeItems.filter((_, j) => j !== i))}>×</Btn>
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <input value={val} onChange={e => setVal(e.target.value)} placeholder={placeholder} style={inputStyle} />
+        <Btn small color={COLORS.navy} onClick={() => { if (!val.trim()) return; onChange([...safeItems, val.trim()]); setVal(""); }}>+</Btn>
+      </div>
+    </div>
+  );
+  if (!collapsible) {
+    return (
+      <div style={{ marginBottom: 8 }}>
+        <SectionTitle>{title}</SectionTitle>
+        {body}
+      </div>
+    );
+  }
   return (
     <div style={{ marginBottom: 8 }}>
-      <SectionTitle>{title}</SectionTitle>
-      <div style={{ background: COLORS.card, borderRadius: 12, padding: 12 }}>
-        {safeItems.map((it, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: `1px dashed ${COLORS.line}`, fontSize: 15 }}>
-            {it}
-            <Btn small color={COLORS.red} outline onClick={() => onChange(safeItems.filter((_, j) => j !== i))}>×</Btn>
-          </div>
-        ))}
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <input value={val} onChange={e => setVal(e.target.value)} placeholder={placeholder} style={inputStyle} />
-          <Btn small color={COLORS.navy} onClick={() => { if (!val.trim()) return; onChange([...safeItems, val.trim()]); setVal(""); }}>+</Btn>
-        </div>
-      </div>
+      <button onClick={() => setOpen(!open)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, textAlign: "left" }}>
+        <span style={{ fontWeight: 700, fontSize: T.title }}>{title}</span>
+        <span style={{ fontSize: T.small, color: COLORS.sub, fontWeight: 700 }}>{open ? `▾ (${safeItems.length})` : `▸ (${safeItems.length})`}</span>
+      </button>
+      {open && <div style={{ marginTop: 8 }}>{body}</div>}
     </div>
   );
 }
