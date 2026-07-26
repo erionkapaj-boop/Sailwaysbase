@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.09";
+const APP_VERSION = "v4.10";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -2701,8 +2701,10 @@ function VoiceComplete({ tasks, boats, onComplete }) {
 Απάντησε ΜΟΝΟ με JSON χωρίς markdown: {"items":[{"taskId":"...","note":"..."}]}`;
       const raw = await askClaude(prompt, 400);
       const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      // Κάθε εύρημα χρειάζεται ρητή επιβεβαίωση "πώς ολοκληρώθηκε" πριν οριστικοποιηθεί — ακριβώς όπως η κανονική
+      // ολοκλήρωση από κάρτα εργασίας. Το AI προτείνει σημείωση, ΔΕΝ αποφασίζει confidence στη θέση του χρήστη.
       const items = (parsed.items || [])
-        .map(it => ({ task: tasks.find(t => t.id === it.taskId), note: (it.note || "").trim() || text.trim() }))
+        .map(it => ({ task: tasks.find(t => t.id === it.taskId), note: (it.note || "").trim() || text.trim(), confidence: null }))
         .filter(x => x.task);
       if (!items.length) setErr(tr("Δεν βρέθηκε αντίστοιχη εργασία — δοκίμασε πιο συγκεκριμένα (π.χ. όνομα σκάφους)."));
       else setMatches(items);
@@ -2710,10 +2712,13 @@ function VoiceComplete({ tasks, boats, onComplete }) {
     setBusy(false);
   };
 
+  const setMatch = (id, patch) => setMatches(cur => cur.map(m => m.task.id === id ? { ...m, ...patch } : m));
+  const ready = matches && matches.every(m => !m.task.boatId || m.confidence) && matches.every(m => m.note.trim());
+
   const confirm = () => {
-    matches.forEach(({ task: t, note }) => {
-      const conf = t.boatId ? "good" : null;
-      onComplete(t, undefined, undefined, conf, note);
+    if (!ready) return;
+    matches.forEach(({ task: t, note, confidence }) => {
+      onComplete(t, undefined, undefined, t.boatId ? confidence : null, note.trim());
     });
     setMatches(null); setText(""); setOpen(false);
   };
@@ -2740,21 +2745,25 @@ function VoiceComplete({ tasks, boats, onComplete }) {
           {err && <div style={{ color: COLORS.red, fontSize: 13, marginTop: 8 }}>{err}</div>}
           {matches && (
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.sub, marginBottom: 4 }}>{tr("Βρέθηκαν")}:</div>
-              {matches.map(({ task: t, note }) => (
-                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: 8, marginBottom: 4, fontSize: 15, gap: 8 }}>
-                  <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.sub, marginBottom: 4 }}>{tr("Βρέθηκαν")} — {tr("έλεγξε πριν ολοκληρώσεις")}:</div>
+              {matches.map(({ task: t, note, confidence }) => (
+                <div key={t.id} style={{ border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: 8, marginBottom: 8, fontSize: 15 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                     <div>{t.desc} <span style={{ color: COLORS.sub, fontSize: 13 }}>({boats.find(b => b.id === t.boatId)?.name || "Βάση/Άλλο"})</span></div>
-                    {note && (
-                      <div style={{ fontSize: 12, color: "#7D5406", marginTop: 4 }}>
-                        📝 {note}
-                      </div>
-                    )}
+                    <Btn small color={COLORS.sub} outline onClick={() => setMatches(matches.filter(x => x.task.id !== t.id))}>×</Btn>
                   </div>
-                  <Btn small color={COLORS.sub} outline onClick={() => setMatches(matches.filter(x => x.task.id !== t.id))}>×</Btn>
+                  <div style={{ fontSize: 12, color: COLORS.sub, fontWeight: 700, marginTop: 6 }}>{tr("Πώς ολοκληρώθηκε")}:</div>
+                  <textarea value={note} onChange={e => setMatch(t.id, { note: e.target.value })} rows={2} style={{ ...inputStyle, marginTop: 4, fontSize: 13 }} />
+                  {t.boatId && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                      <Btn small color={confidence === "good" ? COLORS.green : COLORS.line} outline={confidence !== "good"} onClick={() => setMatch(t.id, { confidence: "good" })}>🟢 {tr("Τέλεια")}</Btn>
+                      <Btn small color={confidence === "reservations" ? COLORS.amber : COLORS.line} outline={confidence !== "reservations"} onClick={() => setMatch(t.id, { confidence: "reservations" })}>🟡 {tr("Με επιφυλάξεις")}</Btn>
+                    </div>
+                  )}
                 </div>
               ))}
-              {matches.length > 0 && <Btn color={COLORS.green} onClick={confirm}>{tr("Ολοκλήρωση")} ({matches.length})</Btn>}
+              <Btn color={ready ? COLORS.green : COLORS.line} onClick={confirm}>{tr("Ολοκλήρωση")} ({matches.length})</Btn>
+              {!ready && <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 4 }}>{tr("Συμπλήρωσε σημείωση και επίλεξε 🟢/🟡 για κάθε εργασία πριν ολοκληρώσεις.")}</div>}
             </div>
           )}
         </div>
