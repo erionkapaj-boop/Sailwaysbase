@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.01";
+const APP_VERSION = "v4.02";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -1427,20 +1427,8 @@ ${histLines}
     setTasks(cur => { const nx = [nt, ...cur]; save("app-tasks", nx); return nx; });
     showToast(`Ξεκίνησε inventory για ${boat.name}`);
   };
-  // Γρήγορη ολοκλήρωση με ένα πάτημα (π.χ. από το widget στη «Σήμερα») — παρακάμπτει τον έλεγχο αντικείμενο-αντικείμενο
-  // και σημειώνει όλα ✔ κατευθείαν ως ολοκληρωμένο inventory. Ισχύει μέχρι την επόμενη αναχώρηση: μόλις αυτή περάσει,
-  // ο κύκλος autoInventory θα δημιουργήσει νέο ανοιχτό inventory κανονικά, όπως και με το πλήρες.
-  const quickCompleteInventory = (boat) => {
-    if (hasOpenInventory(tasks, boat.id)) { showToast("Υπάρχει ήδη ανοιχτό inventory γι' αυτό το σκάφος"); return; }
-    const items = buildInventoryItems(boat, inventory).map(it => ({ ...it, status: "ok" }));
-    const nt = {
-      id: "t" + Date.now() + "-invq", status: "done", createdBy: acting.id, createdAt: new Date().toISOString(),
-      progress: [], returns: 0, assignedTo: acting.id, boatId: boat.id, desc: "Inventory List — έλεγχος εξοπλισμού",
-      inventoryItems: items, completedBy: acting.id, completedByActor: acting.id, completedAt: new Date().toISOString(),
-    };
-    setTasks(cur => { const nx = [nt, ...cur]; save("app-tasks", nx); return nx; });
-    showToast(`Inventory ολοκληρώθηκε για ${boat.name}`);
-  };
+  // Γρήγορη έναρξη με ένα πάτημα (π.χ. από το widget στη «Σήμερα») — δημιουργεί ΑΝΟΙΧΤΗ εργασία inventory.
+  // Ολοκληρωμένο θεωρείται μόνο όταν γίνει πραγματικά ο έλεγχος και πατηθεί «Ολοκλήρωση inventory».
   // Ένα αντικείμενο: ✔ εντάξει, ή ⚠ πρόβλημα/λείπει → γεννά ξεχωριστή εργασία με το ίδιο σκάφος.
   const resolveInventoryItem = async (task, itemId, outcome, note) => {
     let extraTask = null, newTaskId = null;
@@ -1578,7 +1566,7 @@ ${histLines}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 12px" }}>
         {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks} onQuickInventory={quickCompleteInventory}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks} onQuickInventory={startInventory}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
         {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} snoozedTasks={snoozedTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
@@ -2470,7 +2458,7 @@ function FleetScheduleWidget({ boats, allTasks, onBoatClick, onQuickInventory })
                           ? <button onClick={(e) => { e.stopPropagation(); onQuickInventory(b); }} style={{
                               color: COLORS.sub, fontSize: T.caption, fontWeight: 600, background: "none", border: "none", padding: 0,
                               textDecoration: "underline", cursor: "pointer",
-                            }}>Χωρίς inventory — πάτα για ολοκλήρωση</button>
+                            }}>Χωρίς inventory — πάτα για έναρξη</button>
                           : <span style={{ color: COLORS.sub }}>Χωρίς inventory</span>}
                   </div>
                 )}
