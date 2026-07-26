@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.10";
+const APP_VERSION = "v4.11";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -783,23 +783,27 @@ function AppInner() {
       await save("app-dist-rules", rules);
       const boatName = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
       const loadPer = Object.fromEntries(employees.map(e => [e.id, tasks.filter(t => t.assignedTo === e.id && t.status === "open").length]));
-      const prompt = `Είσαι σύστημα κατανομής εργασιών σε βάση σκαφών. Μοίρασε ΜΕΧΡΙ ${Number(SET.maxTasksPerEmployee) || 3} εργασίες ανά υπάλληλο για σήμερα από τις ελεύθερες, με βάση προφίλ, είδος εργασίας και δίκαιο φόρτο. Δεν χρειάζεται να ανατεθούν όλες.
+      const prompt = `Είσαι σύστημα κατανομής εργασιών σε βάση σκαφών. Μοίρασε ΜΕΧΡΙ ${Number(SET.maxTasksPerEmployee) || 3} εργασίες ανά υπάλληλο για σήμερα από τις ελεύθερες, με βάση προφίλ, είδος εργασίας και δίκαιο φόρτο. Δεν χρειάζεται να ανατεθούν όλες. Κάθε εργασία έχει ΠΑΝΤΑ έναν υπεύθυνο (userId) — αυτός θα την κλείσει στο app. ΜΟΝΟ όταν η περιγραφή δείχνει ρητά ότι η δουλειά χρειάζεται φυσικά δύο άτομα (π.χ. ανέβασμα σε κατάρτι/ιστό, μεταφορά βαριού αντικειμένου, κράτημα κάτι ενώ δουλεύει ο άλλος) πρότεινε ΚΑΙ έναν βοηθό (helperId) από τους διαθέσιμους υπαλλήλους — διαφορετικά ΜΗΝ βάλεις helperId. Να είσαι συντηρητικός: η πλειονότητα των εργασιών δεν χρειάζεται βοηθό.
 ${weekdayNote()}
 ΑΠΑΡΑΒΑΤΟΙ ΕΙΔΙΚΟΙ ΚΑΝΟΝΕΣ:
 ${rules.map(r => "- " + r).join("\n")}
 Υπάλληλοι: ${employees.map(e => `${e.id}: ${e.name} (τρέχων φόρτος: ${loadPer[e.id]}, προφίλ: ${e.profile || "χωρίς προφίλ"})`).join("; ")}
 Ελεύθερες εργασίες: ${free.map(t => `${t.id}: "${t.desc}" [σκάφος: ${boatName(t.boatId)}${t.urgent ? ", ΕΠΕΙΓΟΝ" : ""}]`).join("; ")}
-Απάντησε ΜΟΝΟ με JSON, χωρίς markdown: {"assignments":[{"taskId":"...","userId":"..."}]}`;
+Απάντησε ΜΟΝΟ με JSON, χωρίς markdown: {"assignments":[{"taskId":"...","userId":"...","helperId":null}]}`;
       const raw = await askClaude(prompt, 800);
       const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
       if (!parsed.assignments?.length) return tasks;
-      const valid = parsed.assignments.filter(a => free.some(t => t.id === a.taskId) && employees.some(e => e.id === a.userId));
+      const valid = parsed.assignments
+        .filter(a => free.some(t => t.id === a.taskId) && employees.some(e => e.id === a.userId))
+        .map(a => ({ ...a, helperId: (a.helperId && a.helperId !== a.userId && employees.some(e => e.id === a.helperId)) ? a.helperId : null }));
       if (!valid.length) return tasks;
       // Λειτουργική ενημέρωση: εφαρμόζει τις αναθέσεις μόνο σε εργασίες που είναι ΑΚΟΜΑ ανοιχτές και ελεύθερες
       // τη στιγμή της εγγραφής — δεν πατάει πάνω σε ό,τι άλλαξε παράλληλα (π.χ. λήξη κλεισιμάτων, χειροκίνητη ανάθεση).
-      const byTaskId = Object.fromEntries(valid.map(v => [v.taskId, v.userId]));
+      const byTaskId = Object.fromEntries(valid.map(v => [v.taskId, v]));
       setTasks(cur => {
-        const nx = cur.map(t => (byTaskId[t.id] && t.status === "open" && !t.assignedTo) ? { ...t, assignedTo: byTaskId[t.id], assignedBy: "AI" } : t);
+        const nx = cur.map(t => (byTaskId[t.id] && t.status === "open" && !t.assignedTo)
+          ? { ...t, assignedTo: byTaskId[t.id].userId, assignedBy: "AI", assignedToMore: byTaskId[t.id].helperId ? [byTaskId[t.id].helperId] : [] }
+          : t);
         save("app-tasks", nx);
         return nx;
       });
@@ -807,9 +811,10 @@ ${rules.map(r => "- " + r).join("\n")}
       // χρησιμοποιείται μόνο για εκτίμηση φόρτου/διπλοτύπων, όπου μικρή απόκλιση δεν βλάπτει.
       const next = tasks.map(t => {
         const a = valid.find(v => v.taskId === t.id);
-        return a ? { ...t, assignedTo: a.userId, assignedBy: "AI" } : t;
+        return a ? { ...t, assignedTo: a.userId, assignedBy: "AI", assignedToMore: a.helperId ? [a.helperId] : [] } : t;
       });
-      showToast(`Η κατανομή ημέρας έγινε: ${valid.length} αναθέσεις`);
+      const helperCount = valid.filter(v => v.helperId).length;
+      showToast(`Η κατανομή ημέρας έγινε: ${valid.length} αναθέσεις${helperCount ? ` (${helperCount} με βοηθό)` : ""}`);
       return next;
     } catch (e) { console.error(e); if (manual) showToast("Η κατανομή απέτυχε — δοκίμασε ξανά"); return tasks; }
   }
@@ -1244,11 +1249,11 @@ ${histLines}
     showToast(`Το deadline ορίστηκε: έως ${fmtTime(iso)}`);
   };
   const assignTask = async (t, userId) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, assignedTo: userId || null, assignedBy: acting.id } : x));
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, assignedTo: userId || null, assignedBy: acting.id, assignedToMore: userId ? x.assignedToMore : [] } : x));
     showToast(userId ? "Ανατέθηκε" : "Έγινε ελεύθερη");
   };
-  const assignTaskWithDeadline = async (t, userId, minutes) => {
-    const patch = { assignedTo: userId || null, assignedBy: acting.id };
+  const assignTaskWithDeadline = async (t, userId, minutes, helperIds) => {
+    const patch = { assignedTo: userId || null, assignedBy: acting.id, assignedToMore: userId ? (helperIds || []).filter(id => id !== userId) : [] };
     if (userId && minutes) {
       let base = Date.now();
       const queueEnd = tasks
@@ -1260,6 +1265,11 @@ ${histLines}
     }
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, ...patch } : x));
     showToast(userId ? (patch.manualDeadline ? `Ανατέθηκε — έως ${fmtTime(patch.manualDeadline)}` : "Ανατέθηκε") : "Έγινε ελεύθερη");
+  };
+  // Βοηθοί (assignedToMore): ξεχωριστό από τον υπεύθυνο (assignedTo). Πάντα ένας υπεύθυνος — αυτός κλείνει την
+  // εργασία στο app· οι βοηθοί απλώς εμφανίζονται στην εργασία και πιστώνονται στα στατιστικά τους ως «βοήθησε».
+  const setTaskHelpers = async (t, helperIds) => {
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, assignedToMore: (helperIds || []).filter(id => id !== x.assignedTo) } : x));
   };
 
   const addAbsence = async (userId, from, to, note) => {
@@ -1511,8 +1521,9 @@ ${histLines}
 
   // Κρυμμένη από τις κανονικές λίστες όσο snoozedUntil είναι στο μέλλον — ξαναμπαίνει μόνη της μόλις περάσει.
   const isSnoozed = (t) => t.snoozedUntil && t.snoozedUntil > todayStr();
-  const myTasks = sortTasks(tasks.filter(t => t.status === "open" && !isSnoozed(t) && t.assignedTo === acting.id));
-  const freeTasks = sortTasks(tasks.filter(t => t.status === "open" && !isSnoozed(t) && (!t.assignedTo || t.assignedTo !== acting.id)));
+  const isMine = (t) => t.assignedTo === acting.id || (t.assignedToMore || []).includes(acting.id);
+  const myTasks = sortTasks(tasks.filter(t => t.status === "open" && !isSnoozed(t) && isMine(t)));
+  const freeTasks = sortTasks(tasks.filter(t => t.status === "open" && !isSnoozed(t) && !isMine(t)));
   const snoozedTasks = tasks.filter(t => t.status === "open" && isSnoozed(t)).sort((a, b) => a.snoozedUntil.localeCompare(b.snoozedUntil));
   // Τα διαγραμμένα (status="deleted") φιλτράρονται εδώ, ΜΙΑ φορά, κεντρικά — έτσι καμία οθόνη, στατιστικό ή
   // αναφορά δεν τα βλέπει ποτέ κατά λάθος. Μόνο ο «Κάδος» της Διοίκησης παίρνει την πλήρη λίστα (tasksRaw).
@@ -1546,12 +1557,12 @@ ${histLines}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 12px" }}>
         {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks} onQuickInventory={(boat) => { startInventory(boat); goToBoatTasks(boat.id); }} onResetInventory={resetInventory}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onSetHelpers={setTaskHelpers} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks} onQuickInventory={(boat) => { startInventory(boat); goToBoatTasks(boat.id); }} onResetInventory={resetInventory}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
         {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} snoozedTasks={snoozedTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
-          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
+          onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onSetHelpers={setTaskHelpers} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} /></ErrorBoundary>}
         {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={boats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
         {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={activeTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
         {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} inventory={inventory} persistInventory={persistInventory} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
@@ -1831,7 +1842,7 @@ function MicButton({ onResult }) {
   );
 }
 
-function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp }) {
+function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onSetHelpers, onDowngrade, onEdit, onDelete, canAssign, showAssignee, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(null); // 'progress' | 'external' | 'assign' | 'completeAs'
   const [showMore, setShowMore] = useState(false); // δευτερεύουσες ενέργειες — κρυφές μέχρι να ζητηθούν
@@ -1857,6 +1868,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const du = daysUntil(dl);
   const spine = t.urgent ? COLORS.red : (dl && du !== null && du <= 7 ? COLORS.amber : COLORS.line);
   const assignee = users.find(u => u.id === t.assignedTo);
+  const helperUsers = (t.assignedToMore || []).map(id => users.find(u => u.id === id)).filter(Boolean);
   // Ποιος καταχώρησε την εργασία — ξεχωριστό από το «σε ποιον ανατέθηκε» (assignee). Καλύπτει και τις
   // αυτόματες περιπτώσεις (AI/checklist κλεισίματος/σύστημα), όχι μόνο ανθρώπους.
   const creatorLabel = t.createdBy === "AI" ? "AI" : t.createdBy === "system" ? tr("Σύστημα") : (users.find(u => u.id === t.createdBy)?.name || null);
@@ -1937,7 +1949,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           // ιστορικό — υποτονική, πάντα δεξιά, ίδια θέση σε κάθε κάρτα.
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${COLORS.line}`, fontSize: T.caption }}>
             <span style={{ color: COLORS.navy, fontWeight: 600 }}>
-              {showAssignee && assignee ? `→ ${assignee.name}${t.assignedBy === "AI" ? " (AI)" : ""}` : ""}
+              {showAssignee && assignee ? `→ ${assignee.name}${t.assignedBy === "AI" ? " (AI)" : ""}${helperUsers.length ? " · " + tr("βοηθός") + ": " + helperUsers.map(u => u.name).join(", ") : ""}` : ""}
             </span>
             {isMgr && creatorLabel && <span style={{ color: COLORS.sub, fontWeight: 400, flexShrink: 0 }}>{tr("καταχ.")}: {creatorLabel}</span>}
           </div>
@@ -2183,12 +2195,34 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                 <input type="number" min="1" placeholder={tr("Χρόνος (λεπτά, προαιρετικό)")} value={assignMinutes}
                   onChange={e => setAssignMinutes(e.target.value)} style={{ ...inputStyle, width: 180 }} />
               </div>
+              <div style={{ fontSize: 12, color: COLORS.sub, fontWeight: 700, marginBottom: 4 }}>{tr("Υπεύθυνος")}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {users.map(u => (
                   <Btn key={u.id} color={t.assignedTo === u.id ? COLORS.teal : COLORS.navy} outline={t.assignedTo !== u.id}
-                    onClick={() => { onAssignWithDeadline(t, u.id, assignMinutes ? Number(assignMinutes) : null); setMode(null); setAssignMinutes(""); }}>{u.name}</Btn>
+                    onClick={() => onAssignWithDeadline(t, u.id, assignMinutes ? Number(assignMinutes) : null, t.assignedToMore || [])}>{u.name}</Btn>
                 ))}
                 <Btn color={COLORS.sub} outline onClick={() => { onAssign(t, null); setMode(null); setAssignMinutes(""); }}>Ελεύθερη</Btn>
+              </div>
+              {t.assignedTo && onSetHelpers && (
+                <>
+                  <div style={{ fontSize: 12, color: COLORS.sub, fontWeight: 700, marginTop: 12, marginBottom: 4 }}>{tr("Βοηθοί (προαιρετικό)")}</div>
+                  <div style={{ fontSize: 11, color: COLORS.sub, marginBottom: 4 }}>{tr("Ο υπεύθυνος κλείνει την εργασία· οι βοηθοί μπαίνουν στα δικά τους στατιστικά ως «βοήθησε».")}</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {users.filter(u => u.id !== t.assignedTo).map(u => {
+                      const isHelper = (t.assignedToMore || []).includes(u.id);
+                      return (
+                        <Btn key={u.id} small color={isHelper ? COLORS.teal : COLORS.line} outline={!isHelper}
+                          onClick={() => {
+                            const cur = t.assignedToMore || [];
+                            onSetHelpers(t, isHelper ? cur.filter(id => id !== u.id) : [...cur, u.id]);
+                          }}>{u.name}</Btn>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              <div style={{ marginTop: 12 }}>
+                <Btn small color={COLORS.sub} outline onClick={() => { setMode(null); setAssignMinutes(""); }}>{tr("Κλείσιμο")}</Btn>
               </div>
             </div>
           )}
@@ -2772,7 +2806,7 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onQuickInventory, onResetInventory, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
+function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onSetHelpers, onDowngrade, onGoToBoatTasks, onQuickInventory, onResetInventory, onTranslate, onHelp, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
       {/* Πάνω-πάνω μόνο ό,τι εμφανίζεται υπό συνθήκη και απαιτεί προσοχή τώρα. */}
@@ -2787,7 +2821,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
       {tasks.length === 0 && <Empty>{tr("Δεν σου έχει ανατεθεί κάτι ονομαστικά. Δες τις διαθέσιμες εργασίες στην καρτέλα «Εργασίες».")}</Empty>}
       {tasks.map(t => <TaskCard key={t.id} t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
         onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onEdit={onEdit} onDelete={onDelete} onChecklistItem={onChecklistItem} onInventoryItem={onInventoryItem} onBulkCategory={onBulkCategory} onFinishInventory={onFinishInventory} onConfirmInventory={onConfirmInventory} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp}
-        onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} canAssign={canAssign} showAssignee={isMgr} />)}
+        onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onSetHelpers={onSetHelpers} onDowngrade={onDowngrade} canAssign={canAssign} showAssignee={isMgr} />)}
 
       {/* Σπάνια χρησιμοποιούμενα εργαλεία: στο τέλος, ως διακριτικοί σύνδεσμοι. */}
       <div style={{ marginTop: 24, paddingTop: 12, borderTop: `1px solid ${COLORS.line}`, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -2798,7 +2832,7 @@ function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effect
   );
 }
 
-function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onDowngrade, onEdit, onDelete, onBulkDelete, canAssign, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
+function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDeadline, onComplete, onProgress, onExternal, onAssign, onAssignWithDeadline, onSetHelpers, onDowngrade, onEdit, onDelete, onBulkDelete, canAssign, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onTranslate, onHelp, boatFilter: boatFilterProp, onBoatFilterChange }) {
   const [boatFilterLocal, setBoatFilterLocal] = useState("");
   const [q, setQ] = useState("");
   // Έξυπνη ταξινόμηση (προεπιλογή, ίδια με πάντα) ή χειροκίνητα κατά ημερομηνία δημιουργίας — μόνο managers
@@ -2885,7 +2919,7 @@ function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDead
             }}>{selected[t.id] && <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>✓</span>}</div>
           )}
           <TaskCard t={t} boats={boats} users={users} isMgr={isMgr} me={me} deadline={effectiveDeadline}
-            onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onInventoryItem={onInventoryItem} onBulkCategory={onBulkCategory} onFinishInventory={onFinishInventory} onConfirmInventory={onConfirmInventory} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />
+            onComplete={onComplete} onProgress={onProgress} onExternal={onExternal} onAssign={onAssign} onAssignWithDeadline={onAssignWithDeadline} onSetHelpers={onSetHelpers} onDowngrade={onDowngrade} onEdit={onEdit} onDelete={onDelete} canAssign={canAssign} showAssignee={isMgr || canAssign} onChecklistItem={onChecklistItem} onInventoryItem={onInventoryItem} onBulkCategory={onBulkCategory} onFinishInventory={onFinishInventory} onConfirmInventory={onConfirmInventory} onSetDeadline={onSetDeadline} onSetDeadlineDuration={onSetDeadlineDuration} onToggleExcludeDeadline={onToggleExcludeDeadline} onSnooze={onSnooze} onUnsnooze={onUnsnooze} onAddBeforePhotos={onAddBeforePhotos} onLogFinding={onLogFinding} onTranslate={onTranslate} onHelp={onHelp} />
         </div>
       ))}
       {isMgr && snoozedTasks?.length > 0 && <SnoozedList tasks={snoozedTasks} boats={boats} onUnsnooze={onUnsnooze} />}
@@ -3327,11 +3361,12 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
       const team = users.filter(u => u.role === "employee" && !u.noStats);
       const data = team.map(u => {
         const done = tasks.filter(t => t.completedBy === u.id && t.status === "done" && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})${t.returns ? " [επιστράφηκε " + t.returns + "x]" : ""}${t.rating ? ` [αξιολόγηση manager: ${t.rating}/5]` : ""}${t.autoGenerated ? " [αυτόματη ανάθεση χαμηλού φόρτου]" : ""}${t.intensive && !(t.photosAfter?.length) ? " [ΧΩΡΙΣ φωτογραφία αποτελέσματος, παρότι ζητήθηκε]" : ""}`);
+        const helped = tasks.filter(t => t.status === "done" && (t.assignedToMore || []).includes(u.id) && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})`);
         const prog = tasks.reduce((s2, t) => s2 + (t.progress || []).filter(p => p.by === u.id && inW(p.at)).length, 0);
         const found = tasks.filter(t => t.createdBy === u.id && inW(t.createdAt)).length;
         const absPeriods = (absences || []).filter(a => a.userId === u.id && a.from <= todayStr() && a.to >= fromStr).map(a => `${fmtDate(a.from)}–${fmtDate(a.to)}${a.note ? " (" + a.note + ")" : ""}`);
         const absNote = absPeriods.length ? ` ΑΠΟΥΣΙΑΣΕ αυτή την εβδομάδα: ${absPeriods.join(", ")}.` : "";
-        return `${u.name}: Ολοκλήρωσε [${done.join("; ") || "τίποτα"}]. Πρόοδοι σε μεγάλες εργασίες: ${prog}. Εντόπισε/κατέγραψε νέες: ${found}.${absNote}`;
+        return `${u.name}: Ολοκλήρωσε [${done.join("; ") || "τίποτα"}]. Βοήθησε σε [${helped.join("; ") || "τίποτα"}]. Πρόοδοι σε μεγάλες εργασίες: ${prog}. Εντόπισε/κατέγραψε νέες: ${found}.${absNote}`;
       }).join("\n");
       const prompt = `Είσαι σύμβουλος απόδοσης ομάδας σε βάση σκαφών charter. Γράψε ΣΥΝΟΠΤΙΚΗ εβδομαδιαία αναφορά (150-250 λέξεις, ελληνικά) για τη διοίκηση, με βάση τα δεδομένα.
 ΟΔΗΓΙΕΣ: Κρίνε κάθε ολοκληρωμένη εργασία με συντελεστή βαρύτητας 1-5 (1=ασήμαντη π.χ. βίδωμα/λάμπα/απλό πλύσιμο, 5=βαριά π.χ. αλλαγή θερμοσίφωνα, στεγανοποίηση παραθύρων, επισκευή μηχανισμών). Όπου υπάρχει "αξιολόγηση manager" σε μια εργασία, αυτή είναι η δική του κρίση για την ΠΟΙΟΤΗΤΑ εκτέλεσης (1=κακή, 5=άριστη) — συνυπολόγισέ την ΞΕΧΩΡΙΣΤΑ από τη δική σου εκτίμηση βαρύτητας, καθώς αντικατοπτρίζει άμεση επιτόπια κρίση. Οι εργασίες με ένδειξη "αυτόματη ανάθεση χαμηλού φόρτου" δόθηκαν επειδή ο υπάλληλος δεν είχε άλλη δουλειά εκείνη τη στιγμή — μέτρα τες κανονικά αλλά μην τις θεωρήσεις σημάδι χαμηλής απόδοσης από μόνες τους. Η ένδειξη "ΧΩΡΙΣ φωτογραφία αποτελέσματος" σε εργασία που τη ζητούσε είναι αρνητικό σημάδι — ο υπάλληλος δεν τεκμηρίωσε τη δουλειά του παρότι έπρεπε· ανάφερέ το. Σύγκρινε κάθε άτομο με τον μέσο όρο της ομάδας σε ΣΤΑΘΜΙΣΜΕΝΟ έργο (όχι σκέτο πλήθος). Επισήμανε μοτίβα: ποιος σηκώνει βαριές δουλειές, ποιος διαλέγει μόνο εύκολες (π.χ. μόνο πλυσίματα), ποιος έχει χαμηλή παραγωγή, ποιος εντοπίζει προβλήματα, επιστροφές ατελών, χαμηλές/υψηλές αξιολογήσεις manager, λείπουσες φωτογραφίες τεκμηρίωσης. Ευθύς αλλά δίκαιος. ΣΗΜΑΝΤΙΚΟ: αν κάποιος είχε δηλωμένη απουσία μέρος ή όλη την εβδομάδα, ΜΗΝ τον συγκρίνεις άδικα με όσους ήταν παρόντες όλη την εβδομάδα — ανάφερε ουδέτερα ότι απουσίαζε τις συγκεκριμένες μέρες και αξιολόγησε μόνο τις μέρες παρουσίας του.
@@ -4429,6 +4464,7 @@ function Stats({ users, tasks, boats }) {
     const inR = (d) => d && new Date(d) >= from;
     const bn = (id) => boats?.find(b => b.id === id)?.name || "Βάση/Άλλο";
     const done = tasks.filter(t => t.completedBy === sel.id && t.status === "done" && inR(t.completedAt)).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||""));
+    const helped = tasks.filter(t => t.status === "done" && (t.assignedToMore || []).includes(sel.id) && inR(t.completedAt)).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||""));
     const created = tasks.filter(t => t.createdBy === sel.id && inR(t.createdAt));
     const prog = tasks.flatMap(t => (t.progress||[]).filter(p => p.by === sel.id && inR(p.at)).map(p => ({...p, desc: t.desc, boatId: t.boatId})));
     return (
@@ -4441,13 +4477,20 @@ function Stats({ users, tasks, boats }) {
           <Btn small color={COLORS.sub} outline onClick={()=>setSel(null)}>← Πίσω</Btn>
         </div>
         <div style={{ background: COLORS.card, borderRadius: 12, padding: 12, marginBottom: 8, fontSize: 15 }}>
-          <b>Σύνοψη:</b> {done.length} ολοκληρώσεις · {created.length} καταχωρήσεις · {prog.length} πρόοδοι
+          <b>Σύνοψη:</b> {done.length} ολοκληρώσεις · {helped.length} βοήθειες · {created.length} καταχωρήσεις · {prog.length} πρόοδοι
         </div>
         <SectionTitle>Ολοκληρώσεις</SectionTitle>
         {done.length === 0 && <Empty>Καμία στο διάστημα.</Empty>}
         {done.map(t => (
           <div key={t.id} style={{ background: COLORS.card, borderRadius: 12, padding: "8px 12px", marginBottom: 4, fontSize: 13 }}>
             <b>{t.desc}</b> — {bn(t.boatId)} · {fmtDate(t.completedAt)}{t.returns > 0 ? <span style={{color:COLORS.red}}> · ↩{t.returns}</span> : ""}
+          </div>
+        ))}
+        <SectionTitle>Βοήθησε</SectionTitle>
+        {helped.length === 0 && <Empty>Καμία στο διάστημα.</Empty>}
+        {helped.map(t => (
+          <div key={t.id} style={{ background: COLORS.card, borderRadius: 12, padding: "8px 12px", marginBottom: 4, fontSize: 13 }}>
+            <b>{t.desc}</b> — {bn(t.boatId)} · {fmtDate(t.completedAt)} <span style={{ color: COLORS.sub }}>(υπεύθυνος: {users.find(u => u.id === t.assignedTo)?.name || users.find(u => u.id === t.completedBy)?.name || "-"})</span>
           </div>
         ))}
         <SectionTitle>Πρόοδοι</SectionTitle>
@@ -4471,6 +4514,7 @@ function Stats({ users, tasks, boats }) {
     name: u.name,
     created: tasks.filter(t => t.createdBy === u.id).length,
     done: tasks.filter(t => t.completedBy === u.id && t.status === "done").length,
+    helped: tasks.filter(t => t.status === "done" && (t.assignedToMore || []).includes(u.id)).length,
     prog: tasks.reduce((s, t) => s + (t.progress || []).filter(p => p.by === u.id).length, 0),
     returns: tasks.filter(t => t.completedBy === u.id || (t.status === "open" && t.assignedTo === u.id && t.returnNote)).reduce((s, t) => s + (t.returns || 0), 0),
   }));
@@ -4480,12 +4524,12 @@ function Stats({ users, tasks, boats }) {
       <div style={{ background: COLORS.card, borderRadius: 12, padding: 12, overflowX: "auto" }}>
         <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
           <thead><tr style={{ color: COLORS.sub, textAlign: "left" }}>
-            <th style={th}>Άτομο</th><th style={th}>Εντόπισε</th><th style={th}>Ολοκλήρωσε</th><th style={th}>Πρόοδοι</th><th style={th}>↩ Επιστρ.</th>
+            <th style={th}>Άτομο</th><th style={th}>Εντόπισε</th><th style={th}>Ολοκλήρωσε</th><th style={th}>Βοήθησε</th><th style={th}>Πρόοδοι</th><th style={th}>↩ Επιστρ.</th>
           </tr></thead>
           <tbody>
             {rows.map(r => (
               <tr key={r.name} style={{ borderTop: `1px solid ${COLORS.line}` }} onClick={() => setSel(users.find(u => u.name === r.name))}>
-                <td style={td}><b style={{ color: COLORS.teal, textDecoration: "underline" }}>{r.name}</b></td><td style={td}>{r.created}</td><td style={td}>{r.done}</td><td style={td}>{r.prog}</td>
+                <td style={td}><b style={{ color: COLORS.teal, textDecoration: "underline" }}>{r.name}</b></td><td style={td}>{r.created}</td><td style={td}>{r.done}</td><td style={td}>{r.helped}</td><td style={td}>{r.prog}</td>
                 <td style={{ ...td, color: r.returns > 0 ? COLORS.red : COLORS.text }}>{r.returns}</td>
               </tr>
             ))}
