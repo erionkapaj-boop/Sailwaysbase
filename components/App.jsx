@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.11";
+const APP_VERSION = "v4.14";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -667,6 +667,10 @@ function AppInner() {
   }, [ready, me]);
 
   const isAbsentOn = (userId, dateStr) => absences.some(a => a.userId === userId && a.from <= dateStr && dateStr <= a.to);
+  // ΜΟΝΑΔΙΚΟΣ ορισμός «τρέχων φόρτος». Μετράει ΚΑΙ τις εργασίες όπου το άτομο είναι βοηθός: ο βοηθός δουλεύει
+  // πραγματικά, οπότε αν μετρούσαμε μόνο τα assignedTo θα φαινόταν ελεύθερος και θα του φορτώναμε κι άλλα —
+  // ακριβώς το είδος αδικίας που το σύστημα οφείλει να αποφεύγει.
+  const openLoadOf = (list, userId) => list.filter(t => t.status === "open" && (t.assignedTo === userId || (t.assignedToMore || []).includes(userId))).length;
 
   const generateClosingChecks = async (tasksOverride) => {
     const src = tasksOverride || tasks;
@@ -678,7 +682,7 @@ function AppInner() {
     if (!need.length) return;
     const employees = users.filter(u => u.role === "employee" && !u.noAutoAssign && !isAbsentOn(u.id, today));
     if (!employees.length) return;
-    const loadPer = Object.fromEntries(employees.map(e => [e.id, src.filter(x => x.assignedTo === e.id && x.status === "open").length]));
+    const loadPer = Object.fromEntries(employees.map(e => [e.id, openLoadOf(src, e.id)]));
     const sorted = [...employees].sort((a, b) => loadPer[a.id] - loadPer[b.id]);
     const newTasks = need.map((b, i) => {
       const emp = sorted[i % sorted.length];
@@ -782,7 +786,7 @@ function AppInner() {
       rules = rules.filter(r => !r.includes("πεδίο Φανούρη — δεν λαμβάνει αυτόματες αναθέσεις"));
       await save("app-dist-rules", rules);
       const boatName = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
-      const loadPer = Object.fromEntries(employees.map(e => [e.id, tasks.filter(t => t.assignedTo === e.id && t.status === "open").length]));
+      const loadPer = Object.fromEntries(employees.map(e => [e.id, openLoadOf(tasks, e.id)]));
       const prompt = `Είσαι σύστημα κατανομής εργασιών σε βάση σκαφών. Μοίρασε ΜΕΧΡΙ ${Number(SET.maxTasksPerEmployee) || 3} εργασίες ανά υπάλληλο για σήμερα από τις ελεύθερες, με βάση προφίλ, είδος εργασίας και δίκαιο φόρτο. Δεν χρειάζεται να ανατεθούν όλες. Κάθε εργασία έχει ΠΑΝΤΑ έναν υπεύθυνο (userId) — αυτός θα την κλείσει στο app. ΜΟΝΟ όταν η περιγραφή δείχνει ρητά ότι η δουλειά χρειάζεται φυσικά δύο άτομα (π.χ. ανέβασμα σε κατάρτι/ιστό, μεταφορά βαριού αντικειμένου, κράτημα κάτι ενώ δουλεύει ο άλλος) πρότεινε ΚΑΙ έναν βοηθό (helperId) από τους διαθέσιμους υπαλλήλους — διαφορετικά ΜΗΝ βάλεις helperId. Να είσαι συντηρητικός: η πλειονότητα των εργασιών δεν χρειάζεται βοηθό.
 ${weekdayNote()}
 ΑΠΑΡΑΒΑΤΟΙ ΕΙΔΙΚΟΙ ΚΑΝΟΝΕΣ:
@@ -846,7 +850,7 @@ ${rules.map(r => "- " + r).join("\n")}
     const avgDailyPace = Math.max(1, Math.round(doneLast7d / 7));
     if (freeNow >= avgDailyPace * 2) return; // η ουρά είναι ήδη αρκετά γεμάτη σε σχέση με τον ρυθμό ολοκλήρωσης
     // Ποιοι έχουν χαμηλό φόρτο σήμερα (0-1 ανοιχτές αναθέσεις);
-    const loadPer = Object.fromEntries(employees.map(e => [e.id, src.filter(t => t.assignedTo === e.id && t.status === "open").length]));
+    const loadPer = Object.fromEntries(employees.map(e => [e.id, openLoadOf(src, e.id)]));
     const lowLoad = employees.filter(e => loadPer[e.id] <= (Number(SET.lowLoadThreshold) ?? 1));
     if (!lowLoad.length) return;
     // Έλεγχος υποχρεωτικού βαν τουλάχιστον 1x/εβδομάδα
@@ -973,7 +977,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       : descs.map(d => ({ el: d }));
     const fresh = finalDescs.map((d, i) => ({
       id: "t" + now + "-" + i, status: base.backlog ? "backlog" : "open", createdBy: acting.id, createdAt: new Date(now + i).toISOString(),
-      progress: [], returns: 0, assignedTo: base.backlog ? null : (leo ? leo.id : (base.assignedTo || null)), boatId: base.boatId || null, desc: d.el, ...(d.en ? { descEn: d.en } : {}), urgent: !!base.urgent, purchase: !!base.purchase,
+      progress: [], returns: 0, assignedTo: base.backlog ? null : (leo ? leo.id : (base.assignedTo || null)), assignedToMore: base.backlog || leo ? [] : (base.assignedToMore || []), boatId: base.boatId || null, desc: d.el, ...(d.en ? { descEn: d.en } : {}), urgent: !!base.urgent, purchase: !!base.purchase,
       ...(leo ? { assignedBy: "auto-purchase" } : {}),
     }));
     await persistTasks([...fresh, ...tasks]);
@@ -989,7 +993,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     const t = {
       id, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
       progress: [], returns: 0, assignedTo: null, photos: [], ...task, desc, ...(descEn ? { descEn } : {}),
-      ...(leo ? { assignedTo: leo.id, assignedBy: "auto-purchase" } : {}),
+      ...(leo ? { assignedTo: leo.id, assignedBy: "auto-purchase", assignedToMore: [] } : {}),
     };
     await persistTasks([t, ...tasks]);
     showToast("Η εργασία καταχωρήθηκε");
@@ -1109,7 +1113,9 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     showToast("Η πρόοδος καταγράφηκε");
   };
   const returnTask = async (t, note) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "open", assignedTo: x.completedBy, returns: (x.returns || 0) + 1, returnNote: note, returnedAt: new Date().toISOString() } : x));
+    // Ο νέος υπεύθυνος γίνεται αυτός που την είχε ολοκληρώσει — αν ήταν βοηθός, πρέπει να βγει από τους βοηθούς,
+    // αλλιώς θα εμφανιζόταν ταυτόχρονα ως υπεύθυνος ΚΑΙ βοηθός (και θα μετρούσε δύο φορές στα στατιστικά).
+    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "open", assignedTo: x.completedBy, assignedToMore: (x.assignedToMore || []).filter(id => id !== x.completedBy), returns: (x.returns || 0) + 1, returnNote: note, returnedAt: new Date().toISOString() } : x));
     showToast("Η εργασία επιστράφηκε ως ατελής");
   };
   const rateTask = async (t, rating) => {
@@ -1248,13 +1254,29 @@ ${histLines}
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, manualDeadline: iso, deadlineSetBy: acting.id } : x));
     showToast(`Το deadline ορίστηκε: έως ${fmtTime(iso)}`);
   };
+  // Αφαίρεση/αλλαγή υπευθύνου. Δύο κανόνες που ισχύουν ΠΑΝΤΟΥ:
+  // α) Αν οριστεί υπεύθυνος κάποιος που ήταν βοηθός, βγαίνει από τους βοηθούς (ποτέ και τα δύο ταυτόχρονα).
+  // β) Αν αφαιρεθεί ο υπεύθυνος ενώ υπάρχουν βοηθοί, ο πρώτος βοηθός ΠΡΟΑΓΕΤΑΙ σε υπεύθυνο — η εργασία δεν
+  //    μένει ποτέ «ελεύθερη» ενώ κάποιος δουλεύει ήδη πάνω της.
+  const reassign = (x, userId, by) => {
+    if (userId) return { ...x, assignedTo: userId, assignedBy: by, assignedToMore: (x.assignedToMore || []).filter(id => id !== userId) };
+    const more = x.assignedToMore || [];
+    if (more.length) return { ...x, assignedTo: more[0], assignedBy: by, assignedToMore: more.slice(1) };
+    return { ...x, assignedTo: null, assignedBy: by, assignedToMore: [] };
+  };
+  const promotedName = (t) => {
+    const more = t.assignedToMore || [];
+    return more.length ? (users.find(u => u.id === more[0])?.name || "βοηθός") : null;
+  };
   const assignTask = async (t, userId) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, assignedTo: userId || null, assignedBy: acting.id, assignedToMore: userId ? x.assignedToMore : [] } : x));
-    showToast(userId ? "Ανατέθηκε" : "Έγινε ελεύθερη");
+    await persistTasks(tasks.map(x => x.id === t.id ? reassign(x, userId, acting.id) : x));
+    const promoted = !userId ? promotedName(t) : null;
+    showToast(userId ? "Ανατέθηκε" : promoted ? `Υπεύθυνος τώρα: ${promoted}` : "Έγινε ελεύθερη");
   };
   const assignTaskWithDeadline = async (t, userId, minutes, helperIds) => {
-    const patch = { assignedTo: userId || null, assignedBy: acting.id, assignedToMore: userId ? (helperIds || []).filter(id => id !== userId) : [] };
-    if (userId && minutes) {
+    if (!userId) return assignTask(t, null);
+    const patch = { assignedTo: userId, assignedBy: acting.id, assignedToMore: (helperIds || []).filter(id => id !== userId) };
+    if (minutes) {
       let base = Date.now();
       const queueEnd = tasks
         .filter(x => x.id !== t.id && x.assignedTo === userId && x.status === "open" && x.manualDeadline)
@@ -1264,7 +1286,7 @@ ${histLines}
       patch.deadlineSetBy = acting.id;
     }
     await persistTasks(tasks.map(x => x.id === t.id ? { ...x, ...patch } : x));
-    showToast(userId ? (patch.manualDeadline ? `Ανατέθηκε — έως ${fmtTime(patch.manualDeadline)}` : "Ανατέθηκε") : "Έγινε ελεύθερη");
+    showToast(patch.manualDeadline ? `Ανατέθηκε — έως ${fmtTime(patch.manualDeadline)}` : "Ανατέθηκε");
   };
   // Βοηθοί (assignedToMore): ξεχωριστό από τον υπεύθυνο (assignedTo). Πάντα ένας υπεύθυνος — αυτός κλείνει την
   // εργασία στο app· οι βοηθοί απλώς εμφανίζονται στην εργασία και πιστώνονται στα στατιστικά τους ως «βοήθησε».
@@ -1477,28 +1499,37 @@ ${histLines}
   };
 
   const resolveChecklistItem = async (task, itemId, outcome, note) => {
-    let base = tasks;
-    let newTaskId = null;
+    let extraTask = null, newTaskId = null;
     if (outcome === "problem") {
       newTaskId = "t" + Date.now() + "-p";
-      const newTask = {
+      extraTask = {
         id: newTaskId, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
         progress: [], returns: 0, assignedTo: null, boatId: task.boatId,
         desc: note?.trim() || "Πρόβλημα κατά τον έλεγχο αναχώρησης",
       };
-      base = [newTask, ...tasks];
     }
-    const items = (Array.isArray(task.checklistItems) ? task.checklistItems : []).map(it => it.id === itemId ? { ...it, status: outcome, problemTaskId: outcome === "problem" ? newTaskId : null } : it);
-    const allResolved = items.every(it => it.status !== "pending");
-    const next = base.map(t2 => t2.id === task.id ? {
-      ...t2, checklistItems: items,
-      ...(allResolved ? { status: "done", completedBy: acting.id, completedAt: new Date().toISOString() } : {}),
-    } : t2);
-    await persistTasks(next);
-    if (task.closingCheck && allResolved) {
-      const boat = boats.find(b => b.id === task.boatId);
-      if (boat) recordSignoff(boat);
-    }
+    // Τα items υπολογίζονται από την ΤΡΕΧΟΥΣΑ κατάσταση (cur), όχι από το prop `task`: με γρήγορα διαδοχικά
+    // τσεκαρίσματα το prop είναι ακόμα η παλιά εικόνα και το δεύτερο πάτημα έσβηνε το πρώτο.
+    setTasks(cur => {
+      const base = extraTask ? [extraTask, ...cur] : cur;
+      const nx = base.map(t2 => {
+        if (t2.id !== task.id) return t2;
+        const items = (Array.isArray(t2.checklistItems) ? t2.checklistItems : []).map(it => it.id === itemId
+          ? { ...it, status: outcome, problemTaskId: outcome === "problem" ? newTaskId : null } : it);
+        const allResolved = items.every(it => it.status !== "pending");
+        if (allResolved && t2.closingCheck) {
+          const boat = boats.find(b => b.id === t2.boatId);
+          // Αναβολή σε επόμενο tick: το recordSignoff γράφει κι αυτό state, δεν πρέπει να τρέξει μέσα στον updater.
+          if (boat) setTimeout(() => recordSignoff(boat), 0);
+        }
+        return {
+          ...t2, checklistItems: items,
+          ...(allResolved ? { status: "done", completedBy: acting.id, completedAt: new Date().toISOString() } : {}),
+        };
+      });
+      save("app-tasks", nx);
+      return nx;
+    });
     showToast(outcome === "problem" ? "Καταγράφηκε πρόβλημα — δημιουργήθηκε νέα εργασία ⚠" : "Τσεκαρίστηκε ✔");
   };
 
@@ -2199,7 +2230,7 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {users.map(u => (
                   <Btn key={u.id} color={t.assignedTo === u.id ? COLORS.teal : COLORS.navy} outline={t.assignedTo !== u.id}
-                    onClick={() => onAssignWithDeadline(t, u.id, assignMinutes ? Number(assignMinutes) : null, t.assignedToMore || [])}>{u.name}</Btn>
+                    onClick={() => { onAssignWithDeadline(t, u.id, assignMinutes ? Number(assignMinutes) : null, t.assignedToMore || []); setAssignMinutes(""); }}>{u.name}</Btn>
                 ))}
                 <Btn color={COLORS.sub} outline onClick={() => { onAssign(t, null); setMode(null); setAssignMinutes(""); }}>Ελεύθερη</Btn>
               </div>
@@ -2963,22 +2994,25 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
   const [boatId, setBoatId] = useState("");
   const [desc, setDesc] = useState("");
   const [urgent, setUrgent] = useState(false);
-  const [assignTo, setAssignTo] = useState("");
+  const [picked, setPicked] = useState([]); // [0] = υπεύθυνος, τα υπόλοιπα = βοηθοί
   const [multi, setMulti] = useState(false);
   const [purchase, setPurchase] = useState(false);
   const [backlog, setBacklog] = useState(false);
   const [photos, setPhotos] = useState([]);
   const fileRef = useRef(null);
+  const togglePick = (id) => setPicked(cur => cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]);
   const submit = () => {
     if (!desc.trim()) return;
+    const responsible = (isMgr && picked.length && !backlog) ? picked[0] : null;
+    const helpers = (isMgr && picked.length > 1 && !backlog) ? picked.slice(1) : [];
     if (multi) {
       const lines = desc.split("\n").map(l => l.trim()).filter(Boolean);
       if (!lines.length) return;
-      onAddMany({ boatId: boatId || null, urgent: backlog ? false : urgent, assignedTo: (isMgr && assignTo && !backlog) ? assignTo : null, purchase: backlog ? false : purchase, backlog }, lines);
+      onAddMany({ boatId: boatId || null, urgent: backlog ? false : urgent, assignedTo: responsible, assignedToMore: helpers, purchase: backlog ? false : purchase, backlog }, lines);
     } else {
-      onAdd({ boatId: boatId || null, desc: desc.trim(), urgent: backlog ? false : urgent, assignedTo: (isMgr && assignTo && !backlog) ? assignTo : null, purchase: backlog ? false : purchase, backlog }, photos);
+      onAdd({ boatId: boatId || null, desc: desc.trim(), urgent: backlog ? false : urgent, assignedTo: responsible, assignedToMore: helpers, purchase: backlog ? false : purchase, backlog }, photos);
     }
-    setDesc(""); setUrgent(false); setAssignTo(""); setBoatId(""); setMulti(false); setPurchase(false); setBacklog(false); setPhotos([]);
+    setDesc(""); setUrgent(false); setPicked([]); setBoatId(""); setMulti(false); setPurchase(false); setBacklog(false); setPhotos([]);
   };
   return (
     <div>
@@ -3004,23 +3038,36 @@ function NewTask({ boats, quick, users, isMgr, onAdd, onAddMany, onAddParsed }) 
           border: `1.5px solid ${COLORS.red}`, background: urgent ? COLORS.red : "transparent", color: urgent ? "#fff" : COLORS.red,
         }}>🔴 {urgent ? tr("ΕΠΕΙΓΟΝ — σοβαρό πρόβλημα") : tr("Μαρκάρισμα ως επείγον (σοβαρό πρόβλημα)")}</button>
 
-        <button onClick={() => setPurchase(!purchase)} style={{
+        <button onClick={() => { const next = !purchase; setPurchase(next); if (next) setPicked([]); }} style={{
           marginTop: 8, width: "100%", padding: "12px", borderRadius: 12, fontWeight: 700, fontSize: 15,
           border: `2px solid ${COLORS.amber}`, background: purchase ? COLORS.amber : "transparent", color: purchase ? "#fff" : COLORS.amber,
         }}>🛒 {purchase ? tr("ΑΓΟΡΑ / ΛΕΙΨΗ ΥΛΙΚΟΥ — θα ανατεθεί στον Λεωνίδα") : tr("Λείπει υλικό / χρειάζεται αγορά")}</button>
 
-        <button onClick={() => setBacklog(!backlog)} style={{
+        <button onClick={() => { const next = !backlog; setBacklog(next); if (next) setPicked([]); }} style={{
           marginTop: 8, width: "100%", padding: "12px", borderRadius: 12, fontWeight: 700, fontSize: 15,
           border: `2px solid ${COLORS.sub}`, background: backlog ? COLORS.sub : "transparent", color: backlog ? "#fff" : COLORS.sub,
         }}>⏳ {backlog ? tr("ΑΝΑΜΟΝΗ — δεν εμφανίζεται τώρα, το AI θα τη βάλει όταν υπάρχει κενό") : tr("Βάλε σε αναμονή (όχι τώρα — να τη θυμάται το AI για αργότερα)")}</button>
 
-        {isMgr && (
+        {/* Ο επιλογέας κρύβεται σε αναμονή/αγορά: εκεί η ανάθεση ορίζεται από τη δική τους λογική (AI ή Λεωνίδας),
+            οπότε επιλεγμένα ονόματα θα φαίνονταν να ισχύουν ενώ θα αγνοούνταν σιωπηλά. */}
+        {isMgr && !backlog && !purchase && (
           <>
-            <label style={lbl}>Ανάθεση σε συγκεκριμένο άτομο (προαιρετικό)</label>
-            <select value={assignTo} onChange={e => setAssignTo(e.target.value)} style={inputStyle}>
-              <option value="">Ελεύθερη — θα κατανεμηθεί από το AI ή όποιον την πιάσει</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            <label style={lbl}>{tr("Ανάθεση (προαιρετικό) — πρώτο = υπεύθυνος, επόμενα = βοηθός")}</label>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {users.map(u => {
+                const idx = picked.indexOf(u.id);
+                const isPrimary = idx === 0;
+                const isHelper = idx > 0;
+                return (
+                  <button key={u.id} onClick={() => togglePick(u.id)} style={{
+                    padding: "4px 10px", borderRadius: R.pill, fontSize: 12, fontWeight: isPrimary ? 700 : 500,
+                    border: `1px solid ${isPrimary ? COLORS.teal : isHelper ? "#8FC7CB" : COLORS.line}`,
+                    background: isPrimary ? COLORS.teal : isHelper ? "#DCF0EF" : "transparent",
+                    color: isPrimary ? "#fff" : isHelper ? COLORS.tealDark : COLORS.sub,
+                  }}>{u.name}</button>
+                );
+              })}
+            </div>
           </>
         )}
 
@@ -3361,7 +3408,7 @@ function WeeklyReport({ tasks, users, me, boats, absences }) {
       const team = users.filter(u => u.role === "employee" && !u.noStats);
       const data = team.map(u => {
         const done = tasks.filter(t => t.completedBy === u.id && t.status === "done" && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})${t.returns ? " [επιστράφηκε " + t.returns + "x]" : ""}${t.rating ? ` [αξιολόγηση manager: ${t.rating}/5]` : ""}${t.autoGenerated ? " [αυτόματη ανάθεση χαμηλού φόρτου]" : ""}${t.intensive && !(t.photosAfter?.length) ? " [ΧΩΡΙΣ φωτογραφία αποτελέσματος, παρότι ζητήθηκε]" : ""}`);
-        const helped = tasks.filter(t => t.status === "done" && (t.assignedToMore || []).includes(u.id) && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})`);
+        const helped = tasks.filter(t => t.status === "done" && t.completedBy !== u.id && (t.assignedToMore || []).includes(u.id) && inW(t.completedAt)).map(t => `"${t.desc}" (${bn(t.boatId)})`);
         const prog = tasks.reduce((s2, t) => s2 + (t.progress || []).filter(p => p.by === u.id && inW(p.at)).length, 0);
         const found = tasks.filter(t => t.createdBy === u.id && inW(t.createdAt)).length;
         const absPeriods = (absences || []).filter(a => a.userId === u.id && a.from <= todayStr() && a.to >= fromStr).map(a => `${fmtDate(a.from)}–${fmtDate(a.to)}${a.note ? " (" + a.note + ")" : ""}`);
@@ -3600,8 +3647,11 @@ const lastPastDeparture = (b) => {
 // «Σήμερα» και η αυτόματη δημιουργία inventory να μη μπορούν ποτέ να διαφωνήσουν μεταξύ τους.
 const validDoneInventory = (list, boat) => {
   const lastDep = lastPastDeparture(boat);
+  // ΤΟΠΙΚΗ ημερομηνία ολοκλήρωσης (dateStrOf), όχι .slice(0,10) του ISO: το completedAt είναι σε UTC, οπότε
+  // inventory που τελειώνει μετά τα μεσάνυχτα τοπικής ώρας θα καταγραφόταν με τη χθεσινή ημερομηνία και θα
+  // θεωρούνταν λανθασμένα άκυρο.
   return list.filter(t => t.boatId === boat.id && t.status === "done" && t.inventoryItems && !t.inventoryReset
-      && (!lastDep || (t.completedAt || "").slice(0, 10) > lastDep))
+      && (!lastDep || (t.completedAt ? dateStrOf(t.completedAt) : "") > lastDep))
     .sort((x, y) => (y.completedAt || "").localeCompare(x.completedAt || ""))[0] || null;
 };
 
@@ -3764,8 +3814,8 @@ function CharterCalendar({ charters }) {
   const cells = [];
   for (let i = 0; i < startWeekday; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  const dateStrOf = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  const isBooked = (d) => { const ds = dateStrOf(d); return charters.some(c => c.from <= ds && ds <= c.to); };
+  const cellDateStr = (d) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const isBooked = (d) => { const ds = cellDateStr(d); return charters.some(c => c.from <= ds && ds <= c.to); };
   const monthLabel = base.toLocaleDateString("el-GR", { month: "long", year: "numeric" });
   const todayS = todayStr();
   return (
@@ -4464,7 +4514,7 @@ function Stats({ users, tasks, boats }) {
     const inR = (d) => d && new Date(d) >= from;
     const bn = (id) => boats?.find(b => b.id === id)?.name || "Βάση/Άλλο";
     const done = tasks.filter(t => t.completedBy === sel.id && t.status === "done" && inR(t.completedAt)).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||""));
-    const helped = tasks.filter(t => t.status === "done" && (t.assignedToMore || []).includes(sel.id) && inR(t.completedAt)).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||""));
+    const helped = tasks.filter(t => t.status === "done" && t.completedBy !== sel.id && (t.assignedToMore || []).includes(sel.id) && inR(t.completedAt)).sort((a,b)=>(b.completedAt||"").localeCompare(a.completedAt||""));
     const created = tasks.filter(t => t.createdBy === sel.id && inR(t.createdAt));
     const prog = tasks.flatMap(t => (t.progress||[]).filter(p => p.by === sel.id && inR(p.at)).map(p => ({...p, desc: t.desc, boatId: t.boatId})));
     return (
@@ -4514,7 +4564,7 @@ function Stats({ users, tasks, boats }) {
     name: u.name,
     created: tasks.filter(t => t.createdBy === u.id).length,
     done: tasks.filter(t => t.completedBy === u.id && t.status === "done").length,
-    helped: tasks.filter(t => t.status === "done" && (t.assignedToMore || []).includes(u.id)).length,
+    helped: tasks.filter(t => t.status === "done" && t.completedBy !== u.id && (t.assignedToMore || []).includes(u.id)).length,
     prog: tasks.reduce((s, t) => s + (t.progress || []).filter(p => p.by === u.id).length, 0),
     returns: tasks.filter(t => t.completedBy === u.id || (t.status === "open" && t.assignedTo === u.id && t.returnNote)).reduce((s, t) => s + (t.returns || 0), 0),
   }));
