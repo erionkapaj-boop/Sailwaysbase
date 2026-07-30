@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.16";
+const APP_VERSION = "v4.17";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -1466,7 +1466,11 @@ ${histLines}
       const nd = nextDeparture(b);
       // Δεν αρκεί να μην υπάρχει ΑΝΟΙΧΤΟ inventory: αν έχει ήδη ολοκληρωθεί έγκυρο inventory γι' αυτόν τον κύκλο,
       // δεύτερο θα ήταν άσκοπη διπλή δουλειά. Ίδιος ορισμός εγκυρότητας με την οθόνη «Σήμερα» (validDoneInventory).
-      return nd && nd.days !== null && nd.days <= within && !hasOpenInventory(src, b.id) && !validDoneInventory(src, b);
+      // Επιπλέον: ΠΟΤΕ αυτόματη δημιουργία όσο το σκάφος είναι ακόμα μακριά (isBoatAway) — δεν γίνεται να ελεγχθεί
+      // φυσικά εξοπλισμός σε σκάφος που δεν έχει επιστρέψει ακόμα στη βάση, ακόμα κι αν η ΕΠΟΜΕΝΗ αναχώρησή του
+      // (μετά την τρέχουσα επιστροφή) πέφτει ήδη μέσα στο παράθυρο «X μέρες πριν». Η χειροκίνητη έναρξη (κουμπί
+      // στο «Σήμερα») παραμένει πάντα διαθέσιμη ανεξαρτήτως αυτού — αυτό αφορά μόνο την αυτόματη δημιουργία.
+      return nd && nd.days !== null && nd.days <= within && !isBoatAway(b) && !hasOpenInventory(src, b.id) && !validDoneInventory(src, b);
     });
     if (!need.length) return src;
     const newTasks = need.map((b, i) => makeInventoryTask(b, "system", i));
