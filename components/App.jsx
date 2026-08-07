@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.17";
+const APP_VERSION = "v4.20";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -133,6 +133,7 @@ const DEFAULT_SETTINGS = {
   departWindowDays: 6,            // εύρος αναχωρήσεων στο widget «Σκάφη» της αρχικής οθόνης
   returnWindowDays: 5,            // εύρος επιστροφών στο ίδιο widget
   boatHistoryDays: 21,            // πόσο πίσω κοιτά το AI το ιστορικό κάθε σκάφους
+  pressureHours: 2,               // πόσες ώρες πριν την προθεσμία μια εργασία γίνεται «Τώρα» (κόκκινη, πρώτη)
   // Δ. Διακόπτες αυτοματισμών
   closingCheckMode: "auto",       // "auto" | "manual"
   autoDistribution: true,         // ημερήσια κατανομή AI
@@ -203,6 +204,7 @@ const TR = {
   "Δεν μπορώ": "Can't do it", "Γιατί δεν μπορείς να αναλάβεις αυτή την εργασία;": "Why can't you take on this task?",
   "π.χ. δεν έχω τα εργαλεία / έχω άλλη προτεραιότητα σήμερα": "e.g. I don't have the tools / I have another priority today",
   "Επιβεβαίωση": "Confirm", "Απορρίφθηκε πριν:": "Previously declined:", "απορρίφθηκε": "declined",
+  "Αύριο": "Tomorrow", "Σε 3 μέρες": "In 3 days", "Τέλος εβδομάδας": "End of week",
 };
 const tr = (s) => (LANG === "en" ? (TR[s] || s) : s);
 const fmtDate = (d) => { if (!d) return ""; const x = new Date(d); return x.toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { day: "numeric", month: "short" }); };
@@ -217,8 +219,34 @@ const deadlineLabel = (t, dl) => {
   }
   const du = daysUntil(dl);
   if (du === null) return null;
-  return du <= 0 ? tr("Σήμερα!") : (LANG === "en" ? `in ${du} days` : `σε ${du} μέρες`);
+  if (du <= 0) return tr("Σήμερα!");
+  if (du > 7) return `${tr("έως")} ${fmtDate(dl)}`;
+  return LANG === "en" ? `in ${du} days` : `σε ${du} μέρες`;
 };
+// ---------- Κλίμακα πίεσης χρόνου ----------
+// ΥΠΟΛΟΓΙΖΕΤΑΙ κάθε φορά που ζωγραφίζεται η οθόνη — δεν αποθηκεύεται πουθενά, δεν γράφεται τίποτα με χρονόμετρο.
+// Έτσι μια εργασία ανεβαίνει μόνη της όσο πλησιάζει η προθεσμία («εβδομάδα» → «αύριο» → «σήμερα» → «τώρα»)
+// και είναι αδύνατο να «κολλήσει» σε λάθος κατάσταση, όπως θα γινόταν αν αλλάζαμε αποθηκευμένο πεδίο.
+// Το χειροκίνητο «Επείγον» παραμένει ανεξάρτητο και πάντα στην κορυφή.
+const P = { URGENT: 0, NOW: 1, TODAY: 2, TOMORROW: 3, WEEK: 4, NONE: 5 };
+const deadlinePressure = (t, dl) => {
+  if (t.urgent) return P.URGENT;
+  if (!dl) return P.NONE;
+  // Ο κανόνας των ωρών ισχύει ΜΟΝΟ σε χειροκίνητη προθεσμία, που έχει πραγματική ώρα. Οι αυτόματες προθεσμίες
+  // από αναχώρηση σκάφους είναι μόνο ημερομηνία — δεν έχει νόημα να λένε «σε 2 ώρες».
+  if (t.manualDeadline) {
+    const hoursLeft = (new Date(dl).getTime() - Date.now()) / 3600000;
+    if (hoursLeft <= (Number(SET.pressureHours) || 2)) return P.NOW;
+  }
+  // dateStrOf: το manualDeadline είναι πλήρες ISO (UTC) — χρειάζεται μετατροπή σε ΤΟΠΙΚΗ ημερομηνία πριν συγκριθεί.
+  const du = daysUntil(t.manualDeadline ? dateStrOf(dl) : dl);
+  if (du === null) return P.NONE;
+  if (du <= 0) return P.TODAY;
+  if (du === 1) return P.TOMORROW;
+  if (du <= 7) return P.WEEK;
+  return P.NONE;
+};
+const pressureColor = (p) => p <= P.NOW ? COLORS.red : p <= P.TOMORROW ? COLORS.amber : COLORS.sub;
 const localMidnight = (dateStr) => { const [y, m, d] = String(dateStr).slice(0, 10).split("-").map(Number); return new Date(y, m - 1, d); };
 const daysUntil = (d) => { if (!d) return null; return Math.round((localMidnight(d) - localMidnight(todayStr())) / 86400000); };
 const dateStrOf = (d) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
@@ -282,11 +310,32 @@ const nextWorkMoment = (ms) => {
     if (!isNonWorkingDay(d)) {
       const start = workDayStart(d), end = workDayEnd(d);
       if (d.getTime() < start.getTime()) return start;
-      if (d.getTime() <= end.getTime()) return d;
+      // Αυστηρά «<»: στις 17:00 ακριβώς η μέρα έχει τελειώσει και μεταφερόμαστε στην επόμενη εργάσιμη. Αλλιώς μια
+      // ουρά που έφτασε στο πλαφόν των 17:00 θα κολλούσε εκεί και ΚΑΘΕ επόμενη εργασία θα έπαιρνε πάλι 17:00,
+      // χάνοντας τη σειρά τους.
+      if (d.getTime() < end.getTime()) return d;
     }
     d = workDayStart(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1));
   }
   return d;
+};
+// Τέλος εργάσιμης μέρας σε N μέρες από σήμερα (0 = σήμερα), προσπερνώντας τις μη εργάσιμες.
+// Χρησιμοποιείται για τις προθεσμίες «Αύριο» / «Σε 3 μέρες», που είναι σε επίπεδο ημέρας και όχι λεπτών.
+const endOfWorkDayIn = (days) => {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0); // μεσημέρι ως βάση: αποφεύγει τα όρια αλλαγής ώρας (θερινή/χειμερινή)
+  d.setDate(d.getDate() + days);
+  for (let i = 0; i < 14 && isNonWorkingDay(d); i++) d.setDate(d.getDate() + 1);
+  return workDayEnd(d).toISOString();
+};
+// «Τέλος εβδομάδας» = το Σάββατο αυτής της εβδομάδας (η εβδομάδα της βάσης είναι Δευτέρα–Σάββατο).
+// Αν είναι ήδη Σάββατο, εννοείται το τέλος της σημερινής μέρας· την Κυριακή, το Σάββατο της επόμενης.
+const endOfWeekDeadline = () => {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? 6 : 6 - day));
+  return workDayEnd(d).toISOString();
 };
 // Προσθέτει λεπτά δουλειάς ξεκινώντας από την πρώτη έγκυρη εργάσιμη στιγμή, με πλαφόν στις 17:00
 // της ίδιας μέρας — το deadline δεν μπορεί ποτέ να προσπεράσει τις 17:00.
@@ -674,6 +723,9 @@ function AppInner() {
   // πραγματικά, οπότε αν μετρούσαμε μόνο τα assignedTo θα φαινόταν ελεύθερος και θα του φορτώναμε κι άλλα —
   // ακριβώς το είδος αδικίας που το σύστημα οφείλει να αποφεύγει.
   const openLoadOf = (list, userId) => list.filter(t => t.status === "open" && (t.assignedTo === userId || (t.assignedToMore || []).includes(userId))).length;
+  // Έχει ήδη δηλώσει αδυναμία («Δεν μπορώ») αυτό το άτομο για τη συγκεκριμένη εργασία; Χρησιμοποιείται ώστε καμία
+  // αυτόματη ανάθεση να μην του ξαναδώσει ακριβώς την εργασία που μόλις αρνήθηκε — που θα ακύρωνε το νόημα του κουμπιού.
+  const declinedBy = (t, userId) => (t?.declines || []).some(d => d.by === userId);
 
   const generateClosingChecks = async (tasksOverride) => {
     const src = tasksOverride || tasks;
@@ -764,11 +816,12 @@ function AppInner() {
     showToast("Οι ρυθμίσεις επανήλθαν στις προεπιλογές");
   };
 
-  // Λήξη ανοιχτών ελέγχων κλεισίματος: τρέχει σε κάθε άνοιγμα της εφαρμογής (η ίδια η συνάρτηση αποφασίζει τι
-  // πρέπει να λήξει — χθεσινά πάντα, σημερινά μόνο μετά τις 19:00 — οπότε είναι ασφαλές να τρέχει επανειλημμένα).
+  // Λήξη ανοιχτών ελέγχων κλεισίματος και inventory: τρέχει σε κάθε άνοιγμα της εφαρμογής (κάθε συνάρτηση αποφασίζει
+  // μόνη της τι πρέπει να λήξει — οπότε είναι ασφαλές να τρέχουν επανειλημμένα).
   useEffect(() => {
     if (!ready || !me) return;
     expireMissedClosings();
+    expireMissedInventory();
   }, [ready, me]);
 
   async function runDistribution(manual) {
@@ -795,14 +848,17 @@ ${weekdayNote()}
 ΑΠΑΡΑΒΑΤΟΙ ΕΙΔΙΚΟΙ ΚΑΝΟΝΕΣ:
 ${rules.map(r => "- " + r).join("\n")}
 Υπάλληλοι: ${employees.map(e => `${e.id}: ${e.name} (τρέχων φόρτος: ${loadPer[e.id]}, προφίλ: ${e.profile || "χωρίς προφίλ"})`).join("; ")}
-Ελεύθερες εργασίες: ${free.map(t => `${t.id}: "${t.desc}" [σκάφος: ${boatName(t.boatId)}${t.urgent ? ", ΕΠΕΙΓΟΝ" : ""}]`).join("; ")}
+Ελεύθερες εργασίες: ${free.map(t => `${t.id}: "${t.desc}" [σκάφος: ${boatName(t.boatId)}${t.urgent ? ", ΕΠΕΙΓΟΝ" : ""}${(t.declines || []).length ? ", ΔΕΝ ΤΗΝ ΔΕΧΤΗΚΑΝ: " + [...new Set((t.declines || []).map(d => d.by))].join("/") : ""}]`).join("; ")}
 Απάντησε ΜΟΝΟ με JSON, χωρίς markdown: {"assignments":[{"taskId":"...","userId":"...","helperId":null}]}`;
       const raw = await askClaude(prompt, 800);
       const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
       if (!parsed.assignments?.length) return tasks;
       const valid = parsed.assignments
-        .filter(a => free.some(t => t.id === a.taskId) && employees.some(e => e.id === a.userId))
-        .map(a => ({ ...a, helperId: (a.helperId && a.helperId !== a.userId && employees.some(e => e.id === a.helperId)) ? a.helperId : null }));
+        // Το τελευταίο φίλτρο είναι δίχτυ ασφαλείας: ακόμα κι αν το AI αγνοήσει την ένδειξη στο prompt, μια
+        // εργασία δεν ξαναγυρίζει ΠΟΤΕ αυτόματα σε όποιον έχει ήδη δηλώσει «Δεν μπορώ» γι' αυτήν.
+        .filter(a => free.some(t => t.id === a.taskId) && employees.some(e => e.id === a.userId)
+          && !declinedBy(free.find(t => t.id === a.taskId), a.userId))
+        .map(a => ({ ...a, helperId: (a.helperId && a.helperId !== a.userId && employees.some(e => e.id === a.helperId) && !declinedBy(free.find(t => t.id === a.taskId), a.helperId)) ? a.helperId : null }));
       if (!valid.length) return tasks;
       // Λειτουργική ενημέρωση: εφαρμόζει τις αναθέσεις μόνο σε εργασίες που είναι ΑΚΟΜΑ ανοιχτές και ελεύθερες
       // τη στιγμή της εγγραφής — δεν πατάει πάνω σε ό,τι άλλαξε παράλληλα (π.χ. λήξη κλεισιμάτων, χειροκίνητη ανάθεση).
@@ -981,7 +1037,8 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     const fresh = finalDescs.map((d, i) => ({
       id: "t" + now + "-" + i, status: base.backlog ? "backlog" : "open", createdBy: acting.id, createdAt: new Date(now + i).toISOString(),
       progress: [], returns: 0, assignedTo: base.backlog ? null : (leo ? leo.id : (base.assignedTo || null)), assignedToMore: base.backlog || leo ? [] : (base.assignedToMore || []), boatId: base.boatId || null, desc: d.el, ...(d.en ? { descEn: d.en } : {}), urgent: !!base.urgent, purchase: !!base.purchase,
-      ...(leo ? { assignedBy: "auto-purchase" } : {}),
+      // Χωρίς assignedBy, μια χειροκίνητη ανάθεση δεν θα ήξερε αργότερα ΠΟΙΟΝ να ειδοποιήσει σε «Δεν μπορώ».
+      ...(leo ? { assignedBy: "auto-purchase" } : (!base.backlog && base.assignedTo ? { assignedBy: acting.id } : {})),
     }));
     await persistTasks([...fresh, ...tasks]);
     showToast(base.backlog ? `Μπήκε σε αναμονή: ${fresh.length} εργασία/ίες` : `Καταχωρήθηκαν ${fresh.length} εργασίες`);
@@ -996,6 +1053,9 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     const t = {
       id, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
       progress: [], returns: 0, assignedTo: null, photos: [], ...task, desc, ...(descEn ? { descEn } : {}),
+      // Βλ. addTasks: το assignedBy πρέπει να υπάρχει σε κάθε χειροκίνητη ανάθεση, αλλιώς το «Δεν μπορώ» δεν
+      // θα ήξερε σε ποιον να στείλει την ειδοποίηση.
+      ...(task.assignedTo && task.status !== "backlog" ? { assignedBy: acting.id } : {}),
       ...(leo ? { assignedTo: leo.id, assignedBy: "auto-purchase", assignedToMore: [] } : {}),
     };
     await persistTasks([t, ...tasks]);
@@ -1324,8 +1384,11 @@ ${histLines}
   const assignReplacementTask = async (tasksSrc, userId, excludeTaskId) => {
     const emp = users.find(u => u.id === userId);
     if (!emp) return;
+    // Όποιος έχει «AI κατανομή: όχι» (π.χ. Λεωνίδας, Νικόλ) δεν λαμβάνει αυτόματες αναθέσεις — ούτε εδώ.
+    if (emp.noAutoAssign) return;
     if (isAbsentOn(userId, todayStr())) return;
-    const free = tasksSrc.filter(x => x.id !== excludeTaskId && x.status === "open" && !x.assignedTo);
+    // Εξαιρούνται όσες έχει ήδη αρνηθεί ο ίδιος — δεν έχει νόημα να του προταθεί ξανά κάτι που απέρριψε.
+    const free = tasksSrc.filter(x => x.id !== excludeTaskId && x.status === "open" && !x.assignedTo && !declinedBy(x, userId));
     if (!free.length) return;
     try {
       const boatName = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
@@ -1453,12 +1516,31 @@ ${histLines}
   // ---------- Inventory List ----------
   // Δημιουργείται ως ΚΑΝΟΝΙΚΗ εργασία, ώστε να κληρονομεί αυτόματα ό,τι ήδη δουλεύει: ανάθεση, ορατότητα σε
   // όλους, καταγραφή «ποιος/πότε το ολοκλήρωσε», και μετατροπή κάθε ⚠ σε ξεχωριστή εργασία που δεν χάνεται.
-  const makeInventoryTask = (boat, byId, suffix) => ({
+  // Το inventoryDepartureDate κρατάει ΣΤΑΘΕΡΗ πάνω στην εργασία τη συγκεκριμένη αναχώρηση για την οποία έγινε —
+  // ώστε η αυτόματη λήξη (βλ. expireMissedInventory) να ξέρει ακριβώς πότε να κλείσει, χωρίς να χρειάζεται να
+  // ξαναϋπολογίσει «ποια ήταν η αναχώρηση» αργότερα (που θα μπορούσε πια να δείχνει διαφορετικό, επόμενο ναύλο).
+  const makeInventoryTask = (boat, byId, suffix, departureDate) => ({
     id: "t" + Date.now() + "-inv" + (suffix ?? ""), status: "open", createdBy: byId, createdAt: new Date().toISOString(),
     progress: [], returns: 0, assignedTo: null, boatId: boat.id, desc: "Inventory List — έλεγχος εξοπλισμού",
-    inventoryItems: buildInventoryItems(boat, inventory),
+    inventoryItems: buildInventoryItems(boat, inventory), inventoryDepartureDate: departureDate || null,
   });
-  const hasOpenInventory = (list, boatId) => list.some(t => t.boatId === boatId && t.status === "open" && t.inventoryItems);
+  // Ποια αναχώρηση «ανήκει» σε ένα inventory. Κανονικά είναι γραμμένη πάνω στην εργασία (inventoryDepartureDate).
+  // ΟΜΩΣ τα inventory που δημιουργήθηκαν ΠΡΙΝ μπει αυτό το πεδίο — δηλαδή όσα είναι ήδη ανοιχτά τώρα — δεν το έχουν.
+  // Χωρίς fallback θα έμεναν ανοιχτά για πάντα. Γι' αυτά υπολογίζεται από το πρόγραμμα του σκάφους: η πρώτη
+  // αναχώρηση από τη μέρα δημιουργίας του inventory και μετά είναι εκείνη για την οποία είχε ανοίξει.
+  const inventoryDepartureOf = (t) => {
+    if (t.inventoryDepartureDate) return t.inventoryDepartureDate;
+    const boat = boats.find(b => b.id === t.boatId);
+    if (!boat) return null;
+    const created = t.createdAt ? dateStrOf(t.createdAt) : null;
+    const dep = getCharters(boat).map(c => c.from).filter(d => !created || d >= created).sort()[0];
+    return dep || null;
+  };
+  // «Έχει ήδη ανοιχτό inventory». Ένα inventory του οποίου η αναχώρηση έχει ΠΕΡΑΣΕΙ δεν μετράει: πρόκειται να λήξει
+  // ούτως ή άλλως (expireMissedInventory) και δεν πρέπει να μπλοκάρει τη δημιουργία του inventory του ΕΠΟΜΕΝΟΥ
+  // κύκλου — αλλιώς ένα ξεχασμένο παλιό inventory θα εμπόδιζε σιωπηλά τον νέο έλεγχο.
+  const isStaleInventory = (t) => { const dep = inventoryDepartureOf(t); return !!dep && dep < todayStr(); };
+  const hasOpenInventory = (list, boatId) => list.some(t => t.boatId === boatId && t.status === "open" && t.inventoryItems && !isStaleInventory(t));
   const generateInventoryChecks = async (tasksOverride) => {
     const src = tasksOverride || tasks;
     const within = Number(SET.inventoryDaysBefore) || 2;
@@ -1473,7 +1555,7 @@ ${histLines}
       return nd && nd.days !== null && nd.days <= within && !isBoatAway(b) && !hasOpenInventory(src, b.id) && !validDoneInventory(src, b);
     });
     if (!need.length) return src;
-    const newTasks = need.map((b, i) => makeInventoryTask(b, "system", i));
+    const newTasks = need.map((b, i) => makeInventoryTask(b, "system", i, nextDeparture(b)?.date));
     setTasks(cur => {
       const fresh = newTasks.filter(t => !hasOpenInventory(cur, t.boatId));
       if (!fresh.length) return cur;
@@ -1486,9 +1568,19 @@ ${histLines}
   // Χειροκίνητη έναρξη για συγκεκριμένο σκάφος (π.χ. «πήγαινε τσέκαρε αν τα έχει όλα»).
   const startInventory = (boat) => {
     if (hasOpenInventory(tasks, boat.id)) { showToast("Υπάρχει ήδη ανοιχτό inventory γι' αυτό το σκάφος"); return; }
-    const nt = makeInventoryTask(boat, acting.id);
+    const nt = makeInventoryTask(boat, acting.id, undefined, nextDeparture(boat)?.date);
     setTasks(cur => { const nx = [nt, ...cur]; save("app-tasks", nx); return nx; });
     showToast(`Ξεκίνησε inventory για ${boat.name}`);
+  };
+  // Λήξη ανοιχτών inventory: η μέρα της αναχώρησης μετράει ακόμα ως κανονική (μπορεί να γίνει μέχρι να φύγει το
+  // σκάφος), αλλά από την ΕΠΟΜΕΝΗ μέρα και μετά δεν έχει νόημα να παραμένει ανοιχτό — το σκάφος είναι πλέον μακριά
+  // και δεν μπορεί να ελεγχθεί φυσικά. Κλείνει ΑΚΟΜΑ ΚΙ ΑΝ δεν ολοκληρώθηκε, χωρίς όμως να μετράει ως έγκυρο
+  // ολοκληρωμένο inventory: status "expired" (όχι "done"), ίδιο μοτίβο με το expireMissedClosings.
+  const expireMissedInventory = async () => {
+    const missed = tasks.filter(t => t.status === "open" && t.inventoryItems && isStaleInventory(t));
+    if (!missed.length) return;
+    const missedIds = new Set(missed.map(t => t.id));
+    setTasks(cur => { const nx = cur.map(x => missedIds.has(x.id) ? { ...x, status: "expired", expiredAt: new Date().toISOString() } : x); save("app-tasks", nx); return nx; });
   };
   // Ένα αντικείμενο: ✔ εντάξει, ή ⚠ πρόβλημα/λείπει → γεννά ξεχωριστή εργασία με το ίδιο σκάφος.
   const resolveInventoryItem = async (task, itemId, outcome, note) => {
@@ -1601,10 +1693,14 @@ ${histLines}
     // Προθεσμία = επόμενη αναχώρηση του σκάφους (αν είναι στη βάση με προγραμματισμένο ναύλο)
     return s.nextEventType === "depart" ? s.departureDate : null;
   };
+  // Ταξινόμηση με ΕΝΑΝ κανόνα: πρώτα το επίπεδο πίεσης (που ανεβαίνει μόνο του με τον χρόνο), και μέσα στο ίδιο
+  // επίπεδο η ακριβέστερη προθεσμία πρώτη. Έτσι μια εργασία με προθεσμία Παρασκευή ανεβαίνει σταδιακά χωρίς
+  // να χρειαστεί κανείς να την ξαναπειράξει.
   const sortTasks = (list) => [...list].sort((a, b) => {
-    if (!!b.urgent - !!a.urgent) return !!b.urgent - !!a.urgent;
     const da = effectiveDeadline(a), db = effectiveDeadline(b);
-    if (da && db) return da.localeCompare(db);
+    const pa = deadlinePressure(a, da), pb = deadlinePressure(b, db);
+    if (pa !== pb) return pa - pb;
+    if (da && db) return new Date(da).getTime() - new Date(db).getTime();
     if (da) return -1; if (db) return 1;
     return (b.createdAt || "").localeCompare(a.createdAt || "");
   });
@@ -1955,8 +2051,8 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
   const [progressPhotos, setProgressPhotos] = useState([]);
   const boat = boats.find(b => b.id === t.boatId);
   const dl = deadline(t);
-  const du = daysUntil(dl);
-  const spine = t.urgent ? COLORS.red : (dl && du !== null && du <= 7 ? COLORS.amber : COLORS.line);
+  const pressure = deadlinePressure(t, dl);
+  const spine = pressure <= P.NOW ? COLORS.red : pressure <= P.TOMORROW ? COLORS.amber : COLORS.line;
   const assignee = users.find(u => u.id === t.assignedTo);
   const helperUsers = (t.assignedToMore || []).map(id => users.find(u => u.id === id)).filter(Boolean);
   // Σειρά για τον ενιαίο επιλογέα ανάθεσης: υπεύθυνος πρώτος, μετά οι βοηθοί — ίδια λογική με το «Νέα εργασία».
@@ -2028,9 +2124,9 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
           {t.urgent && <span style={{ color: COLORS.red, fontWeight: 700 }}>🔴 {tr("Επείγον")}</span>}
           {t.purchase && <span style={{ color: COLORS.amber, fontWeight: 700 }}>🛒 {tr("Αγορά")}</span>}
           {t.autoGenerated && <span style={{ color: COLORS.sub, fontWeight: 600 }}>🤖 {tr("αυτόματη")}</span>}
-          {!t.urgent && dl && du !== null && du <= 7 && <span style={{ color: (t.manualDeadline && new Date(dl).getTime() < Date.now()) ? COLORS.red : COLORS.amber, fontWeight: 700 }}>⏰ {deadlineLabel(t, dl)}</span>}
+          {/* Μία μόνο ένδειξη προθεσμίας, πάντα ορατή — και σε επείγουσες εργασίες, όπου πριν κρυβόταν εντελώς. */}
+          {dl && <span style={{ color: pressureColor(deadlinePressure(t, dl)), fontWeight: 700 }}>⏰ {deadlineLabel(t, dl)}</span>}
           {t.excludedFromDeadline && <span style={{ color: COLORS.sub, fontSize: 12 }}>{tr("Χωρίς πίεση χρόνου")}</span>}
-          {dl && (du === null || du > 7) && <span>{tr("έως")} {fmtDate(dl)}</span>}
           {t.returnNote && t.status === "open" && <span style={{ color: COLORS.red }}>↩ {tr("Επιστράφηκε")}</span>}
           {t.declines?.length > 0 && <span style={{ color: COLORS.red }}>⚠ {tr("απορρίφθηκε")}</span>}
           {t.progress?.length > 0 && <span style={{ color: COLORS.teal }}>✏ {t.progress.length} {tr("πρόοδοι")}</span>}
@@ -2217,6 +2313,13 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
                   <Btn key={mins} small color={COLORS.amber} outline onClick={() => { onSetDeadlineDuration(t, mins); setMode(null); }}>{label}</Btn>
                 ))}
                 <Btn small color={COLORS.amber} outline onClick={() => { onSetDeadline(t, workDayEnd(nextWorkMoment(Date.now())).toISOString()); setMode(null); }}>{tr("Τέλος ημέρας")}</Btn>
+              </div>
+              {/* Δεύτερη σειρά: προθεσμίες σε επίπεδο ΗΜΕΡΑΣ. Χωρίς αυτές δεν υπήρχε κανένας τρόπος να οριστεί
+                  κάτι πέρα από σήμερα — όλα τα κουμπιά ήταν λεπτά με πλαφόν στις 17:00 της ίδιας μέρας. */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                <Btn small color={COLORS.navy} outline onClick={() => { onSetDeadline(t, endOfWorkDayIn(1)); setMode(null); }}>{tr("Αύριο")}</Btn>
+                <Btn small color={COLORS.navy} outline onClick={() => { onSetDeadline(t, endOfWorkDayIn(3)); setMode(null); }}>{tr("Σε 3 μέρες")}</Btn>
+                <Btn small color={COLORS.navy} outline onClick={() => { onSetDeadline(t, endOfWeekDeadline()); setMode(null); }}>{tr("Τέλος εβδομάδας")}</Btn>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
                 <input type="number" min="1" placeholder={tr("Custom (λεπτά)")} value={customMins} onChange={e => setCustomMins(e.target.value)} style={{ ...inputStyle, width: 130 }} />
@@ -4405,6 +4508,7 @@ function SettingsAdmin({ settings, updateSettings, resetSettings }) {
         <SettingRow showHints={showHints} label="Όριο «χαμηλού φόρτου»" hint="Με τόσες ή λιγότερες ανοιχτές εργασίες, το άτομο θεωρείται διαθέσιμο για νέα αυτόματη εργασία.">{numIn("lowLoadThreshold", 0, 5)}</SettingRow>
         <SettingRow showHints={showHints} label="Εργασίες αναμονής ανά ενεργοποίηση" hint="Πόσες εργασίες «για όταν υπάρχει κενό» ενεργοποιούνται μαζί.">{numIn("maxBacklogConvert", 1, 10)}</SettingRow>
         <SettingRow showHints={showHints} label="Ιστορικό σκάφους για το AI (μέρες)" hint="Πόσο πίσω κοιτά το AI ώστε να μην ξαναστείλει κάποιον στο ίδιο σημείο.">{numIn("boatHistoryDays", 7, 90)}</SettingRow>
+        <SettingRow showHints={showHints} label="Προθεσμία: ώρες πριν γίνει «Τώρα»" hint="Πόσο πριν λήξει μια προθεσμία η εργασία κοκκινίζει και βγαίνει πρώτη στη λίστα.">{numIn("pressureHours", 1, 12)}</SettingRow>
       </SettingsGroup>
 
       <SettingsGroup title="Αναβολή εργασιών" subtitle="Οι τρεις προεπιλογές στο κουμπί «Αναβολή»" openKey="snooze" cur={cur} setCur={setCur}>
@@ -4433,7 +4537,7 @@ function SettingsAdmin({ settings, updateSettings, resetSettings }) {
         <SettingRow showHints={showHints} label="Checklist αναχώρησης" hint="Άνοιγμα λίστας ελέγχου όταν πλησιάζει αναχώρηση σκάφους.">
           <Toggle on={s.autoDepartureChecklists !== false} onChange={v => updateSettings({ autoDepartureChecklists: v })} />
         </SettingRow>
-        <SettingRow showHints={showHints} label="Αυτόματο Inventory List" hint={`Δημιουργείται μόνο του ${s.inventoryDaysBefore} μέρες πριν από κάθε αναχώρηση.`}>
+        <SettingRow showHints={showHints} label="Αυτόματο Inventory List" hint={`Δημιουργείται μόνο του ${s.inventoryDaysBefore} μέρες πριν από κάθε αναχώρηση, και κλείνει αυτόματα την επόμενη μέρα της αναχώρησης αν δεν έχει ολοκληρωθεί.`}>
           <Toggle on={s.autoInventory !== false} onChange={v => updateSettings({ autoInventory: v })} />
         </SettingRow>
         <SettingRow showHints={showHints} label="Inventory: μέρες πριν την αναχώρηση" hint="Πόσο νωρίς εμφανίζεται ο έλεγχος εξοπλισμού.">{numIn("inventoryDaysBefore", 1, 14)}</SettingRow>
