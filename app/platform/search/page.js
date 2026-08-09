@@ -78,7 +78,9 @@ export default function SearchPage() {
   const [broadcastDone, setBroadcastDone] = useState(false);
 
   useEffect(() => {
-    listLookups().then(setLookups).catch(() => {});
+    listLookups()
+      .then(setLookups)
+      .catch((err) => setError("Λίστες (λιμάνια/σκάφη) δεν φορτώθηκαν: " + (err.message || String(err))));
     getPlatformSetting("client_request_fee").then(setFee).catch(() => {});
   }, []);
 
