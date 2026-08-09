@@ -8,8 +8,8 @@ export async function GET(req) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   const db = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.NEXT_PUBLIC_PLATFORM_SUPABASE_URL,
+    process.env.PLATFORM_SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_PLATFORM_SUPABASE_ANON_KEY
   );
 
   const results = {};

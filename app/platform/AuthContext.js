@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../lib/platform/supabaseClient";
 import { getMyUserRow, getMyClientProfile, getMySkipperProfile } from "../../lib/platform/db";
 
 const AuthContext = createContext(null);
