@@ -10,6 +10,8 @@ import {
   adminListActions,
   adminFindUserByPhone,
   adminCreditWallet,
+  adminSearchSkippersByName,
+  adminGetUserOverview,
 } from "../../../lib/platform/db";
 import { container, card, h1, h2, muted, button, input, badge, colors } from "../../../lib/platform/theme";
 
@@ -148,7 +150,7 @@ function WalletTopup() {
             marginTop: 6,
             borderRadius: 6,
             cursor: "pointer",
-            background: selected?.id === u.id ? "#E4F3F7" : "#F6F8FA",
+            background: selected?.id === u.id ? "#EEEEEF" : colors.bg,
           }}
         >
           {u.phone_number} · {u.role}
@@ -201,6 +203,183 @@ function BookingsOverview() {
   );
 }
 
+function ViewAsUser() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [overview, setOverview] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function search(e) {
+    e?.preventDefault();
+    setError("");
+    setSelected(null);
+    setOverview(null);
+    setBusy(true);
+    try {
+      const [byPhone, byName] = await Promise.all([
+        adminFindUserByPhone(query).catch(() => []),
+        adminSearchSkippersByName(query).catch(() => []),
+      ]);
+      const fromSkippers = byName
+        .filter((s) => s.users)
+        .map((s) => ({ id: s.user_id, phone_number: s.users.phone_number, role: "skipper", full_name: s.full_name }));
+      const merged = [...byPhone, ...fromSkippers].filter(
+        (u, i, arr) => arr.findIndex((x) => x.id === u.id) === i
+      );
+      setResults(merged);
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function view(u) {
+    setSelected(u);
+    setOverview(null);
+    setError("");
+    setBusy(true);
+    try {
+      setOverview(await adminGetUserOverview(u.id, u.role));
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <h2 style={h2}>Προβολή χρήστη</h2>
+      <p style={muted}>Αναζήτηση με τηλέφωνο (πελάτης/skipper) ή ονοματεπώνυμο (skipper). Μόνο προβολή, καμία ενέργεια εκ μέρους τους.</p>
+      <form onSubmit={search} style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+        <input style={input} placeholder="Τηλέφωνο ή όνομα" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <button style={button("secondary")} disabled={busy} type="submit">
+          Αναζήτηση
+        </button>
+      </form>
+      {error && <p style={{ color: colors.danger, marginTop: 8 }}>{error}</p>}
+
+      {results.map((u) => (
+        <div
+          key={u.id}
+          onClick={() => view(u)}
+          style={{
+            padding: 8,
+            marginTop: 6,
+            borderRadius: 6,
+            cursor: "pointer",
+            background: selected?.id === u.id ? "#EEEEEF" : colors.bg,
+          }}
+        >
+          {u.full_name ? `${u.full_name} · ` : ""}
+          {u.phone_number} · {u.role}
+        </div>
+      ))}
+
+      {overview && (
+        <div style={{ marginTop: 16 }}>
+          {overview.role === "client" && (
+            <>
+              <div style={{ ...card, display: "flex", gap: 24, flexWrap: "wrap" }}>
+                <div>
+                  <div style={muted}>Wallet</div>
+                  <div style={{ fontSize: 20, fontWeight: 800 }}>{overview.profile?.wallet_balance ?? 0}€</div>
+                </div>
+                <div>
+                  <div style={muted}>Αξιοπιστία</div>
+                  <div style={{ fontSize: 20, fontWeight: 800 }}>
+                    {overview.profile?.reliability_percentage != null ? `${overview.profile.reliability_percentage}%` : "—"}
+                  </div>
+                </div>
+                <div>
+                  <div style={muted}>Ολοκληρωμένες</div>
+                  <div style={{ fontSize: 20, fontWeight: 800 }}>{overview.profile?.completed_bookings_count ?? 0}</div>
+                </div>
+              </div>
+              <h2 style={h2}>Αιτήματα ({overview.requests.length})</h2>
+              {overview.requests.map((r) => (
+                <div key={r.id} style={card}>
+                  <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                    <span>
+                      {r.ports?.name} · {r.start_date} → {r.end_date}
+                    </span>
+                    <span style={badge("neutral")}>{r.status}</span>
+                  </div>
+                </div>
+              ))}
+              <h2 style={h2}>Κρατήσεις ({overview.bookings.length})</h2>
+              {overview.bookings.map((b) => (
+                <div key={b.id} style={card}>
+                  <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                    <span>
+                      {b.ports?.name} · {b.start_date} → {b.end_date}
+                    </span>
+                    <span style={badge("neutral")}>{b.status}</span>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {overview.role === "skipper" && (
+            <>
+              {!overview.profile ? (
+                <p style={muted}>Δεν βρέθηκε προφίλ skipper για αυτόν τον χρήστη.</p>
+              ) : (
+                <>
+                  <div style={{ ...card, display: "flex", gap: 24, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={muted}>Όνομα</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{overview.profile.full_name || "—"}</div>
+                    </div>
+                    <div>
+                      <div style={muted}>Κατάσταση έγκρισης</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{overview.profile.approval_status}</div>
+                    </div>
+                    <div>
+                      <div style={muted}>Wallet</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{overview.profile.wallet_balance}€</div>
+                    </div>
+                    <div>
+                      <div style={muted}>Βαθμίδα</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{overview.profile.tier}</div>
+                    </div>
+                  </div>
+                  <h2 style={h2}>Κρατήσεις ({overview.bookings.length})</h2>
+                  {overview.bookings.map((b) => (
+                    <div key={b.id} style={card}>
+                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                        <span>
+                          {b.ports?.name} · {b.start_date} → {b.end_date}
+                        </span>
+                        <span style={badge("neutral")}>{b.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <h2 style={h2}>Καμπανάκια που δέχτηκε ({overview.pings.length})</h2>
+                  {overview.pings.map((p) => (
+                    <div key={p.id} style={card}>
+                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                        <span>
+                          {p.booking_requests?.ports?.name} · {p.booking_requests?.start_date} → {p.booking_requests?.end_date}
+                        </span>
+                        <span style={badge("neutral")}>{p.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const { session, userRow, loading } = useAuth();
   const [tab, setTab] = useState("skippers");
@@ -218,6 +397,7 @@ export default function AdminDashboard() {
           ["flags", "Flags/Ακυρώσεις"],
           ["wallet", "Πίστωση wallet"],
           ["bookings", "Κρατήσεις"],
+          ["viewas", "Προβολή χρήστη"],
         ].map(([key, lbl]) => (
           <button key={key} style={button(tab === key ? "primary" : "secondary")} onClick={() => setTab(key)}>
             {lbl}
@@ -228,6 +408,7 @@ export default function AdminDashboard() {
       {tab === "flags" && <CancellationReports />}
       {tab === "wallet" && <WalletTopup />}
       {tab === "bookings" && <BookingsOverview />}
+      {tab === "viewas" && <ViewAsUser />}
     </div>
   );
 }
