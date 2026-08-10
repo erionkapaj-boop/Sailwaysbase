@@ -675,22 +675,29 @@ function AppInner() {
     })();
   }, []);
 
-  const persistTasks = async (next) => { setTasks(next); await save("app-tasks", next); };
-  const patchTask = (taskId, patch) => {
-    setTasks(prev => {
-      const next = prev.map(x => x.id === taskId ? { ...x, ...patch } : x);
-      save("app-tasks", next);
-      return next;
-    });
+  // Ασφαλής αποθήκευση με πολλές συσκευές ταυτόχρονα: αντί να γράφει πάνω στο ΤΟΠΙΚΟ state (που μπορεί να έχει
+  // μείνει πίσω αν κάποιος άλλος πρόλαβε να αλλάξει κάτι στο μεταξύ από άλλη συσκευή), διαβάζει την πιο πρόσφατη
+  // αποθηκευμένη τιμή ΑΚΡΙΒΩΣ πριν γράψει και εφαρμόζει πάνω σε αυτήν — έτσι μια αλλαγή από άλλη συσκευή δεν
+  // χάνεται όταν δύο άτομα αλλάζουν κάτι σχεδόν ταυτόχρονα. Δέχεται είτε έτοιμη τιμή είτε συνάρτηση (cur => next)·
+  // μόνο η δεύτερη μορφή ωφελείται πλήρως από το φρέσκο fetch, γι' αυτό οι κλήσεις πιο κάτω δίνουν πάντα συνάρτηση.
+  const makePersist = (key, setter, fallback) => async (updater) => {
+    let latest = fallback;
+    try { const r = await load(key, null); if (r !== null && r !== undefined) latest = r; } catch {}
+    const next = typeof updater === "function" ? updater(latest) : updater;
+    setter(next);
+    if (next !== latest) await save(key, next);
+    return next;
   };
-  const persistBoats = async (next) => { setBoats(next); await save("app-boats", next); };
-  const persistUsers = async (next) => { setUsers(next); await save("app-users", next); };
-  const persistQuick = async (next) => { setQuick(next); await save("app-quicktasks", next); };
-  const persistChecklist = async (next) => { setChecklist(next); await save("app-checklist", next); };
-  const persistClosingChecklist = async (next) => { setClosingChecklist(next); await save("app-closingchecklist", next); };
-  const persistInventory = async (next) => { setInventory(next); await save("app-inventory", next); };
-  const persistAbsences = async (next) => { setAbsences(next); await save("app-absences", next); };
-  const persistNotes = async (next) => { setNotes(next); await save("app-notes", next); };
+  const persistTasks = makePersist("app-tasks", setTasks, tasks);
+  const patchTask = (taskId, patch) => { persistTasks(cur => cur.map(x => x.id === taskId ? { ...x, ...patch } : x)); };
+  const persistBoats = makePersist("app-boats", setBoats, boats);
+  const persistUsers = makePersist("app-users", setUsers, users);
+  const persistQuick = makePersist("app-quicktasks", setQuick, quick);
+  const persistChecklist = makePersist("app-checklist", setChecklist, checklist);
+  const persistClosingChecklist = makePersist("app-closingchecklist", setClosingChecklist, closingChecklist);
+  const persistInventory = makePersist("app-inventory", setInventory, inventory);
+  const persistAbsences = makePersist("app-absences", setAbsences, absences);
+  const persistNotes = makePersist("app-notes", setNotes, notes);
 
   // Εβδομαδιαίος κύκλος βάσης: Δευτέρα ξεκινά η εβδομάδα, Κυριακή δεν είναι εργάσιμη, Παρασκευή επιστρέφουν ναύλα και Σάββατο φεύγουν νέα — άρα Σάββατο προτεραιότητα στο κλείσιμο υπαρχουσών εργασιών, όχι σε άσχετες καινούργιες.
   const weekdayNote = () => {
@@ -749,15 +756,13 @@ function AppInner() {
         reminderList: closingChecklist,
       };
     });
-    // Λειτουργική ενημέρωση + δεύτερος έλεγχος διπλοτύπων ΜΕΣΑ στην ενημέρωση: τρέχει παράλληλα με άλλες
-    // αυτόματες ροές στο άνοιγμα — έτσι ούτε σβήνει τις αλλαγές τους, ούτε δημιουργεί διπλό κλείσιμο για ίδιο σκάφος.
-    setTasks(cur => {
+    // persistTasks διαβάζει τα πιο πρόσφατα δεδομένα πριν γράψει + έλεγχος διπλοτύπων μέσα στην ενημέρωση: τρέχει
+    // παράλληλα με άλλες αυτόματες ροές στο άνοιγμα — έτσι ούτε σβήνει τις αλλαγές τους, ούτε δημιουργεί διπλό κλείσιμο.
+    await persistTasks(cur => {
       const curBoatIds = new Set(cur.filter(t => t.closingCheck && t.closingDate === today).map(t => t.boatId));
       const fresh = newTasks.filter(t => !curBoatIds.has(t.boatId));
       if (!fresh.length) return cur;
-      const nx = [...fresh, ...cur];
-      save("app-tasks", nx);
-      return nx;
+      return [...fresh, ...cur];
     });
   };
 
@@ -783,9 +788,9 @@ function AppInner() {
       await addAiMemory(`Ο/Η ${empName(t.assignedTo)} δεν ολοκλήρωσε το κλείσιμο του σκάφους ${boatName(t.boatId)} μέχρι τις ${String(Number(SET.closingExpireHour) || 19).padStart(2, "0")}:00 (${fmtDate(t.closingDate)}).`, "system");
     }
     const missedIds = new Set(missed.map(t => t.id));
-    // Λειτουργική ενημέρωση: αυτή η συνάρτηση τρέχει στο άνοιγμα ΠΑΡΑΛΛΗΛΑ με την ημερήσια κατανομή/checklists —
-    // με πλήρη αντικατάσταση της λίστας από το closure, όποια από τις δύο έγραφε τελευταία έσβηνε τις αλλαγές της άλλης.
-    setTasks(cur => { const nx = cur.map(x => missedIds.has(x.id) ? { ...x, status: "expired", expiredAt: new Date().toISOString() } : x); save("app-tasks", nx); return nx; });
+    // persistTasks διαβάζει τα πιο πρόσφατα δεδομένα πριν γράψει: αυτή η συνάρτηση τρέχει στο άνοιγμα ΠΑΡΑΛΛΗΛΑ με
+    // την ημερήσια κατανομή/checklists — δεν πρέπει να πατά πάνω στις αλλαγές τους.
+    await persistTasks(cur => cur.map(x => missedIds.has(x.id) ? { ...x, status: "expired", expiredAt: new Date().toISOString() } : x));
   };
 
   // Ελέγχοι κλεισίματος: εμφανίζονται αυτόματα μετά τις 15:30, μία φορά τη μέρα, στο πρώτο άνοιγμα της εφαρμογής μετά την ώρα αυτή —
@@ -806,7 +811,11 @@ function AppInner() {
   // Ενημέρωση ρυθμίσεων: γράφει ταυτόχρονα στο React state (για το UI) και στο module-level SET (για τις
   // βοηθητικές συναρτήσεις εκτός components) — αλλιώς οι δύο θα ξέφευγαν μεταξύ τους μέχρι το επόμενο άνοιγμα.
   const updateSettings = async (patch) => {
-    const next = mergeSettings({ ...settings, ...patch });
+    // Διαβάζει τις πιο πρόσφατες αποθηκευμένες ρυθμίσεις πριν εφαρμόσει το patch, ώστε αν δύο manager αλλάξουν
+    // διαφορετικές ρυθμίσεις σχεδόν ταυτόχρονα από διαφορετικές συσκευές, η μία αλλαγή να μη σβήσει την άλλη.
+    let latest = settings;
+    try { const r = await load("app-settings", null); if (r) latest = mergeSettings(r); } catch {}
+    const next = mergeSettings({ ...latest, ...patch });
     SET = next; setSettings(next);
     await save("app-settings", next);
   };
@@ -860,22 +869,13 @@ ${rules.map(r => "- " + r).join("\n")}
           && !declinedBy(free.find(t => t.id === a.taskId), a.userId))
         .map(a => ({ ...a, helperId: (a.helperId && a.helperId !== a.userId && employees.some(e => e.id === a.helperId) && !declinedBy(free.find(t => t.id === a.taskId), a.helperId)) ? a.helperId : null }));
       if (!valid.length) return tasks;
-      // Λειτουργική ενημέρωση: εφαρμόζει τις αναθέσεις μόνο σε εργασίες που είναι ΑΚΟΜΑ ανοιχτές και ελεύθερες
-      // τη στιγμή της εγγραφής — δεν πατάει πάνω σε ό,τι άλλαξε παράλληλα (π.χ. λήξη κλεισιμάτων, χειροκίνητη ανάθεση).
+      // persistTasks διαβάζει τα πιο πρόσφατα δεδομένα πριν γράψει και εφαρμόζει τις αναθέσεις μόνο σε εργασίες
+      // που είναι ΑΚΟΜΑ ανοιχτές και ελεύθερες τη στιγμή της εγγραφής — δεν πατάει πάνω σε ό,τι άλλαξε παράλληλα
+      // (π.χ. λήξη κλεισιμάτων, χειροκίνητη ανάθεση, άλλη συσκευή).
       const byTaskId = Object.fromEntries(valid.map(v => [v.taskId, v]));
-      setTasks(cur => {
-        const nx = cur.map(t => (byTaskId[t.id] && t.status === "open" && !t.assignedTo)
-          ? { ...t, assignedTo: byTaskId[t.id].userId, assignedBy: "AI", assignedToMore: byTaskId[t.id].helperId ? [byTaskId[t.id].helperId] : [] }
-          : t);
-        save("app-tasks", nx);
-        return nx;
-      });
-      // Για την αλυσίδα (checklists/auto-tasks) επιστρέφεται η ίδια εικόνα υπολογισμένη από τα τρέχοντα δεδομένα —
-      // χρησιμοποιείται μόνο για εκτίμηση φόρτου/διπλοτύπων, όπου μικρή απόκλιση δεν βλάπτει.
-      const next = tasks.map(t => {
-        const a = valid.find(v => v.taskId === t.id);
-        return a ? { ...t, assignedTo: a.userId, assignedBy: "AI", assignedToMore: a.helperId ? [a.helperId] : [] } : t;
-      });
+      const next = await persistTasks(cur => cur.map(t => (byTaskId[t.id] && t.status === "open" && !t.assignedTo)
+        ? { ...t, assignedTo: byTaskId[t.id].userId, assignedBy: "AI", assignedToMore: byTaskId[t.id].helperId ? [byTaskId[t.id].helperId] : [] }
+        : t));
       const helperCount = valid.filter(v => v.helperId).length;
       showToast(`Η κατανομή ημέρας έγινε: ${valid.length} αναθέσεις${helperCount ? ` (${helperCount} με βοηθό)` : ""}`);
       return next;
@@ -923,13 +923,10 @@ ${rules.map(r => "- " + r).join("\n")}
         const preferred = t.preferredAssignee && lowLoad.some(e => e.id === t.preferredAssignee) ? t.preferredAssignee : lowLoad[i % lowLoad.length].id;
         return { ...t, status: "open", assignedTo: preferred, assignedBy: "AI-backlog", convertedAt: new Date().toISOString() };
       });
-      // Λειτουργική ενημέρωση: μετατρέπει τα συγκεκριμένα backlog σε ανοιχτά χωρίς να πατά παράλληλες αλλαγές.
+      // persistTasks διαβάζει τα πιο πρόσφατα δεδομένα πριν γράψει: μετατρέπει τα συγκεκριμένα backlog σε ανοιχτά
+      // χωρίς να πατά παράλληλες αλλαγές.
       const convById = Object.fromEntries(converted.map(c => [c.id, c]));
-      setTasks(cur => {
-        const nx = cur.map(x => (convById[x.id] && x.status === "backlog") ? convById[x.id] : x);
-        save("app-tasks", nx);
-        return nx;
-      });
+      await persistTasks(cur => cur.map(x => (convById[x.id] && x.status === "backlog") ? convById[x.id] : x));
       return;
     }
     try {
@@ -969,8 +966,8 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
         intensive: !!x.intensive,
         ...(x.findMode ? { findMode: true, findMin: 3, findings: [] } : {}),
       }));
-      // Λειτουργική ενημέρωση: προσθέτει τις νέες εργασίες χωρίς να αντικαθιστά ολόκληρη τη λίστα από παλιό closure.
-      setTasks(cur => { const nx = [...newTasks, ...cur]; save("app-tasks", nx); return nx; });
+      // persistTasks διαβάζει τα πιο πρόσφατα δεδομένα πριν γράψει, αντί να αντικαταστήσει ολόκληρη τη λίστα από παλιό closure.
+      await persistTasks(cur => [...newTasks, ...cur]);
     } catch (e) { console.error("generateAutoTasks failed", e); }
   }
 
@@ -1024,9 +1021,9 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
         ...(leo ? { assignedBy: "auto-purchase" } : {}),
       };
     });
-    await persistTasks([...fresh, ...tasks]);
+    await persistTasks(cur => [...fresh, ...cur]);
     showToast(`Καταχωρήθηκαν ${fresh.length} εργασίες`);
-    setCameFromOverview(false); setTab("tasks");
+    setCameFromToday(false); setTab("tasks");
   };
   const addTasks = async (base, descs) => {
     const now = Date.now();
@@ -1040,9 +1037,9 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       // Χωρίς assignedBy, μια χειροκίνητη ανάθεση δεν θα ήξερε αργότερα ΠΟΙΟΝ να ειδοποιήσει σε «Δεν μπορώ».
       ...(leo ? { assignedBy: "auto-purchase" } : (!base.backlog && base.assignedTo ? { assignedBy: acting.id } : {})),
     }));
-    await persistTasks([...fresh, ...tasks]);
+    await persistTasks(cur => [...fresh, ...cur]);
     showToast(base.backlog ? `Μπήκε σε αναμονή: ${fresh.length} εργασία/ίες` : `Καταχωρήθηκαν ${fresh.length} εργασίες`);
-    setCameFromOverview(false); setTab("tasks");
+    setCameFromToday(false); setTab("tasks");
   };
   const findLeonidas = () => users.find(x => ["λεωνιδας", "leonidas"].includes((x.name || "").toLowerCase().replace(/ί/g, "ι").trim()));
   const addTask = async (task, photoFiles) => {
@@ -1058,12 +1055,12 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       ...(task.assignedTo && task.status !== "backlog" ? { assignedBy: acting.id } : {}),
       ...(leo ? { assignedTo: leo.id, assignedBy: "auto-purchase", assignedToMore: [] } : {}),
     };
-    await persistTasks([t, ...tasks]);
+    await persistTasks(cur => [t, ...cur]);
     showToast("Η εργασία καταχωρήθηκε");
-    setCameFromOverview(false); setTab("tasks");
+    setCameFromToday(false); setTab("tasks");
     if (photoFiles?.length) {
       const urls = await uploadTaskPhotos(photoFiles, id);
-      if (urls.length) setTasks(cur => { const nx = cur.map(x => x.id === id ? { ...x, photos: [...(x.photos || []), ...urls] } : x); save("app-tasks", nx); return nx; });
+      if (urls.length) await persistTasks(cur => cur.map(x => x.id === id ? { ...x, photos: [...(x.photos || []), ...urls] } : x));
     }
   };
   const logFinding = async (findTask, desc) => {
@@ -1075,9 +1072,14 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
       id: newId, status: "open", createdBy: acting.id, createdAt: new Date().toISOString(),
       progress: [], returns: 0, assignedTo: null, photos: [], boatId: findTask.boatId, desc: finalDesc, ...(descEn ? { descEn } : {}), foundVia: findTask.id,
     };
-    const findings = [...(findTask.findings || []), { taskId: newId, desc: finalDesc, at: new Date().toISOString() }];
-    await persistTasks([newTask, ...tasks.map(x => x.id === findTask.id ? { ...x, findings } : x)]);
-    showToast(`Καταχωρήθηκε (${findings.length}/${findTask.findMin || 3})`);
+    let findingsCount = 0;
+    await persistTasks(cur => [newTask, ...cur.map(x => {
+      if (x.id !== findTask.id) return x;
+      const findings = [...(x.findings || []), { taskId: newId, desc: finalDesc, at: new Date().toISOString() }];
+      findingsCount = findings.length;
+      return { ...x, findings };
+    })]);
+    showToast(`Καταχωρήθηκε (${findingsCount || ((findTask.findings || []).length + 1)}/${findTask.findMin || 3})`);
   };
   // Το βιβλίο service κρατιέται ΑΚΡΙΒΩΣ όπως το βιβλίο service ενός αυτοκινήτου: δεν καταγράφεται ό,τι συμβαίνει,
   // μόνο ουσιαστικές επεμβάσεις συντήρησης/επισκευής που αξίζει να θυμάται κανείς στο μέλλον. Η απόφαση βασίζεται
@@ -1111,20 +1113,15 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     let cleanNote = (note || "").trim();
     let cleanNoteEn;
     if (acting.lang === "en" && cleanNote) { cleanNoteEn = cleanNote; cleanNote = await translateToGreek(cleanNote); }
-    // Λειτουργική ενημέρωση (setTasks(cur => ...)) αντί για ανάγνωση του tasks από το closure — απαραίτητο για
-    // την «Ολοκλήρωση με φωνή» που μπορεί να ολοκληρώσει 2+ εργασίες μαζί: με το παλιό persistTasks(tasks.map(...))
-    // κάθε κλήση διάβαζε την ίδια παλιά λίστα και έσβηνε την προηγούμενη ολοκλήρωση (ίδιο bug με τη μαζική διαγραφή).
-    setTasks(cur => {
-      const nx = cur.map(x => x.id === t.id ? {
-        ...x, status: "done", completedBy: finalBy, completedByActor: acting.id, completedAt: new Date().toISOString(),
-        ...(confidence ? { completionConfidence: confidence } : {}),
-        ...(afterUrls.length ? { photosAfter: [...(x.photosAfter || []), ...afterUrls] } : {}),
-        ...(cleanNote ? { completionNote: cleanNote } : {}),
-        ...(cleanNoteEn ? { completionNoteEn: cleanNoteEn } : {}),
-      } : x);
-      save("app-tasks", nx);
-      return nx;
-    });
+    // persistTasks διαβάζει τα πιο πρόσφατα δεδομένα πριν γράψει — απαραίτητο και για την «Ολοκλήρωση με φωνή»
+    // που μπορεί να ολοκληρώσει 2+ εργασίες μαζί, και για ταυτόχρονη χρήση από άλλη συσκευή.
+    await persistTasks(cur => cur.map(x => x.id === t.id ? {
+      ...x, status: "done", completedBy: finalBy, completedByActor: acting.id, completedAt: new Date().toISOString(),
+      ...(confidence ? { completionConfidence: confidence } : {}),
+      ...(afterUrls.length ? { photosAfter: [...(x.photosAfter || []), ...afterUrls] } : {}),
+      ...(cleanNote ? { completionNote: cleanNote } : {}),
+      ...(cleanNoteEn ? { completionNoteEn: cleanNoteEn } : {}),
+    } : x));
     showToast("Ολοκληρώθηκε ✔");
     classifyServiceRelevance(t, cleanNote);
     // Η επιλογή «τέλεια / με επιφυλάξεις» τροφοδοτεί αυτόματα το ίδιο χρονολόγιο παρατηρήσεων που βλέπει το AI
@@ -1150,57 +1147,48 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     if (!files?.length) return;
     const urls = await uploadTaskPhotos(files, t.id);
     if (!urls.length) return;
-    setTasks(cur => {
-      const nx = cur.map(x => x.id === t.id ? { ...x, photosBefore: [...(x.photosBefore || []), ...urls] } : x);
-      save("app-tasks", nx);
-      return nx;
-    });
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, photosBefore: [...(x.photosBefore || []), ...urls] } : x));
   };
   const externalTask = async (t, note) => {
     const finalNote = (acting.lang === "en" && note?.trim()) ? await translateToGreek(note) : note;
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "external", externalBy: acting.id, externalAt: new Date().toISOString(), externalNote: finalNote } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, status: "external", externalBy: acting.id, externalAt: new Date().toISOString(), externalNote: finalNote } : x));
     showToast("Καταγράφηκε: χρειάζεται εξωτερικό συνεργάτη ⚠");
   };
   const acknowledgeExternal = async (t) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, ackBy: { ...(x.ackBy || {}), [acting.id]: new Date().toISOString() } } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, ackBy: { ...(x.ackBy || {}), [acting.id]: new Date().toISOString() } } : x));
   };
   const addProgress = async (t, note, photoFiles) => {
     let urls = [];
     if (photoFiles?.length) { try { urls = await uploadTaskPhotos(photoFiles, t.id); } catch {} }
-    // Λειτουργική ενημέρωση για τον ίδιο λόγο με το addBeforePhotos — βλ. σχόλιο παραπάνω.
-    setTasks(cur => {
-      const nx = cur.map(x => x.id === t.id ? { ...x, progress: [...x.progress, { by: acting.id, at: new Date().toISOString(), note, ...(urls.length ? { photos: urls } : {}) }] } : x);
-      save("app-tasks", nx);
-      return nx;
-    });
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, progress: [...x.progress, { by: acting.id, at: new Date().toISOString(), note, ...(urls.length ? { photos: urls } : {}) }] } : x));
     showToast("Η πρόοδος καταγράφηκε");
   };
   const returnTask = async (t, note) => {
     // Ο νέος υπεύθυνος γίνεται αυτός που την είχε ολοκληρώσει — αν ήταν βοηθός, πρέπει να βγει από τους βοηθούς,
     // αλλιώς θα εμφανιζόταν ταυτόχρονα ως υπεύθυνος ΚΑΙ βοηθός (και θα μετρούσε δύο φορές στα στατιστικά).
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "open", assignedTo: x.completedBy, assignedToMore: (x.assignedToMore || []).filter(id => id !== x.completedBy), returns: (x.returns || 0) + 1, returnNote: note, returnedAt: new Date().toISOString() } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, status: "open", assignedTo: x.completedBy, assignedToMore: (x.assignedToMore || []).filter(id => id !== x.completedBy), returns: (x.returns || 0) + 1, returnNote: note, returnedAt: new Date().toISOString() } : x));
     showToast("Η εργασία επιστράφηκε ως ατελής");
   };
   const rateTask = async (t, rating) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, rating, ratedBy: acting.id, ratedAt: new Date().toISOString() } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, rating, ratedBy: acting.id, ratedAt: new Date().toISOString() } : x));
     showToast("Η αξιολόγηση καταχωρήθηκε");
   };
   const closeExternal = async (t, note) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: "done", completedBy: acting.id, completedAt: new Date().toISOString(), closedAsExternal: true, externalCloseNote: note } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, status: "done", completedBy: acting.id, completedAt: new Date().toISOString(), closedAsExternal: true, externalCloseNote: note } : x));
     showToast("Έκλεισε (εξωτερικός συνεργάτης) ✔");
     classifyServiceRelevance(t, note);
   };
   const toggleServiceRelevant = (t) => patchTask(t.id, { serviceRelevant: !t.serviceRelevant });
   const toggleUrgent = async (t) => {
     const next = !t.urgent;
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, urgent: next, ...(next ? { upgradedBy: acting.id } : { downgradedBy: acting.id }) } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, urgent: next, ...(next ? { upgradedBy: acting.id } : { downgradedBy: acting.id }) } : x));
     showToast(next ? "Μαρκαρίστηκε ως επείγον 🔴" : "Υποβαθμίστηκε σε κανονική");
   };
   // Η διαγραφή είναι πλέον «μαλακή»: η εργασία μένει στη βάση με status="deleted" (κρατάει και την προηγούμενη
   // κατάστασή της σε prevStatus, ώστε η επαναφορά να την ξαναβάλει ακριβώς εκεί που ήταν) και εξαφανίζεται από
   // όλες τις κανονικές λίστες (καμία από αυτές δεν ψάχνει status="deleted"). Ορατή μόνο στον «Κάδο» της Διοίκησης.
   const deleteTask = async (t) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, prevStatus: x.status, status: "deleted", deletedBy: acting.id, deletedAt: new Date().toISOString() } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, prevStatus: x.status, status: "deleted", deletedBy: acting.id, deletedAt: new Date().toISOString() } : x));
     showToast("Μετακινήθηκε στον κάδο — μπορεί να επαναφερθεί από τη Διοίκηση");
   };
   // Μαζική διαγραφή: ΜΙΑ μόνο ενημέρωση για όλες μαζί, όχι πολλές ξεχωριστές. Καλώντας deleteTask() σε βρόχο για
@@ -1209,17 +1197,17 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   const deleteTasks = async (taskList) => {
     const ids = new Set(taskList.map(t => t.id));
     if (!ids.size) return;
-    await persistTasks(tasks.map(x => ids.has(x.id) ? { ...x, prevStatus: x.status, status: "deleted", deletedBy: acting.id, deletedAt: new Date().toISOString() } : x));
+    await persistTasks(cur => cur.map(x => ids.has(x.id) ? { ...x, prevStatus: x.status, status: "deleted", deletedBy: acting.id, deletedAt: new Date().toISOString() } : x));
     showToast(`${ids.size} εργασίες μετακινήθηκαν στον κάδο`);
   };
   const restoreTask = async (t) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, status: x.prevStatus || "open", prevStatus: undefined, deletedBy: undefined, deletedAt: undefined } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, status: x.prevStatus || "open", prevStatus: undefined, deletedBy: undefined, deletedAt: undefined } : x));
     showToast("Η εργασία επαναφέρθηκε");
   };
   const editTask = async (t, desc) => {
     let finalDesc = desc, descEn = null;
     if (acting.lang === "en" && desc?.trim()) { descEn = desc.trim(); finalDesc = await translateToGreek(desc); }
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, desc: finalDesc, editedBy: acting.id, editedAt: new Date().toISOString(), descEn } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, desc: finalDesc, editedBy: acting.id, editedAt: new Date().toISOString(), descEn } : x));
     showToast("Η εργασία διορθώθηκε");
   };
   // Μετάφραση περιγραφής εργασίας στα αγγλικά (για χρήστες με lang="en", π.χ. Martin) — γίνεται μία φορά και μένει cached στην εργασία
@@ -1229,7 +1217,7 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
     try {
       const out = await askClaude(`Translate the following boat-maintenance task description from Greek to English. Reply with ONLY the translation, no quotes, no explanation:\n\n${t.desc}`, 150);
       const clean = (out || "").trim().replace(/^"|"$/g, "");
-      setTasks(cur => { const nx = cur.map(x => x.id === t.id ? { ...x, descEn: clean || t.desc, translating: false } : x); save("app-tasks", nx); return nx; });
+      await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, descEn: clean || t.desc, translating: false } : x));
     } catch {
       setTasks(cur => cur.map(x => x.id === t.id ? { ...x, translating: false } : x));
     }
@@ -1279,30 +1267,26 @@ ${histLines}
     }
   };
   const setTaskDeadline = async (t, isoDeadline) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, manualDeadline: isoDeadline, deadlineSetBy: acting.id } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, manualDeadline: isoDeadline, deadlineSetBy: acting.id } : x));
     showToast(isoDeadline ? "Το deadline ορίστηκε" : "Το deadline αφαιρέθηκε");
   };
   // Κάποιες εργασίες (αισθητικές, χαμηλής σοβαρότητας) δεν πρέπει ΠΟΤΕ να πιέζονται από αναχώρηση σκάφους —
   // μένουν διαθέσιμες για να τις διαλέξει κάποιος όποτε βολεύει, χωρίς να ανεβαίνουν ψηλά ή να γίνονται επείγουσες
   // μόνο και μόνο επειδή πλησιάζει η αναχώρηση. Το πεδίο excludedFromDeadline το σέβεται ήδη το effectiveDeadline.
-  const toggleExcludeDeadline = (t) => {
-    setTasks(cur => {
-      const nx = cur.map(x => x.id === t.id ? { ...x, excludedFromDeadline: !x.excludedFromDeadline, manualDeadline: null } : x);
-      save("app-tasks", nx);
-      return nx;
-    });
+  const toggleExcludeDeadline = async (t) => {
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, excludedFromDeadline: !x.excludedFromDeadline, manualDeadline: null } : x));
     showToast(!t.excludedFromDeadline ? "Δεν θα πιέζεται ποτέ από αναχώρηση σκάφους" : "Ξαναμπαίνει στην κανονική πίεση χρόνου");
   };
   // Αναβολή: η εργασία μένει status="open" αναλλοίωτη (ίδια ανάθεση, ίδιο σκάφος) αλλά κρύβεται από τις κανονικές
   // λίστες μέχρι το snoozedUntil. Δεν είναι το ίδιο με το «backlog» (που είναι ευκαιριακό — ενεργοποιείται μόνο
   // αν αδειάσει η ουρά κάποιου): εδώ η επιστροφή είναι ΕΓΓΥΗΜΕΝΗ στην ημερομηνία-στόχο, χωρίς καμία ενέργεια.
-  const snoozeTask = (t, days) => {
+  const snoozeTask = async (t, days) => {
     const until = addDays(todayStr(), days);
-    setTasks(cur => { const nx = cur.map(x => x.id === t.id ? { ...x, snoozedUntil: until } : x); save("app-tasks", nx); return nx; });
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, snoozedUntil: until } : x));
     showToast(`Σε αναβολή έως ${fmtDate(until)}`);
   };
-  const unsnoozeTask = (t) => {
-    setTasks(cur => { const nx = cur.map(x => x.id === t.id ? { ...x, snoozedUntil: null } : x); save("app-tasks", nx); return nx; });
+  const unsnoozeTask = async (t) => {
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, snoozedUntil: null } : x));
     showToast("Η αναβολή ακυρώθηκε");
   };
   const setTaskDeadlineByDuration = async (t, minutes) => {
@@ -1314,7 +1298,7 @@ ${histLines}
       if (queueEnd > base) base = queueEnd;
     }
     const iso = addWorkMinutes(base, minutes);
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, manualDeadline: iso, deadlineSetBy: acting.id } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, manualDeadline: iso, deadlineSetBy: acting.id } : x));
     showToast(`Το deadline ορίστηκε: έως ${fmtTime(iso)}`);
   };
   // Αφαίρεση/αλλαγή υπευθύνου. Δύο κανόνες που ισχύουν ΠΑΝΤΟΥ:
@@ -1332,7 +1316,7 @@ ${histLines}
     return more.length ? (users.find(u => u.id === more[0])?.name || "βοηθός") : null;
   };
   const assignTask = async (t, userId) => {
-    await persistTasks(tasks.map(x => x.id === t.id ? reassign(x, userId, acting.id) : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? reassign(x, userId, acting.id) : x));
     const promoted = !userId ? promotedName(t) : null;
     showToast(userId ? "Ανατέθηκε" : promoted ? `Υπεύθυνος τώρα: ${promoted}` : "Έγινε ελεύθερη");
   };
@@ -1348,7 +1332,7 @@ ${histLines}
       patch.manualDeadline = addWorkMinutes(base, Number(minutes));
       patch.deadlineSetBy = acting.id;
     }
-    await persistTasks(tasks.map(x => x.id === t.id ? { ...x, ...patch } : x));
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, ...patch } : x));
     showToast(patch.manualDeadline ? `Ανατέθηκε — έως ${fmtTime(patch.manualDeadline)}` : "Ανατέθηκε");
   };
   // Ποιες τιμές του assignedBy αντιστοιχούν σε αυτόματη/AI ανάθεση (όχι σε συγκεκριμένο άνθρωπο) — χρησιμοποιείται
@@ -1362,9 +1346,9 @@ ${histLines}
     const decliner = acting.id;
     const prevAssignedBy = t.assignedBy;
     const record = { by: decliner, reason, at: new Date().toISOString(), assignedBy: prevAssignedBy || null };
-    const freed = { ...t, assignedTo: null, assignedToMore: [], assignedBy: "declined", declines: [record, ...(t.declines || [])] };
-    const nextTasks = tasks.map(x => x.id === t.id ? freed : x);
-    await persistTasks(nextTasks);
+    const nextTasks = await persistTasks(cur => cur.map(x => x.id === t.id
+      ? { ...x, assignedTo: null, assignedToMore: [], assignedBy: "declined", declines: [record, ...(x.declines || [])] }
+      : x));
     showToast("Δηλώθηκε — η εργασία έγινε ελεύθερη");
     if (SYSTEM_ASSIGNERS.includes(prevAssignedBy)) {
       // Αυτόματη/AI ανάθεση: δεν υπάρχει άνθρωπος να ειδοποιηθεί — το AI ψάχνει αμέσως άλλη κατάλληλη δουλειά
@@ -1400,37 +1384,36 @@ ${histLines}
       const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
       const chosen = parsed?.taskId ? free.find(x => x.id === parsed.taskId) : null;
       if (!chosen) return;
-      // Λειτουργική ενημέρωση: περνάει χρόνος στην κλήση AI — γράφει μόνο αν η εργασία είναι ΑΚΟΜΑ ελεύθερη τη
-      // στιγμή της εγγραφής, ώστε να μην «κλέψει» εργασία που ανέλαβε ήδη κάποιος άλλος στο μεταξύ.
-      setTasks(cur => {
+      // persistTasks διαβάζει τα πιο πρόσφατα δεδομένα πριν γράψει — γράφει μόνο αν η εργασία είναι ΑΚΟΜΑ ελεύθερη
+      // τη στιγμή της εγγραφής, ώστε να μην «κλέψει» εργασία που ανέλαβε ήδη κάποιος άλλος στο μεταξύ (ίδια ή άλλη συσκευή).
+      await persistTasks(cur => {
         const target = cur.find(x => x.id === chosen.id);
         if (!target || target.status !== "open" || target.assignedTo) return cur;
-        const nx = cur.map(x => x.id === chosen.id ? { ...x, assignedTo: userId, assignedBy: "AI", assignedToMore: [] } : x);
-        save("app-tasks", nx);
-        return nx;
+        return cur.map(x => x.id === chosen.id ? { ...x, assignedTo: userId, assignedBy: "AI", assignedToMore: [] } : x);
       });
       showToast(`Ανατέθηκε άλλη εργασία στον/στην ${emp.name}`);
     } catch (e) { console.error(e); }
   };
   const addAbsence = async (userId, from, to, note) => {
     const a = { id: "ab" + Date.now(), userId, from, to, note: note || "", addedBy: acting.id, addedAt: new Date().toISOString() };
-    await persistAbsences([a, ...absences]);
+    await persistAbsences(cur => [a, ...cur]);
     showToast("Η απουσία καταχωρήθηκε");
   };
   const deleteAbsence = async (id) => {
-    await persistAbsences(absences.filter(a => a.id !== id));
+    await persistAbsences(cur => cur.filter(a => a.id !== id));
     showToast("Η απουσία διαγράφηκε");
   };
 
   const sendNote = async (recipientIds, text, fromOverride, kind) => {
     const n = { id: "n" + Date.now(), from: fromOverride || acting.id, to: recipientIds, text, at: new Date().toISOString(), ...(kind ? { kind } : {}) };
-    await persistNotes([n, ...notes]);
+    await persistNotes(cur => [n, ...cur]);
     if (!fromOverride) showToast("Το μήνυμα στάλθηκε");
   };
   const deleteNote = async (id) => {
-    await persistNotes(notes.filter(n => n.id !== id));
+    await persistNotes(cur => cur.filter(n => n.id !== id));
     showToast("Το μήνυμα διαγράφηκε");
   };
+  const persistSignoffs = makePersist("app-signoffs", setSignoffs, signoffs);
   // Κλείσιμο σκάφους = αποχώρηση από τη δουλειά για σήμερα — καταγράφεται η ώρα (ορατή στους managers) και
   // στέλνεται αυτόματο «χαιρετισμό» στον Αλέξανδρο, χωρίς καμία επιπλέον ενέργεια από τον υπάλληλο.
   // Ο Αλέξανδρος αναζητείται δυναμικά (κωδικός ALX-1573) — ποτέ hardcoded internal id, ώστε να μη σπάσει αν
@@ -1438,38 +1421,32 @@ ${histLines}
   const recordSignoff = async (boat) => {
     const alexandros = users.find(u => u.code === "ALX-1573" || (u.role === "manager" && (u.name || "").startsWith("Αλέξανδρ")));
     const entry = { id: "so" + Date.now(), userId: acting.id, boatId: boat.id, at: new Date().toISOString() };
-    const nextSignoffs = [entry, ...signoffs];
-    setSignoffs(nextSignoffs);
-    save("app-signoffs", nextSignoffs);
+    await persistSignoffs(cur => [entry, ...cur]);
     if (alexandros && alexandros.id !== acting.id) {
       const time = new Date().toLocaleTimeString("el-GR", { hour: "2-digit", minute: "2-digit" });
       await sendNote([alexandros.id], `👋 Ο/Η ${acting.name} έκλεισε το ${boat.name} και αποχώρησε — ${time}`, "system", "signoff");
     }
   };
-  const persistBoatNotes = async (next) => { setBoatNotes(next); await save("app-boatnotes", next); };
+  const persistBoatNotes = makePersist("app-boatnotes", setBoatNotes, boatNotes);
   const addBoatNote = async (boatId, text, photoFiles) => {
     const id = "bn" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
     let urls = [];
     if (photoFiles?.length) { try { urls = await uploadTaskPhotos(photoFiles, id); } catch {} }
     const n = { id, boatId, text, by: acting.id, at: new Date().toISOString(), ...(urls.length ? { photos: urls } : {}) };
-    // Λειτουργική ενημέρωση: το completeTask μπορεί να προσθέσει 2 σημειώσεις διαδοχικά (επιλογή ποιότητας +
-    // σημείωση ολοκλήρωσης) — με ανάγνωση του boatNotes από το closure η δεύτερη έσβηνε την πρώτη.
-    setBoatNotes(cur => { const nx = [n, ...cur]; save("app-boatnotes", nx); return nx; });
+    await persistBoatNotes(cur => [n, ...cur]);
     showToast("Η παρατήρηση καταχωρήθηκε");
   };
   const deleteBoatNote = async (id) => {
-    await persistBoatNotes(boatNotes.filter(n => n.id !== id));
+    await persistBoatNotes(cur => cur.filter(n => n.id !== id));
     showToast("Η παρατήρηση διαγράφηκε");
   };
-  const persistAiMemories = async (next) => { setAiMemories(next); await save("app-aimemories", next); };
+  const persistAiMemories = makePersist("app-aimemories", setAiMemories, aiMemories);
   const addAiMemory = async (text, byOverride) => {
     const m = { id: "am" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), text, at: new Date().toISOString(), by: byOverride || acting.id };
-    // Λειτουργική ενημέρωση: όταν καταγράφονται πολλές μνήμες στη σειρά (π.χ. πολλά χαμένα κλεισίματα, ή πολλές
-    // ολοκληρώσεις με φωνή), με ανάγνωση του aiMemories από το closure επιβίωνε μόνο η τελευταία.
-    setAiMemories(cur => { const nx = [m, ...cur]; save("app-aimemories", nx); return nx; });
+    await persistAiMemories(cur => [m, ...cur]);
   };
   const deleteAiMemory = async (id) => {
-    await persistAiMemories(aiMemories.filter(m => m.id !== id));
+    await persistAiMemories(cur => cur.filter(m => m.id !== id));
   };
   const addScheduledBacklogTask = async (desc, boatId, scheduledFor, preferredAssigneeName) => {
     const preferred = preferredAssigneeName ? users.find(u => u.name.toLowerCase() === String(preferredAssigneeName).toLowerCase()) : null;
@@ -1479,7 +1456,7 @@ ${histLines}
       ...(scheduledFor ? { scheduledFor } : {}),
       ...(preferred ? { preferredAssignee: preferred.id } : {}),
     };
-    await persistTasks([t, ...tasks]);
+    await persistTasks(cur => [t, ...cur]);
   };
 
   // Ανοίγει τον έλεγχο αναχώρησης για σκάφη που είναι ήδη στη βάση με ορισμένη ημερομηνία ναύλου αλλά δεν έχουν
@@ -1502,13 +1479,12 @@ ${histLines}
       checklistItems: checklist.map((c, j) => ({ id: "ci" + j, text: c, status: "pending", problemTaskId: null })),
     }));
     const merged = [...newTasks, ...src];
-    // Λειτουργική ενημέρωση + έλεγχος διπλοτύπων μέσα στην ενημέρωση — ασφαλής απέναντι σε παράλληλες ροές ανοίγματος.
-    setTasks(cur => {
+    // persistTasks διαβάζει τα πιο πρόσφατα δεδομένα πριν γράψει + έλεγχος διπλοτύπων μέσα στην ενημέρωση —
+    // ασφαλής απέναντι σε παράλληλες ροές ανοίγματος (ίδια ή άλλη συσκευή).
+    await persistTasks(cur => {
       const fresh = newTasks.filter(t => !cur.some(x => x.boatId === t.boatId && x.status === "open" && x.checklistItems));
       if (!fresh.length) return cur;
-      const nx = [...fresh, ...cur];
-      save("app-tasks", nx);
-      return nx;
+      return [...fresh, ...cur];
     });
     return merged;
   };
@@ -1556,12 +1532,10 @@ ${histLines}
     });
     if (!need.length) return src;
     const newTasks = need.map((b, i) => makeInventoryTask(b, "system", i, nextDeparture(b)?.date));
-    setTasks(cur => {
+    await persistTasks(cur => {
       const fresh = newTasks.filter(t => !hasOpenInventory(cur, t.boatId));
       if (!fresh.length) return cur;
-      const nx = [...fresh, ...cur];
-      save("app-tasks", nx);
-      return nx;
+      return [...fresh, ...cur];
     });
     return [...newTasks, ...src];
   };
@@ -1569,7 +1543,7 @@ ${histLines}
   const startInventory = (boat) => {
     if (hasOpenInventory(tasks, boat.id)) { showToast("Υπάρχει ήδη ανοιχτό inventory γι' αυτό το σκάφος"); return; }
     const nt = makeInventoryTask(boat, acting.id, undefined, nextDeparture(boat)?.date);
-    setTasks(cur => { const nx = [nt, ...cur]; save("app-tasks", nx); return nx; });
+    persistTasks(cur => [nt, ...cur]);
     showToast(`Ξεκίνησε inventory για ${boat.name}`);
   };
   // Λήξη ανοιχτών inventory: η μέρα της αναχώρησης μετράει ακόμα ως κανονική (μπορεί να γίνει μέχρι να φύγει το
@@ -1580,7 +1554,7 @@ ${histLines}
     const missed = tasks.filter(t => t.status === "open" && t.inventoryItems && isStaleInventory(t));
     if (!missed.length) return;
     const missedIds = new Set(missed.map(t => t.id));
-    setTasks(cur => { const nx = cur.map(x => missedIds.has(x.id) ? { ...x, status: "expired", expiredAt: new Date().toISOString() } : x); save("app-tasks", nx); return nx; });
+    await persistTasks(cur => cur.map(x => missedIds.has(x.id) ? { ...x, status: "expired", expiredAt: new Date().toISOString() } : x));
   };
   // Ένα αντικείμενο: ✔ εντάξει, ή ⚠ πρόβλημα/λείπει → γεννά ξεχωριστή εργασία με το ίδιο σκάφος.
   const resolveInventoryItem = async (task, itemId, outcome, note) => {
@@ -1594,58 +1568,40 @@ ${histLines}
         desc: note?.trim() || `Inventory: πρόβλημα/λείπει — ${item?.text || "αντικείμενο"}`,
       };
     }
-    setTasks(cur => {
+    await persistTasks(cur => {
       const base = extraTask ? [extraTask, ...cur] : cur;
-      const nx = base.map(t2 => {
+      return base.map(t2 => {
         if (t2.id !== task.id) return t2;
         const items = (t2.inventoryItems || []).map(it => it.id === itemId
           ? { ...it, status: outcome, problemTaskId: outcome === "problem" ? newTaskId : null, note: note?.trim() || "" } : it);
         return { ...t2, inventoryItems: items };
       });
-      save("app-tasks", nx);
-      return nx;
     });
     showToast(outcome === "problem" ? "Καταγράφηκε ⚠ — δημιουργήθηκε εργασία" : "Τσεκαρίστηκε ✔");
   };
   // «Όλα OK» / «Παράλειψη» για ολόκληρη κατηγορία — δεν αγγίζει όσα έχουν ήδη σημειωθεί ως ⚠.
   const bulkInventoryCategory = (task, cat, outcome) => {
-    setTasks(cur => {
-      const nx = cur.map(t2 => t2.id !== task.id ? t2 : {
-        ...t2,
-        inventoryItems: (t2.inventoryItems || []).map(it => (it.cat === cat && it.status !== "problem") ? { ...it, status: outcome } : it),
-      });
-      save("app-tasks", nx);
-      return nx;
-    });
+    persistTasks(cur => cur.map(t2 => t2.id !== task.id ? t2 : {
+      ...t2,
+      inventoryItems: (t2.inventoryItems || []).map(it => (it.cat === cat && it.status !== "problem") ? { ...it, status: outcome } : it),
+    }));
   };
   // Ολοκλήρωση: κρατάμε ποιος το έκανε και πότε — αυτό είναι το «ίχνος» που αντικαθιστά την υπογραφή στο χαρτί.
   const finishInventory = (task) => {
-    setTasks(cur => {
-      const nx = cur.map(t2 => t2.id !== task.id ? t2 : {
-        ...t2, status: "done", completedBy: acting.id, completedByActor: acting.id, completedAt: new Date().toISOString(),
-      });
-      save("app-tasks", nx);
-      return nx;
-    });
+    persistTasks(cur => cur.map(t2 => t2.id !== task.id ? t2 : {
+      ...t2, status: "done", completedBy: acting.id, completedByActor: acting.id, completedAt: new Date().toISOString(),
+    }));
     showToast("Το inventory ολοκληρώθηκε");
   };
   // Επιβεβαίωση από Base Manager: «το είδα, το δέχομαι» — ξεχωριστό από το ποιος το εκτέλεσε.
   const confirmInventory = (task) => {
-    setTasks(cur => {
-      const nx = cur.map(t2 => t2.id !== task.id ? t2 : { ...t2, inventoryConfirmedBy: acting.id, inventoryConfirmedAt: new Date().toISOString() });
-      save("app-tasks", nx);
-      return nx;
-    });
+    persistTasks(cur => cur.map(t2 => t2.id !== task.id ? t2 : { ...t2, inventoryConfirmedBy: acting.id, inventoryConfirmedAt: new Date().toISOString() }));
     showToast("Επιβεβαιώθηκε");
   };
   // Χειροκίνητη επαναφορά σε «χωρίς inventory» — μόνο base managers. Δεν διαγράφει την εργασία (μένει στο ιστορικό),
   // απλώς τη σημαδεύει ώστε να μη μετράει πια ως έγκυρη στο widget της «Σήμερα».
   const resetInventory = (task) => {
-    setTasks(cur => {
-      const nx = cur.map(t2 => t2.id !== task.id ? t2 : { ...t2, inventoryReset: true, inventoryResetBy: acting.id, inventoryResetAt: new Date().toISOString() });
-      save("app-tasks", nx);
-      return nx;
-    });
+    persistTasks(cur => cur.map(t2 => t2.id !== task.id ? t2 : { ...t2, inventoryReset: true, inventoryResetBy: acting.id, inventoryResetAt: new Date().toISOString() }));
     showToast("Το inventory επανήλθε σε «χωρίς inventory»");
   };
 
@@ -1661,9 +1617,9 @@ ${histLines}
     }
     // Τα items υπολογίζονται από την ΤΡΕΧΟΥΣΑ κατάσταση (cur), όχι από το prop `task`: με γρήγορα διαδοχικά
     // τσεκαρίσματα το prop είναι ακόμα η παλιά εικόνα και το δεύτερο πάτημα έσβηνε το πρώτο.
-    setTasks(cur => {
+    await persistTasks(cur => {
       const base = extraTask ? [extraTask, ...cur] : cur;
-      const nx = base.map(t2 => {
+      return base.map(t2 => {
         if (t2.id !== task.id) return t2;
         const items = (Array.isArray(t2.checklistItems) ? t2.checklistItems : []).map(it => it.id === itemId
           ? { ...it, status: outcome, problemTaskId: outcome === "problem" ? newTaskId : null } : it);
@@ -1678,8 +1634,6 @@ ${histLines}
           ...(allResolved ? { status: "done", completedBy: acting.id, completedAt: new Date().toISOString() } : {}),
         };
       });
-      save("app-tasks", nx);
-      return nx;
     });
     showToast(outcome === "problem" ? "Καταγράφηκε πρόβλημα — δημιουργήθηκε νέα εργασία ⚠" : "Τσεκαρίστηκε ✔");
   };
@@ -4123,27 +4077,31 @@ function BulkScheduleEntry({ boats, persistBoats, showToast }) {
   };
   const removeRow = (key) => setPreview(cur => cur.filter(r => r.key !== key));
 
-  const confirm = () => {
-    let nextBoats = boats;
+  const confirm = async () => {
     let applied = 0, skipped = 0;
-    preview.forEach(row => {
-      if (!row.boatId) { skipped++; return; }
-      nextBoats = nextBoats.map(b => {
-        if (b.id !== row.boatId) return b;
-        const charters = getCharters(b);
-        if (row.action === "depart") {
-          const overlap = charters.some(c => row.date < c.to && c.from < row.toDate);
-          if (overlap) { skipped++; return b; }
+    // persistBoats διαβάζει τα πιο πρόσφατα σκάφη πριν γράψει, ώστε μια μαζική εισαγωγή να μην πατήσει πάνω σε
+    // αλλαγές που έγιναν στο μεταξύ από άλλη συσκευή.
+    await persistBoats(cur => {
+      let nextBoats = cur;
+      preview.forEach(row => {
+        if (!row.boatId) { skipped++; return; }
+        nextBoats = nextBoats.map(b => {
+          if (b.id !== row.boatId) return b;
+          const charters = getCharters(b);
+          if (row.action === "depart") {
+            const overlap = charters.some(c => row.date < c.to && c.from < row.toDate);
+            if (overlap) { skipped++; return b; }
+            applied++;
+            const next = [...charters, { id: "c" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), from: row.date, to: row.toDate, createdAt: new Date().toISOString() }].sort((a, c) => a.from.localeCompare(c.from));
+            return { ...b, charters: next, atSea: false, departureDate: null, returnDate: null };
+          }
+          if (!row.matchedCharterId || row.alreadyCorrect) { if (!row.matchedCharterId) skipped++; return b; }
           applied++;
-          const next = [...charters, { id: "c" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), from: row.date, to: row.toDate, createdAt: new Date().toISOString() }].sort((a, c) => a.from.localeCompare(c.from));
-          return { ...b, charters: next, atSea: false, departureDate: null, returnDate: null };
-        }
-        if (!row.matchedCharterId || row.alreadyCorrect) { if (!row.matchedCharterId) skipped++; return b; }
-        applied++;
-        return { ...b, charters: charters.map(c => c.id === row.matchedCharterId ? { ...c, to: row.date } : c) };
+          return { ...b, charters: charters.map(c => c.id === row.matchedCharterId ? { ...c, to: row.date } : c) };
+        });
       });
+      return nextBoats;
     });
-    persistBoats(nextBoats);
     showToast(`Ενημερώθηκαν ${applied} σκάφη${skipped ? ` — ${skipped} παραλείφθηκαν` : ""}`);
     setPreview(null); setText(""); setOpen(false);
   };
@@ -4275,12 +4233,20 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
     // «κλειστός» (<= / >=), παρότι η κατάσταση του σκάφους μετράει την ημέρα επιστροφής ως πλήρη μέρα ναύλου.
     const overlap = charters.some(c => newFrom < c.to && c.from < newTo);
     if (overlap) { showToast("Επικαλύπτεται με υπάρχον ναύλο"); return; }
-    const next = [...charters, { id: "c" + Date.now(), from: newFrom, to: newTo, createdAt: new Date().toISOString() }].sort((a, c) => a.from.localeCompare(c.from));
-    persistBoats(boats.map(x => x.id === b.id ? { ...x, charters: next, atSea: false, departureDate: null, returnDate: null } : x));
+    // Ο έλεγχος επικάλυψης ξαναγίνεται μέσα στην ενημέρωση πάνω στα πιο πρόσφατα δεδομένα, ώστε δύο σχεδόν
+    // ταυτόχρονες καταχωρήσεις (π.χ. από άλλη συσκευή) να μη δημιουργήσουν πραγματική επικάλυψη ναύλων.
+    persistBoats(cur => {
+      const target = cur.find(x => x.id === b.id);
+      if (!target) return cur;
+      const freshCharters = getCharters(target);
+      if (freshCharters.some(c => newFrom < c.to && c.from < newTo)) return cur;
+      const nextCharters = [...freshCharters, { id: "c" + Date.now(), from: newFrom, to: newTo, createdAt: new Date().toISOString() }].sort((a, c) => a.from.localeCompare(c.from));
+      return cur.map(x => x.id === b.id ? { ...x, charters: nextCharters, atSea: false, departureDate: null, returnDate: null } : x);
+    });
     setNewFrom(""); setNewTo(""); setCustomDays(""); showToast("Προστέθηκε ναύλο");
   };
   const removeCharter = (b, cid) => {
-    persistBoats(boats.map(x => x.id === b.id ? { ...x, charters: getCharters(b).filter(c => c.id !== cid) } : x));
+    persistBoats(cur => cur.map(x => x.id === b.id ? { ...x, charters: getCharters(x).filter(c => c.id !== cid) } : x));
   };
 
   return (
@@ -4355,7 +4321,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
             )}
 
             {detailFor === b.id && (
-              <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} onDeleteBoat={() => { persistBoats(boats.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
+              <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} onDeleteBoat={() => { persistBoats(cur => cur.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
             )}
           </div>
         </React.Fragment>
@@ -4368,7 +4334,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
           <input value={newBoatType} onChange={e => setNewBoatType(e.target.value)} placeholder="Τύπος (π.χ. Bavaria 46)" style={{ ...inputStyle, flex: 1, minWidth: 140 }} />
           <Btn small color={COLORS.navy} onClick={() => {
             if (!newBoatName.trim()) return;
-            persistBoats([...boats, { id: "b" + Date.now(), name: newBoatName.trim(), type: newBoatType.trim(), atSea: false, returnDate: null, departureDate: null, charters: [] }]);
+            persistBoats(cur => [...cur, { id: "b" + Date.now(), name: newBoatName.trim(), type: newBoatType.trim(), atSea: false, returnDate: null, departureDate: null, charters: [] }]);
             setNewBoatName(""); setNewBoatType(""); showToast(`Προστέθηκε: ${newBoatName.trim()}`);
           }}>+</Btn>
         </div>
@@ -4584,7 +4550,7 @@ function ListsAdmin({ quick, checklist, closingChecklist, persistQuick, persistC
 // αλλά αυτή εδώ είναι η κοινή βάση που κληρονομούν όλα τα σκάφη.
 function InventoryListAdmin({ inventory, persistInventory }) {
   const [open, setOpen] = useState(false);
-  const updateCat = (cat, items) => persistInventory({ ...inventory, [cat]: items });
+  const updateCat = (cat, items) => persistInventory(cur => ({ ...cur, [cat]: items }));
   return (
     <div style={{ marginBottom: 8 }}>
       <button onClick={() => setOpen(!open)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: 0, margin: "32px 0 12px", textAlign: "left" }}>
@@ -4957,7 +4923,7 @@ function ProfilesView({ users, me, onViewAs, persistUsers }) {
           {phoneFor === u.id && (
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <input value={phoneVal} onChange={e => setPhoneVal(e.target.value)} placeholder="π.χ. 6912345678" style={{ ...inputStyle, flex: 1 }} />
-              <Btn small color={COLORS.navy} onClick={() => { persistUsers(users.map(x => x.id === u.id ? { ...x, phone: phoneVal.trim() } : x)); setPhoneFor(null); }}>Αποθήκευση</Btn>
+              <Btn small color={COLORS.navy} onClick={() => { persistUsers(cur => cur.map(x => x.id === u.id ? { ...x, phone: phoneVal.trim() } : x)); setPhoneFor(null); }}>Αποθήκευση</Btn>
             </div>
           )}
         </div>
@@ -4981,38 +4947,38 @@ function UsersAdmin({ users, persistUsers, me, onViewAs }) {
               <b>{u.name}</b> <span style={{ color: COLORS.sub, fontSize: 13 }}>{u.role === "manager" ? "Base Manager" : u.role === "owner" ? "Διαχειριστής" : u.role === "associate" ? "Στέλεχος" : "Υπάλληλος"}</span>
               <div style={{ fontSize: 13, marginTop: 0 }}>
                 Κωδικός: <b style={{ letterSpacing: 1 }}>{u.code}</b>{" "}
-                <button onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, code: genCode(x.name) } : x))}
+                <button onClick={() => persistUsers(cur => cur.map(x => x.id === u.id ? { ...x, code: genCode(x.name) } : x))}
                   style={{ border: "none", background: "none", color: COLORS.teal, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>↻ νέος</button>
               </div>
               {u.profile && <div style={{ fontSize: 13, color: COLORS.sub, marginTop: 0 }}>{u.profile}</div>}
             </div>
             <div style={{ display: "flex", gap: 4, flexDirection: "column", alignItems: "flex-end" }}>
               {u.role !== "owner" && (
-                <Btn small color={COLORS.navy} outline onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, role: x.role === "employee" ? "associate" : x.role === "associate" ? "manager" : "employee" } : x))}>
+                <Btn small color={COLORS.navy} outline onClick={() => persistUsers(cur => cur.map(x => x.id === u.id ? { ...x, role: x.role === "employee" ? "associate" : x.role === "associate" ? "manager" : "employee" } : x))}>
                   {u.role === "manager" ? "Manager → Υπάλληλος" : u.role === "associate" ? "Στέλεχος → Manager" : "Υπάλληλος → Στέλεχος"}
                 </Btn>
               )}
               {u.role === "employee" && (
                 <Btn small color={u.noAutoAssign ? COLORS.red : COLORS.green} outline
-                  onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, noAutoAssign: !x.noAutoAssign } : x))}>
+                  onClick={() => persistUsers(cur => cur.map(x => x.id === u.id ? { ...x, noAutoAssign: !x.noAutoAssign } : x))}>
                   AI κατανομή: {u.noAutoAssign ? "όχι" : "ναι"}
                 </Btn>
               )}
               <Btn small color={COLORS.navy} outline
-                onClick={() => persistUsers(users.map(x => x.id === u.id ? { ...x, lang: x.lang === "en" ? "el" : "en" } : x))}>
+                onClick={() => persistUsers(cur => cur.map(x => x.id === u.id ? { ...x, lang: x.lang === "en" ? "el" : "en" } : x))}>
                 Γλώσσα: {u.lang === "en" ? "EN" : "ΕΛ"}
               </Btn>
               <Btn small color={COLORS.teal} outline onClick={() => { setProfFor(u.id); setProf(u.profile || ""); }}>Προφίλ</Btn>
               <Btn small color={COLORS.amber} outline onClick={() => { setProfFor("h-" + u.id); setProf(u.humor || ""); }}>Ύφος 😄</Btn>
               {onViewAs && <Btn small color={COLORS.teal} onClick={() => onViewAs(u)}>Προβολή ως</Btn>}
-              {u.role !== "owner" && <Btn small color={COLORS.red} outline onClick={() => { if (confirm(`Αφαίρεση πρόσβασης: ${u.name};`)) persistUsers(users.filter(x => x.id !== u.id)); }}>Αφαίρεση</Btn>}
+              {u.role !== "owner" && <Btn small color={COLORS.red} outline onClick={() => { if (confirm(`Αφαίρεση πρόσβασης: ${u.name};`)) persistUsers(cur => cur.filter(x => x.id !== u.id)); }}>Αφαίρεση</Btn>}
             </div>
           </div>
           {profFor === u.id && (
             <div style={{ marginTop: 8 }}>
               <textarea value={prof} onChange={e => setProf(e.target.value)} rows={2} placeholder="Δεξιότητες / τι κάνει κυρίως — το χρησιμοποιεί το AI για τις αναθέσεις" style={inputStyle} />
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <Btn small color={COLORS.navy} onClick={() => { persistUsers(users.map(x => x.id === u.id ? { ...x, profile: prof.trim() } : x)); setProfFor(null); }}>Αποθήκευση</Btn>
+                <Btn small color={COLORS.navy} onClick={() => { persistUsers(cur => cur.map(x => x.id === u.id ? { ...x, profile: prof.trim() } : x)); setProfFor(null); }}>Αποθήκευση</Btn>
                 <Btn small color={COLORS.sub} outline onClick={() => setProfFor(null)}>Άκυρο</Btn>
               </div>
             </div>
@@ -5021,7 +4987,7 @@ function UsersAdmin({ users, persistUsers, me, onViewAs }) {
             <div style={{ marginTop: 8 }}>
               <textarea value={prof} onChange={e => setProf(e.target.value)} rows={2} placeholder="Ύφος ημερήσιου μηνύματος (χιούμορ, πειράγματα, running jokes) — κενό = χωρίς μήνυμα" style={inputStyle} />
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <Btn small color={COLORS.navy} onClick={() => { persistUsers(users.map(x => x.id === u.id ? { ...x, humor: prof.trim() } : x)); setProfFor(null); }}>Αποθήκευση</Btn>
+                <Btn small color={COLORS.navy} onClick={() => { persistUsers(cur => cur.map(x => x.id === u.id ? { ...x, humor: prof.trim() } : x)); setProfFor(null); }}>Αποθήκευση</Btn>
                 <Btn small color={COLORS.sub} outline onClick={() => setProfFor(null)}>Άκυρο</Btn>
               </div>
             </div>
@@ -5034,7 +5000,7 @@ function UsersAdmin({ users, persistUsers, me, onViewAs }) {
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Όνομα" style={inputStyle} />
           <Btn small color={COLORS.navy} onClick={() => {
             if (!name.trim()) return;
-            persistUsers([...users, { id: "u" + Date.now(), name: name.trim(), role: "employee", profile: "", code: genCode(name.trim()) }]);
+            persistUsers(cur => [...cur, { id: "u" + Date.now(), name: name.trim(), role: "employee", profile: "", code: genCode(name.trim()) }]);
             setName("");
           }}>+</Btn>
         </div>
