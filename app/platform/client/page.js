@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
-import { listMyBookingRequests, listMyBookingsAsClient } from "../../../lib/platform/db";
+import { listMyBookingRequests, listMyBookingsAsClient, createMissingProfile } from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
-import { container, card, h1, h2, muted, badge, colors } from "../../../lib/platform/theme";
+import { container, card, h1, h2, muted, badge, button, colors } from "../../../lib/platform/theme";
 
 const REQ_STATUS = {
   open: ["Αναμονή διεκδίκησης", "brand"],
@@ -11,6 +11,38 @@ const REQ_STATUS = {
   expired_unclaimed: ["Άκαρπο — έγινε credit", "warn"],
   cancelled: ["Ακυρώθηκε", "danger"],
 };
+
+function MissingProfile({ refresh }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function recreate() {
+    setBusy(true);
+    setError("");
+    try {
+      await createMissingProfile("client");
+      await refresh();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={container}>
+      <h1 style={h1}>Ο λογαριασμός μου</h1>
+      <div style={{ ...card, borderColor: colors.danger }}>
+        <b>Δεν βρέθηκε προφίλ πελάτη για τον λογαριασμό σου.</b>
+        <p style={muted}>Πάτα το κουμπί για να το φτιάξουμε τώρα.</p>
+        <button style={button("primary")} disabled={busy} onClick={recreate}>
+          {busy ? "..." : "Δημιουργία προφίλ πελάτη"}
+        </button>
+        {error && <p style={{ color: colors.danger, marginTop: 8 }}>{error}</p>}
+      </div>
+    </div>
+  );
+}
 
 export default function ClientDashboard() {
   const { session, profile, userRow, loading, refresh } = useAuth();
@@ -36,6 +68,7 @@ export default function ClientDashboard() {
   if (loading) return <div style={container}>Φόρτωση...</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
   if (userRow?.role !== "client") return <div style={container}>Αυτή η σελίδα είναι μόνο για πελάτες.</div>;
+  if (!profile) return <MissingProfile refresh={refresh} />;
 
   const openRequests = requests.filter((r) => r.status === "open");
   const closedRequests = requests.filter((r) => r.status !== "open");

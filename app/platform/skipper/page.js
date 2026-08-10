@@ -8,7 +8,7 @@ import {
   listMyPings,
   claimBookingRequest,
   listMyBookingsAsSkipper,
-  createAccount,
+  createMissingProfile,
 } from "../../../lib/platform/db";
 import ProfileForm from "./ProfileForm";
 import BookingPanel from "../components/BookingPanel";
@@ -155,7 +155,7 @@ function MissingProfile({ userRow, refresh }) {
     setBusy(true);
     setError("");
     try {
-      await createAccount({ role: "skipper", phone: userRow.phone_number });
+      await createMissingProfile("skipper");
       await refresh();
     } catch (err) {
       setError(err.message || String(err));
