@@ -16,16 +16,23 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
-    const { data } = await supabase.auth.getSession();
-    setSession(data.session || null);
-    if (data.session) {
-      const u = await getMyUserRow();
-      setUserRow(u);
-      if (u?.role === "client") setProfile(await getMyClientProfile());
-      else if (u?.role === "skipper") setProfile(await getMySkipperProfile());
-      else setProfile(null);
-    } else {
-      setUserRow(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session || null);
+      if (data.session) {
+        const u = await getMyUserRow();
+        setUserRow(u);
+        if (u?.role === "client") setProfile(await getMyClientProfile());
+        else if (u?.role === "skipper") setProfile(await getMySkipperProfile());
+        else setProfile(null);
+      } else {
+        setUserRow(null);
+        setProfile(null);
+      }
+    } catch (err) {
+      // Surface as "no profile" rather than leaving loading=true forever —
+      // pages check (profile === null) to offer a recovery action.
+      console.error("auth refresh failed:", err.message || err);
       setProfile(null);
     }
     setLoading(false);

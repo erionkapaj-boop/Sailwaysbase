@@ -8,6 +8,7 @@ import {
   listMyPings,
   claimBookingRequest,
   listMyBookingsAsSkipper,
+  createAccount,
 } from "../../../lib/platform/db";
 import ProfileForm from "./ProfileForm";
 import BookingPanel from "../components/BookingPanel";
@@ -146,6 +147,41 @@ function PingsInbox({ skipperId, onClaimed }) {
   );
 }
 
+function MissingProfile({ userRow, refresh }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function recreate() {
+    setBusy(true);
+    setError("");
+    try {
+      await createAccount({ role: "skipper", phone: userRow.phone_number });
+      await refresh();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={container}>
+      <h1 style={h1}>Πίνακας Skipper</h1>
+      <div style={{ ...card, borderColor: colors.danger }}>
+        <b>Δεν βρέθηκε προφίλ skipper για τον λογαριασμό σου.</b>
+        <p style={muted}>
+          Ο λογαριασμός σου υπάρχει, αλλά η γραμμή προφίλ δεν δημιουργήθηκε (π.χ. λόγω διακοπής κατά την
+          εγγραφή). Πάτα το κουμπί για να τη φτιάξουμε τώρα.
+        </p>
+        <button style={button("primary")} disabled={busy} onClick={recreate}>
+          {busy ? "..." : "Δημιουργία προφίλ skipper"}
+        </button>
+        {error && <p style={{ color: colors.danger, marginTop: 8 }}>{error}</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function SkipperDashboard() {
   const { session, profile, userRow, loading, refresh } = useAuth();
   const [bookings, setBookings] = useState([]);
@@ -160,7 +196,7 @@ export default function SkipperDashboard() {
   if (loading) return <div style={container}>Φόρτωση...</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
   if (userRow?.role !== "skipper") return <div style={container}>Αυτή η σελίδα είναι μόνο για skippers.</div>;
-  if (!profile) return <div style={container}>Φόρτωση προφίλ...</div>;
+  if (!profile) return <MissingProfile userRow={userRow} refresh={refresh} />;
 
   const needsOnboarding = !profile.full_name || profile.license_number?.startsWith("PENDING-");
 
