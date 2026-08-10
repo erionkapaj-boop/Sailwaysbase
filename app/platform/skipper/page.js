@@ -198,8 +198,8 @@ export default function SkipperDashboard() {
               {profile.reliability_percentage != null ? `${profile.reliability_percentage}%` : "—"}
             </div>
           </div>
-          <div style={{ flex: 1, textAlign: "right", alignSelf: "center" }}>
-            <p style={muted}>
+          <div style={{ flexBasis: "100%" }}>
+            <p style={{ ...muted, marginTop: 4 }}>
               Φόρτωση wallet: επικοινώνησε με τον admin για τραπεζική κατάθεση/κάρτα — πιστώνεται στο
               υπόλοιπό σου.
             </p>

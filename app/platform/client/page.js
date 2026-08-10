@@ -68,7 +68,7 @@ export default function ClientDashboard() {
           <h2 style={h2}>Εκκρεμή αιτήματα</h2>
           {openRequests.map((r) => (
             <div key={r.id} style={card}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                 <b>
                   {r.ports?.name} · {r.boat_types?.name}
                 </b>
@@ -96,7 +96,7 @@ export default function ClientDashboard() {
             .filter((r) => r.status !== "matched")
             .map((r) => (
               <div key={r.id} style={{ ...card, opacity: 0.8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                   <span>
                     {r.ports?.name} · {r.start_date} → {r.end_date}
                   </span>

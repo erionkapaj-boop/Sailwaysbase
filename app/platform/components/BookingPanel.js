@@ -109,7 +109,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
 
   return (
     <div style={card}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
         <h2 style={h2}>
           {booking.ports?.name} · {booking.boat_types?.name}
         </h2>

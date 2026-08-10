@@ -189,7 +189,7 @@ function BookingsOverview() {
       <h2 style={h2}>Όλες οι κρατήσεις ({list.length})</h2>
       {list.map((b) => (
         <div key={b.id} style={card}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <span>
               {b.ports?.name} · {b.start_date} → {b.end_date}
             </span>
