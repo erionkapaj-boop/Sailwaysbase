@@ -12,9 +12,26 @@ const REQ_STATUS = {
   cancelled: ["Ακυρώθηκε", "danger"],
 };
 
-function MissingProfile({ refresh }) {
+function MissingProfile({ refresh, loadError }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  if (loadError) {
+    return (
+      <div style={container}>
+        <h1 style={h1}>Ο λογαριασμός μου</h1>
+        <div style={{ ...card, borderColor: colors.danger }}>
+          <b>Δεν ήταν δυνατή η φόρτωση του προφίλ σου.</b>
+          <p style={{ color: colors.danger, fontFamily: "monospace", fontSize: 13, wordBreak: "break-word" }}>
+            {loadError}
+          </p>
+          <button style={button("secondary")} onClick={refresh}>
+            Δοκίμασε ξανά
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   async function recreate() {
     setBusy(true);
@@ -45,7 +62,7 @@ function MissingProfile({ refresh }) {
 }
 
 export default function ClientDashboard() {
-  const { session, profile, userRow, loading, refresh } = useAuth();
+  const { session, profile, userRow, loading, refresh, loadError } = useAuth();
   const [requests, setRequests] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [busy, setBusy] = useState(true);
@@ -68,7 +85,7 @@ export default function ClientDashboard() {
   if (loading) return <div style={container}>Φόρτωση...</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
   if (userRow?.role !== "client") return <div style={container}>Αυτή η σελίδα είναι μόνο για πελάτες.</div>;
-  if (!profile) return <MissingProfile refresh={refresh} />;
+  if (!profile) return <MissingProfile refresh={refresh} loadError={loadError} />;
 
   const openRequests = requests.filter((r) => r.status === "open");
   const closedRequests = requests.filter((r) => r.status !== "open");

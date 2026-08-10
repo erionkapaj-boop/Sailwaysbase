@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
   const [userRow, setUserRow] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const refresh = useCallback(async () => {
     if (!supabase) {
@@ -17,6 +18,7 @@ export function AuthProvider({ children }) {
       return;
     }
     try {
+      setLoadError("");
       const { data } = await supabase.auth.getSession();
       setSession(data.session || null);
       if (data.session) {
@@ -30,9 +32,11 @@ export function AuthProvider({ children }) {
         setProfile(null);
       }
     } catch (err) {
-      // Surface as "no profile" rather than leaving loading=true forever —
-      // pages check (profile === null) to offer a recovery action.
+      // Keep the real reason — a failed fetch is NOT the same as "no profile
+      // row exists", and conflating the two sent us chasing a phantom missing
+      // row while the actual cause was an RLS error on the read.
       console.error("auth refresh failed:", err.message || err);
+      setLoadError(err.message || String(err));
       setProfile(null);
     }
     setLoading(false);
@@ -61,6 +65,7 @@ export function AuthProvider({ children }) {
         userRow,
         profile,
         loading,
+        loadError,
         refresh,
         signOut,
         needsRoleSelection: !!session && !loading && !userRow,

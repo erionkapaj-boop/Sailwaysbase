@@ -147,9 +147,29 @@ function PingsInbox({ skipperId, onClaimed }) {
   );
 }
 
-function MissingProfile({ userRow, refresh }) {
+function MissingProfile({ userRow, refresh, loadError }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  // A failed read is a different problem from a genuinely absent row —
+  // creating a second profile would not fix it and may not even be possible.
+  if (loadError) {
+    return (
+      <div style={container}>
+        <h1 style={h1}>Πίνακας Skipper</h1>
+        <div style={{ ...card, borderColor: colors.danger }}>
+          <b>Δεν ήταν δυνατή η φόρτωση του προφίλ σου.</b>
+          <p style={muted}>Σφάλμα από τη βάση δεδομένων:</p>
+          <p style={{ color: colors.danger, fontFamily: "monospace", fontSize: 13, wordBreak: "break-word" }}>
+            {loadError}
+          </p>
+          <button style={button("secondary")} onClick={refresh}>
+            Δοκίμασε ξανά
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   async function recreate() {
     setBusy(true);
@@ -183,7 +203,7 @@ function MissingProfile({ userRow, refresh }) {
 }
 
 export default function SkipperDashboard() {
-  const { session, profile, userRow, loading, refresh } = useAuth();
+  const { session, profile, userRow, loading, refresh, loadError } = useAuth();
   const [bookings, setBookings] = useState([]);
 
   async function loadBookings() {
@@ -196,7 +216,7 @@ export default function SkipperDashboard() {
   if (loading) return <div style={container}>Φόρτωση...</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
   if (userRow?.role !== "skipper") return <div style={container}>Αυτή η σελίδα είναι μόνο για skippers.</div>;
-  if (!profile) return <MissingProfile userRow={userRow} refresh={refresh} />;
+  if (!profile) return <MissingProfile userRow={userRow} refresh={refresh} loadError={loadError} />;
 
   const needsOnboarding = !profile.full_name || profile.license_number?.startsWith("PENDING-");
 
