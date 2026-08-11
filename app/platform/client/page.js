@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import { listMyBookingRequests, listMyBookingsAsClient, createMissingProfile } from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
-import { container, card, h1, h2, muted, badge, button, colors } from "../../../lib/platform/theme";
+import Stat from "../components/Stat";
+import { container, card, h1, h2, muted, badge, button, colors, money } from "../../../lib/platform/theme";
 
 const REQ_STATUS = {
   open: ["Αναμονή διεκδίκησης", "brand"],
@@ -94,21 +95,13 @@ export default function ClientDashboard() {
     <div style={container}>
       <h1 style={h1}>Ο λογαριασμός μου</h1>
 
-      <div style={{ ...card, display: "flex", gap: 24, flexWrap: "wrap" }}>
-        <div>
-          <div style={muted}>Wallet credit</div>
-          <div style={{ fontSize: 22, fontWeight: 800 }}>{profile?.wallet_balance ?? 0}€</div>
-        </div>
-        <div>
-          <div style={muted}>Ποσοστό αξιοπιστίας</div>
-          <div style={{ fontSize: 22, fontWeight: 800 }}>
-            {profile?.reliability_percentage != null ? `${profile.reliability_percentage}%` : "—"}
-          </div>
-        </div>
-        <div>
-          <div style={muted}>Ολοκληρωμένες κρατήσεις</div>
-          <div style={{ fontSize: 22, fontWeight: 800 }}>{profile?.completed_bookings_count ?? 0}</div>
-        </div>
+      <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap" }}>
+        <Stat label="Wallet credit" value={`${profile?.wallet_balance ?? 0}€`} />
+        <Stat
+          label="Ποσοστό αξιοπιστίας"
+          value={profile?.reliability_percentage != null ? `${profile.reliability_percentage}%` : "—"}
+        />
+        <Stat label="Ολοκληρωμένες κρατήσεις" value={profile?.completed_bookings_count ?? 0} />
       </div>
 
       {busy && <p style={muted}>Φόρτωση...</p>}
@@ -119,13 +112,16 @@ export default function ClientDashboard() {
           {openRequests.map((r) => (
             <div key={r.id} style={card}>
               <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                <b>
+                <span style={{ fontWeight: 500 }}>
                   {r.ports?.name} · {r.boat_types?.name}
-                </b>
+                </span>
                 <span style={badge(REQ_STATUS[r.status]?.[1] || "neutral")}>{REQ_STATUS[r.status]?.[0] || r.status}</span>
               </div>
-              <p style={muted}>
-                {r.start_date} → {r.end_date} · Fee: {r.fee_amount}€ ·{" "}
+              <p style={{ ...muted, marginBottom: 0 }}>
+                <span style={money}>{r.start_date}</span> → <span style={money}>{r.end_date}</span>
+                {" · Fee "}
+                <span style={{ ...money, color: colors.ink }}>{r.fee_amount}€</span>
+                {" · "}
                 {r.fee_paid_at ? "Πληρώθηκε" : "Δεν πληρώθηκε"}
               </p>
             </div>
@@ -145,10 +141,11 @@ export default function ClientDashboard() {
           {closedRequests
             .filter((r) => r.status !== "matched")
             .map((r) => (
-              <div key={r.id} style={{ ...card, opacity: 0.8 }}>
+              <div key={r.id} style={{ ...card, opacity: 0.75 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                   <span>
-                    {r.ports?.name} · {r.start_date} → {r.end_date}
+                    {r.ports?.name} · <span style={money}>{r.start_date}</span> →{" "}
+                    <span style={money}>{r.end_date}</span>
                   </span>
                   <span style={badge(REQ_STATUS[r.status]?.[1] || "neutral")}>{REQ_STATUS[r.status]?.[0] || r.status}</span>
                 </div>

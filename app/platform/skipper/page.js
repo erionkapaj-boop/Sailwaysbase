@@ -12,7 +12,8 @@ import {
 } from "../../../lib/platform/db";
 import ProfileForm from "./ProfileForm";
 import BookingPanel from "../components/BookingPanel";
-import { container, card, h1, h2, muted, button, input, badge, colors } from "../../../lib/platform/theme";
+import Stat from "../components/Stat";
+import { container, card, h1, h2, muted, button, input, badge, colors, money } from "../../../lib/platform/theme";
 
 const CLAIM_ERRORS = {
   request_not_open: "Το αίτημα δεν είναι πια ανοιχτό — κάποιος άλλος πρόλαβε ή έληξε.",
@@ -123,21 +124,33 @@ function PingsInbox({ skipperId, onClaimed }) {
         const cp = r.client_profiles;
         return (
           <div key={p.id} style={card}>
-            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
               <div>
-                <b>
+                <div style={{ fontWeight: 500, fontSize: 15 }}>
                   {r.ports?.name} · {r.boat_types?.name}
-                </b>
-                <p style={muted}>
-                  {r.start_date} → {r.end_date}
+                </div>
+                <p style={{ ...muted, margin: "6px 0 0" }}>
+                  <span style={money}>{r.start_date}</span> → <span style={money}>{r.end_date}</span>
                 </p>
-                <p style={muted}>
-                  Πελάτης: {cp?.reliability_percentage != null ? `${cp.reliability_percentage}% αξιοπιστία` : "νέος πελάτης"} · ⭐{" "}
-                  {cp?.rating_avg ? cp.rating_avg.toFixed(1) : "—"} ({cp?.rating_count ?? 0})
+                <p style={{ ...muted, margin: "4px 0 0" }}>
+                  Πελάτης:{" "}
+                  {cp?.reliability_percentage != null ? (
+                    <>
+                      <span style={{ ...money, color: colors.ink }}>{cp.reliability_percentage}%</span> αξιοπιστία
+                    </>
+                  ) : (
+                    "νέος πελάτης"
+                  )}
+                  {" · "}
+                  <span style={{ ...money, color: colors.ink }}>
+                    {cp?.rating_avg ? cp.rating_avg.toFixed(1) : "—"}
+                  </span>
+                  {" ★ "}
+                  <span style={money}>({cp?.rating_count ?? 0})</span>
                 </p>
               </div>
               <button style={button("primary")} disabled={busyId === r.id} onClick={() => handleClaim(r.id)}>
-                {busyId === r.id ? "..." : "Διεκδίκηση (πληρωμή claim fee)"}
+                {busyId === r.id ? "..." : "Διεκδίκηση"}
               </button>
             </div>
           </div>
@@ -225,39 +238,35 @@ export default function SkipperDashboard() {
       <h1 style={h1}>Πίνακας Skipper</h1>
 
       {profile.approval_status === "pending" && !needsOnboarding && (
-        <div style={{ ...card, borderColor: colors.warn }}>
-          <b>⏳ Το προφίλ σου περιμένει έγκριση admin.</b>
-          <p style={muted}>Μπορείς να επεξεργαστείς το προφίλ σου όσο περιμένεις.</p>
+        <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
+          <b style={{ fontWeight: 600 }}>Το προφίλ σου περιμένει έγκριση admin.</b>
+          <p style={{ ...muted, margin: "6px 0 0" }}>Μπορείς να επεξεργαστείς το προφίλ σου όσο περιμένεις.</p>
         </div>
       )}
       {profile.approval_status === "rejected" && (
-        <div style={{ ...card, borderColor: colors.danger }}>
-          <b>Το προφίλ σου απορρίφθηκε.</b> Ενημέρωσε τα στοιχεία σου και επικοινώνησε με τον admin.
+        <div style={{ ...card, borderLeft: `3px solid ${colors.danger}` }}>
+          <b style={{ fontWeight: 600 }}>Το προφίλ σου απορρίφθηκε.</b>
+          <p style={{ ...muted, margin: "6px 0 0" }}>
+            Ενημέρωσε τα στοιχεία σου και επικοινώνησε με τον admin.
+          </p>
         </div>
       )}
 
       {profile.approval_status === "approved" && (
-        <div style={{ ...card, display: "flex", gap: 24, flexWrap: "wrap" }}>
-          <div>
-            <div style={muted}>Wallet</div>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>{profile.wallet_balance}€</div>
-          </div>
-          <div>
-            <div style={muted}>Βαθμίδα</div>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>
-              {profile.tier === "high" ? "Υψηλή" : profile.tier === "low" ? "Χαμηλή" : "Μεσαία"}
-            </div>
-          </div>
-          <div>
-            <div style={muted}>Ποσοστό αξιοπιστίας</div>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>
-              {profile.reliability_percentage != null ? `${profile.reliability_percentage}%` : "—"}
-            </div>
-          </div>
+        <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap" }}>
+          <Stat label="Wallet" value={`${profile.wallet_balance}€`} />
+          <Stat
+            label="Βαθμίδα"
+            value={profile.tier === "high" ? "Υψηλή" : profile.tier === "low" ? "Χαμηλή" : "Μεσαία"}
+          />
+          <Stat
+            label="Ποσοστό αξιοπιστίας"
+            value={profile.reliability_percentage != null ? `${profile.reliability_percentage}%` : "—"}
+          />
           <div style={{ flexBasis: "100%" }}>
-            <p style={{ ...muted, marginTop: 4 }}>
-              Φόρτωση wallet: επικοινώνησε με τον admin για τραπεζική κατάθεση/κάρτα — πιστώνεται στο
-              υπόλοιπό σου.
+            <p style={{ ...muted, margin: "6px 0 0", fontSize: 13 }}>
+              Φόρτωση wallet: επικοινώνησε με τον admin για τραπεζική κατάθεση ή κάρτα — πιστώνεται
+              στο υπόλοιπό σου.
             </p>
           </div>
         </div>

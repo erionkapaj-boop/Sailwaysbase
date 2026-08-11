@@ -13,7 +13,8 @@ import {
   adminSearchSkippersByName,
   adminGetUserOverview,
 } from "../../../lib/platform/db";
-import { container, card, h1, h2, muted, button, input, badge, colors } from "../../../lib/platform/theme";
+import Stat from "../components/Stat";
+import { container, card, h1, h2, muted, button, input, badge, colors, money } from "../../../lib/platform/theme";
 
 function PendingSkippers() {
   const [list, setList] = useState([]);
@@ -62,9 +63,14 @@ function PendingSkippers() {
         <div key={s.user_id} style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <div>
-              <b>{s.full_name || "(χωρίς όνομα ακόμα)"}</b>
-              <p style={muted}>
-                Δίπλωμα: {s.license_number} ({s.license_type}) · Τηλ: {s.users?.phone_number} · {s.price_per_day}€/ημ
+              <div style={{ fontWeight: 500, fontSize: 15 }}>{s.full_name || "(χωρίς όνομα ακόμα)"}</div>
+              <p style={{ ...muted, margin: "6px 0 0" }}>
+                Δίπλωμα <span style={{ ...money, color: colors.ink }}>{s.license_number}</span>
+                {s.license_type ? ` (${s.license_type})` : ""}
+                {" · "}
+                <span style={money}>{s.users?.phone_number}</span>
+                {" · "}
+                <span style={{ ...money, color: colors.ink }}>{s.price_per_day}€</span>/ημέρα
               </p>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -283,21 +289,17 @@ function ViewAsUser() {
         <div style={{ marginTop: 16 }}>
           {overview.role === "client" && (
             <>
-              <div style={{ ...card, display: "flex", gap: 24, flexWrap: "wrap" }}>
-                <div>
-                  <div style={muted}>Wallet</div>
-                  <div style={{ fontSize: 20, fontWeight: 800 }}>{overview.profile?.wallet_balance ?? 0}€</div>
-                </div>
-                <div>
-                  <div style={muted}>Αξιοπιστία</div>
-                  <div style={{ fontSize: 20, fontWeight: 800 }}>
-                    {overview.profile?.reliability_percentage != null ? `${overview.profile.reliability_percentage}%` : "—"}
-                  </div>
-                </div>
-                <div>
-                  <div style={muted}>Ολοκληρωμένες</div>
-                  <div style={{ fontSize: 20, fontWeight: 800 }}>{overview.profile?.completed_bookings_count ?? 0}</div>
-                </div>
+              <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap" }}>
+                <Stat label="Wallet" value={`${overview.profile?.wallet_balance ?? 0}€`} />
+                <Stat
+                  label="Αξιοπιστία"
+                  value={
+                    overview.profile?.reliability_percentage != null
+                      ? `${overview.profile.reliability_percentage}%`
+                      : "—"
+                  }
+                />
+                <Stat label="Ολοκληρωμένες" value={overview.profile?.completed_bookings_count ?? 0} />
               </div>
               <h2 style={h2}>Αιτήματα ({overview.requests.length})</h2>
               {overview.requests.map((r) => (
@@ -330,23 +332,16 @@ function ViewAsUser() {
                 <p style={muted}>Δεν βρέθηκε προφίλ skipper για αυτόν τον χρήστη.</p>
               ) : (
                 <>
-                  <div style={{ ...card, display: "flex", gap: 24, flexWrap: "wrap" }}>
+                  <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap" }}>
                     <div>
-                      <div style={muted}>Όνομα</div>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>{overview.profile.full_name || "—"}</div>
+                      <div style={{ ...muted, fontSize: 13 }}>Όνομα</div>
+                      <div style={{ fontSize: 17, fontWeight: 500, marginTop: 4 }}>
+                        {overview.profile.full_name || "—"}
+                      </div>
                     </div>
-                    <div>
-                      <div style={muted}>Κατάσταση έγκρισης</div>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>{overview.profile.approval_status}</div>
-                    </div>
-                    <div>
-                      <div style={muted}>Wallet</div>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>{overview.profile.wallet_balance}€</div>
-                    </div>
-                    <div>
-                      <div style={muted}>Βαθμίδα</div>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>{overview.profile.tier}</div>
-                    </div>
+                    <Stat label="Κατάσταση έγκρισης" value={overview.profile.approval_status} />
+                    <Stat label="Wallet" value={`${overview.profile.wallet_balance}€`} />
+                    <Stat label="Βαθμίδα" value={overview.profile.tier} />
                   </div>
                   <h2 style={h2}>Κρατήσεις ({overview.bookings.length})</h2>
                   {overview.bookings.map((b) => (

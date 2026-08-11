@@ -10,7 +10,7 @@ import {
   getRevealedSkipper,
   getRevealedClient,
 } from "../../../lib/platform/db";
-import { card, h2, muted, button, input, badge, colors } from "../../../lib/platform/theme";
+import { card, h2, muted, button, input, badge, colors, money, radius } from "../../../lib/platform/theme";
 
 const STATUS_LABEL = {
   confirmed: ["Επιβεβαιωμένη", "success"],
@@ -107,26 +107,33 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
 
   const [statusLabel, statusTone] = STATUS_LABEL[booking.status] || [booking.status, "neutral"];
 
+  const isConfirmed = booking.status === "confirmed" || booking.status === "completed";
+
   return (
-    <div style={card}>
+    // Accent stripe is a trust signal, reserved for a live/confirmed booking.
+    <div style={{ ...card, borderLeft: isConfirmed ? `3px solid ${colors.accent}` : undefined }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-        <h2 style={h2}>
+        <h2 style={{ ...h2, margin: 0 }}>
           {booking.ports?.name} · {booking.boat_types?.name}
         </h2>
         <span style={badge(statusTone)}>{statusLabel}</span>
       </div>
-      <p style={muted}>
-        {booking.start_date} → {booking.end_date}
+      <p style={{ ...muted, margin: "8px 0 0" }}>
+        <span style={money}>{booking.start_date}</span> → <span style={money}>{booking.end_date}</span>
       </p>
 
       {revealed && counterpart && (
-        <p style={{ fontSize: 14 }}>
-          <b>{viewerRole === "client" ? "Skipper" : "Πελάτης"}:</b>{" "}
-          {viewerRole === "client" ? counterpart.full_name : "—"}{" "}
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
+          <div style={{ ...muted, fontSize: 13 }}>{viewerRole === "client" ? "Skipper" : "Πελάτης"}</div>
+          <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>
+            {viewerRole === "client" ? counterpart.full_name || "—" : "—"}
+          </div>
           {(counterpart.users?.phone_number || counterpart.phone_number) && (
-            <> · 📞 {counterpart.users?.phone_number || counterpart.phone_number}</>
+            <div style={{ ...money, fontSize: 14, marginTop: 2 }}>
+              {counterpart.users?.phone_number || counterpart.phone_number}
+            </div>
           )}
-        </p>
+        </div>
       )}
 
       {booking.status === "confirmed" && (
@@ -145,13 +152,13 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
 
       {(booking.status === "confirmed" || booking.status === "completed") && (
         <div style={{ marginTop: 14, borderTop: `1px solid ${colors.border}`, paddingTop: 10 }}>
-          <b style={{ fontSize: 14 }}>Μηνύματα</b>
-          <div style={{ maxHeight: 160, overflowY: "auto", margin: "8px 0" }}>
+          <div style={{ ...muted, fontSize: 13, fontWeight: 500 }}>Μηνύματα</div>
+          <div style={{ maxHeight: 180, overflowY: "auto", margin: "10px 0" }}>
             {messages.map((m) => (
               <div
                 key={m.id}
                 style={{
-                  fontSize: 13,
+                  fontSize: 14,
                   marginBottom: 6,
                   textAlign: m.sender_id === viewerUserId ? "right" : "left",
                 }}
@@ -159,9 +166,11 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
                 <span
                   style={{
                     display: "inline-block",
-                    padding: "6px 10px",
-                    borderRadius: 8,
-                    background: m.sender_id === viewerUserId ? colors.brand : "#EEF2F5",
+                    padding: "8px 12px",
+                    borderRadius: radius.md,
+                    maxWidth: "80%",
+                    textAlign: "left",
+                    background: m.sender_id === viewerUserId ? colors.ink : "#F4F4F5",
                     color: m.sender_id === viewerUserId ? "#fff" : colors.ink,
                   }}
                 >
@@ -188,7 +197,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
 
       {booking.status === "completed" && isPastEnd && !myReview && (
         <div style={{ marginTop: 14, borderTop: `1px solid ${colors.border}`, paddingTop: 10 }}>
-          <b style={{ fontSize: 14 }}>Άφησε αξιολόγηση</b>
+          <div style={{ ...muted, fontSize: 13, fontWeight: 500 }}>Άφησε αξιολόγηση</div>
           <div style={{ margin: "8px 0" }}>
             <select style={{ ...input, width: 100 }} value={rating} onChange={(e) => setRating(Number(e.target.value))}>
               {[5, 4, 3, 2, 1].map((r) => (
@@ -212,8 +221,10 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
 
       {reviewOfMe && (
         <div style={{ marginTop: 14, borderTop: `1px solid ${colors.border}`, paddingTop: 10 }}>
-          <b style={{ fontSize: 14 }}>Σε αξιολόγησαν: {"★".repeat(reviewOfMe.rating)}</b>
-          <p style={muted}>{reviewOfMe.comment}</p>
+          <div style={{ ...muted, fontSize: 13, fontWeight: 500 }}>
+            Σε αξιολόγησαν <span style={{ ...money, color: colors.ink }}>{reviewOfMe.rating}</span> ★
+          </div>
+          <p style={{ ...muted, marginTop: 6 }}>{reviewOfMe.comment}</p>
           {reviewOfMe.reply ? (
             <p style={{ fontSize: 13, fontStyle: "italic" }}>Απάντησή σου: {reviewOfMe.reply}</p>
           ) : (

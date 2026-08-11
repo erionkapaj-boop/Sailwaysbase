@@ -9,7 +9,20 @@ import {
   createBookingRequest,
   payAndBroadcast,
 } from "../../../lib/platform/db";
-import { container, card, h1, h2, muted, button, input, label, badge, colors } from "../../../lib/platform/theme";
+import {
+  container,
+  card,
+  h1,
+  h2,
+  muted,
+  button,
+  input,
+  label,
+  badge,
+  colors,
+  money,
+  shadow,
+} from "../../../lib/platform/theme";
 
 const BIO_TAG_LABELS = {
   family_friendly: "Οικογενειακός",
@@ -22,40 +35,57 @@ const BIO_TAG_LABELS = {
 
 function SkipperCard({ s, selected, onToggle }) {
   return (
-    <div style={{ ...card, display: "flex", gap: 14, alignItems: "flex-start" }}>
+    <div style={{ ...card, display: "flex", gap: 16, alignItems: "flex-start" }}>
       <div
         style={{
-          width: 64,
-          height: 64,
+          width: 60,
+          height: 60,
           borderRadius: "50%",
-          background: s.photo_url ? `url(${s.photo_url}) center/cover` : "#DDE6EA",
+          background: s.photo_url ? `url(${s.photo_url}) center/cover` : "#EFEFF1",
           flexShrink: 0,
         }}
       />
-      <div style={{ flex: 1 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
           <div>
-            <span style={badge(s.tier === "high" ? "success" : s.tier === "low" ? "warn" : "brand")}>
-              {s.tier === "high" ? "Top βαθμίδα" : s.tier === "low" ? "Νέος/χαμηλή βαθμίδα" : "Μεσαία βαθμίδα"}
-            </span>{" "}
-            {s.gender && <span style={muted}> · {s.gender}</span>}
-            <span style={muted}> · {s.years_experience} χρόνια εμπειρίας</span>
+            <span style={badge(s.tier === "high" ? "success" : s.tier === "low" ? "warn" : "neutral")}>
+              {s.tier === "high" ? "Top βαθμίδα" : s.tier === "low" ? "Νέος" : "Μεσαία βαθμίδα"}
+            </span>
+            <div style={{ ...muted, marginTop: 6 }}>
+              {s.gender ? `${s.gender} · ` : ""}
+              <span style={money}>{s.years_experience}</span> χρόνια εμπειρίας
+            </div>
           </div>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>{s.price_per_day}€/ημέρα</div>
+          <div style={{ ...money, fontSize: 19, fontWeight: 600, whiteSpace: "nowrap" }}>
+            {s.price_per_day}€
+            <span style={{ ...muted, fontFamily: "inherit", fontSize: 13 }}> /ημέρα</span>
+          </div>
         </div>
-        <div style={{ margin: "6px 0", fontSize: 14 }}>
-          ⭐ {s.rating_avg ? s.rating_avg.toFixed(1) : "—"} ({s.rating_count} αξιολογήσεις) ·{" "}
-          {s.reliability_percentage != null ? `${s.reliability_percentage}% αξιοπιστία` : "νέος στην πλατφόρμα"}
+
+        <div style={{ margin: "10px 0", fontSize: 14, color: colors.inkSoft }}>
+          <span style={{ ...money, color: colors.ink }}>{s.rating_avg ? s.rating_avg.toFixed(1) : "—"}</span>
+          {" ★ "}
+          <span style={money}>({s.rating_count})</span>
+          {" · "}
+          {s.reliability_percentage != null ? (
+            <>
+              <span style={{ ...money, color: colors.ink }}>{s.reliability_percentage}%</span> αξιοπιστία
+            </>
+          ) : (
+            "νέος στην πλατφόρμα"
+          )}
         </div>
+
         {Array.isArray(s.bio) && s.bio.length > 0 && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
             {s.bio.map((tag) => (
-              <span key={tag} style={badge("neutral")}>
+              <span key={tag} style={{ ...badge("neutral"), fontFamily: "inherit", fontWeight: 500 }}>
                 {BIO_TAG_LABELS[tag] || tag}
               </span>
             ))}
           </div>
         )}
+
         <button style={button(selected ? "primary" : "secondary")} onClick={() => onToggle(s.id)}>
           {selected ? "✓ Επιλέχθηκε" : "Επιλογή"}
         </button>
@@ -229,11 +259,12 @@ export default function SearchPage() {
           ))}
 
           {results.length > 0 && (
-            <div style={{ ...card, position: "sticky", bottom: 12, borderColor: colors.brand }}>
+            // A money moment: reads like a receipt line, not a sales pitch.
+            <div style={{ ...card, position: "sticky", bottom: 12, boxShadow: shadow.raised }}>
               {broadcastDone ? (
                 <div>
-                  <p style={{ fontWeight: 700, color: colors.success }}>
-                    ✓ Το καμπανάκι στάλθηκε σε {selected.size} skippers!
+                  <p style={{ color: colors.accent, fontWeight: 600, margin: "0 0 14px" }}>
+                    ✓ Το καμπανάκι στάλθηκε σε <span style={money}>{selected.size}</span> skippers
                   </p>
                   <button style={button("primary")} onClick={() => router.push("/platform/client")}>
                     Παρακολούθηση αιτήματος
@@ -241,16 +272,46 @@ export default function SearchPage() {
                 </div>
               ) : (
                 <>
-                  <p style={muted}>
-                    Επιλεγμένοι: <b>{selected.size}</b> · Fee πλατφόρμας:{" "}
-                    <b>{fee != null ? `${fee}€` : "..."}</b> (μία φορά, ασχέτως πλήθους)
-                  </p>
+                  <div style={{ marginBottom: 16 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        gap: 12,
+                        fontSize: 14,
+                      }}
+                    >
+                      <span style={muted}>Επιλεγμένοι skippers</span>
+                      <span style={money}>{selected.size}</span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        gap: 12,
+                        marginTop: 8,
+                        paddingTop: 10,
+                        borderTop: `1px solid ${colors.border}`,
+                        fontSize: 15,
+                      }}
+                    >
+                      <span>Fee πλατφόρμας</span>
+                      <span style={{ ...money, fontSize: 17, fontWeight: 600 }}>
+                        {fee != null ? `${fee}€` : "—"}
+                      </span>
+                    </div>
+                    <p style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>
+                      Χρεώνεται μία φορά, ανεξάρτητα από το πλήθος των skippers.
+                    </p>
+                  </div>
                   <button
-                    style={button("primary")}
+                    style={{ ...button("primary"), width: "100%" }}
                     disabled={selected.size === 0 || busy}
                     onClick={handleBroadcast}
                   >
-                    {busy ? "..." : session ? `Πλήρωσε ${fee ?? ""}€ & στείλε καμπανάκι` : "Σύνδεση για αποστολή καμπανακιού"}
+                    {busy ? "..." : session ? "Πληρωμή & αποστολή καμπανακιού" : "Σύνδεση για αποστολή"}
                   </button>
                 </>
               )}
