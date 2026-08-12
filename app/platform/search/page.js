@@ -34,7 +34,16 @@ const BIO_TAG_LABELS = {
   islands_expert: "Ειδικός σε νησιά",
 };
 
-function SkipperCard({ s, selected, onToggle }) {
+// Inclusive day count: a 1st→3rd booking is three days of work, not two.
+function dayCount(start, end) {
+  if (!start || !end) return null;
+  const ms = new Date(end) - new Date(start);
+  if (Number.isNaN(ms) || ms < 0) return null;
+  return Math.round(ms / 86400000) + 1;
+}
+
+function SkipperCard({ s, selected, onToggle, days }) {
+  const total = days ? s.price_per_day * days : null;
   return (
     <div style={{ ...card, display: "flex", gap: 16, alignItems: "flex-start" }}>
       <div
@@ -57,9 +66,17 @@ function SkipperCard({ s, selected, onToggle }) {
               <span style={money}>{s.years_experience}</span> χρόνια εμπειρίας
             </div>
           </div>
-          <div style={{ ...money, fontSize: 19, fontWeight: 600, whiteSpace: "nowrap" }}>
-            {s.price_per_day}€
-            <span style={{ ...muted, fontFamily: "inherit", fontSize: 13 }}> /ημέρα</span>
+          <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+            <div style={{ ...money, fontSize: 19, fontWeight: 600 }}>
+              {s.price_per_day}€
+              <span style={{ ...muted, fontFamily: "inherit", fontSize: 13 }}> /ημέρα</span>
+            </div>
+            {total != null && (
+              <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
+                <span style={money}>{total}€</span> για <span style={money}>{days}</span>{" "}
+                {days === 1 ? "ημέρα" : "ημέρες"}
+              </div>
+            )}
           </div>
         </div>
 
@@ -111,7 +128,7 @@ function SearchPageInner() {
   const unsupportedRoles = requestedRoles.filter((r) => !SUPPORTED_ROLES.includes(r));
 
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [] });
-  const [filters, setFilters] = useState({ ...incoming, maxPrice: "", gender: "" });
+  const [filters, setFilters] = useState({ ...incoming, gender: "" });
   const [results, setResults] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [fee, setFee] = useState(null);
@@ -147,7 +164,7 @@ function SearchPageInner() {
   );
   useEffect(() => {
     if (hasCompleteIncoming) {
-      runSearch({ ...incoming, maxPrice: "", gender: "" });
+      runSearch({ ...incoming, gender: "" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasCompleteIncoming, incoming.startDate, incoming.endDate, incoming.portId, incoming.boatTypeId]);
@@ -182,7 +199,7 @@ function SearchPageInner() {
         endDate: filters.endDate,
         portId: filters.portId,
         boatTypeId: filters.boatTypeId,
-        maxPriceFilter: filters.maxPrice || null,
+        maxPriceFilter: null,
         genderFilter: filters.gender || null,
       });
       await payAndBroadcast(request.id, Array.from(selected));
@@ -261,15 +278,9 @@ function SearchPageInner() {
             ))}
           </select>
         </div>
-        <div>
-          <label style={label}>Μέγιστη τιμή/ημέρα (προαιρετικό)</label>
-          <input
-            type="number"
-            style={input}
-            value={filters.maxPrice}
-            onChange={(e) => setFilters((f) => ({ ...f, maxPrice: e.target.value }))}
-          />
-        </div>
+        {/* No max-price filter: each result already shows its own price per
+            day, so the client compares directly instead of guessing a ceiling
+            up front and silently hiding people just above it. */}
         <div>
           <label style={label}>Φύλο skipper (προαιρετικό)</label>
           <select style={input} value={filters.gender} onChange={(e) => setFilters((f) => ({ ...f, gender: e.target.value }))}>
@@ -291,7 +302,13 @@ function SearchPageInner() {
         <div style={{ marginTop: 18 }}>
           <h2 style={h2}>{results.length} διαθέσιμοι skippers</h2>
           {results.map((s) => (
-            <SkipperCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={toggle} />
+            <SkipperCard
+              key={s.id}
+              s={s}
+              selected={selected.has(s.id)}
+              onToggle={toggle}
+              days={dayCount(filters.startDate, filters.endDate)}
+            />
           ))}
 
           {results.length > 0 && (
