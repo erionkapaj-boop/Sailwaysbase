@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer from "./components/Footer";
 import Logo from "./components/Logo";
@@ -17,11 +18,21 @@ const navLink = {
 
 function NavBar() {
   const { session, userRow, signOut, role } = useAuth();
+  const pathname = usePathname();
+  // On the home screen the large centred lockup carries the brand, so the
+  // header mark would just be a duplicate — leave the slot empty and let
+  // Login sit alone on the right.
+  const isHome = pathname === "/platform";
+
   return (
     <div style={{ ...nav, flexWrap: "wrap", rowGap: 8, columnGap: 12 }}>
-      <Link href="/platform" style={{ textDecoration: "none" }} aria-label="SkipperFinder — αρχική">
-        <Logo />
-      </Link>
+      {isHome ? (
+        <span />
+      ) : (
+        <Link href="/platform" style={{ textDecoration: "none" }} aria-label="SkipperFinder — αρχική">
+          <Logo />
+        </Link>
+      )}
       {/* Header carries Login only — no search link (the home page is the
           search entry point) and deliberately no sign-up: registration is a
           step inside the flow, at the SMS OTP moment, not a separate door. */}

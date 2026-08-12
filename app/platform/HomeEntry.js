@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import CrewSearchFlow from "./CrewSearchFlow";
+import Logo from "./components/Logo";
 import { button, colors, muted } from "../../lib/platform/theme";
 
 // The first screen shows only the CTA and the secondary link (brief §4) —
@@ -14,6 +15,12 @@ export default function HomeEntry() {
 
   return (
     <div style={{ textAlign: "center" }}>
+      {/* Brand sits centred above the action, filling what was dead space —
+          the header drops its own mark on this route so there's no double. */}
+      <div style={{ marginBottom: 44 }}>
+        <Logo variant="stacked" />
+      </div>
+
       <button
         type="button"
         onClick={() => setStarted(true)}
