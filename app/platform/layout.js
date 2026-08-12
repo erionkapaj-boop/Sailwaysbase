@@ -1,4 +1,4 @@
-import { Inter, Noto_Sans_Mono } from "next/font/google";
+import { Inter, Noto_Sans_Mono, EB_Garamond } from "next/font/google";
 import PlatformShell from "./PlatformShell";
 import { page, colors } from "../../lib/platform/theme";
 
@@ -21,9 +21,17 @@ const mono = Noto_Sans_Mono({
   display: "swap",
 });
 
+// Editorial serif for headings (brief §5). Greek coverage is mandatory.
+const serif = EB_Garamond({
+  subsets: ["latin", "greek"],
+  weight: ["400", "500", "600"],
+  variable: "--font-platform-serif",
+  display: "swap",
+});
+
 export const metadata = {
-  title: "SkipperConnect | Σύνδεση Skipper & Πελατών",
-  description: "Βρες εγκεκριμένο skipper για τις διακοπές σου, ή γίνε skipper στην πλατφόρμα.",
+  title: "SkipperFinder",
+  description: "Βρες πλήρωμα για το σκάφος σου στην Ελλάδα.",
   // Without this, /platform pages silently inherit the base app's
   // manifest.json (start_url: "/"), so "Install app" from a /platform page
   // would launch straight into the other app instead.
@@ -41,7 +49,7 @@ export const viewport = {
 export default function PlatformLayout({ children }) {
   return (
     // These .variable classes define the CSS custom properties theme.js reads.
-    <div className={`${sans.variable} ${mono.variable}`} style={page}>
+    <div className={`${sans.variable} ${mono.variable} ${serif.variable}`} style={page}>
       <PlatformShell>{children}</PlatformShell>
     </div>
   );

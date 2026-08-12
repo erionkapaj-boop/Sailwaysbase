@@ -2,11 +2,13 @@
 import Link from "next/link";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer from "./components/Footer";
-import { nav, colors, button, badge, money } from "../../lib/platform/theme";
+import Logo from "./components/Logo";
+import { nav, colors, button, badge, fontSans } from "../../lib/platform/theme";
 
 const navLink = {
   fontSize: 14,
-  fontWeight: 500,
+  fontWeight: 400,
+  fontFamily: fontSans,
   color: colors.inkSoft,
   textDecoration: "none",
   padding: "6px 4px",
@@ -17,21 +19,12 @@ function NavBar() {
   const { session, userRow, signOut, role } = useAuth();
   return (
     <div style={{ ...nav, flexWrap: "wrap", rowGap: 8, columnGap: 12 }}>
-      <Link
-        href="/platform"
-        style={{
-          fontWeight: 600,
-          fontSize: 16,
-          letterSpacing: "-0.01em",
-          color: colors.ink,
-          textDecoration: "none",
-          whiteSpace: "nowrap",
-        }}
-      >
-        SkipperConnect
+      <Link href="/platform" style={{ textDecoration: "none" }} aria-label="SkipperFinder — αρχική">
+        <Logo />
       </Link>
-      {/* No "Αναζήτηση" link: the search form is the home page's main element,
-          so repeating it in the nav is redundant. */}
+      {/* Header carries Login only — no search link (the home page is the
+          search entry point) and deliberately no sign-up: registration is a
+          step inside the flow, at the SMS OTP moment, not a separate door. */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", rowGap: 8 }}>
         {session && role === "client" && (
           <Link href="/platform/client" style={navLink}>
@@ -51,13 +44,13 @@ function NavBar() {
         {session ? (
           <>
             <span style={{ ...badge("neutral"), whiteSpace: "nowrap" }}>{userRow?.phone_number || "..."}</span>
-            <button style={button("secondary")} onClick={signOut}>
-              Έξοδος
+            <button style={{ ...navLink, background: "none", border: "none", cursor: "pointer" }} onClick={signOut}>
+              Logout
             </button>
           </>
         ) : (
-          <Link href="/platform/login">
-            <button style={button("primary")}>Είσοδος</button>
+          <Link href="/platform/login" style={{ ...navLink, color: colors.ink }}>
+            Login
           </Link>
         )}
       </div>
