@@ -35,6 +35,19 @@ export default function HomeEntry() {
           Μεταφορά Σκάφους →
         </Link>
       </div>
+
+      {/* The page speaks to clients; this is the one quiet door for the other
+          side. Deliberately far below the CTA, smaller than the delivery link,
+          and only here — a visitor passing through an interior page isn't the
+          audience for it. It also disappears once the search flow starts. */}
+      <div style={{ marginTop: 72 }}>
+        <Link
+          href="/platform/professionals"
+          style={{ fontSize: 13, color: colors.inkSoft, textDecoration: "none", opacity: 0.85 }}
+        >
+          Είσαι skipper, hostess, cook ή ναύτης; Κάνε εγγραφή →
+        </Link>
+      </div>
     </div>
   );
 }
