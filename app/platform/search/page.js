@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
+import { SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
 import {
   listLookups,
   searchSkippers,
@@ -94,12 +95,23 @@ function SkipperCard({ s, selected, onToggle }) {
   );
 }
 
-export default function SearchPage() {
+function SearchPageInner() {
   const router = useRouter();
+  const params = useSearchParams();
   const { session, role } = useAuth();
 
+  // Filters arriving from the home page form.
+  const incoming = {
+    startDate: params.get("start") || "",
+    endDate: params.get("end") || "",
+    portId: params.get("port") || "",
+    boatTypeId: params.get("boat") || "",
+  };
+  const requestedRoles = (params.get("roles") || "skipper").split(",").filter(Boolean);
+  const unsupportedRoles = requestedRoles.filter((r) => !SUPPORTED_ROLES.includes(r));
+
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [] });
-  const [filters, setFilters] = useState({ startDate: "", endDate: "", portId: "", boatTypeId: "", maxPrice: "", gender: "" });
+  const [filters, setFilters] = useState({ ...incoming, maxPrice: "", gender: "" });
   const [results, setResults] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [fee, setFee] = useState(null);
@@ -114,6 +126,32 @@ export default function SearchPage() {
     getPlatformSetting("client_request_fee").then(setFee).catch(() => {});
   }, []);
 
+  const runSearch = useCallback(async (f) => {
+    setError("");
+    setBroadcastDone(false);
+    setSelected(new Set());
+    setBusy(true);
+    try {
+      setResults(await searchSkippers(f));
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  // Arriving with a complete filter set from the home page means the user
+  // already pressed "Αναζήτηση" — don't make them press it a second time.
+  const hasCompleteIncoming = Boolean(
+    incoming.startDate && incoming.endDate && incoming.portId && incoming.boatTypeId
+  );
+  useEffect(() => {
+    if (hasCompleteIncoming) {
+      runSearch({ ...incoming, maxPrice: "", gender: "" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCompleteIncoming, incoming.startDate, incoming.endDate, incoming.portId, incoming.boatTypeId]);
+
   function toggle(id) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -124,18 +162,7 @@ export default function SearchPage() {
 
   async function handleSearch(e) {
     e.preventDefault();
-    setError("");
-    setBroadcastDone(false);
-    setSelected(new Set());
-    setBusy(true);
-    try {
-      const data = await searchSkippers(filters);
-      setResults(data);
-    } catch (err) {
-      setError(err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
+    await runSearch(filters);
   }
 
   async function handleBroadcast() {
@@ -169,8 +196,17 @@ export default function SearchPage() {
 
   return (
     <div style={container}>
-      <h1 style={h1}>Αναζήτηση Skipper</h1>
+      <h1 style={h1}>Αποτελέσματα</h1>
       <p style={muted}>Δωρεάν, χωρίς δέσμευση. Πληρώνεις μόνο όταν στέλνεις καμπανάκι.</p>
+
+      {unsupportedRoles.length > 0 && (
+        <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
+          <p style={{ ...muted, margin: 0 }}>
+            {unsupportedRoles.map(labelForRole).join(", ")} — δεν είναι ακόμα διαθέσιμοι στην πλατφόρμα.
+            Τα αποτελέσματα παρακάτω αφορούν μόνο skippers.
+          </p>
+        </div>
+      )}
 
       <form onSubmit={handleSearch} style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
         <div>
@@ -320,5 +356,15 @@ export default function SearchPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// useSearchParams needs a Suspense boundary to keep this route statically
+// prerenderable.
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div style={container}>Φόρτωση…</div>}>
+      <SearchPageInner />
+    </Suspense>
   );
 }

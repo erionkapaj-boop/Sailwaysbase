@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { AuthProvider, useAuth } from "./AuthContext";
+import Footer from "./components/Footer";
 import { nav, colors, button, badge, money } from "../../lib/platform/theme";
 
 const navLink = {
@@ -29,10 +30,9 @@ function NavBar() {
       >
         SkipperConnect
       </Link>
+      {/* No "Αναζήτηση" link: the search form is the home page's main element,
+          so repeating it in the nav is redundant. */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", rowGap: 8 }}>
-        <Link href="/platform/search" style={navLink}>
-          Αναζήτηση
-        </Link>
         {session && role === "client" && (
           <Link href="/platform/client" style={navLink}>
             Ο λογαριασμός μου
@@ -85,9 +85,10 @@ export default function PlatformShell({ children }) {
   return (
     <AuthProvider>
       <style>{globalStyles}</style>
-      <div className="platform-scope">
+      <div className="platform-scope" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         <NavBar />
-        {children}
+        <div style={{ flex: 1 }}>{children}</div>
+        <Footer />
       </div>
     </AuthProvider>
   );
