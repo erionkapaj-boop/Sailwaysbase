@@ -83,6 +83,8 @@ const globalStyles = `
 .platform-scope ::placeholder { color: ${colors.inkSoft}; opacity: 0.7; }
 .platform-scope button:disabled { opacity: 0.45; cursor: not-allowed; }
 .platform-scope a:hover { color: ${colors.ink}; }
+.platform-scope .sf-cta:hover { background: ${colors.ink}; color: #fff; }
+.platform-scope .sf-cta:active { background: ${colors.brandDark}; color: #fff; }
 `;
 
 export default function PlatformShell({ children }) {

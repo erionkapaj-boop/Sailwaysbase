@@ -21,14 +21,20 @@ export default function HomeEntry() {
         <Logo variant="stacked" />
       </div>
 
+      {/* Outline rather than filled: lighter against the warm page, closer to
+          the "spare, premium" direction. Hover/active fills it so it still
+          reads as pressable — see .sf-cta in PlatformShell's style block. */}
       <button
         type="button"
+        className="sf-cta"
         onClick={() => setStarted(true)}
         style={{
-          ...button("primary"),
+          ...button("secondary"),
           fontSize: 17,
+          fontWeight: 500,
           padding: "18px 40px",
           borderRadius: 12,
+          borderColor: colors.ink,
         }}
       >
         Αναζήτηση Πληρώματος
