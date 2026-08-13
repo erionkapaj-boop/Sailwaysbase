@@ -188,51 +188,61 @@ export default function SkipperDashboard() {
         </div>
       )}
 
-      {/* Incoming work first — this is the time-critical thing. */}
-      {profile.approval_status === "approved" && <PingsInbox skipperId={profile.id} onClaimed={loadBookings} />}
+      {/* Uniform 32px gap before every section below, instead of each one
+          picking its own margin from whatever card/border it happens to
+          use — that's what made the page read as an ad hoc stack. */}
+      {profile.approval_status === "approved" && (
+        <div style={{ marginTop: 32 }}>
+          {/* Incoming work first — this is the time-critical thing. */}
+          <PingsInbox skipperId={profile.id} onClaimed={loadBookings} />
+        </div>
+      )}
 
-      <h2 style={sectionLabel}>Κρατήσεις</h2>
-      {bookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
-      {bookings.map((b) => (
-        <BookingPanel key={b.id} booking={b} viewerRole="skipper" viewerUserId={userRow.id} onChanged={loadBookings} />
-      ))}
+      <div style={{ marginTop: 32 }}>
+        <h2 style={sectionLabel}>Κρατήσεις</h2>
+        {bookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
+        {bookings.map((b) => (
+          <BookingPanel key={b.id} booking={b} viewerRole="skipper" viewerUserId={userRow.id} onChanged={loadBookings} />
+        ))}
+      </div>
 
       {/* Wallet/tier is background information, not something acted on daily —
           a thin line, not a card competing with the sections above and
-          below it. */}
+          below it. A "·" separates the three instead of a wide gap, and
+          every label/value pair shares one explicit size so nothing
+          (notably the "—" placeholder) looks out of step with the rest. */}
       <div
         style={{
           display: "flex",
-          gap: 24,
-          flexWrap: "wrap",
           alignItems: "baseline",
+          flexWrap: "wrap",
           padding: "10px 2px",
-          margin: "20px 0",
+          marginTop: 32,
           borderTop: `1px solid ${colors.border}`,
           borderBottom: `1px solid ${colors.border}`,
-          fontSize: 13,
         }}
       >
-        <span style={muted}>
-          Wallet <b style={{ ...money, color: colors.ink, fontWeight: 500 }}>{profile.wallet_balance}€</b>
-        </span>
-        <span style={muted}>
-          Βαθμίδα{" "}
-          <b style={{ ...money, color: colors.ink, fontWeight: 500 }}>
-            {profile.tier === "high" ? "Υψηλή" : profile.tier === "low" ? "Χαμηλή" : "Μεσαία"}
-          </b>
-        </span>
-        <span style={muted}>
-          Αξιοπιστία{" "}
-          <b style={{ ...money, color: colors.ink, fontWeight: 500 }}>
-            {profile.reliability_percentage != null ? `${profile.reliability_percentage}%` : "—"}
-          </b>
-        </span>
+        <span style={{ fontSize: 13, color: colors.inkSoft }}>Wallet</span>
+        <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
+          {profile.wallet_balance}€
+        </b>
+        <span style={{ fontSize: 13, color: colors.inkSoft, margin: "0 10px" }}>·</span>
+        <span style={{ fontSize: 13, color: colors.inkSoft }}>Βαθμίδα</span>
+        <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
+          {profile.tier === "high" ? "Υψηλή" : profile.tier === "low" ? "Χαμηλή" : "Μεσαία"}
+        </b>
+        <span style={{ fontSize: 13, color: colors.inkSoft, margin: "0 10px" }}>·</span>
+        <span style={{ fontSize: 13, color: colors.inkSoft }}>Αξιοπιστία</span>
+        <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
+          {profile.reliability_percentage != null ? `${profile.reliability_percentage}%` : "—"}
+        </b>
       </div>
 
       {/* Available while pending too — no reason to wait for approval before
           saying when you can work. */}
-      <AvailabilityCalendar skipperId={profile.id} bookings={bookings} onChanged={loadBookings} />
+      <div style={{ marginTop: 32 }}>
+        <AvailabilityCalendar skipperId={profile.id} bookings={bookings} onChanged={loadBookings} />
+      </div>
     </div>
   );
 }

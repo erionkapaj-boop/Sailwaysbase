@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer from "./components/Footer";
 import Logo from "./components/Logo";
-import ProfileMenu from "./components/ProfileMenu";
 import { nav, colors, button, badge, fontSans } from "../../lib/platform/theme";
 
 const navLink = {
@@ -43,20 +42,38 @@ function NavBar() {
             Ο λογαριασμός μου
           </Link>
         )}
-        {session && role === "skipper" && (
-          <>
-            <Link href="/platform/skipper" style={navLink}>
-              Πίνακας Skipper
-            </Link>
-            <ProfileMenu profile={profile} />
-          </>
-        )}
         {session && role === "admin" && (
           <Link href="/platform/admin" style={navLink}>
             Admin
           </Link>
         )}
-        {session ? (
+        {session && role === "skipper" ? (
+          <>
+            {/* Own phone number has no reason to be shown back to the person
+                logged in with it — it's contact info that matters to a
+                client, not a badge for the professional's own header. Name
+                (+ avatar, once uploaded) reads warmer in its place. */}
+            {profile?.full_name && (
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {profile.photo_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profile.photo_url}
+                    alt=""
+                    style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                  />
+                )}
+                <span style={{ fontSize: 14, color: colors.ink, whiteSpace: "nowrap" }}>{profile.full_name}</span>
+              </span>
+            )}
+            <Link href="/platform/skipper/profile" style={navLink}>
+              Προφίλ
+            </Link>
+            <button style={{ ...navLink, background: "none", border: "none", cursor: "pointer" }} onClick={signOut}>
+              Logout
+            </button>
+          </>
+        ) : session ? (
           <>
             <span style={{ ...badge("neutral"), whiteSpace: "nowrap" }}>{userRow?.phone_number || "..."}</span>
             <button style={{ ...navLink, background: "none", border: "none", cursor: "pointer" }} onClick={signOut}>

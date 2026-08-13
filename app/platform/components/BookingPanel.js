@@ -10,7 +10,7 @@ import {
   getRevealedSkipper,
   getRevealedClient,
 } from "../../../lib/platform/db";
-import { card, h2, muted, button, input, badge, colors, money, radius } from "../../../lib/platform/theme";
+import { card, muted, button, input, badge, colors, money, radius } from "../../../lib/platform/theme";
 
 const STATUS_LABEL = {
   confirmed: ["Επιβεβαιωμένη", "success"],
@@ -20,6 +20,7 @@ const STATUS_LABEL = {
 };
 
 export default function BookingPanel({ booking, viewerRole, viewerUserId, onChanged }) {
+  const [expanded, setExpanded] = useState(false);
   const [counterpart, setCounterpart] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -34,8 +35,10 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   const isPastEnd = new Date(booking.end_date) < new Date(new Date().toDateString());
   const revealed = ["confirmed", "completed", "cancelled_by_client", "cancelled_by_skipper"].includes(booking.status);
 
+  // Loaded on first expand rather than on mount — the list can hold many
+  // bookings and most stay collapsed.
   useEffect(() => {
-    if (!revealed) return;
+    if (!revealed || !expanded) return;
     if (viewerRole === "client") {
       getRevealedSkipper(booking.skipper_id).then(setCounterpart).catch(() => {});
     } else {
@@ -43,7 +46,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
     }
     listMessages(booking.id).then(setMessages).catch(() => {});
     listReviewsForBooking(booking.id).then(setReviews).catch(() => {});
-  }, [booking.id]);
+  }, [booking.id, expanded]);
 
   async function handleSend() {
     if (!newMessage.trim()) return;
@@ -107,21 +110,52 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
 
   const [statusLabel, statusTone] = STATUS_LABEL[booking.status] || [booking.status, "neutral"];
 
-  const isConfirmed = booking.status === "confirmed" || booking.status === "completed";
-
   return (
-    // Accent stripe is a trust signal, reserved for a live/confirmed booking.
-    <div style={{ ...card, borderLeft: isConfirmed ? `3px solid ${colors.accent}` : undefined }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-        <h2 style={{ ...h2, margin: 0 }}>
-          {booking.ports?.name} · {booking.boat_types?.name}
-        </h2>
-        <span style={badge(statusTone)}>{statusLabel}</span>
-      </div>
-      <p style={{ ...muted, margin: "8px 0 0" }}>
-        <span style={money}>{booking.start_date}</span> → <span style={money}>{booking.end_date}</span>
-      </p>
+    // Collapsed by default: a row per booking, not a full card, so a list
+    // of several doesn't let one entry dominate the screen. The status
+    // badge alone signals state — no second, parallel colour stripe.
+    <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 10,
+          padding: "14px 18px",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          textAlign: "left",
+          fontFamily: "inherit",
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 14, fontWeight: 500 }}>{booking.ports?.name}</span>
+          <span style={{ ...money, fontSize: 13, color: colors.inkSoft }}>
+            {booking.start_date} → {booking.end_date}
+          </span>
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <span style={badge(statusTone)}>{statusLabel}</span>
+          <span
+            style={{
+              color: colors.inkSoft,
+              fontSize: 14,
+              transform: expanded ? "rotate(180deg)" : "none",
+              transition: "transform 0.15s ease",
+            }}
+            aria-hidden="true"
+          >
+            ⌄
+          </span>
+        </span>
+      </button>
 
+      {expanded && (
+        <div style={{ padding: "0 18px 18px" }}>
       {revealed && counterpart && (
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
           <div style={{ ...muted, fontSize: 13 }}>{viewerRole === "client" ? "Skipper" : "Πελάτης"}</div>
@@ -245,6 +279,8 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       )}
 
       {error && <p style={{ color: colors.danger, marginTop: 8 }}>{error}</p>}
+        </div>
+      )}
     </div>
   );
 }

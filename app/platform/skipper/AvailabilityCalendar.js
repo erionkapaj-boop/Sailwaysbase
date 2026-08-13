@@ -97,6 +97,18 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
     if (windowsFor(dateStr).length > 0) return "available";
     return "empty";
   }
+  // Identifies which window(s)/ports cover a day, so consecutive days that
+  // belong to the same declared block can be told apart from a boundary
+  // into a different one (different ports, or a gap).
+  function daySignature(dateStr) {
+    const ws = windowsFor(dateStr);
+    if (ws.length === 0) return null;
+    if (ws.some((w) => w.all_ports)) return "ALL";
+    const names = [
+      ...new Set(ws.flatMap((w) => (w.availability_window_ports || []).map((p) => p.ports?.name).filter(Boolean))),
+    ].sort();
+    return names.join(",");
+  }
   function dayLabel(dateStr) {
     const ws = windowsFor(dateStr);
     if (ws.length === 0) return null;
@@ -243,7 +255,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 8, width: "100%", boxSizing: "border-box" }}>
         {WEEKDAYS.map((w) => (
           <div key={w} style={{ ...muted, fontSize: 11, textAlign: "center", letterSpacing: "0.04em" }}>
             {w}
@@ -251,48 +263,62 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
-        {gridDays.map((d, i) => {
-          if (!d) return <div key={`e${i}`} />;
-          const key = fmt(d);
-          const state = cellState(key);
-          const isPast = key < today;
-          const isSelStart = selStart === key;
-          const label = state === "available" ? dayLabel(key) : null;
-          const tone = state === "booked" ? calendarDay.booked : state === "available" ? calendarDay.available : null;
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, width: "100%", boxSizing: "border-box" }}>
+        {(() => {
+          let prevSig = null;
+          return gridDays.map((d, i) => {
+            if (!d) {
+              prevSig = null;
+              return <div key={`e${i}`} />;
+            }
+            const key = fmt(d);
+            const state = cellState(key);
+            const isPast = key < today;
+            const isSelStart = selStart === key;
+            // A label repeats visual noise if shown on every day of the same
+            // block — only the first day of a contiguous same-coverage run
+            // gets it; the rest carry the fill colour alone.
+            const sig = state === "available" ? daySignature(key) : null;
+            const showLabel = state === "available" && sig !== prevSig;
+            prevSig = sig;
+            const label = showLabel ? dayLabel(key) : null;
+            const tone = state === "booked" ? calendarDay.booked : state === "available" ? calendarDay.available : null;
 
-          return (
-            <button
-              key={key}
-              type="button"
-              disabled={state === "booked" || isPast}
-              onClick={() => onDayClick(key)}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 1,
-                minHeight: 50,
-                padding: 2,
-                borderRadius: radius.sm,
-                border: `1px solid ${isSelStart ? colors.accent : "transparent"}`,
-                fontFamily: "inherit",
-                cursor: state === "booked" || isPast ? "default" : "pointer",
-                background: tone?.bg ?? "transparent",
-                color: isPast ? colors.inkSoft : tone?.fg ?? colors.inkSoft,
-                opacity: isPast ? 0.35 : 1,
-              }}
-            >
-              <span style={{ fontFamily: fontMono, fontSize: 12 }}>{d.getDate()}</span>
-              {label && (
-                <span style={{ fontSize: 9, lineHeight: 1.1, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {label}
-                </span>
-              )}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={key}
+                type="button"
+                disabled={state === "booked" || isPast}
+                onClick={() => onDayClick(key)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  minWidth: 0,
+                  boxSizing: "border-box",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 1,
+                  minHeight: 50,
+                  padding: 2,
+                  borderRadius: radius.sm,
+                  border: `1px solid ${isSelStart ? colors.accent : "transparent"}`,
+                  fontFamily: "inherit",
+                  cursor: state === "booked" || isPast ? "default" : "pointer",
+                  background: tone?.bg ?? "transparent",
+                  color: isPast ? colors.inkSoft : tone?.fg ?? colors.inkSoft,
+                  opacity: isPast ? 0.35 : 1,
+                }}
+              >
+                <span style={{ fontFamily: fontMono, fontSize: 12 }}>{d.getDate()}</span>
+                {label && (
+                  <span style={{ fontSize: 9, lineHeight: 1.1, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {label}
+                  </span>
+                )}
+              </button>
+            );
+          });
+        })()}
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, flexWrap: "wrap", gap: 10 }}>
