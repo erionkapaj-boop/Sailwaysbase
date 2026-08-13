@@ -4,6 +4,9 @@ import {
   listAvailabilityWindows,
   addAvailabilityWindow,
   removeAvailabilityWindow,
+  listAvailabilityBlocks,
+  addAvailabilityBlock,
+  removeAvailabilityBlock,
   listLookups,
 } from "../../../lib/platform/db";
 import {
@@ -57,8 +60,13 @@ const chip = (active) => ({
 
 export default function AvailabilityCalendar({ skipperId, bookings = [], onChanged }) {
   const [windows, setWindows] = useState([]);
+  const [blocks, setBlocks] = useState([]);
   const [ports, setPorts] = useState([]);
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
+  // "open" declares availability, "close" carves days out of it. An explicit
+  // mode beats overloading the same tap, since the two produce opposite
+  // results on the very same day.
+  const [mode, setMode] = useState("open");
   const [selStart, setSelStart] = useState(null);
   const [detail, setDetail] = useState(null); // date string
   const [sheet, setSheet] = useState(null); // { startDate, endDate, bulk }
@@ -69,7 +77,9 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
 
   async function load() {
     try {
-      setWindows(await listAvailabilityWindows(skipperId));
+      const [w, b] = await Promise.all([listAvailabilityWindows(skipperId), listAvailabilityBlocks(skipperId)]);
+      setWindows(w);
+      setBlocks(b);
     } catch (err) {
       setError(err.message || String(err));
     }
@@ -92,8 +102,14 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   function windowsFor(dateStr) {
     return windows.filter((w) => w.start_date <= dateStr && dateStr <= w.end_date);
   }
+  function blocksFor(dateStr) {
+    return blocks.filter((b) => b.start_date <= dateStr && dateStr <= b.end_date);
+  }
+  // A confirmed booking outranks everything (it's committed, not a
+  // preference), then a self-imposed block, then the declared window.
   function cellState(dateStr) {
     if (isBooked(dateStr)) return "booked";
+    if (blocksFor(dateStr).length > 0) return "blocked";
     if (windowsFor(dateStr).length > 0) return "available";
     return "empty";
   }
@@ -171,16 +187,54 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         return;
       }
       const [start, end] = selStart <= dateStr ? [selStart, dateStr] : [dateStr, selStart];
-      setSheet({ startDate: start, endDate: end });
       setSelStart(null);
+      if (mode === "close") {
+        closeRange(start, end);
+      } else {
+        setSheet({ startDate: start, endDate: end });
+      }
       return;
     }
 
-    if (state === "available") {
+    // Tapping a day that's already closed reopens it, whichever mode you're
+    // in — otherwise undoing a holiday would need its own hidden gesture.
+    if (state === "blocked") {
+      setDetail(dateStr);
+      return;
+    }
+    if (mode === "open" && state === "available") {
       setDetail(dateStr);
       return;
     }
     setSelStart(dateStr);
+  }
+
+  async function closeRange(startDate, endDate) {
+    setBusy(true);
+    setError("");
+    try {
+      await addAvailabilityBlock(skipperId, { startDate, endDate });
+      await load();
+      onChanged?.();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reopenBlock(id) {
+    setBusy(true);
+    try {
+      await removeAvailabilityBlock(id);
+      await load();
+      onChanged?.();
+      setDetail(null);
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
   }
 
   function openBulkSheet() {
@@ -248,9 +302,55 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   return (
     <div style={{ ...card, position: "relative" }}>
       <h2 style={sectionLabel}>Διαθεσιμότητα</h2>
+
+      <div
+        role="group"
+        aria-label="Λειτουργία ημερολογίου"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 4,
+          padding: 4,
+          background: colors.seaGlass,
+          borderRadius: radius.md,
+          marginBottom: 12,
+        }}
+      >
+        {[
+          ["open", "Άνοιγμα ημερών"],
+          ["close", "Κλείσιμο ημερών"],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={mode === value}
+            onClick={() => {
+              setMode(value);
+              setSelStart(null);
+              setError("");
+            }}
+            style={{
+              padding: "8px 10px",
+              borderRadius: radius.sm,
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: 13,
+              fontWeight: mode === value ? 600 : 400,
+              background: mode === value ? colors.card : "transparent",
+              color: mode === value ? colors.ink : colors.inkSoft,
+              boxShadow: mode === value ? shadow.card : "none",
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <p style={{ ...muted, fontSize: 13, margin: "0 0 16px" }}>
-        Πάτα μια ελεύθερη ημέρα για αρχή διαστήματος, μετά μια δεύτερη για τέλος. Οι μπλε ημέρες έχουν
-        ήδη επιβεβαιωμένη κράτηση και δεν αλλάζουν εδώ.
+        {mode === "open"
+          ? "Πάτα μια ελεύθερη ημέρα για αρχή διαστήματος, μετά μια δεύτερη για τέλος, και διάλεξε από πού δουλεύεις."
+          : "Πάτα την πρώτη και την τελευταία ημέρα που θέλεις να κλείσεις — π.χ. διακοπές. Δεν θα δέχεσαι κρατήσεις γι' αυτές, και μπορείς να τις ξανανοίξεις όποτε θες."}
       </p>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -292,7 +392,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
             const showLabel = state === "available" && sig !== prevSig;
             prevSig = sig;
             const label = showLabel ? dayLabel(key) : null;
-            const tone = state === "booked" ? calendarDay.booked : state === "available" ? calendarDay.available : null;
+            const tone = calendarDay[state] ?? null;
 
             return (
               <button
@@ -319,7 +419,20 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                   opacity: isPast ? 0.35 : 1,
                 }}
               >
-                <span style={{ fontFamily: fontMono, fontSize: 12 }}>{d.getDate()}</span>
+                <span
+                  style={{
+                    fontFamily: fontMono,
+                    fontSize: 12,
+                    // Struck through so a closed day is legible as "off" even
+                    // to someone who can't tell the two fills apart.
+                    textDecoration: state === "blocked" ? "line-through" : "none",
+                  }}
+                >
+                  {d.getDate()}
+                </span>
+                {state === "blocked" && (
+                  <span style={{ fontSize: 9, lineHeight: 1.1 }}>κλειστό</span>
+                )}
                 {label && (
                   <span style={{ fontSize: 9, lineHeight: 1.1, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {label}
@@ -338,6 +451,10 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
             Διαθέσιμο
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
+            <i style={{ width: 10, height: 10, borderRadius: 3, background: calendarDay.blocked.bg, display: "inline-block" }} />
+            Κλειστό
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
             <i style={{ width: 10, height: 10, borderRadius: 3, background: calendarDay.booked.bg, display: "inline-block" }} />
             Κράτηση
           </span>
@@ -347,9 +464,11 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
             Άκυρο ({selStart})
           </button>
         ) : (
-          <button type="button" style={{ ...button("secondary"), padding: "6px 12px", fontSize: 13 }} onClick={openBulkSheet}>
-            Μαρκάρισε όλο τον μήνα
-          </button>
+          mode === "open" && (
+            <button type="button" style={{ ...button("secondary"), padding: "6px 12px", fontSize: 13 }} onClick={openBulkSheet}>
+              Μαρκάρισε όλο τον μήνα
+            </button>
+          )
         )}
       </div>
 
@@ -362,6 +481,27 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         <div style={sheetOverlayStyle}>
           <div style={sheetStyle}>
             <h3 style={{ ...sectionLabel, margin: "0 0 10px" }}>{detail}</h3>
+
+            {blocksFor(detail).map((b) => (
+              <div
+                key={b.id}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${colors.border}` }}
+              >
+                <span style={{ fontSize: 13 }}>
+                  Κλειστό: {b.start_date} → {b.end_date}
+                  <span style={{ ...muted, fontSize: 12, display: "block" }}>Δεν δέχεσαι κρατήσεις</span>
+                </span>
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={{ ...button("secondary"), padding: "6px 10px", fontSize: 12 }}
+                  onClick={() => reopenBlock(b.id)}
+                >
+                  Ξανα-άνοιγμα
+                </button>
+              </div>
+            ))}
+
             {windowsFor(detail).map((w) => (
               <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${colors.border}` }}>
                 <span style={{ fontSize: 13 }}>
@@ -376,11 +516,29 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                 </button>
               </div>
             ))}
-            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+            {windowsFor(detail).length === 0 && blocksFor(detail).length === 0 && (
+              <p style={{ ...muted, fontSize: 13 }}>Δεν έχεις δηλώσει τίποτα για αυτή την ημέρα.</p>
+            )}
+
+            <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+              {cellState(detail) === "available" && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={{ ...button("secondary"), flex: 1 }}
+                  onClick={() => {
+                    setDetail(null);
+                    closeRange(detail, detail);
+                  }}
+                >
+                  Κλείσε αυτή την ημέρα
+                </button>
+              )}
               <button
                 type="button"
                 style={{ ...button("secondary"), flex: 1 }}
                 onClick={() => {
+                  setMode("open");
                   setSelStart(detail);
                   setDetail(null);
                 }}
