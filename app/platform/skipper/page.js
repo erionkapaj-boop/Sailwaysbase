@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import {
+  getSkipperLookups,
   listMyPings,
   claimBookingRequest,
   listMyBookingsAsSkipper,
@@ -9,6 +10,7 @@ import {
 } from "../../../lib/platform/db";
 import ProfileForm from "./ProfileForm";
 import AvailabilityEditor from "./AvailabilityEditor";
+import Collapsible from "../components/Collapsible";
 import BookingPanel from "../components/BookingPanel";
 import Stat from "../components/Stat";
 import { container, card, h1, h2, muted, button, input, badge, colors, money } from "../../../lib/platform/theme";
@@ -156,12 +158,18 @@ export default function SkipperDashboard() {
   const { session, profile, userRow, loading, refresh, loadError } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [availabilityVersion, setAvailabilityVersion] = useState(0);
+  const [lookupCounts, setLookupCounts] = useState({ languages: 0, boatTypes: 0 });
 
   async function loadBookings() {
     if (profile?.id) setBookings(await listMyBookingsAsSkipper(profile.id));
   }
   useEffect(() => {
     loadBookings();
+    if (profile?.id) {
+      getSkipperLookups(profile.id)
+        .then((r) => setLookupCounts({ languages: r.languageIds.length, boatTypes: r.boatTypeIds.length }))
+        .catch(() => {});
+    }
   }, [profile?.id]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
@@ -169,18 +177,24 @@ export default function SkipperDashboard() {
   if (userRow?.role !== "skipper") return <div style={container}>Αυτή η σελίδα είναι μόνο για skippers.</div>;
   if (!profile) return <MissingProfile userRow={userRow} refresh={refresh} loadError={loadError} />;
 
-  // Licence is no longer collected, so a name is what tells a fresh profile
-  // apart from a filled-in one.
-  const needsOnboarding = !profile.full_name;
+  const missing = [];
+  if (!profile.full_name) missing.push("ονοματεπώνυμο");
+  if (!profile.photo_url) missing.push("φωτογραφία");
+  if (lookupCounts.languages === 0) missing.push("γλώσσες");
+  if ((profile.role || "skipper") === "skipper" && lookupCounts.boatTypes === 0)
+    missing.push("τύποι σκαφών");
 
   return (
     <div style={container}>
-      <h1 style={h1}>Πίνακας Skipper</h1>
+      <h1 style={h1}>Ο πίνακάς μου</h1>
 
-      {profile.approval_status === "pending" && !needsOnboarding && (
+      {profile.approval_status === "pending" && (
         <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
-          <b style={{ fontWeight: 600 }}>Το προφίλ σου περιμένει έγκριση admin.</b>
-          <p style={{ ...muted, margin: "6px 0 0" }}>Μπορείς να επεξεργαστείς το προφίλ σου όσο περιμένεις.</p>
+          <b style={{ fontWeight: 600 }}>Το προφίλ σου περιμένει έγκριση.</b>
+          <p style={{ ...muted, margin: "6px 0 0" }}>
+            Μέχρι τότε δεν εμφανίζεσαι σε αναζητήσεις, αλλά μπορείς να συμπληρώσεις το προφίλ και τη
+            διαθεσιμότητά σου από τώρα.
+          </p>
         </div>
       )}
       {profile.approval_status === "rejected" && (
@@ -212,28 +226,42 @@ export default function SkipperDashboard() {
         </div>
       )}
 
+      {/* Incoming work first — this is the time-critical thing. */}
       {profile.approval_status === "approved" && <PingsInbox skipperId={profile.id} onClaimed={loadBookings} />}
 
-      {/* The banner inside ProfileForm reports whether availability exists, so
-          it has to re-check when the editor below changes one. */}
-      <ProfileForm profile={profile} onSaved={refresh} availabilityVersion={availabilityVersion} />
+      <h2 style={h2}>Κρατήσεις</h2>
+      {bookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
+      {bookings.map((b) => (
+        <BookingPanel key={b.id} booking={b} viewerRole="skipper" viewerUserId={userRow.id} onChanged={loadBookings} />
+      ))}
 
-      {profile.approval_status === "approved" && (
+      {/* Availability is edited constantly, so it stays open and above the
+          profile, which is filled in once and rarely touched again. Available
+          while pending too: no reason to wait for approval before saying when
+          you can work. */}
+      <div style={{ marginTop: 24 }}>
         <AvailabilityEditor
           skipperId={profile.id}
           onChanged={() => setAvailabilityVersion((v) => v + 1)}
         />
-      )}
+      </div>
 
-      {profile.approval_status === "approved" && (
-        <>
-          <h2 style={h2}>Κρατήσεις</h2>
-          {bookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
-          {bookings.map((b) => (
-            <BookingPanel key={b.id} booking={b} viewerRole="skipper" viewerUserId={userRow.id} onChanged={loadBookings} />
-          ))}
-        </>
-      )}
+      <Collapsible
+        title="Το προφίλ μου"
+        subtitle={
+          missing.length > 0
+            ? "Λείπουν στοιχεία — χωρίς αυτά δεν εμφανίζεσαι σε αναζητήσεις."
+            : "Ό,τι βλέπουν οι πελάτες για σένα."
+        }
+        badgeText={missing.length > 0 ? "Ημιτελές" : "Πλήρες"}
+        badgeTone={missing.length > 0 ? "warn" : "success"}
+        defaultOpen={missing.length > 0}
+      >
+        {missing.length > 0 && (
+          <p style={{ ...muted, fontSize: 13, margin: "0 0 16px" }}>Λείπουν: {missing.join(" · ")}</p>
+        )}
+        <ProfileForm profile={profile} onSaved={refresh} availabilityVersion={availabilityVersion} />
+      </Collapsible>
     </div>
   );
 }

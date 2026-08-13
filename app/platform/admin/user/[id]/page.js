@@ -3,7 +3,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth } from "../../../AuthContext";
-import { adminGetUser, adminGetUserOverview } from "../../../../../lib/platform/db";
+import {
+  adminGetUser,
+  adminGetUserOverview,
+  adminApproveSkipper,
+  adminRejectSkipper,
+} from "../../../../../lib/platform/db";
 import { computeCrewHighlights } from "../../../../../lib/platform/roles";
 import Stat from "../../../components/Stat";
 import {
@@ -12,6 +17,7 @@ import {
   h1,
   h2,
   muted,
+  button,
   badge,
   colors,
   money,
@@ -49,22 +55,52 @@ export default function AdminUserViewPage() {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
+
+  async function load() {
+    setBusy(true);
+    try {
+      const u = await adminGetUser(id);
+      setTarget(u);
+      if (u) setData(await adminGetUserOverview(id, u.role));
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!id || userRow?.role !== "admin") return;
-    (async () => {
-      setBusy(true);
-      try {
-        const u = await adminGetUser(id);
-        setTarget(u);
-        if (u) setData(await adminGetUserOverview(id, u.role));
-      } catch (err) {
-        setError(err.message || String(err));
-      } finally {
-        setBusy(false);
-      }
-    })();
+    load();
   }, [id, userRow]);
+
+  async function handleApprove() {
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await adminApproveSkipper(id);
+      await load();
+    } catch (err) {
+      setActionError(err.message || String(err));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleReject() {
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await adminRejectSkipper(id, null);
+      await load();
+    } catch (err) {
+      setActionError(err.message || String(err));
+    } finally {
+      setActionBusy(false);
+    }
+  }
 
   if (loading) return <div style={container}>Φόρτωση…</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
@@ -160,6 +196,39 @@ export default function AdminUserViewPage() {
 
           {data?.role === "skipper" && data.profile && (
             <>
+              {/* The only action this screen allows — everything else here is
+                  read-only "view as". Approving/rejecting acts on the real
+                  row, not on what the admin happens to be looking at. */}
+              {(data.profile.approval_status === "pending" || data.profile.approval_status === "rejected") && (
+                <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
+                  <b style={{ fontWeight: 600 }}>
+                    {data.profile.approval_status === "pending"
+                      ? "Το προφίλ περιμένει έγκριση."
+                      : "Το προφίλ έχει απορριφθεί."}
+                  </b>
+                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                    <button style={button("primary")} disabled={actionBusy} onClick={handleApprove}>
+                      {actionBusy ? "..." : "Έγκριση"}
+                    </button>
+                    {data.profile.approval_status === "pending" && (
+                      <button style={button("secondary")} disabled={actionBusy} onClick={handleReject}>
+                        {actionBusy ? "..." : "Απόρριψη"}
+                      </button>
+                    )}
+                  </div>
+                  {actionError && <p style={{ color: colors.danger, marginTop: 10 }}>{actionError}</p>}
+                </div>
+              )}
+              {data.profile.approval_status === "approved" && (
+                <div style={{ ...card, marginTop: 20, display: "flex", gap: 12, alignItems: "center" }}>
+                  <span style={badge("success")}>Εγκεκριμένο</span>
+                  <button style={button("secondary")} disabled={actionBusy} onClick={handleReject}>
+                    {actionBusy ? "..." : "Ανάκληση έγκρισης"}
+                  </button>
+                  {actionError && <p style={{ color: colors.danger, margin: 0 }}>{actionError}</p>}
+                </div>
+              )}
+
               <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap", marginTop: 20 }}>
                 <Stat label="Wallet" value={`${data.profile.wallet_balance}€`} />
                 <Stat label="Τιμή/ημέρα" value={`${data.profile.price_per_day}€`} />
