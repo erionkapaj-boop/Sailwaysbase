@@ -2,18 +2,14 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import {
-  getSkipperLookups,
   listMyPings,
   claimBookingRequest,
   listMyBookingsAsSkipper,
   createMissingProfile,
 } from "../../../lib/platform/db";
-import ProfileForm from "./ProfileForm";
-import AvailabilityEditor from "./AvailabilityEditor";
-import Collapsible from "../components/Collapsible";
+import AvailabilityCalendar from "./AvailabilityCalendar";
 import BookingPanel from "../components/BookingPanel";
-import Stat from "../components/Stat";
-import { container, card, h1, h2, muted, button, input, badge, colors, money } from "../../../lib/platform/theme";
+import { container, card, h1, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 
 const CLAIM_ERRORS = {
   request_not_open: "Το αίτημα δεν είναι πια ανοιχτό — κάποιος άλλος πρόλαβε ή έληξε.",
@@ -55,7 +51,7 @@ function PingsInbox({ skipperId, onClaimed }) {
 
   return (
     <div>
-      <h2 style={h2}>Εισερχόμενα καμπανάκια ({pending.length})</h2>
+      <h2 style={sectionLabel}>Εισερχόμενα αιτήματα ({pending.length})</h2>
       {error && <p style={{ color: colors.danger }}>{error}</p>}
       {pending.length === 0 && <p style={muted}>Δεν υπάρχουν εκκρεμή αιτήματα αυτή τη στιγμή.</p>}
       {pending.map((p) => {
@@ -99,7 +95,7 @@ function PingsInbox({ skipperId, onClaimed }) {
   );
 }
 
-function MissingProfile({ userRow, refresh, loadError }) {
+export function MissingProfile({ userRow, refresh, loadError }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -157,32 +153,18 @@ function MissingProfile({ userRow, refresh, loadError }) {
 export default function SkipperDashboard() {
   const { session, profile, userRow, loading, refresh, loadError } = useAuth();
   const [bookings, setBookings] = useState([]);
-  const [availabilityVersion, setAvailabilityVersion] = useState(0);
-  const [lookupCounts, setLookupCounts] = useState({ languages: 0, boatTypes: 0 });
 
   async function loadBookings() {
     if (profile?.id) setBookings(await listMyBookingsAsSkipper(profile.id));
   }
   useEffect(() => {
     loadBookings();
-    if (profile?.id) {
-      getSkipperLookups(profile.id)
-        .then((r) => setLookupCounts({ languages: r.languageIds.length, boatTypes: r.boatTypeIds.length }))
-        .catch(() => {});
-    }
   }, [profile?.id]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
   if (userRow?.role !== "skipper") return <div style={container}>Αυτή η σελίδα είναι μόνο για skippers.</div>;
   if (!profile) return <MissingProfile userRow={userRow} refresh={refresh} loadError={loadError} />;
-
-  const missing = [];
-  if (!profile.full_name) missing.push("ονοματεπώνυμο");
-  if (!profile.photo_url) missing.push("φωτογραφία");
-  if (lookupCounts.languages === 0) missing.push("γλώσσες");
-  if ((profile.role || "skipper") === "skipper" && lookupCounts.boatTypes === 0)
-    missing.push("τύποι σκαφών");
 
   return (
     <div style={container}>
@@ -206,62 +188,51 @@ export default function SkipperDashboard() {
         </div>
       )}
 
-      {profile.approval_status === "approved" && (
-        <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap" }}>
-          <Stat label="Wallet" value={`${profile.wallet_balance}€`} />
-          <Stat
-            label="Βαθμίδα"
-            value={profile.tier === "high" ? "Υψηλή" : profile.tier === "low" ? "Χαμηλή" : "Μεσαία"}
-          />
-          <Stat
-            label="Ποσοστό αξιοπιστίας"
-            value={profile.reliability_percentage != null ? `${profile.reliability_percentage}%` : "—"}
-          />
-          <div style={{ flexBasis: "100%" }}>
-            <p style={{ ...muted, margin: "6px 0 0", fontSize: 13 }}>
-              Φόρτωση wallet: επικοινώνησε με τον admin για τραπεζική κατάθεση ή κάρτα — πιστώνεται
-              στο υπόλοιπό σου.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Incoming work first — this is the time-critical thing. */}
       {profile.approval_status === "approved" && <PingsInbox skipperId={profile.id} onClaimed={loadBookings} />}
 
-      <h2 style={h2}>Κρατήσεις</h2>
+      <h2 style={sectionLabel}>Κρατήσεις</h2>
       {bookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
       {bookings.map((b) => (
         <BookingPanel key={b.id} booking={b} viewerRole="skipper" viewerUserId={userRow.id} onChanged={loadBookings} />
       ))}
 
-      {/* Availability is edited constantly, so it stays open and above the
-          profile, which is filled in once and rarely touched again. Available
-          while pending too: no reason to wait for approval before saying when
-          you can work. */}
-      <div style={{ marginTop: 24 }}>
-        <AvailabilityEditor
-          skipperId={profile.id}
-          onChanged={() => setAvailabilityVersion((v) => v + 1)}
-        />
+      {/* Wallet/tier is background information, not something acted on daily —
+          a thin line, not a card competing with the sections above and
+          below it. */}
+      <div
+        style={{
+          display: "flex",
+          gap: 24,
+          flexWrap: "wrap",
+          alignItems: "baseline",
+          padding: "10px 2px",
+          margin: "20px 0",
+          borderTop: `1px solid ${colors.border}`,
+          borderBottom: `1px solid ${colors.border}`,
+          fontSize: 13,
+        }}
+      >
+        <span style={muted}>
+          Wallet <b style={{ ...money, color: colors.ink, fontWeight: 500 }}>{profile.wallet_balance}€</b>
+        </span>
+        <span style={muted}>
+          Βαθμίδα{" "}
+          <b style={{ ...money, color: colors.ink, fontWeight: 500 }}>
+            {profile.tier === "high" ? "Υψηλή" : profile.tier === "low" ? "Χαμηλή" : "Μεσαία"}
+          </b>
+        </span>
+        <span style={muted}>
+          Αξιοπιστία{" "}
+          <b style={{ ...money, color: colors.ink, fontWeight: 500 }}>
+            {profile.reliability_percentage != null ? `${profile.reliability_percentage}%` : "—"}
+          </b>
+        </span>
       </div>
 
-      <Collapsible
-        title="Το προφίλ μου"
-        subtitle={
-          missing.length > 0
-            ? "Λείπουν στοιχεία — χωρίς αυτά δεν εμφανίζεσαι σε αναζητήσεις."
-            : "Ό,τι βλέπουν οι πελάτες για σένα."
-        }
-        badgeText={missing.length > 0 ? "Ημιτελές" : "Πλήρες"}
-        badgeTone={missing.length > 0 ? "warn" : "success"}
-        defaultOpen={missing.length > 0}
-      >
-        {missing.length > 0 && (
-          <p style={{ ...muted, fontSize: 13, margin: "0 0 16px" }}>Λείπουν: {missing.join(" · ")}</p>
-        )}
-        <ProfileForm profile={profile} onSaved={refresh} availabilityVersion={availabilityVersion} />
-      </Collapsible>
+      {/* Available while pending too — no reason to wait for approval before
+          saying when you can work. */}
+      <AvailabilityCalendar skipperId={profile.id} bookings={bookings} onChanged={loadBookings} />
     </div>
   );
 }

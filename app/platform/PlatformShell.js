@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer from "./components/Footer";
 import Logo from "./components/Logo";
+import ProfileMenu from "./components/ProfileMenu";
 import { nav, colors, button, badge, fontSans } from "../../lib/platform/theme";
 
 const navLink = {
@@ -17,7 +18,7 @@ const navLink = {
 };
 
 function NavBar() {
-  const { session, userRow, signOut, role } = useAuth();
+  const { session, userRow, profile, signOut, role } = useAuth();
   const pathname = usePathname();
   // On the home screen the large centred lockup carries the brand, so the
   // header mark would just be a duplicate — leave the slot empty and let
@@ -43,9 +44,12 @@ function NavBar() {
           </Link>
         )}
         {session && role === "skipper" && (
-          <Link href="/platform/skipper" style={navLink}>
-            Πίνακας Skipper
-          </Link>
+          <>
+            <Link href="/platform/skipper" style={navLink}>
+              Πίνακας Skipper
+            </Link>
+            <ProfileMenu profile={profile} />
+          </>
         )}
         {session && role === "admin" && (
           <Link href="/platform/admin" style={navLink}>
