@@ -35,7 +35,7 @@ export default function SkipperMenu({ onSignOut }) {
           <div
             style={{
               position: "absolute",
-              right: 0,
+              left: 0,
               top: "calc(100% + 6px)",
               background: colors.card,
               border: `1px solid ${colors.border}`,
