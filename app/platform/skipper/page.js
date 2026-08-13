@@ -10,6 +10,7 @@ import {
 import AvailabilityCalendar from "./AvailabilityCalendar";
 import MissingProfile from "./MissingProfile";
 import BookingPanel from "../components/BookingPanel";
+import Stars from "../components/Stars";
 import { container, card, h1, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 
 const CLAIM_ERRORS = {
@@ -175,6 +176,21 @@ function SkipperDashboardInner() {
         ))}
       </div>
 
+      {/* Standing: the star row belongs with reliability and tier, since all
+          three answer the same question — how do I look to a client right
+          now. Given its own line above them because it's the one a
+          professional actually cares about. */}
+      <div
+        style={{
+          marginTop: 32,
+          paddingBottom: 10,
+          borderTop: `1px solid ${colors.border}`,
+          paddingTop: 12,
+        }}
+      >
+        <Stars rating={profile.rating_avg} count={profile.rating_count} size={17} />
+      </div>
+
       {/* Wallet/tier is background information, not something acted on daily —
           a thin line, not a card competing with the sections above and
           below it. A "·" separates the three instead of a wide gap, and
@@ -186,7 +202,6 @@ function SkipperDashboardInner() {
           alignItems: "baseline",
           flexWrap: "wrap",
           padding: "10px 2px",
-          marginTop: 32,
           borderTop: `1px solid ${colors.border}`,
           borderBottom: `1px solid ${colors.border}`,
         }}

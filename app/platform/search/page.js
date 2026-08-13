@@ -2,6 +2,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
+import Stars from "../components/Stars";
 import { SUPPORTED_ROLES, labelForRole, computeCrewHighlights } from "../../../lib/platform/roles";
 import {
   listLookups,
@@ -72,18 +73,18 @@ function SkipperCard({ s, selected, onToggle, days }) {
           </div>
         </div>
 
-        <div style={{ margin: "10px 0", fontSize: 14, color: colors.inkSoft }}>
-          <span style={{ ...money, color: colors.ink }}>{s.rating_avg ? s.rating_avg.toFixed(1) : "—"}</span>
-          {" ★ "}
-          <span style={money}>({s.rating_count})</span>
-          {" · "}
-          {s.reliability_percentage != null ? (
-            <>
-              <span style={{ ...money, color: colors.ink }}>{s.reliability_percentage}%</span> αξιοπιστία
-            </>
-          ) : (
-            "νέος στην πλατφόρμα"
-          )}
+        <div style={{ margin: "10px 0", fontSize: 14, color: colors.inkSoft, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+          <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
+          <span>
+            {"· "}
+            {s.reliability_percentage != null ? (
+              <>
+                <span style={{ ...money, color: colors.ink }}>{s.reliability_percentage}%</span> αξιοπιστία
+              </>
+            ) : (
+              "νέος στην πλατφόρμα"
+            )}
+          </span>
         </div>
 
         {/* Highlights are derived, never self-written — see computeCrewHighlights. */}

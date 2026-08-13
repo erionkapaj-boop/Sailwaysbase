@@ -11,6 +11,7 @@ import {
 } from "../../../../../lib/platform/db";
 import { computeCrewHighlights } from "../../../../../lib/platform/roles";
 import Stat from "../../../components/Stat";
+import Stars from "../../../components/Stars";
 import {
   container,
   card,
@@ -151,10 +152,9 @@ export default function AdminUserViewPage() {
                   }
                 />
                 <Stat label="Ολοκληρωμένες" value={data.profile?.completed_bookings_count ?? 0} />
-                <Stat
-                  label="Αξιολόγηση"
-                  value={data.profile?.rating_avg ? data.profile.rating_avg.toFixed(1) : "—"}
-                />
+                <div style={{ flexBasis: "100%" }}>
+                  <Stars rating={data.profile?.rating_avg} count={data.profile?.rating_count ?? 0} />
+                </div>
               </div>
 
               <h2 style={h2}>Αιτήματα ({data.requests.length})</h2>
@@ -251,6 +251,9 @@ export default function AdminUserViewPage() {
                   }
                 />
                 <Stat label="Έγκριση" value={data.profile.approval_status} />
+                <div style={{ flexBasis: "100%" }}>
+                  <Stars rating={data.profile.rating_avg} count={data.profile.rating_count ?? 0} />
+                </div>
               </div>
 
               <h2 style={h2}>Προφίλ</h2>
