@@ -1,136 +1,117 @@
 "use client";
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
-import { sendOtp, verifyOtp, createAccount } from "../../../lib/platform/db";
-import { container, card, h1, muted, button, input, label } from "../../../lib/platform/theme";
+import { signInWithPin, checkLoginAllowed, normalizePhone } from "../../../lib/platform/db";
+import { container, card, h1, muted, button, input, label, colors } from "../../../lib/platform/theme";
 
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const defaultRole = params.get("role") === "skipper" ? "skipper" : "client";
-  const { refresh, needsRoleSelection, session } = useAuth();
+  const { session, refresh } = useAuth();
 
   const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [step, setStep] = useState("phone"); // phone | otp | role
-  const [role, setRole] = useState(defaultRole);
+  const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [lockedOut, setLockedOut] = useState(false);
 
-  async function handleSendOtp(e) {
+  async function submit(e) {
     e.preventDefault();
     setError("");
     setBusy(true);
     try {
-      await sendOtp(phone);
-      setStep("otp");
-    } catch (err) {
-      setError(err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleVerify(e) {
-    e.preventDefault();
-    setError("");
-    setBusy(true);
-    try {
-      await verifyOtp(phone, otp);
+      await signInWithPin(phone, pin);
       await refresh();
-      setStep("role");
+      router.push(params.get("next") || "/platform");
     } catch (err) {
-      setError(err.message || String(err));
+      if (err.message === "locked_out") {
+        setLockedOut(true);
+      } else {
+        // Don't say whether the phone or the PIN was wrong — that would tell
+        // an attacker which numbers have accounts.
+        setError("Λάθος τηλέφωνο ή κωδικός.");
+        // Surface the block on the attempt that causes it, not on the next one.
+        const stillAllowed = await checkLoginAllowed(normalizePhone(phone));
+        if (!stillAllowed) setLockedOut(true);
+      }
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleCreateAccount() {
-    setError("");
-    setBusy(true);
-    try {
-      await createAccount({ role, phone });
-      await refresh();
-      router.push(role === "skipper" ? "/platform/skipper" : "/platform/client");
-    } catch (err) {
-      setError(err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (session && !needsRoleSelection) {
+  if (session) {
     return (
-      <div style={container}>
-        <div style={card}>
-          <h1 style={h1}>Είσαι ήδη συνδεδεμένος/η</h1>
-          <p style={muted}>Χρησιμοποίησε το μενού για να πας στον λογαριασμό σου.</p>
-        </div>
+      <div style={{ ...container, maxWidth: 460 }}>
+        <h1 style={h1}>Είσαι ήδη συνδεδεμένος</h1>
+        <p style={muted}>Χρησιμοποίησε το μενού για να πας στον λογαριασμό σου.</p>
       </div>
     );
   }
 
   return (
-    <div style={container}>
-      <div style={{ maxWidth: 420, margin: "0 auto" }}>
-        <h1 style={h1}>Είσοδος / Εγγραφή</h1>
-        <p style={muted}>Χρειάζεται επαλήθευση κινητού (SMS OTP) μόνο όταν θες να χτυπήσεις καμπανάκι ή να γίνεις skipper.</p>
+    <div style={{ ...container, maxWidth: 460 }}>
+      <h1 style={h1}>Είσοδος</h1>
 
-        {(step === "phone" || (needsRoleSelection === false && step === "otp")) && step === "phone" && (
-          <form onSubmit={handleSendOtp} style={{ ...card, marginTop: 16 }}>
-            <label style={label}>Κινητό τηλέφωνο</label>
-            <input
-              style={input}
-              placeholder="69XXXXXXXX"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
-            <button style={{ ...button("primary"), width: "100%", marginTop: 12 }} disabled={busy} type="submit">
-              {busy ? "Αποστολή..." : "Αποστολή κωδικού SMS"}
-            </button>
-          </form>
-        )}
+      {lockedOut ? (
+        // Deliberately no retry field: after three consecutive failures the
+        // only way forward is a reset, so offering the form again would just
+        // waste attempts.
+        <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
+          <b style={{ fontWeight: 600 }}>Ο λογαριασμός κλειδώθηκε.</b>
+          <p style={{ ...muted, margin: "8px 0 16px" }}>
+            Έγιναν τρεις αποτυχημένες προσπάθειες. Για να συνεχίσεις, όρισε νέο κωδικό.
+          </p>
+          <Link href="/platform/forgot-pin">
+            <button style={button("primary")}>Ορισμός νέου κωδικού</button>
+          </Link>
+        </div>
+      ) : (
+        <form onSubmit={submit} style={{ ...card, marginTop: 20 }}>
+          <label style={label} htmlFor="login-phone">
+            Κινητό τηλέφωνο
+          </label>
+          <input
+            id="login-phone"
+            required
+            inputMode="tel"
+            placeholder="69XXXXXXXX"
+            autoComplete="tel"
+            style={{ ...input, marginBottom: 16 }}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
 
-        {step === "otp" && (
-          <form onSubmit={handleVerify} style={{ ...card, marginTop: 16 }}>
-            <label style={label}>Κωδικός SMS</label>
-            <input style={input} placeholder="123456" value={otp} onChange={(e) => setOtp(e.target.value)} required />
-            <button style={{ ...button("primary"), width: "100%", marginTop: 12 }} disabled={busy} type="submit">
-              {busy ? "Επαλήθευση..." : "Επαλήθευση"}
-            </button>
-          </form>
-        )}
+          <label style={label} htmlFor="login-pin">
+            Κωδικός
+          </label>
+          <input
+            id="login-pin"
+            type="password"
+            required
+            autoComplete="current-password"
+            style={{ ...input, marginBottom: 20 }}
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+          />
 
-        {(step === "role" || needsRoleSelection) && (
-          <div style={{ ...card, marginTop: 16 }}>
-            <label style={label}>Είσαι πελάτης ή skipper;</label>
-            <div style={{ display: "flex", gap: 10, margin: "8px 0 14px" }}>
-              <button
-                style={button(role === "client" ? "primary" : "secondary")}
-                onClick={() => setRole("client")}
-                type="button"
-              >
-                Πελάτης
-              </button>
-              <button
-                style={button(role === "skipper" ? "primary" : "secondary")}
-                onClick={() => setRole("skipper")}
-                type="button"
-              >
-                Skipper
-              </button>
-            </div>
-            <button style={{ ...button("primary"), width: "100%" }} disabled={busy} onClick={handleCreateAccount}>
-              {busy ? "..." : "Δημιουργία λογαριασμού"}
-            </button>
+          <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%" }}>
+            {busy ? "Είσοδος…" : "Είσοδος"}
+          </button>
+
+          {error && <p style={{ color: colors.danger, marginTop: 12, marginBottom: 0 }}>{error}</p>}
+
+          <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <Link href="/platform/forgot-pin" style={{ ...muted, fontSize: 13, textDecoration: "none" }}>
+              Ξέχασα τον κωδικό
+            </Link>
+            <Link href="/platform/register" style={{ ...muted, fontSize: 13, textDecoration: "none" }}>
+              Δεν έχω λογαριασμό
+            </Link>
           </div>
-        )}
-
-        {error && <p style={{ color: "#C0392B", marginTop: 10 }}>{error}</p>}
-      </div>
+        </form>
+      )}
     </div>
   );
 }
