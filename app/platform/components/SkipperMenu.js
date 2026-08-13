@@ -46,7 +46,10 @@ export default function SkipperMenu({ onSignOut }) {
               overflow: "hidden",
             }}
           >
-            <Link href="/platform/skipper" onClick={() => setOpen(false)} style={itemStyle}>
+            <Link href="/platform" onClick={() => setOpen(false)} style={itemStyle}>
+              Αρχική
+            </Link>
+            <Link href="/platform/skipper" onClick={() => setOpen(false)} style={{ ...itemStyle, borderTop: `1px solid ${colors.border}` }}>
               Ο πίνακάς μου
             </Link>
             <Link href="/platform/skipper/profile" onClick={() => setOpen(false)} style={itemStyle}>

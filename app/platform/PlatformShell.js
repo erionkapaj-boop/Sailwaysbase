@@ -51,12 +51,14 @@ function NavBar() {
         )}
         {session && role === "skipper" ? (
           <>
-            {/* Own phone number has no reason to be shown back to the person
-                logged in with it — it's contact info that matters to a
-                client, not a badge for the professional's own header. Name
-                (+ avatar, once uploaded) reads warmer in its place. */}
+            {/* Two distinct clusters, not one continuous row: identity (who
+                you are, tap to go home) on one side of a hairline divider,
+                actions (notifications, navigation) on the other. */}
             {profile?.full_name && (
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Link
+                href="/platform"
+                style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}
+              >
                 {profile.photo_url && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -66,7 +68,10 @@ function NavBar() {
                   />
                 )}
                 <span style={{ fontSize: 14, color: colors.ink, whiteSpace: "nowrap" }}>{profile.full_name}</span>
-              </span>
+              </Link>
+            )}
+            {profile?.full_name && (
+              <span aria-hidden="true" style={{ width: 1, height: 20, background: colors.border, flexShrink: 0 }} />
             )}
             <NotificationBell notifications={notifications} />
             <SkipperMenu onSignOut={signOut} />
