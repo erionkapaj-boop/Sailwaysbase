@@ -5,6 +5,7 @@ import {
   updateSkipperProfile,
   setSkipperLookups,
   getSkipperLookups,
+  hasFutureAvailability,
 } from "../../../lib/platform/db";
 import { computeCrewHighlights, labelForRole } from "../../../lib/platform/roles";
 import PhotoUpload from "../components/PhotoUpload";
@@ -57,7 +58,7 @@ function Criterion({ met, children }) {
   );
 }
 
-export default function ProfileForm({ profile, onSaved }) {
+export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 }) {
   const [lookups, setLookups] = useState({ languages: [], boatTypes: [], ports: [] });
   const [form, setForm] = useState({
     full_name: profile.full_name || "",
@@ -69,6 +70,7 @@ export default function ProfileForm({ profile, onSaved }) {
   const [languageIds, setLanguageIds] = useState([]);
   const [boatTypeIds, setBoatTypeIds] = useState([]);
   const [portIds, setPortIds] = useState([]);
+  const [hasAvailability, setHasAvailability] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -83,7 +85,10 @@ export default function ProfileForm({ profile, onSaved }) {
       setBoatTypeIds(r.boatTypeIds);
       setPortIds(r.portIds);
     });
-  }, [profile.id]);
+    // Availability now lives in its own editor; the banner reflects it rather
+    // than assuming it's unset.
+    hasFutureAvailability(profile.id).then(setHasAvailability).catch(() => {});
+  }, [profile.id, availabilityVersion]);
 
   function toggleIn(list, setList, id) {
     setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
@@ -120,22 +125,14 @@ export default function ProfileForm({ profile, onSaved }) {
   }
 
   // Three things decide whether this profile can be found by a client.
-  // Availability lives in a separate system that doesn't exist yet, so it
-  // reads false for now rather than pretending to be satisfied.
   const hasPhoto = Boolean(form.photo_url);
   const hasPrice = Number(form.price_per_day) >= MIN_PRICE;
-  const hasAvailability = false;
   const visible = hasPhoto && hasPrice && hasAvailability;
 
   const highlights = computeCrewHighlights(
     { ...profile, years_experience: form.years_experience },
     { languageCount: languageIds.length }
   );
-
-  const portsByRegion = lookups.ports.reduce((acc, p) => {
-    (acc[p.region || "Άλλα"] ||= []).push(p);
-    return acc;
-  }, {});
 
   return (
     // Bottom padding leaves room for the fixed save bar.
@@ -159,7 +156,7 @@ export default function ProfileForm({ profile, onSaved }) {
         </div>
         {!hasAvailability && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
-            Η δήλωση διαθεσιμότητας ετοιμάζεται και θα γίνεται από τον πίνακά σου.
+            Δήλωσε διαθεσιμότητα πιο κάτω σε αυτή τη σελίδα.
           </p>
         )}
       </div>
@@ -279,28 +276,6 @@ export default function ProfileForm({ profile, onSaved }) {
         </Section>
       )}
 
-      <Section
-        title="Περιοχές κάλυψης"
-        note="Πού δέχεσαι να δουλέψεις. Δεν είναι ημερολόγιο διαθεσιμότητας."
-      >
-        {Object.entries(portsByRegion).map(([region, ports]) => (
-          <div key={region} style={{ marginBottom: 16 }}>
-            <div style={{ ...muted, fontSize: 12, marginBottom: 8 }}>{region}</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {ports.map((p) => (
-                <button
-                  type="button"
-                  key={p.id}
-                  style={chip(portIds.includes(p.id))}
-                  onClick={() => toggleIn(portIds, setPortIds, p.id)}
-                >
-                  {p.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </Section>
 
       {/* Always reachable — the form is long enough that a save button at the
           bottom would mean scrolling past every section to use it. */}

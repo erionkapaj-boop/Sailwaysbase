@@ -2,15 +2,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import {
-  listBlackouts,
-  addBlackout,
-  removeBlackout,
   listMyPings,
   claimBookingRequest,
   listMyBookingsAsSkipper,
   createMissingProfile,
 } from "../../../lib/platform/db";
 import ProfileForm from "./ProfileForm";
+import AvailabilityEditor from "./AvailabilityEditor";
 import BookingPanel from "../components/BookingPanel";
 import Stat from "../components/Stat";
 import { container, card, h1, h2, muted, button, input, badge, colors, money } from "../../../lib/platform/theme";
@@ -22,67 +20,6 @@ const CLAIM_ERRORS = {
   insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο wallet για το claim fee.",
   skipper_not_eligible: "Το προφίλ σου δεν είναι εγκεκριμένο.",
 };
-
-function AvailabilitySection({ skipperId }) {
-  const [blackouts, setBlackouts] = useState([]);
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function load() {
-    setBlackouts(await listBlackouts(skipperId));
-  }
-  useEffect(() => {
-    load();
-  }, [skipperId]);
-
-  async function handleAdd(e) {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      await addBlackout(skipperId, start, end);
-      setStart("");
-      setEnd("");
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div style={card}>
-      <h2 style={h2}>Ημέρες μη διαθεσιμότητας</h2>
-      <p style={muted}>Ό,τι δεν δηλωθεί εδώ θεωρείται αυτόματα διαθέσιμο.</p>
-      <form onSubmit={handleAdd} style={{ display: "flex", gap: 8, alignItems: "end", flexWrap: "wrap", marginTop: 8 }}>
-        <div>
-          <input type="date" style={input} required value={start} onChange={(e) => setStart(e.target.value)} />
-        </div>
-        <div>
-          <input type="date" style={input} required value={end} onChange={(e) => setEnd(e.target.value)} />
-        </div>
-        <button style={button("secondary")} disabled={busy} type="submit">
-          Προσθήκη
-        </button>
-      </form>
-      <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {blackouts.map((b) => (
-          <span key={b.id} style={badge("neutral")}>
-            {b.start_date} → {b.end_date}{" "}
-            <button
-              style={{ border: "none", background: "none", cursor: "pointer", color: colors.danger, marginLeft: 4 }}
-              onClick={async () => {
-                await removeBlackout(b.id);
-                load();
-              }}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function PingsInbox({ skipperId, onClaimed }) {
   const [pings, setPings] = useState([]);
@@ -218,6 +155,7 @@ function MissingProfile({ userRow, refresh, loadError }) {
 export default function SkipperDashboard() {
   const { session, profile, userRow, loading, refresh, loadError } = useAuth();
   const [bookings, setBookings] = useState([]);
+  const [availabilityVersion, setAvailabilityVersion] = useState(0);
 
   async function loadBookings() {
     if (profile?.id) setBookings(await listMyBookingsAsSkipper(profile.id));
@@ -276,9 +214,16 @@ export default function SkipperDashboard() {
 
       {profile.approval_status === "approved" && <PingsInbox skipperId={profile.id} onClaimed={loadBookings} />}
 
-      <ProfileForm profile={profile} onSaved={refresh} />
+      {/* The banner inside ProfileForm reports whether availability exists, so
+          it has to re-check when the editor below changes one. */}
+      <ProfileForm profile={profile} onSaved={refresh} availabilityVersion={availabilityVersion} />
 
-      {profile.approval_status === "approved" && <AvailabilitySection skipperId={profile.id} />}
+      {profile.approval_status === "approved" && (
+        <AvailabilityEditor
+          skipperId={profile.id}
+          onChanged={() => setAvailabilityVersion((v) => v + 1)}
+        />
+      )}
 
       {profile.approval_status === "approved" && (
         <>
