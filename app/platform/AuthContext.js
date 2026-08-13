@@ -1,9 +1,10 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { supabase } from "../../lib/platform/supabaseClient";
-import { getMyUserRow, getMyClientProfile, getMySkipperProfile } from "../../lib/platform/db";
+import { getMyUserRow, getMyClientProfile, getMySkipperProfile, getSkipperNotificationCounts } from "../../lib/platform/db";
 
 const AuthContext = createContext(null);
+const EMPTY_NOTIFICATIONS = { pendingRequests: 0, unreadBookingIds: [] };
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
@@ -11,6 +12,22 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [notifications, setNotifications] = useState(EMPTY_NOTIFICATIONS);
+
+  // Separate from refresh() (below) because a booking gets read or claimed
+  // without the profile itself changing — the header bell needs to update
+  // on its own, not only whenever a full profile reload happens to run.
+  const refreshNotifications = useCallback(async (skipperId) => {
+    if (!skipperId) {
+      setNotifications(EMPTY_NOTIFICATIONS);
+      return;
+    }
+    try {
+      setNotifications(await getSkipperNotificationCounts(skipperId));
+    } catch {
+      // A stale badge is a much smaller problem than a broken header.
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!supabase) {
@@ -25,11 +42,18 @@ export function AuthProvider({ children }) {
         const u = await getMyUserRow();
         setUserRow(u);
         if (u?.role === "client") setProfile(await getMyClientProfile());
-        else if (u?.role === "skipper") setProfile(await getMySkipperProfile());
-        else setProfile(null);
+        else if (u?.role === "skipper") {
+          const p = await getMySkipperProfile();
+          setProfile(p);
+          refreshNotifications(p?.id);
+        } else {
+          setProfile(null);
+          setNotifications(EMPTY_NOTIFICATIONS);
+        }
       } else {
         setUserRow(null);
         setProfile(null);
+        setNotifications(EMPTY_NOTIFICATIONS);
       }
     } catch (err) {
       // Keep the real reason — a failed fetch is NOT the same as "no profile
@@ -40,7 +64,7 @@ export function AuthProvider({ children }) {
       setProfile(null);
     }
     setLoading(false);
-  }, []);
+  }, [refreshNotifications]);
 
   useEffect(() => {
     refresh();
@@ -56,6 +80,7 @@ export function AuthProvider({ children }) {
     setSession(null);
     setUserRow(null);
     setProfile(null);
+    setNotifications(EMPTY_NOTIFICATIONS);
   }, []);
 
   return (
@@ -68,6 +93,8 @@ export function AuthProvider({ children }) {
         loadError,
         refresh,
         signOut,
+        notifications,
+        refreshNotifications: () => refreshNotifications(profile?.id),
         needsRoleSelection: !!session && !loading && !userRow,
         role: userRow?.role || null,
       }}

@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer from "./components/Footer";
 import Logo from "./components/Logo";
+import NotificationBell from "./components/NotificationBell";
+import SkipperMenu from "./components/SkipperMenu";
 import { nav, colors, button, badge, fontSans } from "../../lib/platform/theme";
 
 const navLink = {
@@ -17,7 +19,7 @@ const navLink = {
 };
 
 function NavBar() {
-  const { session, userRow, profile, signOut, role } = useAuth();
+  const { session, userRow, profile, signOut, role, notifications } = useAuth();
   const pathname = usePathname();
   // On the home screen the large centred lockup carries the brand, so the
   // header mark would just be a duplicate — leave the slot empty and let
@@ -66,12 +68,8 @@ function NavBar() {
                 <span style={{ fontSize: 14, color: colors.ink, whiteSpace: "nowrap" }}>{profile.full_name}</span>
               </span>
             )}
-            <Link href="/platform/skipper/profile" style={navLink}>
-              Προφίλ
-            </Link>
-            <button style={{ ...navLink, background: "none", border: "none", cursor: "pointer" }} onClick={signOut}>
-              Logout
-            </button>
+            <NotificationBell notifications={notifications} />
+            <SkipperMenu onSignOut={signOut} />
           </>
         ) : session ? (
           <>

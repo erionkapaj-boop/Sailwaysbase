@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import {
   listMyPings,
@@ -20,6 +21,7 @@ const CLAIM_ERRORS = {
 };
 
 function PingsInbox({ skipperId, onClaimed }) {
+  const { refreshNotifications } = useAuth();
   const [pings, setPings] = useState([]);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
@@ -38,6 +40,7 @@ function PingsInbox({ skipperId, onClaimed }) {
       await claimBookingRequest(requestId, skipperId);
       await load();
       onClaimed?.();
+      refreshNotifications();
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
       setError(CLAIM_ERRORS[code] || err.message || String(err));
@@ -151,7 +154,20 @@ export function MissingProfile({ userRow, refresh, loadError }) {
 }
 
 export default function SkipperDashboard() {
-  const { session, profile, userRow, loading, refresh, loadError } = useAuth();
+  return (
+    <Suspense fallback={<div style={container}>Φόρτωση...</div>}>
+      <SkipperDashboardInner />
+    </Suspense>
+  );
+}
+
+// useSearchParams() (for ?focus=<bookingId>, used by the header's
+// notification bell) requires a Suspense boundary around it in the app
+// router — split out so the boundary wraps only what needs it.
+function SkipperDashboardInner() {
+  const { session, profile, userRow, loading, refresh, loadError, notifications } = useAuth();
+  const searchParams = useSearchParams();
+  const focusBookingId = searchParams.get("focus");
   const [bookings, setBookings] = useState([]);
 
   async function loadBookings() {
@@ -202,7 +218,15 @@ export default function SkipperDashboard() {
         <h2 style={sectionLabel}>Κρατήσεις</h2>
         {bookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
         {bookings.map((b) => (
-          <BookingPanel key={b.id} booking={b} viewerRole="skipper" viewerUserId={userRow.id} onChanged={loadBookings} />
+          <BookingPanel
+            key={b.id}
+            booking={b}
+            viewerRole="skipper"
+            viewerUserId={userRow.id}
+            onChanged={loadBookings}
+            autoExpand={b.id === focusBookingId}
+            hasUnread={notifications.unreadBookingIds.includes(b.id)}
+          />
         ))}
       </div>
 

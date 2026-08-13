@@ -1,8 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAuth } from "../AuthContext";
 import {
   listMessages,
   sendMessage,
+  markMessagesRead,
   cancelBooking,
   submitReview,
   replyToReview,
@@ -19,8 +21,10 @@ const STATUS_LABEL = {
   cancelled_by_skipper: ["Ακυρώθηκε από skipper", "danger"],
 };
 
-export default function BookingPanel({ booking, viewerRole, viewerUserId, onChanged }) {
-  const [expanded, setExpanded] = useState(false);
+export default function BookingPanel({ booking, viewerRole, viewerUserId, onChanged, autoExpand = false, hasUnread = false }) {
+  const { refreshNotifications } = useAuth();
+  const rootRef = useRef(null);
+  const [expanded, setExpanded] = useState(autoExpand);
   const [counterpart, setCounterpart] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -46,7 +50,20 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
     }
     listMessages(booking.id).then(setMessages).catch(() => {});
     listReviewsForBooking(booking.id).then(setReviews).catch(() => {});
+    // Opening the thread is what "reading" it means here — mark it read and
+    // let the header bell know, so the badge doesn't wait for a full reload.
+    markMessagesRead(booking.id)
+      .then(() => {
+        if (viewerRole === "skipper") refreshNotifications();
+      })
+      .catch(() => {});
   }, [booking.id, expanded]);
+
+  // Arriving here from the notification bell (?focus=<id>) should land the
+  // booking in view already open, not just highlighted somewhere off-screen.
+  useEffect(() => {
+    if (autoExpand) rootRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [autoExpand]);
 
   async function handleSend() {
     if (!newMessage.trim()) return;
@@ -114,7 +131,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
     // Collapsed by default: a row per booking, not a full card, so a list
     // of several doesn't let one entry dominate the screen. The status
     // badge alone signals state — no second, parallel colour stripe.
-    <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+    <div ref={rootRef} style={{ ...card, padding: 0, overflow: "hidden" }}>
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
@@ -139,6 +156,12 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
           </span>
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {hasUnread && !expanded && (
+            <span
+              aria-label="Νέο μήνυμα"
+              style={{ width: 7, height: 7, borderRadius: "50%", background: colors.danger, flexShrink: 0 }}
+            />
+          )}
           <span style={badge(statusTone)}>{statusLabel}</span>
           <span
             style={{
