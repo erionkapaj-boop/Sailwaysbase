@@ -11,6 +11,7 @@ import {
   adminFindUserByPhone,
   adminCreditWallet,
   adminListUsers,
+  adminSeedDemoUsers,
 } from "../../../lib/platform/db";
 import { container, card, h1, h2, muted, button, input, badge, colors, money } from "../../../lib/platform/theme";
 
@@ -213,6 +214,8 @@ function UsersList() {
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [seedResult, setSeedResult] = useState(null);
+  const [seeding, setSeeding] = useState(false);
 
   async function load(opts) {
     setBusy(true);
@@ -235,10 +238,51 @@ function UsersList() {
     load({ search, role: roleFilter });
   }
 
+  async function seed() {
+    setSeeding(true);
+    setError("");
+    try {
+      const res = await adminSeedDemoUsers();
+      setSeedResult(res);
+      await load({ search: "", role: "" });
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSeeding(false);
+    }
+  }
+
   return (
     <div>
       <h2 style={h2}>Χρήστες</h2>
       <p style={muted}>Αναζήτηση με τηλέφωνο ή ονοματεπώνυμο. Πάτα σε κάποιον για να δεις τον λογαριασμό του.</p>
+
+      <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
+        <b style={{ fontWeight: 600, fontSize: 14 }}>Δοκιμαστικά δεδομένα</b>
+        <p style={{ ...muted, fontSize: 13, margin: "6px 0 12px" }}>
+          Δημιουργεί 7 ψεύτικους λογαριασμούς (5 επαγγελματίες, 2 πελάτες) στο εύρος
+          <span style={money}> 6980000004</span>–<span style={money}>698000000010</span>, όλοι με κωδικό{" "}
+          <span style={money}>123456</span>. Αν ξανατρέξει, δεν διπλασιάζει τίποτα.
+        </p>
+        <button style={button("secondary")} disabled={seeding} onClick={seed}>
+          {seeding ? "Δημιουργία…" : "Δημιουργία δοκιμαστικών λογαριασμών"}
+        </button>
+        {seedResult && (
+          <div style={{ ...muted, fontSize: 13, marginTop: 12 }}>
+            {seedResult.created?.length > 0 && (
+              <>
+                <div style={{ color: colors.success }}>Δημιουργήθηκαν {seedResult.created.length}:</div>
+                {seedResult.created.map((c) => (
+                  <div key={c}>{c}</div>
+                ))}
+              </>
+            )}
+            {seedResult.skipped?.length > 0 && (
+              <div style={{ marginTop: 6 }}>Υπήρχαν ήδη: {seedResult.skipped.length}</div>
+            )}
+          </div>
+        )}
+      </div>
 
       <form onSubmit={submit} style={{ ...card, display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input
