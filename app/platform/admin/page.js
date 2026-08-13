@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import {
   adminListPendingSkippers,
@@ -7,13 +8,10 @@ import {
   adminRejectSkipper,
   adminListCancellationReports,
   adminListBookings,
-  adminListActions,
   adminFindUserByPhone,
   adminCreditWallet,
-  adminSearchSkippersByName,
-  adminGetUserOverview,
+  adminListUsers,
 } from "../../../lib/platform/db";
-import Stat from "../components/Stat";
 import { container, card, h1, h2, muted, button, input, badge, colors, money } from "../../../lib/platform/theme";
 
 function PendingSkippers() {
@@ -209,32 +207,18 @@ function BookingsOverview() {
   );
 }
 
-function ViewAsUser() {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [overview, setOverview] = useState(null);
-  const [busy, setBusy] = useState(false);
+function UsersList() {
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [list, setList] = useState([]);
+  const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
 
-  async function search(e) {
-    e?.preventDefault();
-    setError("");
-    setSelected(null);
-    setOverview(null);
+  async function load(opts) {
     setBusy(true);
+    setError("");
     try {
-      const [byPhone, byName] = await Promise.all([
-        adminFindUserByPhone(query).catch(() => []),
-        adminSearchSkippersByName(query).catch(() => []),
-      ]);
-      const fromSkippers = byName
-        .filter((s) => s.users)
-        .map((s) => ({ id: s.user_id, phone_number: s.users.phone_number, role: "skipper", full_name: s.full_name }));
-      const merged = [...byPhone, ...fromSkippers].filter(
-        (u, i, arr) => arr.findIndex((x) => x.id === u.id) === i
-      );
-      setResults(merged);
+      setList(await adminListUsers(opts));
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -242,145 +226,86 @@ function ViewAsUser() {
     }
   }
 
-  async function view(u) {
-    setSelected(u);
-    setOverview(null);
-    setError("");
-    setBusy(true);
-    try {
-      setOverview(await adminGetUserOverview(u.id, u.role));
-    } catch (err) {
-      setError(err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
+  useEffect(() => {
+    load({ search: "", role: "" });
+  }, []);
+
+  function submit(e) {
+    e.preventDefault();
+    load({ search, role: roleFilter });
   }
 
   return (
     <div>
-      <h2 style={h2}>Προβολή χρήστη</h2>
-      <p style={muted}>Αναζήτηση με τηλέφωνο (πελάτης/skipper) ή ονοματεπώνυμο (skipper). Μόνο προβολή, καμία ενέργεια εκ μέρους τους.</p>
-      <form onSubmit={search} style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-        <input style={input} placeholder="Τηλέφωνο ή όνομα" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <button style={button("secondary")} disabled={busy} type="submit">
+      <h2 style={h2}>Χρήστες</h2>
+      <p style={muted}>Αναζήτηση με τηλέφωνο ή ονοματεπώνυμο. Πάτα σε κάποιον για να δεις τον λογαριασμό του.</p>
+
+      <form onSubmit={submit} style={{ ...card, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <input
+          style={{ ...input, flex: "2 1 200px", width: "auto" }}
+          placeholder="Τηλέφωνο ή όνομα"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          style={{ ...input, flex: "1 1 140px", width: "auto" }}
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+        >
+          <option value="">Όλοι οι ρόλοι</option>
+          <option value="client">Πελάτες</option>
+          <option value="skipper">Επαγγελματίες</option>
+          <option value="admin">Admins</option>
+        </select>
+        <button type="submit" style={button("secondary")}>
           Αναζήτηση
         </button>
       </form>
-      {error && <p style={{ color: colors.danger, marginTop: 8 }}>{error}</p>}
 
-      {results.map((u) => (
-        <div
-          key={u.id}
-          onClick={() => view(u)}
-          style={{
-            padding: 8,
-            marginTop: 6,
-            borderRadius: 6,
-            cursor: "pointer",
-            background: selected?.id === u.id ? "#EEEEEF" : colors.bg,
-          }}
-        >
-          {u.full_name ? `${u.full_name} · ` : ""}
-          {u.phone_number} · {u.role}
-        </div>
-      ))}
+      {error && <p style={{ color: colors.danger }}>{error}</p>}
+      {busy && <p style={muted}>Φόρτωση…</p>}
+      {!busy && list.length === 0 && <p style={muted}>Κανένας χρήστης δεν ταιριάζει.</p>}
 
-      {overview && (
-        <div style={{ marginTop: 16 }}>
-          {overview.role === "client" && (
-            <>
-              <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap" }}>
-                <Stat label="Wallet" value={`${overview.profile?.wallet_balance ?? 0}€`} />
-                <Stat
-                  label="Αξιοπιστία"
-                  value={
-                    overview.profile?.reliability_percentage != null
-                      ? `${overview.profile.reliability_percentage}%`
-                      : "—"
-                  }
-                />
-                <Stat label="Ολοκληρωμένες" value={overview.profile?.completed_bookings_count ?? 0} />
+      {list.map((u) => (
+        <Link key={u.id} href={`/platform/admin/user/${u.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+          <div style={{ ...card, cursor: "pointer" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <div>
+                <div style={{ fontWeight: 500 }}>{u.full_name || "(χωρίς όνομα)"}</div>
+                <div style={{ ...muted, marginTop: 4 }}>
+                  <span style={money}>{u.phone_number}</span>
+                  {u.email ? ` · ${u.email}` : ""}
+                </div>
               </div>
-              <h2 style={h2}>Αιτήματα ({overview.requests.length})</h2>
-              {overview.requests.map((r) => (
-                <div key={r.id} style={card}>
-                  <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                    <span>
-                      {r.ports?.name} · {r.start_date} → {r.end_date}
-                    </span>
-                    <span style={badge("neutral")}>{r.status}</span>
-                  </div>
-                </div>
-              ))}
-              <h2 style={h2}>Κρατήσεις ({overview.bookings.length})</h2>
-              {overview.bookings.map((b) => (
-                <div key={b.id} style={card}>
-                  <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                    <span>
-                      {b.ports?.name} · {b.start_date} → {b.end_date}
-                    </span>
-                    <span style={badge("neutral")}>{b.status}</span>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-
-          {overview.role === "skipper" && (
-            <>
-              {!overview.profile ? (
-                <p style={muted}>Δεν βρέθηκε προφίλ skipper για αυτόν τον χρήστη.</p>
-              ) : (
-                <>
-                  <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap" }}>
-                    <div>
-                      <div style={{ ...muted, fontSize: 13 }}>Όνομα</div>
-                      <div style={{ fontSize: 17, fontWeight: 500, marginTop: 4 }}>
-                        {overview.profile.full_name || "—"}
-                      </div>
-                    </div>
-                    <Stat label="Κατάσταση έγκρισης" value={overview.profile.approval_status} />
-                    <Stat label="Wallet" value={`${overview.profile.wallet_balance}€`} />
-                    <Stat label="Βαθμίδα" value={overview.profile.tier} />
-                  </div>
-                  <h2 style={h2}>Κρατήσεις ({overview.bookings.length})</h2>
-                  {overview.bookings.map((b) => (
-                    <div key={b.id} style={card}>
-                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                        <span>
-                          {b.ports?.name} · {b.start_date} → {b.end_date}
-                        </span>
-                        <span style={badge("neutral")}>{b.status}</span>
-                      </div>
-                    </div>
-                  ))}
-                  <h2 style={h2}>Καμπανάκια που δέχτηκε ({overview.pings.length})</h2>
-                  {overview.pings.map((p) => (
-                    <div key={p.id} style={card}>
-                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                        <span>
-                          {p.booking_requests?.ports?.name} · {p.booking_requests?.start_date} → {p.booking_requests?.end_date}
-                        </span>
-                        <span style={badge("neutral")}>{p.status}</span>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </>
-          )}
-        </div>
-      )}
+              <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                <span style={badge("neutral")}>{u.role}</span>
+                {u.status !== "active" && <span style={badge("warn")}>{u.status}</span>}
+              </div>
+            </div>
+          </div>
+        </Link>
+      ))}
     </div>
   );
 }
 
 export default function AdminDashboard() {
   const { session, userRow, loading } = useAuth();
-  const [tab, setTab] = useState("skippers");
+  const [tab, setTab] = useState("users");
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
-  if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
+  if (!session) {
+    return (
+      <div style={container}>
+        <p style={muted}>
+          Χρειάζεται σύνδεση διαχειριστή.{" "}
+          <Link href="/platform/admin/login" style={{ color: colors.ink }}>
+            Είσοδος admin
+          </Link>
+        </p>
+      </div>
+    );
+  }
   if (userRow?.role !== "admin") return <div style={container}>Πρόσβαση μόνο για admin.</div>;
 
   return (
@@ -388,22 +313,22 @@ export default function AdminDashboard() {
       <h1 style={h1}>Admin</h1>
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {[
+          ["users", "Χρήστες"],
           ["skippers", "Εγκρίσεις"],
           ["flags", "Flags/Ακυρώσεις"],
           ["wallet", "Πίστωση wallet"],
           ["bookings", "Κρατήσεις"],
-          ["viewas", "Προβολή χρήστη"],
         ].map(([key, lbl]) => (
           <button key={key} style={button(tab === key ? "primary" : "secondary")} onClick={() => setTab(key)}>
             {lbl}
           </button>
         ))}
       </div>
+      {tab === "users" && <UsersList />}
       {tab === "skippers" && <PendingSkippers />}
       {tab === "flags" && <CancellationReports />}
       {tab === "wallet" && <WalletTopup />}
       {tab === "bookings" && <BookingsOverview />}
-      {tab === "viewas" && <ViewAsUser />}
     </div>
   );
 }
