@@ -231,7 +231,9 @@ export default function SkipperDashboard() {
   if (userRow?.role !== "skipper") return <div style={container}>Αυτή η σελίδα είναι μόνο για skippers.</div>;
   if (!profile) return <MissingProfile userRow={userRow} refresh={refresh} loadError={loadError} />;
 
-  const needsOnboarding = !profile.full_name || profile.license_number?.startsWith("PENDING-");
+  // Licence is no longer collected, so a name is what tells a fresh profile
+  // apart from a filled-in one.
+  const needsOnboarding = !profile.full_name;
 
   return (
     <div style={container}>

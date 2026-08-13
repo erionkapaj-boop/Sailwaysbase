@@ -2,7 +2,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
-import { SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
+import { SUPPORTED_ROLES, labelForRole, computeCrewHighlights } from "../../../lib/platform/roles";
 import {
   listLookups,
   searchSkippers,
@@ -25,15 +25,6 @@ import {
   shadow,
 } from "../../../lib/platform/theme";
 
-const BIO_TAG_LABELS = {
-  family_friendly: "Οικογενειακός",
-  fishing: "Ψάρεμα",
-  diving: "Καταδύσεις",
-  party: "Party sailing",
-  long_range: "Μεγάλες αποστάσεις",
-  islands_expert: "Ειδικός σε νησιά",
-};
-
 // Inclusive day count: a 1st→3rd booking is three days of work, not two.
 function dayCount(start, end) {
   if (!start || !end) return null;
@@ -44,6 +35,7 @@ function dayCount(start, end) {
 
 function SkipperCard({ s, selected, onToggle, days }) {
   const total = days ? s.price_per_day * days : null;
+  const highlights = computeCrewHighlights(s);
   return (
     <div style={{ ...card, display: "flex", gap: 16, alignItems: "flex-start" }}>
       <div
@@ -94,11 +86,12 @@ function SkipperCard({ s, selected, onToggle, days }) {
           )}
         </div>
 
-        {Array.isArray(s.bio) && s.bio.length > 0 && (
+        {/* Highlights are derived, never self-written — see computeCrewHighlights. */}
+        {highlights.length > 0 && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-            {s.bio.map((tag) => (
-              <span key={tag} style={{ ...badge("neutral"), fontFamily: "inherit", fontWeight: 500 }}>
-                {BIO_TAG_LABELS[tag] || tag}
+            {highlights.map((h) => (
+              <span key={h} style={{ ...badge("neutral"), fontFamily: "inherit", fontWeight: 400 }}>
+                {h}
               </span>
             ))}
           </div>

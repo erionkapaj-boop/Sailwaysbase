@@ -13,6 +13,7 @@ import {
   adminListUsers,
   adminSeedDemoUsers,
 } from "../../../lib/platform/db";
+import { labelForRole } from "../../../lib/platform/roles";
 import { container, card, h1, h2, muted, button, input, badge, colors, money } from "../../../lib/platform/theme";
 
 function PendingSkippers() {
@@ -64,12 +65,13 @@ function PendingSkippers() {
             <div>
               <div style={{ fontWeight: 500, fontSize: 15 }}>{s.full_name || "(χωρίς όνομα ακόμα)"}</div>
               <p style={{ ...muted, margin: "6px 0 0" }}>
-                Δίπλωμα <span style={{ ...money, color: colors.ink }}>{s.license_number}</span>
-                {s.license_type ? ` (${s.license_type})` : ""}
+                {labelForRole(s.role || "skipper")}
                 {" · "}
                 <span style={money}>{s.users?.phone_number}</span>
                 {" · "}
                 <span style={{ ...money, color: colors.ink }}>{s.price_per_day}€</span>/ημέρα
+                {" · "}
+                <span style={money}>{s.years_experience}</span> χρόνια
               </p>
             </div>
             <div style={{ display: "flex", gap: 8 }}>

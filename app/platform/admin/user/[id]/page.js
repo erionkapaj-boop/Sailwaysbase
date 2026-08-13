@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth } from "../../../AuthContext";
 import { adminGetUser, adminGetUserOverview } from "../../../../../lib/platform/db";
+import { computeCrewHighlights } from "../../../../../lib/platform/roles";
 import Stat from "../../../components/Stat";
 import {
   container,
@@ -15,15 +16,6 @@ import {
   colors,
   money,
 } from "../../../../../lib/platform/theme";
-
-const BIO_TAG_LABELS = {
-  family_friendly: "Οικογενειακός",
-  fishing: "Ψάρεμα",
-  diving: "Καταδύσεις",
-  party: "Party sailing",
-  long_range: "Μεγάλες αποστάσεις",
-  islands_expert: "Ειδικός σε νησιά",
-};
 
 function Row({ left, right, tone = "neutral" }) {
   return (
@@ -200,11 +192,9 @@ export default function AdminUserViewPage() {
                   {data.profile.gender ? ` · ${data.profile.gender}` : ""}
                 </p>
 
-                <p style={{ ...muted, margin: "0 0 6px" }}>Βιογραφικό</p>
+                <p style={{ ...muted, margin: "0 0 6px" }}>Highlights</p>
                 <Chips
-                  items={(Array.isArray(data.profile.bio) ? data.profile.bio : []).map(
-                    (t) => BIO_TAG_LABELS[t] || t
-                  )}
+                  items={computeCrewHighlights(data.profile, { languageCount: data.languages.length })}
                 />
 
                 <p style={{ ...muted, margin: "16px 0 6px" }}>Γλώσσες</p>
