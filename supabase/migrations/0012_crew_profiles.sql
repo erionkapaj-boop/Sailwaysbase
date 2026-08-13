@@ -14,6 +14,12 @@
 -- feature change. The table name is invisible to users either way.
 -- ============================================================================
 
+-- ORDER MATTERS: skipper_public selects bio, and search_available_skippers
+-- returns setof skipper_public, so both have to be dropped before the column
+-- can go. They're recreated at the bottom without bio.
+drop function if exists search_available_skippers(date, date, uuid, uuid, numeric, text);
+drop view if exists skipper_public;
+
 do $$ begin
   create type crew_role as enum ('skipper', 'hostess', 'cook', 'deckhand');
 exception when duplicate_object then null;
@@ -160,8 +166,8 @@ create policy "crew photos owner delete" on storage.objects for delete to authen
 -- ----------------------------------------------------------------------------
 -- The anonymous search view drops bio and carries role instead, so results can
 -- eventually be filtered by what the client is actually looking for.
+-- (Dropped at the top of this file, before the column went.)
 -- ----------------------------------------------------------------------------
-drop view if exists skipper_public;
 create view skipper_public as
   select id, role, photo_url, gender, years_experience, license_type, price_per_day,
          rating_avg, rating_count, reliability_percentage, tier
@@ -169,9 +175,8 @@ create view skipper_public as
   where approval_status = 'approved' and deleted_at is null;
 grant select on skipper_public to anon, authenticated;
 
--- search_available_skippers returns setof skipper_public, so it has to be
--- reissued after the view is replaced or it keeps the old column list.
-create or replace function search_available_skippers(
+-- Reissued against the new view shape.
+create function search_available_skippers(
   p_start date,
   p_end date,
   p_port_id uuid,
