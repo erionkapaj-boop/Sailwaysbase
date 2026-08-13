@@ -93,11 +93,16 @@ function SkipperNavBar({ profile, loading, signOut, notifications }) {
 }
 
 function NavBar() {
+  const router = useRouter();
   const { session, userRow, profile, loading, signOut, role, notifications } = useAuth();
 
   if (session && role === "skipper") {
     return <SkipperNavBar profile={profile} loading={loading} signOut={signOut} notifications={notifications} />;
   }
+
+  // Clients get the same unread-message signal professionals do — a reply
+  // they never find out about is the same dead end in either direction.
+  const clientUnread = role === "client" ? notifications?.unreadBookingIds ?? [] : [];
 
   return (
     <div style={{ ...nav, flexWrap: "wrap", rowGap: 8, columnGap: 12 }}>
@@ -109,9 +114,21 @@ function NavBar() {
           step inside the flow, at the SMS OTP moment, not a separate door. */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", rowGap: 8 }}>
         {session && role === "client" && (
-          <Link href="/platform/client" style={navLink}>
-            Ο λογαριασμός μου
-          </Link>
+          <>
+            <Link href="/platform/client" style={navLink}>
+              Ο λογαριασμός μου
+            </Link>
+            <IconBadgeButton
+              icon={EnvelopeIcon}
+              count={clientUnread.length}
+              ariaLabel="Μηνύματα"
+              onClick={() =>
+                router.push(
+                  clientUnread.length === 1 ? `/platform/client?focus=${clientUnread[0]}` : "/platform/client"
+                )
+              }
+            />
+          </>
         )}
         {session && role === "admin" && (
           <Link href="/platform/admin" style={navLink}>

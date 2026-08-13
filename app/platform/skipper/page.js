@@ -6,9 +6,9 @@ import {
   listMyPings,
   claimBookingRequest,
   listMyBookingsAsSkipper,
-  createMissingProfile,
 } from "../../../lib/platform/db";
 import AvailabilityCalendar from "./AvailabilityCalendar";
+import MissingProfile from "./MissingProfile";
 import BookingPanel from "../components/BookingPanel";
 import { container, card, h1, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 
@@ -94,61 +94,6 @@ function PingsInbox({ skipperId, onClaimed }) {
           </div>
         );
       })}
-    </div>
-  );
-}
-
-export function MissingProfile({ userRow, refresh, loadError }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  // A failed read is a different problem from a genuinely absent row —
-  // creating a second profile would not fix it and may not even be possible.
-  if (loadError) {
-    return (
-      <div style={container}>
-        <h1 style={h1}>Πίνακας Skipper</h1>
-        <div style={{ ...card, borderColor: colors.danger }}>
-          <b>Δεν ήταν δυνατή η φόρτωση του προφίλ σου.</b>
-          <p style={muted}>Σφάλμα από τη βάση δεδομένων:</p>
-          <p style={{ color: colors.danger, fontFamily: "monospace", fontSize: 13, wordBreak: "break-word" }}>
-            {loadError}
-          </p>
-          <button style={button("secondary")} onClick={refresh}>
-            Δοκίμασε ξανά
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  async function recreate() {
-    setBusy(true);
-    setError("");
-    try {
-      await createMissingProfile("skipper");
-      await refresh();
-    } catch (err) {
-      setError(err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div style={container}>
-      <h1 style={h1}>Πίνακας Skipper</h1>
-      <div style={{ ...card, borderColor: colors.danger }}>
-        <b>Δεν βρέθηκε προφίλ skipper για τον λογαριασμό σου.</b>
-        <p style={muted}>
-          Ο λογαριασμός σου υπάρχει, αλλά η γραμμή προφίλ δεν δημιουργήθηκε (π.χ. λόγω διακοπής κατά την
-          εγγραφή). Πάτα το κουμπί για να τη φτιάξουμε τώρα.
-        </p>
-        <button style={button("primary")} disabled={busy} onClick={recreate}>
-          {busy ? "..." : "Δημιουργία προφίλ skipper"}
-        </button>
-        {error && <p style={{ color: colors.danger, marginTop: 8 }}>{error}</p>}
-      </div>
     </div>
   );
 }
@@ -265,7 +210,10 @@ function SkipperDashboardInner() {
       {/* Available while pending too — no reason to wait for approval before
           saying when you can work. */}
       <div style={{ marginTop: 32 }}>
-        <AvailabilityCalendar skipperId={profile.id} bookings={bookings} onChanged={loadBookings} />
+        {/* No onChanged: the calendar reloads its own windows, and changing
+            availability doesn't change bookings — refetching them here was
+            just a wasted round trip. */}
+        <AvailabilityCalendar skipperId={profile.id} bookings={bookings} />
       </div>
     </div>
   );

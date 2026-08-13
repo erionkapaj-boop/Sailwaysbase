@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import { listMyBookingRequests, listMyBookingsAsClient, createMissingProfile } from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
@@ -63,7 +64,19 @@ function MissingProfile({ refresh, loadError }) {
 }
 
 export default function ClientDashboard() {
-  const { session, profile, userRow, loading, refresh, loadError } = useAuth();
+  return (
+    <Suspense fallback={<div style={container}>Φόρτωση...</div>}>
+      <ClientDashboardInner />
+    </Suspense>
+  );
+}
+
+// useSearchParams() (for ?focus=<bookingId>, used by the header's message
+// icon) requires a Suspense boundary around it in the app router.
+function ClientDashboardInner() {
+  const { session, profile, userRow, loading, refresh, loadError, notifications } = useAuth();
+  const searchParams = useSearchParams();
+  const focusBookingId = searchParams.get("focus");
   const [requests, setRequests] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [busy, setBusy] = useState(true);
@@ -132,7 +145,15 @@ export default function ClientDashboard() {
       <h2 style={h2}>Κρατήσεις</h2>
       {bookings.length === 0 && !busy && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
       {bookings.map((b) => (
-        <BookingPanel key={b.id} booking={b} viewerRole="client" viewerUserId={userRow.id} onChanged={load} />
+        <BookingPanel
+          key={b.id}
+          booking={b}
+          viewerRole="client"
+          viewerUserId={userRow.id}
+          onChanged={load}
+          autoExpand={b.id === focusBookingId}
+          hasUnread={(notifications?.unreadBookingIds ?? []).includes(b.id)}
+        />
       ))}
 
       {closedRequests.length > 0 && (

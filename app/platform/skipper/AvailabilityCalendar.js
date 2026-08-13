@@ -120,11 +120,17 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
     return names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
   }
 
+  // Past days are excluded here the same way a single tap on one is ignored —
+  // declaring you were free last week is meaningless, and the bulk shortcut
+  // used to happily backfill the start of the current month.
   function monthDayKeys() {
     const first = new Date(month.getFullYear(), month.getMonth(), 1);
     const last = new Date(month.getFullYear(), month.getMonth() + 1, 0);
     const keys = [];
-    for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) keys.push(fmt(d));
+    for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
+      const key = fmt(d);
+      if (key >= today) keys.push(key);
+    }
     return keys;
   }
   // Splits the visible month into contiguous non-booked runs, so a booked
@@ -191,6 +197,10 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
     setError("");
     try {
       const ranges = sheet.bulk ? bulkRanges() : [[sheet.startDate, sheet.endDate]];
+      if (ranges.length === 0) {
+        setError("Δεν υπάρχουν μελλοντικές ελεύθερες ημέρες σε αυτόν τον μήνα.");
+        return;
+      }
       for (const [startDate, endDate] of ranges) {
         await addAvailabilityWindow(skipperId, { startDate, endDate, allPorts: sheetAllPorts, portIds: sheetPortIds });
       }

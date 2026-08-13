@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../AuthContext";
-import { MissingProfile } from "../page";
+import MissingProfile from "../MissingProfile";
 import { listMyWalletTransactions } from "../../../../lib/platform/db";
 import { container, card, h1, sectionLabel, muted, badge, colors, money } from "../../../../lib/platform/theme";
 

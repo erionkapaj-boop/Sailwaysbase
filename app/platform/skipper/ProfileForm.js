@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   listLookups,
   updateSkipperProfile,
@@ -69,7 +70,6 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
   });
   const [languageIds, setLanguageIds] = useState([]);
   const [boatTypeIds, setBoatTypeIds] = useState([]);
-  const [portIds, setPortIds] = useState([]);
   const [hasAvailability, setHasAvailability] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -83,7 +83,6 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
     getSkipperLookups(profile.id).then((r) => {
       setLanguageIds(r.languageIds);
       setBoatTypeIds(r.boatTypeIds);
-      setPortIds(r.portIds);
     });
     // Availability now lives in its own editor; the banner reflects it rather
     // than assuming it's unset.
@@ -114,7 +113,10 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         price_per_day: Number(form.price_per_day),
         years_experience: Number(form.years_experience),
       });
-      await setSkipperLookups(profile.id, { languageIds, boatTypeIds, portIds });
+      // No portIds: ports belong to availability windows now, and rewriting
+      // the retired skipper_coverage_areas rows on every save achieved
+      // nothing except keeping dead data alive.
+      await setSkipperLookups(profile.id, { languageIds, boatTypeIds });
       setSaved(true);
       onSaved?.();
     } catch (err) {
@@ -156,7 +158,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         </div>
         {!hasAvailability && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
-            Δήλωσε διαθεσιμότητα πιο κάτω σε αυτή τη σελίδα.
+            Δήλωσε διαθεσιμότητα από το ημερολόγιο στον <Link href="/platform/skipper" style={{ color: colors.ink }}>πίνακά σου</Link>.
           </p>
         )}
       </div>

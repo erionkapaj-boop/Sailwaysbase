@@ -52,11 +52,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
     listReviewsForBooking(booking.id).then(setReviews).catch(() => {});
     // Opening the thread is what "reading" it means here — mark it read and
     // let the header bell know, so the badge doesn't wait for a full reload.
-    markMessagesRead(booking.id)
-      .then(() => {
-        if (viewerRole === "skipper") refreshNotifications();
-      })
-      .catch(() => {});
+    markMessagesRead(booking.id).then(refreshNotifications).catch(() => {});
   }, [booking.id, expanded]);
 
   // Arriving here from the notification bell (?focus=<id>) should land the

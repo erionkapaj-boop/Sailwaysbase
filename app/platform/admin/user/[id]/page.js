@@ -271,22 +271,31 @@ export default function AdminUserViewPage() {
 
                 <p style={{ ...muted, margin: "16px 0 6px" }}>Τύποι σκαφών</p>
                 <Chips items={data.boatTypes} />
-
-                <p style={{ ...muted, margin: "16px 0 6px" }}>Λιμάνια</p>
-                <Chips items={data.ports} />
               </div>
 
-              <h2 style={h2}>Μη διαθέσιμες ημέρες ({data.blackouts.length})</h2>
-              {data.blackouts.length === 0 && <p style={muted}>Καμία — διαθέσιμος παντού.</p>}
-              {data.blackouts.length > 0 && (
-                <div style={{ ...card, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {data.blackouts.map((b) => (
-                    <span key={b.id} style={badge("neutral")}>
-                      {b.start_date} → {b.end_date}
-                    </span>
-                  ))}
-                </div>
+              {/* Positive declarations, so an empty list means "findable
+                  nowhere" — the opposite of what the old blackout view here
+                  claimed. Ports are per window now, not one global list. */}
+              <h2 style={h2}>Διαθεσιμότητα ({data.availability.length})</h2>
+              {data.availability.length === 0 && (
+                <p style={muted}>Καμία δηλωμένη περίοδος — δεν εμφανίζεται σε καμία αναζήτηση.</p>
               )}
+              {data.availability.map((w) => (
+                <div key={w.id} style={card}>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>
+                    <span style={money}>{w.start_date}</span> → <span style={money}>{w.end_date}</span>
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <Chips
+                      items={
+                        w.all_ports
+                          ? ["Από οπουδήποτε"]
+                          : (w.availability_window_ports || []).map((p) => p.ports?.name).filter(Boolean)
+                      }
+                    />
+                  </div>
+                </div>
+              ))}
 
               <h2 style={h2}>Καμπανάκια ({data.pings.length})</h2>
               {data.pings.length === 0 && <p style={muted}>Κανένα.</p>}

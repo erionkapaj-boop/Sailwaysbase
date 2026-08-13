@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useAuth } from "../../AuthContext";
-import { MissingProfile } from "../page";
+import MissingProfile from "../MissingProfile";
 import ProfileForm from "../ProfileForm";
 import { container, h1, muted } from "../../../../lib/platform/theme";
 

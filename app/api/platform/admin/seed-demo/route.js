@@ -206,15 +206,30 @@ export async function POST(req) {
         .select("id")
         .single();
 
-      // Give each skipper coverage and boat types, otherwise they never turn
-      // up in a search and the demo data is useless for testing the flow.
+      // Give each skipper availability and boat types, otherwise they never
+      // turn up in a search and the demo data is useless for testing the flow.
       if (sp) {
         const { data: ports } = await db.from("ports").select("id").eq("active", true).limit(4);
         const { data: boats } = await db.from("boat_types").select("id").limit(2);
         const { data: langs } = await db.from("languages").select("id").limit(2);
 
-        if (ports?.length)
-          await db.from("skipper_coverage_areas").insert(ports.map((p) => ({ skipper_id: sp.id, port_id: p.id })));
+        // An availability window, not skipper_coverage_areas: since migration
+        // 0013 search reads windows, so seeding the old table left every demo
+        // skipper invisible to the very search they exist to exercise.
+        if (ports?.length) {
+          const today = new Date();
+          const inAYear = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+          const iso = (d) => d.toISOString().slice(0, 10);
+          const { data: win } = await db
+            .from("availability_windows")
+            .insert({ skipper_id: sp.id, start_date: iso(today), end_date: iso(inAYear), all_ports: false })
+            .select("id")
+            .single();
+          if (win)
+            await db
+              .from("availability_window_ports")
+              .insert(ports.map((p) => ({ window_id: win.id, port_id: p.id })));
+        }
         if (boats?.length)
           await db.from("skipper_boat_types").insert(boats.map((b) => ({ skipper_id: sp.id, boat_type_id: b.id })));
         if (langs?.length)
