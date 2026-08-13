@@ -55,6 +55,9 @@ export default function SkipperMenu({ onSignOut }) {
             <Link href="/platform/skipper/profile" onClick={() => setOpen(false)} style={itemStyle}>
               Το προφίλ μου
             </Link>
+            <Link href="/platform/skipper/wallet" onClick={() => setOpen(false)} style={itemStyle}>
+              Το πορτοφόλι μου
+            </Link>
             <button
               type="button"
               onClick={() => {

@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer from "./components/Footer";
 import Logo from "./components/Logo";
@@ -19,22 +18,17 @@ const navLink = {
 };
 
 function NavBar() {
-  const { session, userRow, profile, signOut, role, notifications } = useAuth();
-  const pathname = usePathname();
-  // On the home screen the large centred lockup carries the brand, so the
-  // header mark would just be a duplicate — leave the slot empty and let
-  // Login sit alone on the right.
-  const isHome = pathname === "/platform";
+  const { session, userRow, profile, loading, signOut, role, notifications } = useAuth();
 
   return (
     <div style={{ ...nav, flexWrap: "wrap", rowGap: 8, columnGap: 12 }}>
-      {isHome ? (
-        <span />
-      ) : (
-        <Link href="/platform" style={{ textDecoration: "none" }} aria-label="SkipperFinder — αρχική">
-          <Logo />
-        </Link>
-      )}
+      {/* Always rendered, on every page including home — the left slot
+          switching between empty and the logo was exactly what made the
+          right-hand cluster jump to a different horizontal position from
+          page to page. One fixed anchor, not a conditional one. */}
+      <Link href="/platform" style={{ textDecoration: "none" }} aria-label="SkipperFinder — αρχική">
+        <Logo />
+      </Link>
       {/* Header carries Login only — no search link (the home page is the
           search entry point) and deliberately no sign-up: registration is a
           step inside the flow, at the SMS OTP moment, not a separate door. */}
@@ -53,26 +47,30 @@ function NavBar() {
           <>
             {/* Two distinct clusters, not one continuous row: identity (who
                 you are, tap to go home) on one side of a hairline divider,
-                actions (notifications, navigation) on the other. */}
-            {profile?.full_name && (
-              <Link
-                href="/platform"
-                style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}
-              >
-                {profile.photo_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={profile.photo_url}
-                    alt=""
-                    style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                  />
-                )}
-                <span style={{ fontSize: 14, color: colors.ink, whiteSpace: "nowrap" }}>{profile.full_name}</span>
-              </Link>
-            )}
-            {profile?.full_name && (
-              <span aria-hidden="true" style={{ width: 1, height: 20, background: colors.border, flexShrink: 0 }} />
-            )}
+                actions (notifications, navigation) on the other. The circle
+                is reserved at a fixed size from the first frame — profile
+                data (name, photo) fills in once loaded rather than the
+                whole block popping into existence and shoving the divider/
+                bell/menu sideways. */}
+            <Link href="/platform" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+              {profile?.photo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={profile.photo_url}
+                  alt=""
+                  style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  style={{ width: 26, height: 26, borderRadius: "50%", background: colors.border, flexShrink: 0 }}
+                />
+              )}
+              <span style={{ fontSize: 14, color: colors.ink, whiteSpace: "nowrap", minWidth: loading ? 60 : undefined }}>
+                {profile?.full_name || ""}
+              </span>
+            </Link>
+            <span aria-hidden="true" style={{ width: 1, height: 20, background: colors.border, flexShrink: 0 }} />
             <NotificationBell notifications={notifications} />
             <SkipperMenu onSignOut={signOut} />
           </>
