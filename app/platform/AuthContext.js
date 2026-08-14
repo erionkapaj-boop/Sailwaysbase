@@ -7,6 +7,7 @@ import {
   getMySkipperProfile,
   getMyNotificationCounts,
   setViewAsUser,
+  touchLastSeen,
 } from "../../lib/platform/db";
 
 const AuthContext = createContext(null);
@@ -76,6 +77,11 @@ export function AuthProvider({ children }) {
         else setProfile(null);
         if (u?.role === "client" || u?.role === "skipper") refreshNotifications();
         else setNotifications(EMPTY_NOTIFICATIONS);
+        // Activity signal, throttled server-side to one write per five minutes.
+        // Never while viewing as someone: an admin browsing their account
+        // would keep marking a dormant user as active, which is exactly the
+        // signal this measures.
+        if (!allowed) touchLastSeen();
       } else {
         setUserRow(null);
         setProfile(null);

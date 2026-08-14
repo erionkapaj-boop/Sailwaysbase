@@ -65,6 +65,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
     full_name: profile.full_name || "",
     gender: profile.gender || "",
     photo_url: profile.photo_url || "",
+    date_of_birth: profile.date_of_birth || "",
     years_experience: profile.years_experience || 0,
     price_per_day: profile.price_per_day || MIN_PRICE,
   });
@@ -110,6 +111,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
     try {
       await updateSkipperProfile({
         ...form,
+        date_of_birth: form.date_of_birth || null,
         price_per_day: Number(form.price_per_day),
         years_experience: Number(form.years_experience),
       });
@@ -195,6 +197,18 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
               <option value="Άνδρας">Άνδρας</option>
               <option value="Γυναίκα">Γυναίκα</option>
             </select>
+          </div>
+          <div>
+            <label style={label} htmlFor="p-dob">
+              Ημερομηνία γέννησης
+            </label>
+            <input
+              id="p-dob"
+              type="date"
+              style={input}
+              value={form.date_of_birth || ""}
+              onChange={(e) => setField("date_of_birth", e.target.value)}
+            />
           </div>
           <div>
             <label style={label} htmlFor="p-years">

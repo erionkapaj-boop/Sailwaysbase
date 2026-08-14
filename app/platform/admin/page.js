@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminShell, { useAdminCounts } from "./AdminShell";
 import { Panel, Metric, MetricGrid, Row, RowMain, Empty, Status, colors, muted, money, button } from "./ui";
-import { adminRecentActivity } from "../../../lib/platform/db";
+import { adminRecentActivity, adminActivityCounts } from "../../../lib/platform/db";
 import { timeAgo } from "../../../lib/platform/notifications";
 
 const ACTIVITY_LABEL = {
@@ -21,13 +21,18 @@ const ACTIVITY_TONE = {
 export default function AdminOverview() {
   const counts = useAdminCounts();
   const [activity, setActivity] = useState([]);
+  const [live, setLive] = useState({});
 
   useEffect(() => {
     adminRecentActivity(18).then(setActivity).catch(() => {});
+    adminActivityCounts().then(setLive).catch(() => {});
   }, []);
 
   const needsAttention =
-    (counts.pending_approvals || 0) + (counts.open_disputes || 0) + (counts.profiles_invisible || 0);
+    (counts.coverage_needed || 0) +
+    (counts.pending_approvals || 0) +
+    (counts.open_disputes || 0) +
+    (counts.profiles_invisible || 0);
 
   return (
     <AdminShell
@@ -47,6 +52,20 @@ export default function AdminOverview() {
           <Empty>Όλα τακτοποιημένα.</Empty>
         ) : (
           <>
+            {/* Coverage first: a client is sitting without a professional
+                for a date that is coming, which nothing else on this list
+                is. */}
+            {counts.coverage_needed > 0 && (
+              <Link href="/platform/admin/coverage" style={{ textDecoration: "none" }}>
+                <Row tone="attention">
+                  <RowMain
+                    title={`${counts.coverage_needed} κρατήσεις χωρίς επαγγελματία`}
+                    meta="Ακυρώθηκαν και περιμένουν να αναθέσεις αντικαταστάτη."
+                  />
+                  <span style={{ ...muted, fontSize: 18 }}>›</span>
+                </Row>
+              </Link>
+            )}
             {counts.pending_approvals > 0 && (
               <Link href="/platform/admin/approvals" style={{ textDecoration: "none" }}>
                 <Row tone="attention">
@@ -104,6 +123,20 @@ export default function AdminOverview() {
           value={counts.requests_unclaimed_7d ?? "—"}
           hint="κανείς δεν τα διεκδίκησε"
           tone={counts.requests_unclaimed_7d > 0 ? "attention" : "plain"}
+        />
+      </MetricGrid>
+
+      {/* Who is actually opening the app. Dormant accounts look identical to
+          live ones in every other list, and the difference decides who you
+          can hand short-notice work to. */}
+      <MetricGrid>
+        <Metric label="Ενεργοί σήμερα" value={live.active_24h ?? "—"} />
+        <Metric label="Ενεργοί (7 ημ.)" value={live.active_7d ?? "—"} />
+        <Metric label="Ενεργοί (30 ημ.)" value={live.active_30d ?? "—"} />
+        <Metric
+          label="Δεν μπήκαν ποτέ"
+          value={live.never_seen ?? "—"}
+          tone={live.never_seen > 0 ? "attention" : "plain"}
         />
       </MetricGrid>
 
