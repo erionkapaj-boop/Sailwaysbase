@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "check": "node scripts/check-platform.mjs",
+    "prebuild": "node scripts/check-platform.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
