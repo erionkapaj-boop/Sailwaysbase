@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import HeaderPanel from "./HeaderPanel";
 import { listMyNotifications, markNotificationsRead } from "../../../lib/platform/db";
 import { describeNotification, timeAgo } from "../../../lib/platform/notifications";
-import { colors, radius, shadow, muted, button, fontSans } from "../../../lib/platform/theme";
+import { colors, muted } from "../../../lib/platform/theme";
 
 const BellIcon = (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -14,23 +15,21 @@ const BellIcon = (
 
 export default function NotificationPanel({ count = 0, onRead }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
 
   // Fetched on open, not on mount: the badge already answers "is there
   // anything?", and most page loads never open the panel at all.
-  useEffect(() => {
-    if (!open) return;
+  function load() {
     setBusy(true);
     listMyNotifications()
       .then(setItems)
       .catch(() => {})
       .finally(() => setBusy(false));
-  }, [open]);
+  }
 
-  async function handleOpenItem(n) {
-    setOpen(false);
+  async function openItem(n, close) {
+    close();
     if (!n.read_at) {
       await markNotificationsRead([n.id]).catch(() => {});
       onRead?.();
@@ -50,144 +49,67 @@ export default function NotificationPanel({ count = 0, onRead }) {
   }
 
   return (
-    <div style={{ position: "relative" }}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label={count > 0 ? `Ειδοποιήσεις (${count})` : "Ειδοποιήσεις"}
-        style={{
-          position: "relative",
-          display: "flex",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          padding: "6px 6px",
-          color: colors.ink,
-        }}
-      >
-        {BellIcon}
-        {count > 0 && (
-          <span
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              top: -1,
-              right: -1,
-              minWidth: 14,
-              height: 14,
-              padding: "0 3px",
-              borderRadius: "50%",
-              background: colors.danger,
-              color: "#fff",
-              fontSize: 9,
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              lineHeight: 1,
-            }}
-          >
-            {count > 9 ? "9+" : count}
-          </span>
-        )}
-      </button>
-
-      {open && (
+    <HeaderPanel
+      icon={BellIcon}
+      count={count}
+      ariaLabel="Ειδοποιήσεις"
+      title="Ειδοποιήσεις"
+      onOpen={load}
+      action={count > 0 ? { label: "Όλα ως διαβασμένα", onClick: markAll, busy } : null}
+    >
+      {(close) => (
         <>
-          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 39 }} />
-          <div
-            style={{
-              position: "absolute",
-              right: 0,
-              top: "calc(100% + 8px)",
-              width: "min(330px, calc(100vw - 32px))",
-              maxHeight: "70vh",
-              overflowY: "auto",
-              background: colors.card,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              boxShadow: shadow.raised,
-              zIndex: 40,
-              fontFamily: fontSans,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "12px 14px",
-                borderBottom: `1px solid ${colors.border}`,
-                position: "sticky",
-                top: 0,
-                background: colors.card,
-              }}
-            >
-              <b style={{ fontSize: 14 }}>Ειδοποιήσεις</b>
-              {count > 0 && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={markAll}
-                  style={{ ...button("secondary"), padding: "4px 10px", fontSize: 12 }}
-                >
-                  Όλα ως διαβασμένα
-                </button>
-              )}
-            </div>
-
-            {busy && items.length === 0 && <p style={{ ...muted, padding: 14, margin: 0 }}>Φόρτωση…</p>}
-            {!busy && items.length === 0 && (
-              <p style={{ ...muted, padding: 14, margin: 0 }}>Καμία ειδοποίηση ακόμα.</p>
-            )}
-
-            {items.map((n) => {
-              const { title, body, urgent } = describeNotification(n);
-              const unread = !n.read_at;
-              return (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => handleOpenItem(n)}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "12px 14px",
-                    border: "none",
-                    borderBottom: `1px solid ${colors.border}`,
-                    // Unread carries a faint tint rather than bold-everything,
-                    // so a long list still reads as one list.
-                    background: unread ? colors.seaGlass : "transparent",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {unread && (
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          background: urgent ? colors.danger : colors.accent,
-                          flexShrink: 0,
-                        }}
-                      />
-                    )}
-                    <span style={{ fontSize: 14, fontWeight: unread ? 600 : 400, color: colors.ink }}>{title}</span>
-                  </span>
-                  {body && <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 2 }}>{body}</span>}
-                  <span style={{ ...muted, fontSize: 11, display: "block", marginTop: 3 }}>
-                    {timeAgo(n.created_at)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          {busy && items.length === 0 && <p style={{ ...muted, padding: 14, margin: 0 }}>Φόρτωση…</p>}
+          {!busy && items.length === 0 && (
+            <p style={{ ...muted, padding: 14, margin: 0 }}>Καμία ειδοποίηση ακόμα.</p>
+          )}
+          {items.map((n) => {
+            const { title, body, urgent } = describeNotification(n);
+            const unread = !n.read_at;
+            return (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => openItem(n, close)}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "12px 14px",
+                  border: "none",
+                  borderBottom: `1px solid ${colors.border}`,
+                  // Unread carries a faint tint rather than bold-everything,
+                  // so a long list still reads as one list.
+                  background: unread ? colors.seaGlass : "transparent",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {unread && (
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        // Red only for the one someone else can take first.
+                        background: urgent ? colors.danger : colors.accent,
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                  <span style={{ fontSize: 14, fontWeight: unread ? 600 : 400, color: colors.ink }}>{title}</span>
+                </span>
+                {body && <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 2 }}>{body}</span>}
+                <span style={{ ...muted, fontSize: 11, display: "block", marginTop: 3 }}>
+                  {timeAgo(n.created_at)}
+                </span>
+              </button>
+            );
+          })}
         </>
       )}
-    </div>
+    </HeaderPanel>
   );
 }

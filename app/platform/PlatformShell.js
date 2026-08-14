@@ -1,13 +1,12 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer from "./components/Footer";
 import Logo from "./components/Logo";
-import IconBadgeButton from "./components/IconBadgeButton";
 import NotificationPanel from "./components/NotificationPanel";
-import SkipperMenu from "./components/SkipperMenu";
-import { nav, colors, button, badge, fontSans } from "../../lib/platform/theme";
+import MessagesPanel from "./components/MessagesPanel";
+import AccountMenu from "./components/AccountMenu";
+import { nav, colors, fontSans } from "../../lib/platform/theme";
 
 const navLink = {
   fontSize: 14,
@@ -19,43 +18,34 @@ const navLink = {
   whiteSpace: "nowrap",
 };
 
-const EnvelopeIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="3" y="5" width="18" height="14" rx="2.5" />
-    <path d="m3.5 6.5 8.5 6.5 8.5-6.5" />
-  </svg>
-);
-
-// The professional's header is a different shape from everyone else's: a
-// three-zone app bar (menu / identity / actions) rather than logo-left,
-// links-right. Split out rather than threading a third layout into NavBar's
-// existing branching.
-function SkipperNavBar({ profile, loading, signOut, notifications, refreshNotifications }) {
-  const router = useRouter();
-  const pendingRequests = notifications?.pendingRequests ?? 0;
+// One header for every signed-in account, professional or not: menu on the
+// left, who you are in the middle, notifications and messages on the right.
+// A client having fewer menu items is not a reason to give them a different
+// header shape — the parts they do have should sit where they sit everywhere
+// else. Roles beyond skipper (hostess, cook, deckhand) come through here
+// unchanged, since nothing in it is specific to what someone does on a boat.
+function AccountNavBar({ name, photoUrl, loading, items, onSignOut, notifications, refreshNotifications, basePath }) {
+  const unreadNotifications = notifications?.pendingRequests ?? 0;
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
-
-  function openMessages() {
-    if (unreadBookingIds.length === 1) router.push(`/platform/skipper?focus=${unreadBookingIds[0]}`);
-    else router.push("/platform/skipper");
-  }
 
   return (
     <div style={{ ...nav, display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "center", columnGap: 10 }}>
-      <SkipperMenu onSignOut={signOut} />
+      <AccountMenu items={items} onSignOut={onSignOut} />
 
       <Link
         href="/platform"
         style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none", minWidth: 0 }}
       >
-        {profile?.photo_url ? (
+        {photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={profile.photo_url}
+            src={photoUrl}
             alt=""
             style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
           />
         ) : (
+          // Reserved from the first frame so the row doesn't shift sideways
+          // once the profile finishes loading.
           <span
             aria-hidden="true"
             style={{ width: 26, height: 26, borderRadius: "50%", background: colors.border, flexShrink: 0 }}
@@ -71,36 +61,65 @@ function SkipperNavBar({ profile, loading, signOut, notifications, refreshNotifi
             minWidth: loading ? 60 : undefined,
           }}
         >
-          {profile?.full_name || ""}
+          {name || ""}
         </span>
       </Link>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
-        <NotificationPanel count={pendingRequests} onRead={refreshNotifications} />
-        <IconBadgeButton icon={EnvelopeIcon} count={unreadBookingIds.length} onClick={openMessages} ariaLabel="Μηνύματα" />
+        <NotificationPanel count={unreadNotifications} onRead={refreshNotifications} />
+        <MessagesPanel count={unreadBookingIds.length} basePath={basePath} />
       </div>
     </div>
   );
 }
 
+const SKIPPER_ITEMS = [
+  { href: "/platform", label: "Αρχική" },
+  { href: "/platform/skipper", label: "Ο πίνακάς μου", group: true },
+  { href: "/platform/skipper/profile", label: "Το προφίλ μου" },
+  { href: "/platform/skipper/wallet", label: "Το πορτοφόλι μου" },
+  { href: "/platform/client", label: "Οι κρατήσεις μου ως πελάτης", group: true },
+];
+
+const CLIENT_ITEMS = [
+  { href: "/platform", label: "Αρχική" },
+  { href: "/platform/client", label: "Ο λογαριασμός μου", group: true },
+];
+
 function NavBar() {
-  const router = useRouter();
   const { session, userRow, profile, loading, signOut, role, notifications, refreshNotifications } = useAuth();
 
   if (session && role === "skipper") {
-    return <SkipperNavBar
-        profile={profile}
+    return (
+      <AccountNavBar
+        name={profile?.full_name}
+        photoUrl={profile?.photo_url}
         loading={loading}
-        signOut={signOut}
+        items={SKIPPER_ITEMS}
+        onSignOut={signOut}
         notifications={notifications}
         refreshNotifications={refreshNotifications}
-      />;
+        basePath="/platform/skipper"
+      />
+    );
   }
 
-  // Clients get the same unread-message signal professionals do — a reply
-  // they never find out about is the same dead end in either direction.
-  const clientUnread = role === "client" ? notifications?.unreadBookingIds ?? [] : [];
+  if (session && role === "client") {
+    return (
+      <AccountNavBar
+        name={userRow?.full_name}
+        photoUrl={null}
+        loading={loading}
+        items={CLIENT_ITEMS}
+        onSignOut={signOut}
+        notifications={notifications}
+        refreshNotifications={refreshNotifications}
+        basePath="/platform/client"
+      />
+    );
+  }
 
+  // Signed out, or admin: the plain marketing header.
   return (
     <div style={{ ...nav, flexWrap: "wrap", rowGap: 8, columnGap: 12 }}>
       <Link href="/platform" style={{ textDecoration: "none" }} aria-label="SkipperFinder — αρχική">
@@ -110,37 +129,17 @@ function NavBar() {
           search entry point) and deliberately no sign-up: registration is a
           step inside the flow, at the SMS OTP moment, not a separate door. */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", rowGap: 8 }}>
-        {session && role === "client" && (
-          <>
-            <Link href="/platform/client" style={navLink}>
-              Ο λογαριασμός μου
-            </Link>
-            <NotificationPanel count={notifications?.pendingRequests ?? 0} onRead={refreshNotifications} />
-            <IconBadgeButton
-              icon={EnvelopeIcon}
-              count={clientUnread.length}
-              ariaLabel="Μηνύματα"
-              onClick={() =>
-                router.push(
-                  clientUnread.length === 1 ? `/platform/client?focus=${clientUnread[0]}` : "/platform/client"
-                )
-              }
-            />
-          </>
-        )}
         {session && role === "admin" && (
-          <Link href="/platform/admin" style={navLink}>
-            Admin
-          </Link>
-        )}
-        {session ? (
           <>
-            <span style={{ ...badge("neutral"), whiteSpace: "nowrap" }}>{userRow?.phone_number || "..."}</span>
+            <Link href="/platform/admin" style={navLink}>
+              Admin
+            </Link>
             <button style={{ ...navLink, background: "none", border: "none", cursor: "pointer" }} onClick={signOut}>
               Logout
             </button>
           </>
-        ) : (
+        )}
+        {!session && (
           <Link href="/platform/login" style={{ ...navLink, color: colors.ink }}>
             Login
           </Link>

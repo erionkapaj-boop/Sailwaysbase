@@ -9,8 +9,18 @@ import {
   getMyClientProfile,
 } from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
-import Stat from "../components/Stat";
-import { container, card, h1, h2, muted, badge, button, colors, money } from "../../../lib/platform/theme";
+import Stars from "../components/Stars";
+import {
+  container,
+  card,
+  h1,
+  sectionLabel,
+  muted,
+  badge,
+  button,
+  colors,
+  money,
+} from "../../../lib/platform/theme";
 
 const REQ_STATUS = {
   open: ["Αναμονή διεκδίκησης", "brand"],
@@ -122,20 +132,43 @@ function ClientDashboardInner() {
     <div style={container}>
       <h1 style={h1}>Ο λογαριασμός μου</h1>
 
-      <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap" }}>
-        <Stat label="Wallet credit" value={`${clientProfile?.wallet_balance ?? 0}€`} />
-        <Stat
-          label="Ποσοστό αξιοπιστίας"
-          value={clientProfile?.reliability_percentage != null ? `${clientProfile.reliability_percentage}%` : "—"}
-        />
-        <Stat label="Ολοκληρωμένες κρατήσεις" value={clientProfile?.completed_bookings_count ?? 0} />
+      {/* Same standing block a professional gets: clients are rated too, and
+          a skipper deciding whether to claim their request reads exactly
+          these numbers. */}
+      <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: 12, paddingBottom: 10, marginTop: 8 }}>
+        <Stars rating={clientProfile?.rating_avg} count={clientProfile?.rating_count ?? 0} size={17} />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          flexWrap: "wrap",
+          padding: "10px 2px",
+          borderTop: `1px solid ${colors.border}`,
+          borderBottom: `1px solid ${colors.border}`,
+        }}
+      >
+        <span style={{ fontSize: 13, color: colors.inkSoft }}>Wallet</span>
+        <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
+          {clientProfile?.wallet_balance ?? 0}€
+        </b>
+        <span style={{ fontSize: 13, color: colors.inkSoft, margin: "0 10px" }}>·</span>
+        <span style={{ fontSize: 13, color: colors.inkSoft }}>Ολοκληρωμένες</span>
+        <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
+          {clientProfile?.completed_bookings_count ?? 0}
+        </b>
+        <span style={{ fontSize: 13, color: colors.inkSoft, margin: "0 10px" }}>·</span>
+        <span style={{ fontSize: 13, color: colors.inkSoft }}>Αξιοπιστία</span>
+        <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
+          {clientProfile?.reliability_percentage != null ? `${clientProfile.reliability_percentage}%` : "—"}
+        </b>
       </div>
 
       {busy && <p style={muted}>Φόρτωση...</p>}
 
       {openRequests.length > 0 && (
         <>
-          <h2 style={h2}>Εκκρεμή αιτήματα</h2>
+          <h2 style={sectionLabel}>Εκκρεμή αιτήματα</h2>
           {openRequests.map((r) => (
             <div key={r.id} style={card}>
               <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
@@ -156,7 +189,7 @@ function ClientDashboardInner() {
         </>
       )}
 
-      <h2 style={h2}>Κρατήσεις</h2>
+      <h2 style={sectionLabel}>Κρατήσεις</h2>
       {bookings.length === 0 && !busy && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
       {bookings.map((b) => (
         <BookingPanel
@@ -172,7 +205,7 @@ function ClientDashboardInner() {
 
       {closedRequests.length > 0 && (
         <>
-          <h2 style={h2}>Ιστορικό αιτημάτων</h2>
+          <h2 style={sectionLabel}>Ιστορικό αιτημάτων</h2>
           {closedRequests
             .filter((r) => r.status !== "matched")
             .map((r) => (
