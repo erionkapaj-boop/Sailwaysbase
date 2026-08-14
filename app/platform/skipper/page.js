@@ -26,6 +26,9 @@ const CLAIM_ERRORS = {
   already_covered: "Η δουλειά καλύφθηκε ήδη από κάποιον άλλον.",
 };
 
+// Κρατάει το ίδιο κατώφλι με το reliability_min_history στη βάση (0027).
+const MIN_RELIABILITY_HISTORY = 3;
+
 // Πρόταση από τη διαχείριση, όχι αίτημα πελάτη: ήρθε επειδή σε διάλεξαν
 // ονομαστικά, και αξίζει να διαβάζεται διαφορετικά από ένα ερώτημα που έφυγε
 // σε πολλούς.
@@ -203,6 +206,9 @@ function SkipperDashboardInner() {
   if (userRow?.role !== "skipper") return <div style={container}>Αυτή η σελίδα είναι μόνο για skippers.</div>;
   if (!profile) return <MissingProfile userRow={userRow} refresh={refresh} loadError={loadError} />;
 
+  // Πόσα περιστατικά υπάρχουν συνολικά να μιλήσουν για κάποιον.
+  const history = (profile.completed_bookings_count || 0) + (profile.cancellation_flag_count || 0);
+
   return (
     <div style={container}>
       <h1 style={h1}>Ο πίνακάς μου</h1>
@@ -272,6 +278,13 @@ function SkipperDashboardInner() {
           {profile.cancellation_flag_count === 0 && profile.completed_bookings_count > 0 && (
             <span style={badge("success")}>Καμία ακύρωση</span>
           )}
+          {/* Η έγκαιρη ειδοποίηση είναι το ζητούμενο, οπότε λέγεται φωναχτά.
+              Χωρίς αυτό, ο μόνος τρόπος να μη φαίνεσαι κακός ήταν να μην
+              ακυρώσεις ποτέ — που σημαίνει να το κρύψεις μέχρι την τελευταία
+              στιγμή, ακριβώς η συμπεριφορά που κοστίζει περισσότερο. */}
+          {standing?.cancellations > 0 && standing.cancellationLoad / standing.cancellations <= 0.3 && (
+            <span style={badge("success")}>Ειδοποιεί έγκαιρα</span>
+          )}
           {standing && standing.responded + standing.ignored > 0 && (
             <span style={badge(standing.ignored === 0 ? "success" : "neutral")}>
               Απαντά σε {standing.responded} από {standing.responded + standing.ignored} αιτήματα
@@ -306,10 +319,38 @@ function SkipperDashboardInner() {
         </b>
         <span style={{ fontSize: 13, color: colors.inkSoft, margin: "0 10px" }}>·</span>
         <span style={{ fontSize: 13, color: colors.inkSoft }}>Αξιοπιστία</span>
-        <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
-          {profile.reliability_percentage != null ? `${profile.reliability_percentage}%` : "—"}
+        {/* Κάτω από τρία περιστατικά δεν δείχνουμε ποσοστό. Μία ακύρωση στην
+            πρώτη δουλειά έβγαζε «0%» — νούμερο που δεν περιγράφει κανέναν,
+            μόνο το ότι δεν υπάρχει ακόμα ιστορικό να περιγραφεί. */}
+        <b
+          style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}
+          title={
+            history < MIN_RELIABILITY_HISTORY
+              ? "Χρειάζονται τουλάχιστον 3 ολοκληρωμένες ή ακυρωμένες κρατήσεις"
+              : undefined
+          }
+        >
+          {history >= MIN_RELIABILITY_HISTORY && profile.reliability_percentage != null
+            ? `${profile.reliability_percentage}%`
+            : "—"}
         </b>
       </div>
+
+      {/* Λέγεται μόνο όταν υπάρχει κάτι να ειπωθεί. Ο επαγγελματίας πρέπει να
+          ξέρει ότι οι ακυρώσεις τον κατεβάζουν στη σειρά — και κυρίως ότι το
+          πόσο εξαρτάται από το πότε ειδοποιεί, γιατί αυτό είναι το μόνο
+          κομμάτι που ελέγχει ο ίδιος. */}
+      {standing?.cancellations > 0 && standing.cancelStanding != null && (
+        <p style={{ ...muted, fontSize: 12.5, margin: "10px 2px 0", lineHeight: 1.5 }}>
+          {standing.cancellations === 1 ? "1 ακύρωση" : `${standing.cancellations} ακυρώσεις`} στο ιστορικό σου.
+          {standing.cancelStanding >= 99
+            ? " Επειδή ειδοποίησες έγκαιρα, σχεδόν δεν επηρεάζουν τη θέση σου στις αναζητήσεις."
+            : standing.cancelStanding >= 90
+            ? " Επηρεάζουν ελαφρά τη θέση σου στις αναζητήσεις."
+            : " Επηρεάζουν αισθητά τη θέση σου στις αναζητήσεις."}
+          {" Όσο πιο νωρίς ειδοποιείς, τόσο λιγότερο μετράει η κάθε μία."}
+        </p>
+      )}
 
       {/* Available while pending too — no reason to wait for approval before
           saying when you can work. */}
