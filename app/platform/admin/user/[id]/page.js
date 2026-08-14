@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../AuthContext";
 import {
   adminGetUser,
@@ -50,7 +50,8 @@ function Chips({ items }) {
 
 export default function AdminUserViewPage() {
   const { id } = useParams();
-  const { session, userRow, loading } = useAuth();
+  const router = useRouter();
+  const { session, userRow, loading, startViewAs } = useAuth();
 
   const [target, setTarget] = useState(null);
   const [data, setData] = useState(null);
@@ -109,23 +110,30 @@ export default function AdminUserViewPage() {
 
   return (
     <div style={container}>
-      <Link href="/platform/admin" style={{ ...muted, fontSize: 14, textDecoration: "none" }}>
-        ← Πίσω στη λίστα
+      <Link href="/platform/admin/users" style={{ ...muted, fontSize: 14, textDecoration: "none" }}>
+        ← Πίσω στους χρήστες
       </Link>
 
-      {/* Always visible, so it's never ambiguous whose screen this is. */}
-      <div
-        style={{
-          ...card,
-          marginTop: 14,
-          borderLeft: `3px solid ${colors.warn}`,
-        }}
-      >
-        <b style={{ fontWeight: 600 }}>Προβολή ως χρήστης</b>
-        <p style={{ ...muted, margin: "6px 0 0" }}>
-          Βλέπεις τα δεδομένα του λογαριασμού όπως τα βλέπει ο ίδιος. Μόνο ανάγνωση — δεν μπορείς να
-          κάνεις ενέργειες εκ μέρους του.
+      {/* This screen is the record; walking the app as them is the other
+          button. Keeping the two distinct stops "I looked at their data" and
+          "I saw what they see" from being confused for each other. */}
+      <div style={{ ...card, marginTop: 14 }}>
+        <b style={{ fontWeight: 600 }}>Στοιχεία λογαριασμού</b>
+        <p style={{ ...muted, margin: "6px 0 12px" }}>
+          Ό,τι είναι αποθηκευμένο για αυτόν τον χρήστη. Για να δεις τις σελίδες όπως τις βλέπει ο
+          ίδιος, χρησιμοποίησε την προβολή.
         </p>
+        {target && target.role !== "admin" && (
+          <button
+            style={button("secondary")}
+            onClick={() => {
+              startViewAs({ id: target.id, name: target.full_name, phone: target.phone_number, role: target.role });
+              router.push(target.role === "skipper" ? "/platform/skipper" : "/platform/client");
+            }}
+          >
+            Προβολή ως {target.full_name || target.phone_number}
+          </button>
+        )}
       </div>
 
       {busy && <p style={muted}>Φόρτωση…</p>}
