@@ -167,11 +167,60 @@ const globalStyles = `
 .platform-scope .sf-cta:active { background: ${colors.brandDark}; color: #fff; }
 `;
 
+// Deliberately loud and always on screen. The whole point of this mode is
+// that the page is indistinguishable from the real thing, which is exactly
+// what makes forgetting you are in it easy — so the one difference has to be
+// impossible to miss.
+function ViewAsBanner() {
+  const { viewingAs, stopViewAs } = useAuth();
+  if (!viewingAs) return null;
+  return (
+    <div
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+        background: colors.warn,
+        color: "#fff",
+        padding: "8px 14px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        fontSize: 13,
+        fontFamily: fontSans,
+      }}
+    >
+      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        Προβολή ως <b>{viewingAs.name || viewingAs.phone}</b> — μόνο ανάγνωση
+      </span>
+      <button
+        type="button"
+        onClick={stopViewAs}
+        style={{
+          background: "rgba(255,255,255,0.2)",
+          color: "#fff",
+          border: "1px solid rgba(255,255,255,0.5)",
+          borderRadius: 6,
+          padding: "4px 10px",
+          fontSize: 12,
+          cursor: "pointer",
+          fontFamily: "inherit",
+          flexShrink: 0,
+        }}
+      >
+        Έξοδος
+      </button>
+    </div>
+  );
+}
+
 export default function PlatformShell({ children }) {
   return (
     <AuthProvider>
       <style>{globalStyles}</style>
       <div className="platform-scope" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        <ViewAsBanner />
         <NavBar />
         <div style={{ flex: 1 }}>{children}</div>
         <Footer />

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import {
   adminListPendingSkippers,
@@ -211,6 +212,8 @@ function BookingsOverview() {
 }
 
 function UsersList() {
+  const router = useRouter();
+  const { startViewAs } = useAuth();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [list, setList] = useState([]);
@@ -238,6 +241,11 @@ function UsersList() {
   function submit(e) {
     e.preventDefault();
     load({ search, role: roleFilter });
+  }
+
+  function enterViewAs(subject) {
+    startViewAs(subject);
+    router.push(subject.role === "skipper" ? "/platform/skipper" : "/platform/client");
   }
 
   async function seed() {
@@ -313,23 +321,38 @@ function UsersList() {
       {!busy && list.length === 0 && <p style={muted}>Κανένας χρήστης δεν ταιριάζει.</p>}
 
       {list.map((u) => (
-        <Link key={u.id} href={`/platform/admin/user/${u.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-          <div style={{ ...card, cursor: "pointer" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-              <div>
-                <div style={{ fontWeight: 500 }}>{u.full_name || "(χωρίς όνομα)"}</div>
-                <div style={{ ...muted, marginTop: 4 }}>
-                  <span style={money}>{u.phone_number}</span>
-                  {u.email ? ` · ${u.email}` : ""}
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-                <span style={badge("neutral")}>{u.role}</span>
-                {u.status !== "active" && <span style={badge("warn")}>{u.status}</span>}
+        <div key={u.id} style={card}>
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <div>
+              <div style={{ fontWeight: 500 }}>{u.full_name || "(χωρίς όνομα)"}</div>
+              <div style={{ ...muted, marginTop: 4 }}>
+                <span style={money}>{u.phone_number}</span>
+                {u.email ? ` · ${u.email}` : ""}
               </div>
             </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+              <span style={badge("neutral")}>{u.role}</span>
+              {u.status !== "active" && <span style={badge("warn")}>{u.status}</span>}
+            </div>
           </div>
-        </Link>
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            {/* The real pages as that person, which is the only way to check
+                how a change actually landed for each role. */}
+            {u.role !== "admin" && (
+              <button
+                style={button("primary")}
+                onClick={() =>
+                  enterViewAs({ id: u.id, name: u.full_name, phone: u.phone_number, role: u.role })
+                }
+              >
+                Προβολή ως
+              </button>
+            )}
+            <Link href={`/platform/admin/user/${u.id}`} style={{ textDecoration: "none" }}>
+              <span style={button("secondary")}>Στοιχεία λογαριασμού</span>
+            </Link>
+          </div>
+        </div>
       ))}
     </div>
   );

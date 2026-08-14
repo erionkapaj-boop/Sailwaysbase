@@ -1,7 +1,13 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { supabase } from "../../lib/platform/supabaseClient";
-import { getMyUserRow, getMyClientProfile, getMySkipperProfile, getMyNotificationCounts } from "../../lib/platform/db";
+import {
+  getMyUserRow,
+  getMyClientProfile,
+  getMySkipperProfile,
+  getMyNotificationCounts,
+  setViewAsUser,
+} from "../../lib/platform/db";
 
 const AuthContext = createContext(null);
 const EMPTY_NOTIFICATIONS = { pendingRequests: 0, unreadBookingIds: [] };
@@ -13,6 +19,12 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [notifications, setNotifications] = useState(EMPTY_NOTIFICATIONS);
+  // Whose account is being rendered. Null for everyone except an admin who
+  // has explicitly picked someone. Held in sessionStorage rather than the URL
+  // so it survives navigation across every page — the point is to walk the
+  // whole app as that person, not one screen — and dies with the tab.
+  const [viewingAs, setViewingAs] = useState(null);
+  const [adminUserRow, setAdminUserRow] = useState(null);
 
   // Separate from refresh() (below) because a booking gets read or claimed
   // without the profile itself changing — the header icons need to update
@@ -38,6 +50,25 @@ export function AuthProvider({ children }) {
       const { data } = await supabase.auth.getSession();
       setSession(data.session || null);
       if (data.session) {
+        // Read who (if anyone) is being viewed before any query runs, so the
+        // very first fetch already answers for the right person.
+        let subject = null;
+        try {
+          subject = JSON.parse(sessionStorage.getItem("sf_view_as") || "null");
+        } catch {
+          subject = null;
+        }
+        // Only an admin may do this; the database refuses regardless, but
+        // there is no reason to send the attempt.
+        const meRow = await (async () => {
+          setViewAsUser(null);
+          return getMyUserRow();
+        })();
+        setAdminUserRow(meRow);
+        const allowed = meRow?.role === "admin" ? subject : null;
+        setViewAsUser(allowed?.id || null);
+        setViewingAs(allowed);
+
         const u = await getMyUserRow();
         setUserRow(u);
         if (u?.role === "client") setProfile(await getMyClientProfile());
@@ -70,7 +101,24 @@ export function AuthProvider({ children }) {
     return () => sub.subscription.unsubscribe();
   }, [refresh]);
 
+  const startViewAs = useCallback((subject) => {
+    sessionStorage.setItem("sf_view_as", JSON.stringify(subject));
+    setViewAsUser(subject.id);
+    setViewingAs(subject);
+    refresh();
+  }, [refresh]);
+
+  const stopViewAs = useCallback(() => {
+    sessionStorage.removeItem("sf_view_as");
+    setViewAsUser(null);
+    setViewingAs(null);
+    refresh();
+  }, [refresh]);
+
   const signOut = useCallback(async () => {
+    sessionStorage.removeItem("sf_view_as");
+    setViewAsUser(null);
+    setViewingAs(null);
     if (supabase) await supabase.auth.signOut();
     setSession(null);
     setUserRow(null);
@@ -90,6 +138,11 @@ export function AuthProvider({ children }) {
         signOut,
         notifications,
         refreshNotifications,
+        viewingAs,
+        startViewAs,
+        stopViewAs,
+        isAdmin: adminUserRow?.role === "admin",
+        readOnly: Boolean(viewingAs),
         needsRoleSelection: !!session && !loading && !userRow,
         role: userRow?.role || null,
       }}
