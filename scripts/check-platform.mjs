@@ -79,6 +79,26 @@ function checkFile(path) {
       }
     }
   }
+
+  // 3. No name exported twice from the same module. This file is 1000 lines of
+  //    flat exports and I added one that already existed 400 lines up — the
+  //    duplicate is a hard build error, but only after a full compile, and in a
+  //    file where nothing stops it being written in the first place.
+  const exported = new Map();
+  for (const m of src.matchAll(/^export\s+(?:async\s+)?(?:function|const|let|class)\s+(\w+)/gm)) {
+    exported.set(m[1], (exported.get(m[1]) || 0) + 1);
+  }
+  for (const [name, count] of exported) {
+    if (count > 1) problems.push(`${path}: \`${name}\` is exported ${count} times`);
+  }
+
+  // 4. `.catch()` on a Supabase query builder. The builder is a thenable with
+  //    a then() and no catch(), so this throws a TypeError before the request
+  //    is sent — silently, if nobody awaited the call. It killed the activity
+  //    ping outright and looked exactly like "nobody has opened the app".
+  for (const m of src.matchAll(/\.(rpc|select|insert|update|delete|upsert)\([^;]*?\)\s*\.catch\(/g)) {
+    problems.push(`${path}: .catch() on a Supabase ${m[1]}() builder — use try/catch around await`);
+  }
 }
 
 walk("app/platform");

@@ -8,6 +8,7 @@ import {
   declineBookingRequest,
   listMyBookingsAsSkipper,
   getMyStanding,
+  getPlatformSetting,
 } from "../../../lib/platform/db";
 import AvailabilityCalendar from "./AvailabilityCalendar";
 import MissingProfile from "./MissingProfile";
@@ -21,11 +22,22 @@ const CLAIM_ERRORS = {
   date_overlap: "Έχεις ήδη επιβεβαιωμένη κράτηση που επικαλύπτεται με αυτές τις ημερομηνίες.",
   insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο wallet για το claim fee.",
   skipper_not_eligible: "Το προφίλ σου δεν είναι εγκεκριμένο.",
+  request_expired: "Η πρόταση έληξε.",
+  already_covered: "Η δουλειά καλύφθηκε ήδη από κάποιον άλλον.",
+};
+
+// Πρόταση από τη διαχείριση, όχι αίτημα πελάτη: ήρθε επειδή σε διάλεξαν
+// ονομαστικά, και αξίζει να διαβάζεται διαφορετικά από ένα ερώτημα που έφυγε
+// σε πολλούς.
+const OFFER_LABEL = {
+  admin_direct: "Πρόταση από τη διαχείριση",
+  admin_replacement: "Αντικατάσταση — ο πελάτης έμεινε χωρίς πλήρωμα",
 };
 
 function PingsInbox({ skipperId, onClaimed }) {
   const { refreshNotifications } = useAuth();
   const [pings, setPings] = useState([]);
+  const [defaultFee, setDefaultFee] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
 
@@ -34,6 +46,8 @@ function PingsInbox({ skipperId, onClaimed }) {
   }
   useEffect(() => {
     load();
+    // Το κόστος της διεκδίκησης δίπλα στο κουμπί που το χρεώνει.
+    getPlatformSetting("skipper_claim_fee").then(setDefaultFee).catch(() => {});
   }, [skipperId]);
 
   async function handleClaim(requestId) {
@@ -78,8 +92,23 @@ function PingsInbox({ skipperId, onClaimed }) {
       {pending.map((p) => {
         const r = p.booking_requests;
         const cp = r.client_profiles;
+        const isOffer = r.origin && r.origin !== "client";
+        const fee = r.claim_fee_amount != null ? Number(r.claim_fee_amount) : defaultFee;
         return (
-          <div key={p.id} style={card}>
+          <div
+            key={p.id}
+            style={{
+              ...card,
+              // Μια πρόταση που σου έγινε ονομαστικά δεν πρέπει να χάνεται
+              // ανάμεσα σε αιτήματα που έφυγαν σε δέκα άτομα.
+              borderLeft: isOffer ? `3px solid ${colors.ink}` : card.borderLeft,
+            }}
+          >
+            {isOffer && (
+              <p style={{ ...muted, fontSize: 12, margin: "0 0 8px", color: colors.ink, fontWeight: 500 }}>
+                {OFFER_LABEL[r.origin] || "Πρόταση από τη διαχείριση"}
+              </p>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
               <div>
                 <div style={{ fontWeight: 500, fontSize: 15 }}>
@@ -88,22 +117,41 @@ function PingsInbox({ skipperId, onClaimed }) {
                 <p style={{ ...muted, margin: "6px 0 0" }}>
                   <span style={money}>{r.start_date}</span> → <span style={money}>{r.end_date}</span>
                 </p>
-                <p style={{ ...muted, margin: "4px 0 0" }}>
-                  Πελάτης:{" "}
-                  {cp?.reliability_percentage != null ? (
-                    <>
-                      <span style={{ ...money, color: colors.ink }}>{cp.reliability_percentage}%</span> αξιοπιστία
-                    </>
-                  ) : (
-                    "νέος πελάτης"
-                  )}
-                  {" · "}
-                  <span style={{ ...money, color: colors.ink }}>
-                    {cp?.rating_avg ? cp.rating_avg.toFixed(1) : "—"}
-                  </span>
-                  {" ★ "}
-                  <span style={money}>({cp?.rating_count ?? 0})</span>
-                </p>
+                {isOffer ? (
+                  <p style={{ ...muted, margin: "4px 0 0" }}>
+                    Σε επέλεξαν απευθείας για αυτή τη δουλειά.
+                    {r.note && <> «{r.note}»</>}
+                  </p>
+                ) : (
+                  <p style={{ ...muted, margin: "4px 0 0" }}>
+                    Πελάτης:{" "}
+                    {cp?.reliability_percentage != null ? (
+                      <>
+                        <span style={{ ...money, color: colors.ink }}>{cp.reliability_percentage}%</span> αξιοπιστία
+                      </>
+                    ) : (
+                      "νέος πελάτης"
+                    )}
+                    {" · "}
+                    <span style={{ ...money, color: colors.ink }}>
+                      {cp?.rating_avg ? cp.rating_avg.toFixed(1) : "—"}
+                    </span>
+                    {" ★ "}
+                    <span style={money}>({cp?.rating_count ?? 0})</span>
+                  </p>
+                )}
+                {/* Το ποσό δίπλα στην απόφαση, όχι στο πορτοφόλι μετά. */}
+                {fee != null && (
+                  <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
+                    {Number(fee) === 0 ? (
+                      "Χωρίς χρέωση διεκδίκησης."
+                    ) : (
+                      <>
+                        Με τη διεκδίκηση χρεώνεσαι <span style={{ ...money, color: colors.ink }}>{fee}€</span>.
+                      </>
+                    )}
+                  </p>
+                )}
               </div>
               {/* Declining counts as answering. Without it, the only way to
                   look responsive would be to claim everything — exactly the

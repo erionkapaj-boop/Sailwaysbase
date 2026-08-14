@@ -118,6 +118,13 @@ export default function AdminOverview() {
           value={counts.bookings_cancelled_30d ?? "—"}
           tone={counts.bookings_cancelled_30d > 0 ? "attention" : "plain"}
         />
+        {/* Δουλειά που έδωσες εσύ και περιμένει απάντηση — χωριστά από τα
+            αιτήματα των πελατών, γιατί την παρακολουθείς αλλιώς. */}
+        <Metric
+          label="Προτάσεις σε αναμονή"
+          value={counts.offers_open ?? "—"}
+          hint={counts.coverage_offered > 0 ? `${counts.coverage_offered} για κάλυψη ακύρωσης` : "δικές σου αναθέσεις"}
+        />
         <Metric
           label="Άκαρπα αιτήματα (7 ημ.)"
           value={counts.requests_unclaimed_7d ?? "—"}
