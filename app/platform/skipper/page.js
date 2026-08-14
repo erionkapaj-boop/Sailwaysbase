@@ -5,13 +5,15 @@ import { useAuth } from "../AuthContext";
 import {
   listMyPings,
   claimBookingRequest,
+  declineBookingRequest,
   listMyBookingsAsSkipper,
+  getMyStanding,
 } from "../../../lib/platform/db";
 import AvailabilityCalendar from "./AvailabilityCalendar";
 import MissingProfile from "./MissingProfile";
 import BookingPanel from "../components/BookingPanel";
 import Stars from "../components/Stars";
-import { container, card, h1, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
+import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
 
 const CLAIM_ERRORS = {
   request_not_open: "Το αίτημα δεν είναι πια ανοιχτό — κάποιος άλλος πρόλαβε ή έληξε.",
@@ -45,6 +47,21 @@ function PingsInbox({ skipperId, onClaimed }) {
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
       setError(CLAIM_ERRORS[code] || err.message || String(err));
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleDecline(requestId) {
+    setBusyId(requestId);
+    setError("");
+    try {
+      await declineBookingRequest(requestId, skipperId);
+      await load();
+      refreshNotifications();
+    } catch (err) {
+      setError(err.message || String(err));
       await load();
     } finally {
       setBusyId(null);
@@ -88,9 +105,17 @@ function PingsInbox({ skipperId, onClaimed }) {
                   <span style={money}>({cp?.rating_count ?? 0})</span>
                 </p>
               </div>
-              <button style={button("primary")} disabled={busyId === r.id} onClick={() => handleClaim(r.id)}>
-                {busyId === r.id ? "..." : "Διεκδίκηση"}
-              </button>
+              {/* Declining counts as answering. Without it, the only way to
+                  look responsive would be to claim everything — exactly the
+                  behaviour the score should discourage. */}
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <button style={button("primary")} disabled={busyId === r.id} onClick={() => handleClaim(r.id)}>
+                  {busyId === r.id ? "..." : "Διεκδίκηση"}
+                </button>
+                <button style={button("secondary")} disabled={busyId === r.id} onClick={() => handleDecline(r.id)}>
+                  Δεν με ενδιαφέρει
+                </button>
+              </div>
             </div>
           </div>
         );
@@ -115,12 +140,14 @@ function SkipperDashboardInner() {
   const searchParams = useSearchParams();
   const focusBookingId = searchParams.get("focus");
   const [bookings, setBookings] = useState([]);
+  const [standing, setStanding] = useState(null);
 
   async function loadBookings() {
     if (profile?.id) setBookings(await listMyBookingsAsSkipper(profile.id));
   }
   useEffect(() => {
     loadBookings();
+    if (profile?.id) getMyStanding().then(setStanding).catch(() => {});
   }, [profile?.id]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
@@ -189,6 +216,20 @@ function SkipperDashboardInner() {
         }}
       >
         <Stars rating={profile.rating_avg} count={profile.rating_count} size={17} />
+
+        {/* Behaviour sits beside the stars, never inside them: each badge
+            says what it measures, so nothing is being passed off as an
+            average of reviews. These are what lift you in search results. */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+          {profile.cancellation_flag_count === 0 && profile.completed_bookings_count > 0 && (
+            <span style={badge("success")}>Καμία ακύρωση</span>
+          )}
+          {standing && standing.responded + standing.ignored > 0 && (
+            <span style={badge(standing.ignored === 0 ? "success" : "neutral")}>
+              Απαντά σε {standing.responded} από {standing.responded + standing.ignored} αιτήματα
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Wallet/tier is background information, not something acted on daily —
