@@ -16,6 +16,7 @@ import { colors, radius, muted, fontSans } from "../../../lib/platform/theme";
 // itself.
 export const SECTIONS = [
   { href: "/platform/admin", label: "Επισκόπηση", icon: "▦", exact: true },
+  { href: "/platform/admin/coverage", label: "Κάλυψη", icon: "⚑", badge: "coverage_needed" },
   { href: "/platform/admin/approvals", label: "Εγκρίσεις", icon: "✓", badge: "pending_approvals" },
   { href: "/platform/admin/users", label: "Χρήστες", icon: "◍" },
   { href: "/platform/admin/bookings", label: "Κρατήσεις", icon: "≡" },
