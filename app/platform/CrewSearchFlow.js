@@ -142,27 +142,13 @@ export default function CrewSearchFlow({ onCancel }) {
       {current === "dates" && (
         <div key="dates" data-sf-step style={stepWrap}>
           <StepHeading>Πότε;</StepHeading>
-          <label style={label} htmlFor="sf-start">
-            Από
-          </label>
-          <input
-            id="sf-start"
-            type="date"
-            style={{ ...input, marginBottom: 16 }}
-            value={dates.start}
-            onChange={(e) => setDates((d) => ({ ...d, start: e.target.value }))}
-          />
-          <label style={label} htmlFor="sf-end">
-            Έως
-          </label>
-          <input
-            id="sf-end"
-            type="date"
-            style={{ ...input, marginBottom: 24 }}
-            min={dates.start || undefined}
-            value={dates.end}
-            onChange={(e) => setDates((d) => ({ ...d, end: e.target.value }))}
-          />
+          <div style={{ marginBottom: 24 }}>
+            <DateRangeCalendar
+              startDate={dates.start}
+              endDate={dates.end}
+              onChange={({ startDate, endDate }) => setDates({ start: startDate, end: endDate })}
+            />
+          </div>
           <button
             type="button"
             disabled={!dates.start || !dates.end || dates.end < dates.start}

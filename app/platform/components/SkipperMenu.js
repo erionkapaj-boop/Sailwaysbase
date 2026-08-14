@@ -58,6 +58,15 @@ export default function SkipperMenu({ onSignOut }) {
             <Link href="/platform/skipper/wallet" onClick={() => setOpen(false)} style={itemStyle}>
               Το πορτοφόλι μου
             </Link>
+            {/* The same person as a customer. A professional hiring a cook
+                for a charter is an ordinary case, not an edge one. */}
+            <Link
+              href="/platform/client"
+              onClick={() => setOpen(false)}
+              style={{ ...itemStyle, borderTop: `1px solid ${colors.border}` }}
+            >
+              Οι κρατήσεις μου ως πελάτης
+            </Link>
             <button
               type="button"
               onClick={() => {

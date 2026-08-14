@@ -2,7 +2,12 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
-import { listMyBookingRequests, listMyBookingsAsClient, createMissingProfile } from "../../../lib/platform/db";
+import {
+  listMyBookingRequests,
+  listMyBookingsAsClient,
+  createMissingProfile,
+  getMyClientProfile,
+} from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
 import Stat from "../components/Stat";
 import { container, card, h1, h2, muted, badge, button, colors, money } from "../../../lib/platform/theme";
@@ -74,32 +79,41 @@ export default function ClientDashboard() {
 // useSearchParams() (for ?focus=<bookingId>, used by the header's message
 // icon) requires a Suspense boundary around it in the app router.
 function ClientDashboardInner() {
-  const { session, profile, userRow, loading, refresh, loadError, notifications } = useAuth();
+  const { session, userRow, loading, refresh, loadError, notifications } = useAuth();
   const searchParams = useSearchParams();
   const focusBookingId = searchParams.get("focus");
   const [requests, setRequests] = useState([]);
   const [bookings, setBookings] = useState([]);
+  // Fetched here rather than taken from AuthContext: for a professional that
+  // context holds their *crew* profile, while this page is about the same
+  // person as a customer. Both exist for every account now.
+  const [clientProfile, setClientProfile] = useState(null);
   const [busy, setBusy] = useState(true);
 
   async function load() {
     setBusy(true);
     try {
-      const [r, b] = await Promise.all([listMyBookingRequests(), listMyBookingsAsClient()]);
+      const [r, b, cp] = await Promise.all([
+        listMyBookingRequests(),
+        listMyBookingsAsClient(),
+        getMyClientProfile(),
+      ]);
       setRequests(r);
       setBookings(b);
+      setClientProfile(cp);
     } finally {
       setBusy(false);
     }
   }
 
   useEffect(() => {
-    if (session && userRow?.role === "client") load();
+    if (session && userRow) load();
   }, [session, userRow]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
-  if (userRow?.role !== "client") return <div style={container}>Αυτή η σελίδα είναι μόνο για πελάτες.</div>;
-  if (!profile) return <MissingProfile refresh={refresh} loadError={loadError} />;
+  if (busy && !clientProfile) return <div style={container}>Φόρτωση...</div>;
+  if (!clientProfile) return <MissingProfile refresh={refresh} loadError={loadError} />;
 
   const openRequests = requests.filter((r) => r.status === "open");
   const closedRequests = requests.filter((r) => r.status !== "open");
@@ -109,12 +123,12 @@ function ClientDashboardInner() {
       <h1 style={h1}>Ο λογαριασμός μου</h1>
 
       <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap" }}>
-        <Stat label="Wallet credit" value={`${profile?.wallet_balance ?? 0}€`} />
+        <Stat label="Wallet credit" value={`${clientProfile?.wallet_balance ?? 0}€`} />
         <Stat
           label="Ποσοστό αξιοπιστίας"
-          value={profile?.reliability_percentage != null ? `${profile.reliability_percentage}%` : "—"}
+          value={clientProfile?.reliability_percentage != null ? `${clientProfile.reliability_percentage}%` : "—"}
         />
-        <Stat label="Ολοκληρωμένες κρατήσεις" value={profile?.completed_bookings_count ?? 0} />
+        <Stat label="Ολοκληρωμένες κρατήσεις" value={clientProfile?.completed_bookings_count ?? 0} />
       </div>
 
       {busy && <p style={muted}>Φόρτωση...</p>}

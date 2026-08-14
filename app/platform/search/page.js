@@ -3,6 +3,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
+import DateRangeCalendar from "../components/DateRangeCalendar";
 import { SUPPORTED_ROLES, labelForRole, computeCrewHighlights } from "../../../lib/platform/roles";
 import {
   listLookups,
@@ -109,7 +110,7 @@ function SkipperCard({ s, selected, onToggle, days }) {
 function SearchPageInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const { session, role } = useAuth();
+  const { session } = useAuth();
 
   // Filters arriving from the home page form.
   const incoming = {
@@ -181,10 +182,6 @@ function SearchPageInner() {
       router.push("/platform/login");
       return;
     }
-    if (role !== "client") {
-      setError("Μόνο λογαριασμός πελάτη μπορεί να στείλει καμπανάκι.");
-      return;
-    }
     setError("");
     setBusy(true);
     try {
@@ -220,24 +217,12 @@ function SearchPageInner() {
       )}
 
       <form onSubmit={handleSearch} style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
-        <div>
-          <label style={label}>Από</label>
-          <input
-            type="date"
-            style={input}
-            required
-            value={filters.startDate}
-            onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))}
-          />
-        </div>
-        <div>
-          <label style={label}>Έως</label>
-          <input
-            type="date"
-            style={input}
-            required
-            value={filters.endDate}
-            onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={label}>Ημερομηνίες</label>
+          <DateRangeCalendar
+            startDate={filters.startDate}
+            endDate={filters.endDate}
+            onChange={({ startDate, endDate }) => setFilters((f) => ({ ...f, startDate, endDate }))}
           />
         </div>
         <div>
