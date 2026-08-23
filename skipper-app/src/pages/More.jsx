@@ -2,9 +2,7 @@ import { Link } from 'react-router-dom'
 
 const ITEMS = [
   { to: '/inventory', label: 'Inventory / Checklist' },
-  { to: '/availability', label: 'Διαθεσιμότητα' },
   { to: '/charters', label: 'Ναυλώσεις / Charters' },
-  { to: '/pricing', label: 'Τιμές' },
   { to: '/profile', label: 'Προφίλ & Ρυθμίσεις' }
 ]
 
