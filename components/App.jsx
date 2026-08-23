@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.20";
+const APP_VERSION = "v4.21";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -60,6 +60,10 @@ const SEED_BOATS = [
   ["Λίνα", "Bavaria 51"], ["Messenger", "Jeanneau 57"], ["Mystique", "Lagoon 500"],
   ["Mystique II", "Lagoon 500"], ["Avra", "Lagoon 560 S2"], ["Marina", "Leopard 45"], ["Lag IX", "Lagoon 42"],
 ].map(([name, type], i) => ({ id: "b" + i, name, type, atSea: false, returnDate: null, departureDate: null }));
+
+// Σκάφος που συμμετέχει στην κανονική λειτουργία της βάσης. Το αντίθετο (isolated) είναι σκάφος «εκτός ροής»:
+// ορατό μόνο στον Διαχειριστή, εκτός κάθε αυτοματισμού, κατανομής, στατιστικού και Βιβλίου service.
+const isOpsBoat = (b) => !b?.isolated;
 
 const SEED_QUICK = ["Αλλαγή λαδιών", "Καθαρισμός σεντίνας", "Καθαρισμός μηχανοστασίου"];
 const SEED_CHECKLIST = ["Εξωτερικό πλύσιμο", "Εσωτερικός καθαρισμός", "Έλεγχος τουαλετών", "Έλεγχος εξοπλισμού"];
@@ -462,6 +466,7 @@ function AppInner() {
   const [boatNotes, setBoatNotes] = useState([]);
   const [aiMemories, setAiMemories] = useState([]);
   const [signoffs, setSignoffs] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [me, setMe] = useState(null);
   const [viewAs, setViewAs] = useState(null);
   const [tab, setTab] = useState("today");
@@ -502,16 +507,16 @@ function AppInner() {
   // Φόρτωση
   useEffect(() => {
     (async () => {
-      let [u, b, t, q, c, cc, ab, nt, bn, am, st, inv, so] = await Promise.all([
+      let [u, b, t, q, c, cc, ab, nt, bn, am, st, inv, so, pt] = await Promise.all([
         load("app-users", null), load("app-boats", null), load("app-tasks", null),
-        load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null), load("app-aimemories", null), load("app-settings", null), load("app-inventory", null), load("app-signoffs", null),
+        load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null), load("app-aimemories", null), load("app-settings", null), load("app-inventory", null), load("app-signoffs", null), load("app-partners", null),
       ]);
       // Ασφάλεια: αν κάποιο key έχει corrupted/λάθος-σχήμα δεδομένα (π.χ. object αντί για array, μη-string στοιχεία),
       // κανονικοποιείται ήσυχα εδώ πριν αγγίξει οποιοδήποτε .map/.filter/.some παρακάτω — never crash, self-heal.
       // Το null/undefined περνάει ανέγγιχτο ώστε να ενεργοποιηθεί η κανονική λογική seed (if (!x) {...}) παρακάτω.
       u = asArray(u); b = asArray(b); t = asArray(t);
       q = asStringArray(q); c = asStringArray(c); cc = asStringArray(cc);
-      ab = asArray(ab); nt = asArray(nt); bn = asArray(bn); am = asArray(am);
+      ab = asArray(ab); nt = asArray(nt); bn = asArray(bn); am = asArray(am); pt = asArray(pt);
       if (!u) { u = SEED_USERS; await save("app-users", u); }
       // Μετάβαση: προσθήκη προσωπικών κωδικών σε παλιούς χρήστες
       if (u.some(x => !x.code)) { u = u.map(x => x.code ? x : { ...x, code: genCode(x.name) }); await save("app-users", u); }
@@ -665,7 +670,8 @@ function AppInner() {
       if (!nt) { nt = []; await save("app-notes", nt); }
       if (!bn) { bn = []; await save("app-boatnotes", bn); }
       if (!am) { am = []; await save("app-aimemories", am); }
-      setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c); setClosingChecklist(cc); setAbsences(ab); setNotes(nt); setBoatNotes(bn); setAiMemories(am);
+      if (!pt) { pt = []; await save("app-partners", pt); }
+      setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c); setClosingChecklist(cc); setAbsences(ab); setNotes(nt); setBoatNotes(bn); setAiMemories(am); setPartners(pt);
       // Η βασική λίστα inventory: αν λείπει εντελώς, γράφεται η αρχική ώστε να υπάρχει από την πρώτη χρήση.
       if (inv && typeof inv === "object") setInventory(inv); else { setInventory(SEED_INVENTORY); save("app-inventory", SEED_INVENTORY); }
       setSignoffs(Array.isArray(so) ? so : []);
@@ -691,6 +697,14 @@ function AppInner() {
   const persistTasks = makePersist("app-tasks", setTasks, tasks);
   const patchTask = (taskId, patch) => { persistTasks(cur => cur.map(x => x.id === taskId ? { ...x, ...patch } : x)); };
   const persistBoats = makePersist("app-boats", setBoats, boats);
+  // ---------- Σκάφη «εκτός ροής» ----------
+  // Σκάφος με isolated=true είναι ιδιωτικός χώρος του Διαχειριστή: σημειώσεις, δοκιμές, inventory με το χέρι —
+  // ακόμα και για σκάφη εκτός εταιρείας. ΔΕΝ αγγίζει τίποτα από την κανονική λειτουργία της βάσης: κανένας
+  // αυτοματισμός δεν το βλέπει, καμία εργασία του δεν μοιράζεται, και δεν μετράει πουθενά (Βιβλίο service,
+  // στατιστικά, αναφορές) — ούτε καν για τον ίδιο τον Διαχειριστή, ώστε οι μετρήσεις να μένουν καθαρές.
+  const isolatedIds = new Set(boats.filter(b => !isOpsBoat(b)).map(b => b.id));
+  const opsBoats = boats.filter(isOpsBoat);
+  const inOps = (t) => !t.boatId || !isolatedIds.has(t.boatId);
   const persistUsers = makePersist("app-users", setUsers, users);
   const persistQuick = makePersist("app-quicktasks", setQuick, quick);
   const persistChecklist = makePersist("app-checklist", setChecklist, checklist);
@@ -698,6 +712,7 @@ function AppInner() {
   const persistInventory = makePersist("app-inventory", setInventory, inventory);
   const persistAbsences = makePersist("app-absences", setAbsences, absences);
   const persistNotes = makePersist("app-notes", setNotes, notes);
+  const persistPartners = makePersist("app-partners", setPartners, partners);
 
   // Εβδομαδιαίος κύκλος βάσης: Δευτέρα ξεκινά η εβδομάδα, Κυριακή δεν είναι εργάσιμη, Παρασκευή επιστρέφουν ναύλα και Σάββατο φεύγουν νέα — άρα Σάββατο προτεραιότητα στο κλείσιμο υπαρχουσών εργασιών, όχι σε άσχετες καινούργιες.
   const weekdayNote = () => {
@@ -737,7 +752,7 @@ function AppInner() {
   const generateClosingChecks = async (tasksOverride) => {
     const src = tasksOverride || tasks;
     const today = todayStr();
-    const inPort = boats.filter(b => !isBoatAway(b));
+    const inPort = opsBoats.filter(b => !isBoatAway(b));
     if (!inPort.length) return;
     const alreadyBoatIds = new Set(src.filter(t => t.closingCheck && t.closingDate === today).map(t => t.boatId));
     const need = inPort.filter(b => !alreadyBoatIds.has(b.id));
@@ -836,7 +851,8 @@ function AppInner() {
   async function runDistribution(manual) {
     const today = todayStr();
     const employees = users.filter(u => ((u.role === "employee" && !u.noAutoAssign) || u.name === "Φανούρης") && !isAbsentOn(u.id, today));
-    const free = tasks.filter(t => t.status === "open" && !t.assignedTo);
+    // Εργασίες σκαφών «εκτός ροής» δεν μπαίνουν ΠΟΤΕ στην κατανομή — ο Διαχειριστής τις χειρίζεται μόνος του.
+    const free = tasks.filter(t => t.status === "open" && !t.assignedTo && inOps(t));
     if (!employees.length || !free.length) { if (manual) showToast("Δεν υπάρχουν ελεύθερες εργασίες για κατανομή"); return tasks; }
     try {
       let rules = await load("app-dist-rules", [
@@ -930,7 +946,7 @@ ${rules.map(r => "- " + r).join("\n")}
       return;
     }
     try {
-      const inPort = boats.filter(b => !isBoatAway(b));
+      const inPort = opsBoats.filter(b => !isBoatAway(b));
       // Πρόσφατο ιστορικό ανά σκάφος για να αποφευχθεί επανάληψη ίδιου σημείου
       const recentByBoat = Object.fromEntries(inPort.map(b => [b.id,
         src.filter(t => t.boatId === b.id && t.completedAt && (Date.now() - new Date(t.completedAt).getTime()) <= (Number(SET.boatHistoryDays) || 21) * 24 * 60 * 60 * 1000)
@@ -1372,7 +1388,7 @@ ${histLines}
     if (emp.noAutoAssign) return;
     if (isAbsentOn(userId, todayStr())) return;
     // Εξαιρούνται όσες έχει ήδη αρνηθεί ο ίδιος — δεν έχει νόημα να του προταθεί ξανά κάτι που απέρριψε.
-    const free = tasksSrc.filter(x => x.id !== excludeTaskId && x.status === "open" && !x.assignedTo && !declinedBy(x, userId));
+    const free = tasksSrc.filter(x => x.id !== excludeTaskId && x.status === "open" && !x.assignedTo && !declinedBy(x, userId) && inOps(x));
     if (!free.length) return;
     try {
       const boatName = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
@@ -1467,7 +1483,7 @@ ${histLines}
     if (!checklist.length) return src;
     // Ενεργοποίηση ελέγχου αναχώρησης για σκάφη στη βάση που έχουν επόμενη αναχώρηση εντός 2 ημερών —
     // ώστε να υπάρχει χρόνος ετοιμασίας, χωρίς να ανοίγει πολύ νωρίς.
-    const need = boats.filter(b => {
+    const need = opsBoats.filter(b => {
       const nd = nextDeparture(b);
       return nd && nd.days !== null && nd.days <= 2
         && !src.some(t => t.boatId === b.id && t.status === "open" && t.checklistItems);
@@ -1520,7 +1536,7 @@ ${histLines}
   const generateInventoryChecks = async (tasksOverride) => {
     const src = tasksOverride || tasks;
     const within = Number(SET.inventoryDaysBefore) || 2;
-    const need = boats.filter(b => {
+    const need = opsBoats.filter(b => {
       const nd = nextDeparture(b);
       // Δεν αρκεί να μην υπάρχει ΑΝΟΙΧΤΟ inventory: αν έχει ήδη ολοκληρωθεί έγκυρο inventory γι' αυτόν τον κύκλο,
       // δεύτερο θα ήταν άσκοπη διπλή δουλειά. Ίδιος ορισμός εγκυρότητας με την οθόνη «Σήμερα» (validDoneInventory).
@@ -1661,14 +1677,22 @@ ${histLines}
 
   // Κρυμμένη από τις κανονικές λίστες όσο snoozedUntil είναι στο μέλλον — ξαναμπαίνει μόνη της μόλις περάσει.
   const isSnoozed = (t) => t.snoozedUntil && t.snoozedUntil > todayStr();
+  // Τα σκάφη «εκτός ροής» και οι εργασίες τους είναι ορατά ΜΟΝΟ στον Διαχειριστή. Ακολουθεί το acting (όχι το me),
+  // ώστε το «Προβολή ως» να είναι πραγματική προσομοίωση: βλέποντας ως υπάλληλο, εξαφανίζονται κι από εκεί.
+  const seesIsolated = acting.role === "owner";
+  const shownBoats = seesIsolated ? boats : opsBoats;
+  const shownTasks = seesIsolated ? tasks : tasks.filter(inOps);
   const isMine = (t) => t.assignedTo === acting.id || (t.assignedToMore || []).includes(acting.id);
-  const myTasks = sortTasks(tasks.filter(t => t.status === "open" && !isSnoozed(t) && isMine(t)));
-  const freeTasks = sortTasks(tasks.filter(t => t.status === "open" && !isSnoozed(t) && !isMine(t)));
-  const snoozedTasks = tasks.filter(t => t.status === "open" && isSnoozed(t)).sort((a, b) => a.snoozedUntil.localeCompare(b.snoozedUntil));
+  const myTasks = sortTasks(shownTasks.filter(t => t.status === "open" && !isSnoozed(t) && isMine(t)));
+  const freeTasks = sortTasks(shownTasks.filter(t => t.status === "open" && !isSnoozed(t) && !isMine(t)));
+  const snoozedTasks = shownTasks.filter(t => t.status === "open" && isSnoozed(t)).sort((a, b) => a.snoozedUntil.localeCompare(b.snoozedUntil));
   // Τα διαγραμμένα (status="deleted") φιλτράρονται εδώ, ΜΙΑ φορά, κεντρικά — έτσι καμία οθόνη, στατιστικό ή
   // αναφορά δεν τα βλέπει ποτέ κατά λάθος. Μόνο ο «Κάδος» της Διοίκησης παίρνει την πλήρη λίστα (tasksRaw).
-  const activeTasks = tasks.filter(t => t.status !== "deleted");
-  const deletedTasks = tasks.filter(t => t.status === "deleted");
+  const activeTasks = shownTasks.filter(t => t.status !== "deleted");
+  // Ό,τι μετράει ως πραγματική δουλειά της βάσης: χωρίς τα σκάφη «εκτός ροής», ανεξαρτήτως ρόλου. Τροφοδοτεί
+  // Βιβλίο service, στατιστικά και αναφορές, ώστε οι δοκιμές του Διαχειριστή να μη νοθεύουν ποτέ τις μετρήσεις.
+  const opsActiveTasks = activeTasks.filter(inOps);
+  const deletedTasks = shownTasks.filter(t => t.status === "deleted");
 
   const tabs = [
     { id: "today", label: tr("Σήμερα"), icon: "☀" },
@@ -1695,23 +1719,24 @@ ${histLines}
         </div>
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 12px" }}>
-        {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
+        {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={shownBoats} opsBoats={opsBoats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks} onQuickInventory={(boat) => { startInventory(boat); goToBoatTasks(boat.id); }} onResetInventory={resetInventory} onDecline={declineTask}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
-        {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} snoozedTasks={snoozedTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
+        {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} snoozedTasks={snoozedTasks} boats={shownBoats} users={users} isMgr={isMgr} me={acting}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} onDecline={declineTask} /></ErrorBoundary>}
-        {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={boats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
-        {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={activeTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
-        {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} inventory={inventory} persistInventory={persistInventory} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
+        {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={shownBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
+        {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={opsBoats} tasks={opsActiveTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
+        {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={shownBoats} opsTasks={opsActiveTasks} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} inventory={inventory} persistInventory={persistInventory} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
           onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
           settings={settings} updateSettings={updateSettings} resetSettings={resetSettings} onStartInventory={startInventory} onConfirmInventory={confirmInventory} signoffs={signoffs}
           persistTasks={persistTasks} tasksRaw={deletedTasks} onRestore={restoreTask} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
-          onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} section={adminSection} setSection={setAdminSection} /></ErrorBoundary>}
+          onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} section={adminSection} setSection={setAdminSection}
+          partners={partners} persistPartners={persistPartners} /></ErrorBoundary>}
       </div>
       <TabBar tabs={tabs} tab={tab} setTab={selectTab} />
       {toast && <div style={{ position: "fixed", bottom: 86, left: "50%", transform: "translateX(-50%)", background: COLORS.navy, color: "#fff", padding: "8px 16px", borderRadius: 12, fontSize: 15, zIndex: 50, maxWidth: "90%" }}>{toast}</div>}
@@ -2970,14 +2995,14 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onQuickInventory, onResetInventory, onTranslate, onHelp, onDecline, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
+function TodayView({ me, tasks, allTasks, boats, opsBoats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onQuickInventory, onResetInventory, onTranslate, onHelp, onDecline, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
       {/* Πάνω-πάνω μόνο ό,τι εμφανίζεται υπό συνθήκη και απαιτεί προσοχή τώρα. */}
       <ExternalReminders me={me} tasks={allTasks} boats={boats} onAck={onAckExternal} onProgress={onProgress} onCloseExternal={onCloseExternal} onDelete={onDelete} onEdit={onEdit} />
       <MyNotes me={me} notes={notes} users={users} />
       <DailyGreeting me={me} />
-      <FleetScheduleWidget boats={boats} allTasks={allTasks} onBoatClick={onGoToBoatTasks} onQuickInventory={onQuickInventory} isMgr={isMgr} onResetInventory={onResetInventory} />
+      <FleetScheduleWidget boats={opsBoats || boats} allTasks={allTasks} onBoatClick={onGoToBoatTasks} onQuickInventory={onQuickInventory} isMgr={isMgr} onResetInventory={onResetInventory} />
 
       {/* Η δουλειά της ημέρας — φτάνει στην πρώτη οθόνη, χωρίς σκρολάρισμα πάνω από widget. */}
       <SectionTitle>{tr("Οι εργασίες μου")} — {new Date().toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { weekday: "long", day: "numeric", month: "long" })}</SectionTitle>
@@ -3453,15 +3478,15 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
-  const { me, users, boats, tasks, quick, checklist, closingChecklist, inventory, persistInventory, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
-    onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, signoffs, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore } = props;
+  const { me, users, boats, tasks, opsTasks, quick, checklist, closingChecklist, inventory, persistInventory, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
+    onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, signoffs, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore, partners, persistPartners } = props;
   const isOwner = me.role === "owner";
   // Δύο επίπεδα αντί για 12 καρτέλες σε οριζόντιο scroll: 4 ομάδες που χωράνε όλες στην οθόνη, και από κάτω
   // μόνο οι υποενότητες της επιλεγμένης ομάδας. Τίποτα δεν κρύβεται εκτός οθόνης πια.
   const GROUPS = [
     ["day", "Καθημερινά", [["overview", "Επισκόπηση"], ["control", "Έλεγχος"]]],
     ["base", "Βάση", [["boats", "Σκάφη"], ["lists", "Λίστες"]]],
-    ["team", "Ομάδα", [["profiles", "Προφίλ"], ["stats", "Στατιστικά"], ["absences", "Απουσίες"]]],
+    ["team", "Ομάδα", [["profiles", "Προφίλ"], ["stats", "Στατιστικά"], ["absences", "Απουσίες"], ...(isOwner ? [["partners", "Εξωτ. Συνεργάτες"]] : [])]],
     ["sys", "Σύστημα", [
       ["settings", "Ρυθμίσεις"], ["ai", "AI"], ["trash", `Κάδος${tasksRaw?.length ? ` (${tasksRaw.length})` : ""}`],
       ...(isOwner ? [["errors", "Σφάλματα"], ["usersS", "Χρήστες"]] : []),
@@ -3494,12 +3519,13 @@ function AdminView(props) {
           ))}
         </div>
       )}
-      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} onConfirmInventory={onConfirmInventory} signoffs={signoffs} />}
+      {section === "overview" && <Overview boats={boats} tasks={opsTasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} onConfirmInventory={onConfirmInventory} signoffs={signoffs} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
-      {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} onStartInventory={onStartInventory} showToast={showToast} />}
+      {section === "boats" && <BoatsAdmin boats={boats} isOwner={isOwner} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} onStartInventory={onStartInventory} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} inventory={inventory} persistInventory={persistInventory} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
-      {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
+      {section === "partners" && isOwner && <PartnersAdmin partners={partners} persistPartners={persistPartners} />}
+      {section === "stats" && <Stats users={users} tasks={opsTasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
       {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} persistUsers={persistUsers} />}
       {section === "settings" && <SettingsAdmin settings={settings} updateSettings={updateSettings} resetSettings={resetSettings} />}
@@ -4176,7 +4202,7 @@ function BulkScheduleEntry({ boats, persistBoats, showToast }) {
   );
 }
 
-function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, onStartInventory, showToast }) {
+function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, onStartInventory, showToast }) {
   const [detailFor, setDetailFor] = useState(null);
   const [schedFor, setSchedFor] = useState(null);
   const [newFrom, setNewFrom] = useState("");
@@ -4184,6 +4210,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   const [customDays, setCustomDays] = useState("");
   const [newBoatName, setNewBoatName] = useState("");
   const [newBoatType, setNewBoatType] = useState("");
+  const [newBoatIsolated, setNewBoatIsolated] = useState(false);
 
   // Προτεραιότητα σε 4 επίπεδα, με απλή χρωματική σήμανση:
   // 1. Στη βάση + φεύγει σύντομα — ΠΡΑΣΙΝΟ
@@ -4264,6 +4291,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <b>{b.name}</b>
                   <span style={{ color: COLORS.sub, fontSize: 13 }}>{b.type}</span>
+                  {!isOpsBoat(b) && <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.blue, background: "#EAF0F6", padding: "0px 8px", borderRadius: 999 }}>🔒 Εκτός ροής</span>}
                   <span style={{ fontSize: 12, fontWeight: 700, color: r.statusColor, background: "#F0EDE8", padding: "0px 8px", borderRadius: 999 }}>
                     {s.atSea ? "🌊 " : ""}{r.statusText}{s.atSea ? ` ${s.returnDate === todayStr() ? "σήμερα" : fmtDate(s.returnDate)}` : ""}
                   </span>
@@ -4320,6 +4348,18 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
               </div>
             )}
 
+            {detailFor === b.id && isOwner && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 8, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 10 }}>
+                <div>
+                  <div style={{ fontSize: 13 }}>Εκτός ροής εργασιών</div>
+                  <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 2 }}>Ορατό μόνο σε σένα. Καμία αυτόματη εργασία, κατανομή ή κλείσιμο — δεν μετράει σε στατιστικά ούτε στο Βιβλίο service. Οι σημειώσεις και το χειροκίνητο Inventory δουλεύουν κανονικά.</div>
+                </div>
+                <Toggle on={!isOpsBoat(b)} onChange={v => {
+                  persistBoats(cur => cur.map(x => x.id === b.id ? { ...x, isolated: v } : x));
+                  showToast(v ? `Το ${b.name} βγήκε εκτός ροής` : `Το ${b.name} επέστρεψε στη ροή`);
+                }} />
+              </div>
+            )}
             {detailFor === b.id && (
               <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} onDeleteBoat={() => { persistBoats(cur => cur.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
             )}
@@ -4334,10 +4374,16 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
           <input value={newBoatType} onChange={e => setNewBoatType(e.target.value)} placeholder="Τύπος (π.χ. Bavaria 46)" style={{ ...inputStyle, flex: 1, minWidth: 140 }} />
           <Btn small color={COLORS.navy} onClick={() => {
             if (!newBoatName.trim()) return;
-            persistBoats(cur => [...cur, { id: "b" + Date.now(), name: newBoatName.trim(), type: newBoatType.trim(), atSea: false, returnDate: null, departureDate: null, charters: [] }]);
-            setNewBoatName(""); setNewBoatType(""); showToast(`Προστέθηκε: ${newBoatName.trim()}`);
+            persistBoats(cur => [...cur, { id: "b" + Date.now(), name: newBoatName.trim(), type: newBoatType.trim(), atSea: false, returnDate: null, departureDate: null, charters: [], ...(newBoatIsolated ? { isolated: true } : {}) }]);
+            setNewBoatName(""); setNewBoatType(""); setNewBoatIsolated(false); showToast(`Προστέθηκε: ${newBoatName.trim()}`);
           }}>+</Btn>
         </div>
+        {isOwner && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <div style={{ fontSize: 13, color: COLORS.sub }}>Εκτός ροής εργασιών (ορατό μόνο σε σένα)</div>
+            <Toggle on={newBoatIsolated} onChange={setNewBoatIsolated} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -4929,6 +4975,158 @@ function ProfilesView({ users, me, onViewAs, persistUsers }) {
         </div>
         );
       })}
+    </div>
+  );
+}
+
+// ---------- Εξωτερικοί συνεργάτες: κατάλογος ανθρώπων άλλων εταιρειών (π.χ. ναυπηγεία/μαρίνες με τα οποία ---------
+// συνεργαζόμαστε), με ελεύθερα χαρακτηριστικά (ρόλος/θέση) ανά άτομο ώστε να αναζητούνται και ανά εταιρεία και ανά ρόλο.
+const PARTNER_ROLE_SUGGESTIONS = ["Base Manager", "Υπάλληλος", "Γραμματεία", "Ιδιοκτήτης", "Τεχνικός", "Λογιστήριο"];
+
+function PartnerChips({ roles, onRemove }) {
+  if (!roles?.length) return null;
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+      {roles.map(r => (
+        <span key={r} style={{
+          display: "inline-flex", alignItems: "center", gap: 6, background: COLORS.bg, border: `1px solid ${COLORS.line}`,
+          borderRadius: R.pill, padding: "2px 10px", fontSize: 12, fontWeight: 600, color: COLORS.navy,
+        }}>
+          {r}
+          {onRemove && <button data-compact onClick={() => onRemove(r)} style={{ border: "none", background: "none", padding: 0, color: COLORS.sub, fontSize: 13, lineHeight: 1, cursor: "pointer" }}>×</button>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function PartnerForm({ initial, companies, onSave, onCancel }) {
+  const [name, setName] = useState(initial?.name || "");
+  const [company, setCompany] = useState(initial?.company || "");
+  const [roles, setRoles] = useState(initial?.roles || []);
+  const [roleInput, setRoleInput] = useState("");
+  const [phone, setPhone] = useState(initial?.phone || "");
+  const [email, setEmail] = useState(initial?.email || "");
+  const [comment, setComment] = useState(initial?.comment || "");
+
+  const addRole = (r) => {
+    const v = r.trim();
+    if (!v || roles.includes(v)) return;
+    setRoles([...roles, v]);
+    setRoleInput("");
+  };
+
+  return (
+    <div style={{ background: COLORS.card, borderRadius: 12, padding: 12, marginTop: 8, marginBottom: 12, border: `1.5px solid ${COLORS.navy}` }}>
+      <label style={lbl}>Ονοματεπώνυμο</label>
+      <input value={name} onChange={e => setName(e.target.value)} placeholder="π.χ. Γιώργος Παπαδόπουλος" style={inputStyle} />
+
+      <label style={lbl}>Εταιρεία</label>
+      <input value={company} onChange={e => setCompany(e.target.value)} placeholder="π.χ. Sailways" style={inputStyle} list="partner-companies" />
+      <datalist id="partner-companies">{companies.map(c => <option key={c} value={c} />)}</datalist>
+
+      <label style={lbl}>Χαρακτηριστικά / θέση</label>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input value={roleInput} onChange={e => setRoleInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addRole(roleInput); } }}
+          placeholder="π.χ. Base Manager — Enter για προσθήκη" style={inputStyle} list="partner-role-suggestions" />
+        <Btn small color={COLORS.navy} outline onClick={() => addRole(roleInput)}>+</Btn>
+      </div>
+      <datalist id="partner-role-suggestions">{PARTNER_ROLE_SUGGESTIONS.map(r => <option key={r} value={r} />)}</datalist>
+      <PartnerChips roles={roles} onRemove={(r) => setRoles(roles.filter(x => x !== r))} />
+
+      <label style={lbl}>Τηλέφωνο</label>
+      <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="π.χ. 6971234567" style={inputStyle} type="tel" />
+
+      <label style={lbl}>Email</label>
+      <input value={email} onChange={e => setEmail(e.target.value)} placeholder="name@company.com" style={inputStyle} type="email" />
+
+      <label style={lbl}>Σχόλιο</label>
+      <textarea value={comment} onChange={e => setComment(e.target.value)} rows={2} placeholder="Κάτι που θα σε βοηθήσει να τον/την θυμάσαι…" style={inputStyle} />
+
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <Btn small color={COLORS.navy} onClick={() => {
+          if (!name.trim()) return;
+          onSave({ name: name.trim(), company: company.trim(), roles, phone: phone.trim(), email: email.trim(), comment: comment.trim() });
+        }}>Αποθήκευση</Btn>
+        <Btn small color={COLORS.sub} outline onClick={onCancel}>Άκυρο</Btn>
+      </div>
+    </div>
+  );
+}
+
+function PartnersAdmin({ partners, persistPartners }) {
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [q, setQ] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+
+  const list = partners || [];
+  const companies = [...new Set(list.map(p => p.company).filter(Boolean))].sort((a, b) => a.localeCompare(b, "el"));
+  const allRoles = [...new Set(list.flatMap(p => p.roles || []))].sort((a, b) => a.localeCompare(b, "el"));
+
+  const norm = (s) => (s || "").toLowerCase();
+  const qn = norm(q);
+  const filtered = list
+    .filter(p => !companyFilter || p.company === companyFilter)
+    .filter(p => !roleFilter || (p.roles || []).includes(roleFilter))
+    .filter(p => !qn || [p.name, p.company, p.phone, p.email, p.comment, ...(p.roles || [])].some(v => norm(v).includes(qn)))
+    .sort((a, b) => (a.company || "").localeCompare(b.company || "", "el") || (a.name || "").localeCompare(b.name || "", "el"));
+
+  const addPartner = (data) => { persistPartners(cur => [...(cur || []), { id: "p" + Date.now(), ...data }]); setAdding(false); };
+  const updatePartner = (id, data) => { persistPartners(cur => (cur || []).map(p => p.id === id ? { ...p, ...data } : p)); setEditingId(null); };
+  const deletePartner = (p) => { if (confirm(`Διαγραφή επαφής: ${p.name};`)) persistPartners(cur => (cur || []).filter(x => x.id !== p.id)); };
+
+  return (
+    <div>
+      <SectionTitle>Εξωτερικοί συνεργάτες</SectionTitle>
+      <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 8 }}>Επαφές από άλλες εταιρείες — αναζήτηση με βάση εταιρεία, ρόλο/θέση, όνομα, τηλέφωνο ή email.</div>
+
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Αναζήτηση (όνομα, τηλέφωνο, email, σχόλιο…)" style={{ ...inputStyle, marginBottom: 8 }} />
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)} style={{ ...inputStyle, width: "auto", flex: 1 }}>
+          <option value="">Όλες οι εταιρείες</option>
+          {companies.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ ...inputStyle, width: "auto", flex: 1 }}>
+          <option value="">Όλα τα χαρακτηριστικά</option>
+          {allRoles.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+      </div>
+
+      {filtered.length === 0 && <Empty>{list.length === 0 ? "Δεν έχουν προστεθεί συνεργάτες ακόμα." : "Καμία επαφή δεν ταιριάζει με τα φίλτρα."}</Empty>}
+
+      {filtered.map(p => (
+        <div key={p.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 12px", marginBottom: 8, fontSize: 15 }}>
+          {editingId === p.id ? (
+            <PartnerForm initial={p} companies={companies} onSave={(data) => updatePartner(p.id, data)} onCancel={() => setEditingId(null)} />
+          ) : (
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+              <div>
+                <b>{p.name}</b>
+                {p.company && <span style={{ color: COLORS.sub, fontSize: 13 }}> · {p.company}</span>}
+                <PartnerChips roles={p.roles} />
+                <div style={{ fontSize: 13, marginTop: 6, color: COLORS.sub }}>
+                  {p.phone && <div>📞 <a href={`tel:${p.phone}`} style={{ color: COLORS.teal, textDecoration: "none" }}>{p.phone}</a></div>}
+                  {p.email && <div>✉️ <a href={`mailto:${p.email}`} style={{ color: COLORS.teal, textDecoration: "none" }}>{p.email}</a></div>}
+                </div>
+                {p.comment && <div style={{ fontSize: 13, color: COLORS.sub, marginTop: 6, whiteSpace: "pre-wrap" }}>{p.comment}</div>}
+              </div>
+              <div style={{ display: "flex", gap: 4, flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
+                <Btn small color={COLORS.navy} outline onClick={() => setEditingId(p.id)}>Επεξεργασία</Btn>
+                <Btn small color={COLORS.red} outline onClick={() => deletePartner(p)}>Διαγραφή</Btn>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {adding ? (
+        <PartnerForm companies={companies} onSave={addPartner} onCancel={() => setAdding(false)} />
+      ) : (
+        <Btn small color={COLORS.navy} onClick={() => setAdding(true)}>+ Νέος συνεργάτης</Btn>
+      )}
     </div>
   );
 }
