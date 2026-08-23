@@ -3532,7 +3532,7 @@ function AdminView(props) {
   const GROUPS = [
     ["day", "Καθημερινά", [["overview", "Επισκόπηση"], ["control", "Έλεγχος"]]],
     ["base", "Βάση", [["boats", "Σκάφη"], ["lists", "Λίστες"]]],
-    ["team", "Ομάδα", [["profiles", "Προφίλ"], ["stats", "Στατιστικά"], ["absences", "Απουσίες"], ["partners", "Εξωτ. Συνεργάτες"]]],
+    ["team", "Ομάδα", [["profiles", "Προφίλ"], ["stats", "Στατιστικά"], ["absences", "Απουσίες"], ...(isOwner ? [["partners", "Εξωτ. Συνεργάτες"]] : [])]],
     ["sys", "Σύστημα", [
       ["settings", "Ρυθμίσεις"], ["ai", "AI"], ["trash", `Κάδος${tasksRaw?.length ? ` (${tasksRaw.length})` : ""}`],
       ...(isOwner ? [["errors", "Σφάλματα"], ["usersS", "Χρήστες"]] : []),
@@ -3570,7 +3570,7 @@ function AdminView(props) {
       {section === "boats" && <BoatsAdmin boats={boats} isOwner={isOwner} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} onStartInventory={onStartInventory} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} inventory={inventory} persistInventory={persistInventory} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
-      {section === "partners" && <PartnersAdmin partners={partners} persistPartners={persistPartners} />}
+      {section === "partners" && isOwner && <PartnersAdmin partners={partners} persistPartners={persistPartners} />}
       {section === "stats" && <Stats users={users} tasks={opsTasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
       {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} persistUsers={persistUsers} />}
