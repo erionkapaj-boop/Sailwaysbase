@@ -4,7 +4,7 @@ import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
-const APP_VERSION = "v4.20";
+const APP_VERSION = "v4.21";
 const COLORS = {
   // Ουδέτεροι σε ΖΕΣΤΗ βάση (γέρνουν ελάχιστα προς το μπεζ, όχι προς το μπλε): το ψυχρό μπλε-γκρι διαβάζεται
   // ως εταιρικό και απόμακρο, ο ζεστός ουδέτερος ως ήρεμος και ανθρώπινος — χωρίς να χάνει σοβαρότητα.
@@ -60,6 +60,10 @@ const SEED_BOATS = [
   ["Λίνα", "Bavaria 51"], ["Messenger", "Jeanneau 57"], ["Mystique", "Lagoon 500"],
   ["Mystique II", "Lagoon 500"], ["Avra", "Lagoon 560 S2"], ["Marina", "Leopard 45"], ["Lag IX", "Lagoon 42"],
 ].map(([name, type], i) => ({ id: "b" + i, name, type, atSea: false, returnDate: null, departureDate: null }));
+
+// Σκάφος που συμμετέχει στην κανονική λειτουργία της βάσης. Το αντίθετο (isolated) είναι σκάφος «εκτός ροής»:
+// ορατό μόνο στον Διαχειριστή, εκτός κάθε αυτοματισμού, κατανομής, στατιστικού και Βιβλίου service.
+const isOpsBoat = (b) => !b?.isolated;
 
 const SEED_QUICK = ["Αλλαγή λαδιών", "Καθαρισμός σεντίνας", "Καθαρισμός μηχανοστασίου"];
 const SEED_CHECKLIST = ["Εξωτερικό πλύσιμο", "Εσωτερικός καθαρισμός", "Έλεγχος τουαλετών", "Έλεγχος εξοπλισμού"];
@@ -684,6 +688,14 @@ function AppInner() {
     });
   };
   const persistBoats = async (next) => { setBoats(next); await save("app-boats", next); };
+  // ---------- Σκάφη «εκτός ροής» ----------
+  // Σκάφος με isolated=true είναι ιδιωτικός χώρος του Διαχειριστή: σημειώσεις, δοκιμές, inventory με το χέρι —
+  // ακόμα και για σκάφη εκτός εταιρείας. ΔΕΝ αγγίζει τίποτα από την κανονική λειτουργία της βάσης: κανένας
+  // αυτοματισμός δεν το βλέπει, καμία εργασία του δεν μοιράζεται, και δεν μετράει πουθενά (Βιβλίο service,
+  // στατιστικά, αναφορές) — ούτε καν για τον ίδιο τον Διαχειριστή, ώστε οι μετρήσεις να μένουν καθαρές.
+  const isolatedIds = new Set(boats.filter(b => !isOpsBoat(b)).map(b => b.id));
+  const opsBoats = boats.filter(isOpsBoat);
+  const inOps = (t) => !t.boatId || !isolatedIds.has(t.boatId);
   const persistUsers = async (next) => { setUsers(next); await save("app-users", next); };
   const persistQuick = async (next) => { setQuick(next); await save("app-quicktasks", next); };
   const persistChecklist = async (next) => { setChecklist(next); await save("app-checklist", next); };
@@ -730,7 +742,7 @@ function AppInner() {
   const generateClosingChecks = async (tasksOverride) => {
     const src = tasksOverride || tasks;
     const today = todayStr();
-    const inPort = boats.filter(b => !isBoatAway(b));
+    const inPort = opsBoats.filter(b => !isBoatAway(b));
     if (!inPort.length) return;
     const alreadyBoatIds = new Set(src.filter(t => t.closingCheck && t.closingDate === today).map(t => t.boatId));
     const need = inPort.filter(b => !alreadyBoatIds.has(b.id));
@@ -827,7 +839,8 @@ function AppInner() {
   async function runDistribution(manual) {
     const today = todayStr();
     const employees = users.filter(u => ((u.role === "employee" && !u.noAutoAssign) || u.name === "Φανούρης") && !isAbsentOn(u.id, today));
-    const free = tasks.filter(t => t.status === "open" && !t.assignedTo);
+    // Εργασίες σκαφών «εκτός ροής» δεν μπαίνουν ΠΟΤΕ στην κατανομή — ο Διαχειριστής τις χειρίζεται μόνος του.
+    const free = tasks.filter(t => t.status === "open" && !t.assignedTo && inOps(t));
     if (!employees.length || !free.length) { if (manual) showToast("Δεν υπάρχουν ελεύθερες εργασίες για κατανομή"); return tasks; }
     try {
       let rules = await load("app-dist-rules", [
@@ -933,7 +946,7 @@ ${rules.map(r => "- " + r).join("\n")}
       return;
     }
     try {
-      const inPort = boats.filter(b => !isBoatAway(b));
+      const inPort = opsBoats.filter(b => !isBoatAway(b));
       // Πρόσφατο ιστορικό ανά σκάφος για να αποφευχθεί επανάληψη ίδιου σημείου
       const recentByBoat = Object.fromEntries(inPort.map(b => [b.id,
         src.filter(t => t.boatId === b.id && t.completedAt && (Date.now() - new Date(t.completedAt).getTime()) <= (Number(SET.boatHistoryDays) || 21) * 24 * 60 * 60 * 1000)
@@ -1388,7 +1401,7 @@ ${histLines}
     if (emp.noAutoAssign) return;
     if (isAbsentOn(userId, todayStr())) return;
     // Εξαιρούνται όσες έχει ήδη αρνηθεί ο ίδιος — δεν έχει νόημα να του προταθεί ξανά κάτι που απέρριψε.
-    const free = tasksSrc.filter(x => x.id !== excludeTaskId && x.status === "open" && !x.assignedTo && !declinedBy(x, userId));
+    const free = tasksSrc.filter(x => x.id !== excludeTaskId && x.status === "open" && !x.assignedTo && !declinedBy(x, userId) && inOps(x));
     if (!free.length) return;
     try {
       const boatName = (id) => boats.find(b => b.id === id)?.name || "Βάση/Άλλο";
@@ -1490,7 +1503,7 @@ ${histLines}
     if (!checklist.length) return src;
     // Ενεργοποίηση ελέγχου αναχώρησης για σκάφη στη βάση που έχουν επόμενη αναχώρηση εντός 2 ημερών —
     // ώστε να υπάρχει χρόνος ετοιμασίας, χωρίς να ανοίγει πολύ νωρίς.
-    const need = boats.filter(b => {
+    const need = opsBoats.filter(b => {
       const nd = nextDeparture(b);
       return nd && nd.days !== null && nd.days <= 2
         && !src.some(t => t.boatId === b.id && t.status === "open" && t.checklistItems);
@@ -1544,7 +1557,7 @@ ${histLines}
   const generateInventoryChecks = async (tasksOverride) => {
     const src = tasksOverride || tasks;
     const within = Number(SET.inventoryDaysBefore) || 2;
-    const need = boats.filter(b => {
+    const need = opsBoats.filter(b => {
       const nd = nextDeparture(b);
       // Δεν αρκεί να μην υπάρχει ΑΝΟΙΧΤΟ inventory: αν έχει ήδη ολοκληρωθεί έγκυρο inventory γι' αυτόν τον κύκλο,
       // δεύτερο θα ήταν άσκοπη διπλή δουλειά. Ίδιος ορισμός εγκυρότητας με την οθόνη «Σήμερα» (validDoneInventory).
@@ -1707,14 +1720,22 @@ ${histLines}
 
   // Κρυμμένη από τις κανονικές λίστες όσο snoozedUntil είναι στο μέλλον — ξαναμπαίνει μόνη της μόλις περάσει.
   const isSnoozed = (t) => t.snoozedUntil && t.snoozedUntil > todayStr();
+  // Τα σκάφη «εκτός ροής» και οι εργασίες τους είναι ορατά ΜΟΝΟ στον Διαχειριστή. Ακολουθεί το acting (όχι το me),
+  // ώστε το «Προβολή ως» να είναι πραγματική προσομοίωση: βλέποντας ως υπάλληλο, εξαφανίζονται κι από εκεί.
+  const seesIsolated = acting.role === "owner";
+  const shownBoats = seesIsolated ? boats : opsBoats;
+  const shownTasks = seesIsolated ? tasks : tasks.filter(inOps);
   const isMine = (t) => t.assignedTo === acting.id || (t.assignedToMore || []).includes(acting.id);
-  const myTasks = sortTasks(tasks.filter(t => t.status === "open" && !isSnoozed(t) && isMine(t)));
-  const freeTasks = sortTasks(tasks.filter(t => t.status === "open" && !isSnoozed(t) && !isMine(t)));
-  const snoozedTasks = tasks.filter(t => t.status === "open" && isSnoozed(t)).sort((a, b) => a.snoozedUntil.localeCompare(b.snoozedUntil));
+  const myTasks = sortTasks(shownTasks.filter(t => t.status === "open" && !isSnoozed(t) && isMine(t)));
+  const freeTasks = sortTasks(shownTasks.filter(t => t.status === "open" && !isSnoozed(t) && !isMine(t)));
+  const snoozedTasks = shownTasks.filter(t => t.status === "open" && isSnoozed(t)).sort((a, b) => a.snoozedUntil.localeCompare(b.snoozedUntil));
   // Τα διαγραμμένα (status="deleted") φιλτράρονται εδώ, ΜΙΑ φορά, κεντρικά — έτσι καμία οθόνη, στατιστικό ή
   // αναφορά δεν τα βλέπει ποτέ κατά λάθος. Μόνο ο «Κάδος» της Διοίκησης παίρνει την πλήρη λίστα (tasksRaw).
-  const activeTasks = tasks.filter(t => t.status !== "deleted");
-  const deletedTasks = tasks.filter(t => t.status === "deleted");
+  const activeTasks = shownTasks.filter(t => t.status !== "deleted");
+  // Ό,τι μετράει ως πραγματική δουλειά της βάσης: χωρίς τα σκάφη «εκτός ροής», ανεξαρτήτως ρόλου. Τροφοδοτεί
+  // Βιβλίο service, στατιστικά και αναφορές, ώστε οι δοκιμές του Διαχειριστή να μη νοθεύουν ποτέ τις μετρήσεις.
+  const opsActiveTasks = activeTasks.filter(inOps);
+  const deletedTasks = shownTasks.filter(t => t.status === "deleted");
 
   const tabs = [
     { id: "today", label: tr("Σήμερα"), icon: "☀" },
@@ -1741,17 +1762,17 @@ ${histLines}
         </div>
       )}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "12px 12px" }}>
-        {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={boats} users={users} isMgr={isMgr} canAssign={canAssign}
+        {tab === "today" && <ErrorBoundary label="Σήμερα"><TodayView me={acting} tasks={myTasks} allTasks={activeTasks} boats={shownBoats} opsBoats={opsBoats} users={users} isMgr={isMgr} canAssign={canAssign}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask} onEdit={editTask} onDelete={deleteTask} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onGoToBoatTasks={goToBoatTasks} onQuickInventory={(boat) => { startInventory(boat); goToBoatTasks(boat.id); }} onResetInventory={resetInventory} onDecline={declineTask}
           absences={absences} onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} notes={notes} onSendNote={sendNote} onDeleteNote={deleteNote} onAckExternal={acknowledgeExternal} onCloseExternal={closeExternal} /></ErrorBoundary>}
-        {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} snoozedTasks={snoozedTasks} boats={boats} users={users} isMgr={isMgr} me={acting}
+        {tab === "tasks" && <ErrorBoundary label="Εργασίες"><TasksView tasks={freeTasks} snoozedTasks={snoozedTasks} boats={shownBoats} users={users} isMgr={isMgr} me={acting}
           boatFilter={tasksBoatFilter} onBoatFilterChange={setTasksBoatFilter}
           effectiveDeadline={effectiveDeadline} onComplete={completeTask} onProgress={addProgress} onExternal={externalTask}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} onDecline={declineTask} /></ErrorBoundary>}
-        {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={boats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
-        {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={boats} tasks={activeTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
-        {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={boats} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} inventory={inventory} persistInventory={persistInventory} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
+        {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={shownBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
+        {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={opsBoats} tasks={opsActiveTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
+        {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={shownBoats} opsTasks={opsActiveTasks} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} inventory={inventory} persistInventory={persistInventory} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
           onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
@@ -3016,14 +3037,14 @@ function VoiceComplete({ tasks, boats, onComplete }) {
   );
 }
 
-function TodayView({ me, tasks, allTasks, boats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onQuickInventory, onResetInventory, onTranslate, onHelp, onDecline, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
+function TodayView({ me, tasks, allTasks, boats, opsBoats, users, isMgr, canAssign, effectiveDeadline, onComplete, onProgress, onExternal, onEdit, onDelete, onChecklistItem, onInventoryItem, onBulkCategory, onFinishInventory, onConfirmInventory, onSetDeadline, onSetDeadlineDuration, onToggleExcludeDeadline, onSnooze, onUnsnooze, onAddBeforePhotos, onLogFinding, onAssign, onAssignWithDeadline, onDowngrade, onGoToBoatTasks, onQuickInventory, onResetInventory, onTranslate, onHelp, onDecline, absences, onAddAbsence, onDeleteAbsence, notes, onSendNote, onDeleteNote, onAckExternal, onCloseExternal }) {
   return (
     <div>
       {/* Πάνω-πάνω μόνο ό,τι εμφανίζεται υπό συνθήκη και απαιτεί προσοχή τώρα. */}
       <ExternalReminders me={me} tasks={allTasks} boats={boats} onAck={onAckExternal} onProgress={onProgress} onCloseExternal={onCloseExternal} onDelete={onDelete} onEdit={onEdit} />
       <MyNotes me={me} notes={notes} users={users} />
       <DailyGreeting me={me} />
-      <FleetScheduleWidget boats={boats} allTasks={allTasks} onBoatClick={onGoToBoatTasks} onQuickInventory={onQuickInventory} isMgr={isMgr} onResetInventory={onResetInventory} />
+      <FleetScheduleWidget boats={opsBoats || boats} allTasks={allTasks} onBoatClick={onGoToBoatTasks} onQuickInventory={onQuickInventory} isMgr={isMgr} onResetInventory={onResetInventory} />
 
       {/* Η δουλειά της ημέρας — φτάνει στην πρώτη οθόνη, χωρίς σκρολάρισμα πάνω από widget. */}
       <SectionTitle>{tr("Οι εργασίες μου")} — {new Date().toLocaleDateString(LANG === "en" ? "en-GB" : "el-GR", { weekday: "long", day: "numeric", month: "long" })}</SectionTitle>
@@ -3499,7 +3520,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
-  const { me, users, boats, tasks, quick, checklist, closingChecklist, inventory, persistInventory, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
+  const { me, users, boats, tasks, opsTasks, quick, checklist, closingChecklist, inventory, persistInventory, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
     onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, signoffs, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore } = props;
   const isOwner = me.role === "owner";
   // Δύο επίπεδα αντί για 12 καρτέλες σε οριζόντιο scroll: 4 ομάδες που χωράνε όλες στην οθόνη, και από κάτω
@@ -3540,12 +3561,12 @@ function AdminView(props) {
           ))}
         </div>
       )}
-      {section === "overview" && <Overview boats={boats} tasks={tasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} onConfirmInventory={onConfirmInventory} signoffs={signoffs} />}
+      {section === "overview" && <Overview boats={boats} tasks={opsTasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} onConfirmInventory={onConfirmInventory} signoffs={signoffs} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
-      {section === "boats" && <BoatsAdmin boats={boats} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} onStartInventory={onStartInventory} showToast={showToast} />}
+      {section === "boats" && <BoatsAdmin boats={boats} isOwner={isOwner} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} onStartInventory={onStartInventory} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} inventory={inventory} persistInventory={persistInventory} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
-      {section === "stats" && <Stats users={users} tasks={tasks} boats={boats} />}
+      {section === "stats" && <Stats users={users} tasks={opsTasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
       {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} persistUsers={persistUsers} />}
       {section === "settings" && <SettingsAdmin settings={settings} updateSettings={updateSettings} resetSettings={resetSettings} />}
@@ -4218,7 +4239,7 @@ function BulkScheduleEntry({ boats, persistBoats, showToast }) {
   );
 }
 
-function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, onStartInventory, showToast }) {
+function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, onStartInventory, showToast }) {
   const [detailFor, setDetailFor] = useState(null);
   const [schedFor, setSchedFor] = useState(null);
   const [newFrom, setNewFrom] = useState("");
@@ -4226,6 +4247,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
   const [customDays, setCustomDays] = useState("");
   const [newBoatName, setNewBoatName] = useState("");
   const [newBoatType, setNewBoatType] = useState("");
+  const [newBoatIsolated, setNewBoatIsolated] = useState(false);
 
   // Προτεραιότητα σε 4 επίπεδα, με απλή χρωματική σήμανση:
   // 1. Στη βάση + φεύγει σύντομα — ΠΡΑΣΙΝΟ
@@ -4298,6 +4320,7 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <b>{b.name}</b>
                   <span style={{ color: COLORS.sub, fontSize: 13 }}>{b.type}</span>
+                  {!isOpsBoat(b) && <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.blue, background: "#EAF0F6", padding: "0px 8px", borderRadius: 999 }}>🔒 Εκτός ροής</span>}
                   <span style={{ fontSize: 12, fontWeight: 700, color: r.statusColor, background: "#F0EDE8", padding: "0px 8px", borderRadius: 999 }}>
                     {s.atSea ? "🌊 " : ""}{r.statusText}{s.atSea ? ` ${s.returnDate === todayStr() ? "σήμερα" : fmtDate(s.returnDate)}` : ""}
                   </span>
@@ -4354,6 +4377,18 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
               </div>
             )}
 
+            {detailFor === b.id && isOwner && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 8, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 10 }}>
+                <div>
+                  <div style={{ fontSize: 13 }}>Εκτός ροής εργασιών</div>
+                  <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 2 }}>Ορατό μόνο σε σένα. Καμία αυτόματη εργασία, κατανομή ή κλείσιμο — δεν μετράει σε στατιστικά ούτε στο Βιβλίο service. Οι σημειώσεις και το χειροκίνητο Inventory δουλεύουν κανονικά.</div>
+                </div>
+                <Toggle on={!isOpsBoat(b)} onChange={v => {
+                  persistBoats(boats.map(x => x.id === b.id ? { ...x, isolated: v } : x));
+                  showToast(v ? `Το ${b.name} βγήκε εκτός ροής` : `Το ${b.name} επέστρεψε στη ροή`);
+                }} />
+              </div>
+            )}
             {detailFor === b.id && (
               <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} onDeleteBoat={() => { persistBoats(boats.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
             )}
@@ -4368,10 +4403,16 @@ function BoatsAdmin({ boats, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, 
           <input value={newBoatType} onChange={e => setNewBoatType(e.target.value)} placeholder="Τύπος (π.χ. Bavaria 46)" style={{ ...inputStyle, flex: 1, minWidth: 140 }} />
           <Btn small color={COLORS.navy} onClick={() => {
             if (!newBoatName.trim()) return;
-            persistBoats([...boats, { id: "b" + Date.now(), name: newBoatName.trim(), type: newBoatType.trim(), atSea: false, returnDate: null, departureDate: null, charters: [] }]);
-            setNewBoatName(""); setNewBoatType(""); showToast(`Προστέθηκε: ${newBoatName.trim()}`);
+            persistBoats([...boats, { id: "b" + Date.now(), name: newBoatName.trim(), type: newBoatType.trim(), atSea: false, returnDate: null, departureDate: null, charters: [], ...(newBoatIsolated ? { isolated: true } : {}) }]);
+            setNewBoatName(""); setNewBoatType(""); setNewBoatIsolated(false); showToast(`Προστέθηκε: ${newBoatName.trim()}`);
           }}>+</Btn>
         </div>
+        {isOwner && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <div style={{ fontSize: 13, color: COLORS.sub }}>Εκτός ροής εργασιών (ορατό μόνο σε σένα)</div>
+            <Toggle on={newBoatIsolated} onChange={setNewBoatIsolated} />
+          </div>
+        )}
       </div>
     </div>
   );
