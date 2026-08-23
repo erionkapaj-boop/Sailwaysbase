@@ -4981,7 +4981,7 @@ function ProfilesView({ users, me, onViewAs, persistUsers }) {
 
 // ---------- Εξωτερικοί συνεργάτες: κατάλογος ανθρώπων άλλων εταιρειών (π.χ. ναυπηγεία/μαρίνες με τα οποία ---------
 // συνεργαζόμαστε), με ελεύθερα χαρακτηριστικά (ρόλος/θέση) ανά άτομο ώστε να αναζητούνται και ανά εταιρεία και ανά ρόλο.
-const PARTNER_ROLE_SUGGESTIONS = ["Base Manager", "Υπάλληλος", "Γραμματεία", "Ιδιοκτήτης", "Τεχνικός", "Λογιστήριο"];
+const PARTNER_ROLE_SUGGESTIONS = ["Base Manager", "Υπάλληλος", "Γραμματεία", "Ιδιοκτήτης", "Τεχνικός", "Λογιστήριο", "Ηλεκτρολόγος", "Skipper", "Hostess"];
 
 function PartnerChips({ roles, onRemove }) {
   if (!roles?.length) return null;
@@ -5000,7 +5000,7 @@ function PartnerChips({ roles, onRemove }) {
   );
 }
 
-function PartnerForm({ initial, companies, onSave, onCancel }) {
+function PartnerForm({ initial, companies, existingRoles, onSave, onCancel }) {
   const [name, setName] = useState(initial?.name || "");
   const [company, setCompany] = useState(initial?.company || "");
   const [roles, setRoles] = useState(initial?.roles || []);
@@ -5015,6 +5015,12 @@ function PartnerForm({ initial, companies, onSave, onCancel }) {
     setRoles([...roles, v]);
     setRoleInput("");
   };
+  // Προτάσεις χαρακτηριστικών: η σταθερή βασική λίστα + κάθε χαρακτηριστικό που έχει ήδη γραφτεί ποτέ σε
+  // οποιονδήποτε συνεργάτη (existingRoles) — έτσι ό,τι γράφεις μία φορά (π.χ. «Ηλεκτρολόγος») γίνεται αμέσως
+  // έτοιμο ταμπελάκι για τον επόμενο, χωρίς να χρειάζεται να το ξαναπληκτρολογήσεις.
+  const roleSuggestions = [...new Set([...PARTNER_ROLE_SUGGESTIONS, ...(existingRoles || [])])]
+    .filter(r => !roles.includes(r))
+    .sort((a, b) => a.localeCompare(b, "el"));
 
   return (
     <div style={{ background: COLORS.card, borderRadius: 12, padding: 12, marginTop: 8, marginBottom: 12, border: `1.5px solid ${COLORS.navy}` }}>
@@ -5029,10 +5035,20 @@ function PartnerForm({ initial, companies, onSave, onCancel }) {
       <div style={{ display: "flex", gap: 8 }}>
         <input value={roleInput} onChange={e => setRoleInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addRole(roleInput); } }}
-          placeholder="π.χ. Base Manager — Enter για προσθήκη" style={inputStyle} list="partner-role-suggestions" />
+          placeholder="π.χ. Ηλεκτρολόγος — Enter για προσθήκη" style={inputStyle} list="partner-role-suggestions" />
         <Btn small color={COLORS.navy} outline onClick={() => addRole(roleInput)}>+</Btn>
       </div>
-      <datalist id="partner-role-suggestions">{PARTNER_ROLE_SUGGESTIONS.map(r => <option key={r} value={r} />)}</datalist>
+      <datalist id="partner-role-suggestions">{roleSuggestions.map(r => <option key={r} value={r} />)}</datalist>
+      {roleSuggestions.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+          {roleSuggestions.map(r => (
+            <button key={r} type="button" onClick={() => addRole(r)} style={{
+              padding: "3px 10px", borderRadius: R.pill, fontSize: 12, fontWeight: 600,
+              border: `1px solid ${COLORS.line}`, background: "transparent", color: COLORS.sub, cursor: "pointer",
+            }}>+ {r}</button>
+          ))}
+        </div>
+      )}
       <PartnerChips roles={roles} onRemove={(r) => setRoles(roles.filter(x => x !== r))} />
 
       <label style={lbl}>Τηλέφωνο</label>
@@ -5100,7 +5116,7 @@ function PartnersAdmin({ partners, persistPartners }) {
       {filtered.map(p => (
         <div key={p.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 12px", marginBottom: 8, fontSize: 15 }}>
           {editingId === p.id ? (
-            <PartnerForm initial={p} companies={companies} onSave={(data) => updatePartner(p.id, data)} onCancel={() => setEditingId(null)} />
+            <PartnerForm initial={p} companies={companies} existingRoles={allRoles} onSave={(data) => updatePartner(p.id, data)} onCancel={() => setEditingId(null)} />
           ) : (
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
               <div>
@@ -5123,7 +5139,7 @@ function PartnersAdmin({ partners, persistPartners }) {
       ))}
 
       {adding ? (
-        <PartnerForm companies={companies} onSave={addPartner} onCancel={() => setAdding(false)} />
+        <PartnerForm companies={companies} existingRoles={allRoles} onSave={addPartner} onCancel={() => setAdding(false)} />
       ) : (
         <Btn small color={COLORS.navy} onClick={() => setAdding(true)}>+ Νέος συνεργάτης</Btn>
       )}
