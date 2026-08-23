@@ -6,6 +6,8 @@ import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import More from './pages/More'
 import Placeholder from './pages/Placeholder'
+import Contacts from './pages/Contacts'
+import ContactForm from './pages/ContactForm'
 
 function AppShell() {
   const { user, loading } = useAuth()
@@ -22,10 +24,9 @@ function AppShell() {
     <div className="min-h-screen max-w-md mx-auto bg-[#f7f7f8]">
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route
-          path="/contacts"
-          element={<Placeholder title="Επαγγελματικές Επαφές" description="Οργανωμένος τηλεφωνικός κατάλογος επαγγελματικών επαφών." />}
-        />
+        <Route path="/contacts" element={<Contacts />} />
+        <Route path="/contacts/new" element={<ContactForm />} />
+        <Route path="/contacts/:id" element={<ContactForm />} />
         <Route
           path="/briefing"
           element={<Placeholder title="Customer Briefing" description="Briefing πελατών στα Ελληνικά και Αγγλικά." />}
