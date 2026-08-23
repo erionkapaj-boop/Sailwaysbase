@@ -57,7 +57,18 @@ export async function fetchCharter(id) {
   }
 }
 
-export async function saveCharter({ id, userId, startDate, endDate, vesselName, companyContactId, companyName, fee, notes }) {
+export async function saveCharter({
+  id,
+  userId,
+  startDate,
+  endDate,
+  vesselName,
+  companyContactId,
+  companyName,
+  fee,
+  notes,
+  availabilityPeriodId
+}) {
   const payload = {
     user_id: userId,
     start_date: startDate,
@@ -66,7 +77,8 @@ export async function saveCharter({ id, userId, startDate, endDate, vesselName, 
     company_contact_id: companyContactId || null,
     company_name: companyName?.trim() || null,
     fee: fee === '' || fee === null || fee === undefined ? null : Number(fee),
-    notes: notes?.trim() || null
+    notes: notes?.trim() || null,
+    availability_period_id: availabilityPeriodId || null
   }
   if (id) {
     const { error } = await supabase.from('charters').update(payload).eq('id', id)

@@ -5,7 +5,6 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import More from './pages/More'
-import Placeholder from './pages/Placeholder'
 import Contacts from './pages/Contacts'
 import ContactForm from './pages/ContactForm'
 import Briefing from './pages/Briefing'
@@ -14,6 +13,9 @@ import InventoryItems from './pages/InventoryItems'
 import InventoryCheck from './pages/InventoryCheck'
 import Calendar from './pages/Calendar'
 import PeriodForm from './pages/PeriodForm'
+import Charters from './pages/Charters'
+import CharterForm from './pages/CharterForm'
+import CharterDetail from './pages/CharterDetail'
 
 function AppShell() {
   const { user, loading } = useAuth()
@@ -41,10 +43,10 @@ function AppShell() {
         <Route path="/inventory/items" element={<InventoryItems />} />
         <Route path="/inventory/check" element={<InventoryCheck />} />
         <Route path="/availability" element={<Navigate to="/calendar" replace />} />
-        <Route
-          path="/charters"
-          element={<Placeholder title="Ναυλώσεις / Charters" description="Πλήρης φάκελος κάθε charter." />}
-        />
+        <Route path="/charters" element={<Charters />} />
+        <Route path="/charters/new" element={<CharterForm />} />
+        <Route path="/charters/:id" element={<CharterDetail />} />
+        <Route path="/charters/:id/edit" element={<CharterForm />} />
         <Route path="/pricing" element={<Navigate to="/calendar" replace />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/more" element={<More />} />

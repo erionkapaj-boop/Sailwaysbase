@@ -56,11 +56,12 @@ export async function deleteItem(id) {
   if (error) throw error
 }
 
-export async function saveCheck({ userId, vesselName, results }) {
+export async function saveCheck({ userId, vesselName, results, charterId }) {
   const { data: check, error: checkError } = await supabase
     .from('inventory_checks')
     .insert({
       user_id: userId,
+      charter_id: charterId || null,
       vessel_name: vesselName?.trim() || null,
       started_at: new Date().toISOString(),
       closed_at: new Date().toISOString()
@@ -80,6 +81,26 @@ export async function saveCheck({ userId, vesselName, results }) {
     if (itemsError) throw itemsError
   }
   return check
+}
+
+export async function fetchCheckForCharter(charterId) {
+  const { data: check, error } = await supabase
+    .from('inventory_checks')
+    .select('id, vessel_name, started_at, closed_at')
+    .eq('charter_id', charterId)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  if (!check) return null
+
+  const { data: items, error: itemsError } = await supabase
+    .from('inventory_check_items')
+    .select('id, item_name, status')
+    .eq('check_id', check.id)
+  if (itemsError) throw itemsError
+
+  return { ...check, items: items ?? [] }
 }
 
 export async function fetchLatestCheck(userId) {

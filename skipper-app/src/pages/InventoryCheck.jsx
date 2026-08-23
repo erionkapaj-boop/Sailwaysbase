@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
 import { fetchItems, saveCheck, seedDefaultItemsIfEmpty } from '../lib/inventoryApi'
 import Header from '../components/Header'
@@ -7,9 +7,12 @@ import Header from '../components/Header'
 export default function InventoryCheck() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const charterId = location.state?.charterId ?? null
+  const returnTo = charterId ? `/charters/${charterId}` : '/inventory'
   const [items, setItems] = useState([])
   const [statuses, setStatuses] = useState({}) // itemId -> 'present' | 'missing'
-  const [vesselName, setVesselName] = useState('')
+  const [vesselName, setVesselName] = useState(location.state?.vesselName ?? '')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -42,8 +45,8 @@ export default function InventoryCheck() {
       const results = items
         .filter((i) => statuses[i.id])
         .map((i) => ({ itemId: i.id, itemName: i.name, status: statuses[i.id] }))
-      await saveCheck({ userId: user.id, vesselName, results })
-      navigate('/inventory')
+      await saveCheck({ userId: user.id, vesselName, results, charterId })
+      navigate(returnTo)
     } catch (err) {
       setError(err.message)
       setSaving(false)
@@ -56,7 +59,7 @@ export default function InventoryCheck() {
 
   return (
     <div className="pb-32">
-      <Header title="Νέος Έλεγχος" backTo="/inventory" />
+      <Header title="Νέος Έλεγχος" backTo={returnTo} />
 
       <div className="px-4">
         <input
