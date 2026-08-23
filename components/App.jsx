@@ -466,6 +466,7 @@ function AppInner() {
   const [boatNotes, setBoatNotes] = useState([]);
   const [aiMemories, setAiMemories] = useState([]);
   const [signoffs, setSignoffs] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [me, setMe] = useState(null);
   const [viewAs, setViewAs] = useState(null);
   const [tab, setTab] = useState("today");
@@ -506,16 +507,16 @@ function AppInner() {
   // Φόρτωση
   useEffect(() => {
     (async () => {
-      let [u, b, t, q, c, cc, ab, nt, bn, am, st, inv, so] = await Promise.all([
+      let [u, b, t, q, c, cc, ab, nt, bn, am, st, inv, so, pt] = await Promise.all([
         load("app-users", null), load("app-boats", null), load("app-tasks", null),
-        load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null), load("app-aimemories", null), load("app-settings", null), load("app-inventory", null), load("app-signoffs", null),
+        load("app-quicktasks", null), load("app-checklist", null), load("app-closingchecklist", null), load("app-absences", null), load("app-notes", null), load("app-boatnotes", null), load("app-aimemories", null), load("app-settings", null), load("app-inventory", null), load("app-signoffs", null), load("app-partners", null),
       ]);
       // Ασφάλεια: αν κάποιο key έχει corrupted/λάθος-σχήμα δεδομένα (π.χ. object αντί για array, μη-string στοιχεία),
       // κανονικοποιείται ήσυχα εδώ πριν αγγίξει οποιοδήποτε .map/.filter/.some παρακάτω — never crash, self-heal.
       // Το null/undefined περνάει ανέγγιχτο ώστε να ενεργοποιηθεί η κανονική λογική seed (if (!x) {...}) παρακάτω.
       u = asArray(u); b = asArray(b); t = asArray(t);
       q = asStringArray(q); c = asStringArray(c); cc = asStringArray(cc);
-      ab = asArray(ab); nt = asArray(nt); bn = asArray(bn); am = asArray(am);
+      ab = asArray(ab); nt = asArray(nt); bn = asArray(bn); am = asArray(am); pt = asArray(pt);
       if (!u) { u = SEED_USERS; await save("app-users", u); }
       // Μετάβαση: προσθήκη προσωπικών κωδικών σε παλιούς χρήστες
       if (u.some(x => !x.code)) { u = u.map(x => x.code ? x : { ...x, code: genCode(x.name) }); await save("app-users", u); }
@@ -669,7 +670,8 @@ function AppInner() {
       if (!nt) { nt = []; await save("app-notes", nt); }
       if (!bn) { bn = []; await save("app-boatnotes", bn); }
       if (!am) { am = []; await save("app-aimemories", am); }
-      setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c); setClosingChecklist(cc); setAbsences(ab); setNotes(nt); setBoatNotes(bn); setAiMemories(am);
+      if (!pt) { pt = []; await save("app-partners", pt); }
+      setUsers(u); setBoats(b); setTasks(t); setQuick(q); setChecklist(c); setClosingChecklist(cc); setAbsences(ab); setNotes(nt); setBoatNotes(bn); setAiMemories(am); setPartners(pt);
       // Η βασική λίστα inventory: αν λείπει εντελώς, γράφεται η αρχική ώστε να υπάρχει από την πρώτη χρήση.
       if (inv && typeof inv === "object") setInventory(inv); else { setInventory(SEED_INVENTORY); save("app-inventory", SEED_INVENTORY); }
       setSignoffs(Array.isArray(so) ? so : []);
@@ -703,6 +705,7 @@ function AppInner() {
   const persistInventory = async (next) => { setInventory(next); await save("app-inventory", next); };
   const persistAbsences = async (next) => { setAbsences(next); await save("app-absences", next); };
   const persistNotes = async (next) => { setNotes(next); await save("app-notes", next); };
+  const persistPartners = async (next) => { setPartners(next); await save("app-partners", next); };
 
   // Εβδομαδιαίος κύκλος βάσης: Δευτέρα ξεκινά η εβδομάδα, Κυριακή δεν είναι εργάσιμη, Παρασκευή επιστρέφουν ναύλα και Σάββατο φεύγουν νέα — άρα Σάββατο προτεραιότητα στο κλείσιμο υπαρχουσών εργασιών, όχι σε άσχετες καινούργιες.
   const weekdayNote = () => {
@@ -1778,7 +1781,8 @@ ${histLines}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
           settings={settings} updateSettings={updateSettings} resetSettings={resetSettings} onStartInventory={startInventory} onConfirmInventory={confirmInventory} signoffs={signoffs}
           persistTasks={persistTasks} tasksRaw={deletedTasks} onRestore={restoreTask} showToast={showToast} onViewAs={isMgr ? (u) => { setViewAs(u); setTab("today"); } : null} realOwner={me.role === "owner"} onDelete={deleteTask}
-          onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} section={adminSection} setSection={setAdminSection} /></ErrorBoundary>}
+          onAddAbsence={addAbsence} onDeleteAbsence={deleteAbsence} section={adminSection} setSection={setAdminSection}
+          partners={partners} persistPartners={persistPartners} /></ErrorBoundary>}
       </div>
       <TabBar tabs={tabs} tab={tab} setTab={selectTab} />
       {toast && <div style={{ position: "fixed", bottom: 86, left: "50%", transform: "translateX(-50%)", background: COLORS.navy, color: "#fff", padding: "8px 16px", borderRadius: 12, fontSize: 15, zIndex: 50, maxWidth: "90%" }}>{toast}</div>}
@@ -3521,14 +3525,14 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
   const { me, users, boats, tasks, opsTasks, quick, checklist, closingChecklist, inventory, persistInventory, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
-    onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, signoffs, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore } = props;
+    onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, signoffs, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore, partners, persistPartners } = props;
   const isOwner = me.role === "owner";
   // Δύο επίπεδα αντί για 12 καρτέλες σε οριζόντιο scroll: 4 ομάδες που χωράνε όλες στην οθόνη, και από κάτω
   // μόνο οι υποενότητες της επιλεγμένης ομάδας. Τίποτα δεν κρύβεται εκτός οθόνης πια.
   const GROUPS = [
     ["day", "Καθημερινά", [["overview", "Επισκόπηση"], ["control", "Έλεγχος"]]],
     ["base", "Βάση", [["boats", "Σκάφη"], ["lists", "Λίστες"]]],
-    ["team", "Ομάδα", [["profiles", "Προφίλ"], ["stats", "Στατιστικά"], ["absences", "Απουσίες"]]],
+    ["team", "Ομάδα", [["profiles", "Προφίλ"], ["stats", "Στατιστικά"], ["absences", "Απουσίες"], ["partners", "Εξωτ. Συνεργάτες"]]],
     ["sys", "Σύστημα", [
       ["settings", "Ρυθμίσεις"], ["ai", "AI"], ["trash", `Κάδος${tasksRaw?.length ? ` (${tasksRaw.length})` : ""}`],
       ...(isOwner ? [["errors", "Σφάλματα"], ["usersS", "Χρήστες"]] : []),
@@ -3566,6 +3570,7 @@ function AdminView(props) {
       {section === "boats" && <BoatsAdmin boats={boats} isOwner={isOwner} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} onStartInventory={onStartInventory} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} inventory={inventory} persistInventory={persistInventory} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
+      {section === "partners" && <PartnersAdmin partners={partners} persistPartners={persistPartners} />}
       {section === "stats" && <Stats users={users} tasks={opsTasks} boats={boats} />}
       {section === "ai" && <AiSearch tasks={tasks} boats={boats} users={users} aiMemories={aiMemories} onAddMemory={onAddMemory} onDeleteMemory={onDeleteMemory} onAddScheduled={onAddScheduled} onDeleteTask={props.onDelete} />}
       {section === "profiles" && <ProfilesView users={users} me={me} onViewAs={onViewAs} persistUsers={persistUsers} />}
@@ -5004,6 +5009,158 @@ function ProfilesView({ users, me, onViewAs, persistUsers }) {
         </div>
         );
       })}
+    </div>
+  );
+}
+
+// ---------- Εξωτερικοί συνεργάτες: κατάλογος ανθρώπων άλλων εταιρειών (π.χ. ναυπηγεία/μαρίνες με τα οποία ---------
+// συνεργαζόμαστε), με ελεύθερα χαρακτηριστικά (ρόλος/θέση) ανά άτομο ώστε να αναζητούνται και ανά εταιρεία και ανά ρόλο.
+const PARTNER_ROLE_SUGGESTIONS = ["Base Manager", "Υπάλληλος", "Γραμματεία", "Ιδιοκτήτης", "Τεχνικός", "Λογιστήριο"];
+
+function PartnerChips({ roles, onRemove }) {
+  if (!roles?.length) return null;
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+      {roles.map(r => (
+        <span key={r} style={{
+          display: "inline-flex", alignItems: "center", gap: 6, background: COLORS.bg, border: `1px solid ${COLORS.line}`,
+          borderRadius: R.pill, padding: "2px 10px", fontSize: 12, fontWeight: 600, color: COLORS.navy,
+        }}>
+          {r}
+          {onRemove && <button data-compact onClick={() => onRemove(r)} style={{ border: "none", background: "none", padding: 0, color: COLORS.sub, fontSize: 13, lineHeight: 1, cursor: "pointer" }}>×</button>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function PartnerForm({ initial, companies, onSave, onCancel }) {
+  const [name, setName] = useState(initial?.name || "");
+  const [company, setCompany] = useState(initial?.company || "");
+  const [roles, setRoles] = useState(initial?.roles || []);
+  const [roleInput, setRoleInput] = useState("");
+  const [phone, setPhone] = useState(initial?.phone || "");
+  const [email, setEmail] = useState(initial?.email || "");
+  const [comment, setComment] = useState(initial?.comment || "");
+
+  const addRole = (r) => {
+    const v = r.trim();
+    if (!v || roles.includes(v)) return;
+    setRoles([...roles, v]);
+    setRoleInput("");
+  };
+
+  return (
+    <div style={{ background: COLORS.card, borderRadius: 12, padding: 12, marginTop: 8, marginBottom: 12, border: `1.5px solid ${COLORS.navy}` }}>
+      <label style={lbl}>Ονοματεπώνυμο</label>
+      <input value={name} onChange={e => setName(e.target.value)} placeholder="π.χ. Γιώργος Παπαδόπουλος" style={inputStyle} />
+
+      <label style={lbl}>Εταιρεία</label>
+      <input value={company} onChange={e => setCompany(e.target.value)} placeholder="π.χ. Sailways" style={inputStyle} list="partner-companies" />
+      <datalist id="partner-companies">{companies.map(c => <option key={c} value={c} />)}</datalist>
+
+      <label style={lbl}>Χαρακτηριστικά / θέση</label>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input value={roleInput} onChange={e => setRoleInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addRole(roleInput); } }}
+          placeholder="π.χ. Base Manager — Enter για προσθήκη" style={inputStyle} list="partner-role-suggestions" />
+        <Btn small color={COLORS.navy} outline onClick={() => addRole(roleInput)}>+</Btn>
+      </div>
+      <datalist id="partner-role-suggestions">{PARTNER_ROLE_SUGGESTIONS.map(r => <option key={r} value={r} />)}</datalist>
+      <PartnerChips roles={roles} onRemove={(r) => setRoles(roles.filter(x => x !== r))} />
+
+      <label style={lbl}>Τηλέφωνο</label>
+      <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="π.χ. 6971234567" style={inputStyle} type="tel" />
+
+      <label style={lbl}>Email</label>
+      <input value={email} onChange={e => setEmail(e.target.value)} placeholder="name@company.com" style={inputStyle} type="email" />
+
+      <label style={lbl}>Σχόλιο</label>
+      <textarea value={comment} onChange={e => setComment(e.target.value)} rows={2} placeholder="Κάτι που θα σε βοηθήσει να τον/την θυμάσαι…" style={inputStyle} />
+
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <Btn small color={COLORS.navy} onClick={() => {
+          if (!name.trim()) return;
+          onSave({ name: name.trim(), company: company.trim(), roles, phone: phone.trim(), email: email.trim(), comment: comment.trim() });
+        }}>Αποθήκευση</Btn>
+        <Btn small color={COLORS.sub} outline onClick={onCancel}>Άκυρο</Btn>
+      </div>
+    </div>
+  );
+}
+
+function PartnersAdmin({ partners, persistPartners }) {
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [q, setQ] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+
+  const list = partners || [];
+  const companies = [...new Set(list.map(p => p.company).filter(Boolean))].sort((a, b) => a.localeCompare(b, "el"));
+  const allRoles = [...new Set(list.flatMap(p => p.roles || []))].sort((a, b) => a.localeCompare(b, "el"));
+
+  const norm = (s) => (s || "").toLowerCase();
+  const qn = norm(q);
+  const filtered = list
+    .filter(p => !companyFilter || p.company === companyFilter)
+    .filter(p => !roleFilter || (p.roles || []).includes(roleFilter))
+    .filter(p => !qn || [p.name, p.company, p.phone, p.email, p.comment, ...(p.roles || [])].some(v => norm(v).includes(qn)))
+    .sort((a, b) => (a.company || "").localeCompare(b.company || "", "el") || (a.name || "").localeCompare(b.name || "", "el"));
+
+  const addPartner = (data) => { persistPartners([...list, { id: "p" + Date.now(), ...data }]); setAdding(false); };
+  const updatePartner = (id, data) => { persistPartners(list.map(p => p.id === id ? { ...p, ...data } : p)); setEditingId(null); };
+  const deletePartner = (p) => { if (confirm(`Διαγραφή επαφής: ${p.name};`)) persistPartners(list.filter(x => x.id !== p.id)); };
+
+  return (
+    <div>
+      <SectionTitle>Εξωτερικοί συνεργάτες</SectionTitle>
+      <div style={{ fontSize: 13, color: COLORS.sub, marginBottom: 8 }}>Επαφές από άλλες εταιρείες — αναζήτηση με βάση εταιρεία, ρόλο/θέση, όνομα, τηλέφωνο ή email.</div>
+
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Αναζήτηση (όνομα, τηλέφωνο, email, σχόλιο…)" style={{ ...inputStyle, marginBottom: 8 }} />
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)} style={{ ...inputStyle, width: "auto", flex: 1 }}>
+          <option value="">Όλες οι εταιρείες</option>
+          {companies.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ ...inputStyle, width: "auto", flex: 1 }}>
+          <option value="">Όλα τα χαρακτηριστικά</option>
+          {allRoles.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+      </div>
+
+      {filtered.length === 0 && <Empty>{list.length === 0 ? "Δεν έχουν προστεθεί συνεργάτες ακόμα." : "Καμία επαφή δεν ταιριάζει με τα φίλτρα."}</Empty>}
+
+      {filtered.map(p => (
+        <div key={p.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 12px", marginBottom: 8, fontSize: 15 }}>
+          {editingId === p.id ? (
+            <PartnerForm initial={p} companies={companies} onSave={(data) => updatePartner(p.id, data)} onCancel={() => setEditingId(null)} />
+          ) : (
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+              <div>
+                <b>{p.name}</b>
+                {p.company && <span style={{ color: COLORS.sub, fontSize: 13 }}> · {p.company}</span>}
+                <PartnerChips roles={p.roles} />
+                <div style={{ fontSize: 13, marginTop: 6, color: COLORS.sub }}>
+                  {p.phone && <div>📞 <a href={`tel:${p.phone}`} style={{ color: COLORS.teal, textDecoration: "none" }}>{p.phone}</a></div>}
+                  {p.email && <div>✉️ <a href={`mailto:${p.email}`} style={{ color: COLORS.teal, textDecoration: "none" }}>{p.email}</a></div>}
+                </div>
+                {p.comment && <div style={{ fontSize: 13, color: COLORS.sub, marginTop: 6, whiteSpace: "pre-wrap" }}>{p.comment}</div>}
+              </div>
+              <div style={{ display: "flex", gap: 4, flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
+                <Btn small color={COLORS.navy} outline onClick={() => setEditingId(p.id)}>Επεξεργασία</Btn>
+                <Btn small color={COLORS.red} outline onClick={() => deletePartner(p)}>Διαγραφή</Btn>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {adding ? (
+        <PartnerForm companies={companies} onSave={addPartner} onCancel={() => setAdding(false)} />
+      ) : (
+        <Btn small color={COLORS.navy} onClick={() => setAdding(true)}>+ Νέος συνεργάτης</Btn>
+      )}
     </div>
   );
 }
