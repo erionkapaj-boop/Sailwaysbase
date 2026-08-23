@@ -8,6 +8,10 @@ import More from './pages/More'
 import Placeholder from './pages/Placeholder'
 import Contacts from './pages/Contacts'
 import ContactForm from './pages/ContactForm'
+import Briefing from './pages/Briefing'
+import Inventory from './pages/Inventory'
+import InventoryItems from './pages/InventoryItems'
+import InventoryCheck from './pages/InventoryCheck'
 
 function AppShell() {
   const { user, loading } = useAuth()
@@ -27,18 +31,14 @@ function AppShell() {
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/contacts/new" element={<ContactForm />} />
         <Route path="/contacts/:id" element={<ContactForm />} />
-        <Route
-          path="/briefing"
-          element={<Placeholder title="Customer Briefing" description="Briefing πελατών στα Ελληνικά και Αγγλικά." />}
-        />
+        <Route path="/briefing" element={<Briefing />} />
         <Route
           path="/calendar"
           element={<Placeholder title="Ημερολόγιο" description="Κρατήσεις, ναυλώσεις και διαθεσιμότητα." />}
         />
-        <Route
-          path="/inventory"
-          element={<Placeholder title="Inventory / Checklist" description="Προσωπικό checklist σκάφους." />}
-        />
+        <Route path="/inventory" element={<Inventory />} />
+        <Route path="/inventory/items" element={<InventoryItems />} />
+        <Route path="/inventory/check" element={<InventoryCheck />} />
         <Route
           path="/availability"
           element={<Placeholder title="Διαθεσιμότητα" description="Περίοδοι διαθεσιμότητας και τιμές ανά ημέρα." />}
