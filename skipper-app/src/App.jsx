@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import BottomNav from './components/BottomNav'
+import OfflineBanner from './components/OfflineBanner'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
@@ -30,6 +31,7 @@ function AppShell() {
 
   return (
     <div className="min-h-screen max-w-md mx-auto bg-[#f7f7f8]">
+      <OfflineBanner />
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/contacts" element={<Contacts />} />
