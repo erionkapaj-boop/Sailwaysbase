@@ -1,4 +1,4 @@
--- SkipperFinder: public marketplace of last-minute charter deals — mostly
+-- SailForAll: public marketplace of last-minute charter deals — mostly
 -- one-way "repositioning" trips, where a charter company needs its boat
 -- moved to another base and offers a steep discount for someone to sail it
 -- there within a given window.

@@ -11,7 +11,7 @@ export default function Header() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 font-extrabold text-lg text-sea-900">
           <span className="w-8 h-8 rounded-lg bg-sea-600 text-white flex items-center justify-center text-base">⛵</span>
-          SkipperFinder
+          SailForAll
         </Link>
         <nav className="flex items-center gap-1">
           <NavLink to="/" end className={navLinkClass}>
