@@ -449,6 +449,19 @@ async function uploadTaskPhotos(files, taskId) {
   }
   return urls;
 }
+// Μία φωτογραφία-προφίλ ανά σκάφος (όχι λίστα σαν τις φωτογραφίες εργασιών) — ίδιο bucket, ξεχωριστός φάκελος
+// ώστε να μη μπερδεύεται με τις φωτογραφίες πριν/μετά μιας εργασίας.
+async function uploadBoatPhoto(file, boatId) {
+  if (!supabase || !file) return null;
+  try {
+    const blob = await compressImage(file);
+    const path = `boat-profile/${boatId}/${Date.now()}.jpg`;
+    const { error } = await supabase.storage.from("task-photos").upload(path, blob, { contentType: "image/jpeg" });
+    if (error) return null;
+    const { data } = supabase.storage.from("task-photos").getPublicUrl(path);
+    return data?.publicUrl || null;
+  } catch { return null; }
+}
 
 // Σειρά εκτέλεσης ανά κλειδί αποθήκευσης (π.χ. "app-tasks"): αν ο ίδιος χρήστης πατήσει δύο πράγματα διαδοχικά
 // πολύ γρήγορα (π.χ. τσεκάρει δύο αντικείμενα ενός checklist σχεδόν ταυτόχρονα), οι δύο κλήσεις persistX θα
@@ -3917,7 +3930,7 @@ const nextDeparture = (b) => {
   return null;
 };
 
-function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, onDeleteBoat }) {
+function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, persistBoats, showToast, onDeleteBoat }) {
   const [noteText, setNoteText] = useState("");
   const [notePhotos, setNotePhotos] = useState([]);
   const noteFileRef = useRef(null);
@@ -3925,6 +3938,21 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, on
   const [aiAns, setAiAns] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const boatPhotoRef = useRef(null);
+  const setBoatPhoto = async (file) => {
+    if (!file || !persistBoats) return;
+    setPhotoBusy(true);
+    const photoUrl = await uploadBoatPhoto(file, boat.id);
+    setPhotoBusy(false);
+    if (!photoUrl) { showToast?.("Η φωτογραφία δεν ανέβηκε — δοκίμασε ξανά"); return; }
+    persistBoats(cur => cur.map(x => x.id === boat.id ? { ...x, photoUrl } : x));
+    showToast?.("Ενημερώθηκε η φωτογραφία");
+  };
+  const removeBoatPhoto = () => {
+    persistBoats?.(cur => cur.map(x => x.id === boat.id ? { ...x, photoUrl: null } : x));
+    showToast?.("Αφαιρέθηκε η φωτογραφία");
+  };
   const myNotes = boatNotes.filter(n => n.boatId === boat.id).sort((a, b) => b.at.localeCompare(a.at));
   const serviceHistory = tasks.filter(t => t.boatId === boat.id && t.status === "done" && t.serviceRelevant)
     .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
@@ -3955,6 +3983,19 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, on
   return (
     <div style={{ marginTop: 8, background: COLORS.bg, borderRadius: 12, padding: 12 }}>
       <div style={{ fontWeight: 700, marginBottom: 8 }}>ℹ️ {boat.name} — Πληροφορίες</div>
+
+      {persistBoats && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <BoatAvatar boat={boat} size={56} />
+          <input ref={boatPhotoRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) setBoatPhoto(f); e.target.value = ""; }} />
+          <Btn small color={COLORS.teal} outline onClick={() => boatPhotoRef.current?.click()}>
+            {photoBusy ? "Ανεβαίνει…" : boat.photoUrl ? "📷 Αλλαγή φωτογραφίας" : "📷 Προσθήκη φωτογραφίας"}
+          </Btn>
+          {boat.photoUrl && !photoBusy && <Btn small color={COLORS.sub} outline onClick={removeBoatPhoto}>Αφαίρεση</Btn>}
+        </div>
+      )}
+
       <Btn small color={COLORS.teal} onClick={() => ask("Τι θέματα ή επαναλαμβανόμενα προβλήματα έχει αυτό το σκάφος; Αν κάτι φαίνεται καινούργιο (δηλαδή υπάρχει παλιότερη ένδειξη ότι δούλευε καλά), ανάφερέ το ρητά. Δώσε σύντομη επισκόπηση.")}>{busy ? "…" : "Επισκόπηση AI"}</Btn>
       <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
         <input value={aiQ} onChange={e => setAiQ(e.target.value)} placeholder="Ρώτησε κάτι για αυτό το σκάφος…" style={{ ...inputStyle, flex: 1 }} />
@@ -4244,6 +4285,21 @@ function BulkScheduleEntry({ boats, persistBoats, showToast }) {
   );
 }
 
+// Φωτογραφία σκάφους αν υπάρχει, αλλιώς το αρχικό γράμμα του ονόματος σε ήρεμο φόντο — μικρό, σταθερό μέγεθος
+// σε όλα τα σημεία που εμφανίζεται, ώστε να προσθέτει ζεστασιά χωρίς να διαταράσσει τη λιτή λίστα.
+function BoatAvatar({ boat, size = 44 }) {
+  return boat.photoUrl ? (
+    <img src={boat.photoUrl} alt="" style={{
+      width: size, height: size, borderRadius: R.sm, objectFit: "cover", flexShrink: 0, border: `1px solid ${COLORS.line}`,
+    }} />
+  ) : (
+    <div style={{
+      width: size, height: size, borderRadius: R.sm, background: COLORS.line, color: COLORS.sub,
+      display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(size * 0.42), fontWeight: 700, flexShrink: 0,
+    }}>{(boat.name || "?").trim().charAt(0).toUpperCase()}</div>
+  );
+}
+
 function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, onStartInventory, showToast }) {
   const [detailFor, setDetailFor] = useState(null);
   const [schedFor, setSchedFor] = useState(null);
@@ -4253,6 +4309,9 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
   const [newBoatName, setNewBoatName] = useState("");
   const [newBoatType, setNewBoatType] = useState("");
   const [newBoatIsolated, setNewBoatIsolated] = useState(false);
+  const [newBoatPhoto, setNewBoatPhoto] = useState(null);
+  const [addingBoat, setAddingBoat] = useState(false);
+  const newBoatPhotoRef = useRef(null);
 
   // Προτεραιότητα σε 4 επίπεδα, με απλή χρωματική σήμανση:
   // 1. Στη βάση + φεύγει σύντομα — ΠΡΑΣΙΝΟ
@@ -4329,6 +4388,7 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
         <React.Fragment key={b.id}>
           <div style={{ background: COLORS.card, borderRadius: 12, padding: "12px 12px", marginBottom: 8, fontSize: 15 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+              <BoatAvatar boat={b} />
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <b>{b.name}</b>
@@ -4403,7 +4463,7 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
               </div>
             )}
             {detailFor === b.id && (
-              <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} onDeleteBoat={() => { persistBoats(cur => cur.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
+              <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} persistBoats={persistBoats} showToast={showToast} onDeleteBoat={() => { persistBoats(cur => cur.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
             )}
           </div>
         </React.Fragment>
@@ -4414,11 +4474,30 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input value={newBoatName} onChange={e => setNewBoatName(e.target.value)} placeholder="Όνομα (π.χ. Καλλιρόη)" style={{ ...inputStyle, flex: 1, minWidth: 140 }} />
           <input value={newBoatType} onChange={e => setNewBoatType(e.target.value)} placeholder="Τύπος (π.χ. Bavaria 46)" style={{ ...inputStyle, flex: 1, minWidth: 140 }} />
-          <Btn small color={COLORS.navy} onClick={() => {
-            if (!newBoatName.trim()) return;
-            persistBoats(cur => [...cur, { id: "b" + Date.now(), name: newBoatName.trim(), type: newBoatType.trim(), atSea: false, returnDate: null, departureDate: null, charters: [], ...(newBoatIsolated ? { isolated: true } : {}) }]);
-            setNewBoatName(""); setNewBoatType(""); setNewBoatIsolated(false); showToast(`Προστέθηκε: ${newBoatName.trim()}`);
-          }}>+</Btn>
+          <Btn small color={COLORS.navy} onClick={async () => {
+            if (!newBoatName.trim() || addingBoat) return;
+            setAddingBoat(true);
+            const id = "b" + Date.now();
+            const photoUrl = newBoatPhoto ? await uploadBoatPhoto(newBoatPhoto, id) : null;
+            persistBoats(cur => [...cur, {
+              id, name: newBoatName.trim(), type: newBoatType.trim(), atSea: false, returnDate: null, departureDate: null, charters: [],
+              ...(newBoatIsolated ? { isolated: true } : {}), ...(photoUrl ? { photoUrl } : {}),
+            }]);
+            showToast(`Προστέθηκε: ${newBoatName.trim()}`);
+            setNewBoatName(""); setNewBoatType(""); setNewBoatIsolated(false); setNewBoatPhoto(null); setAddingBoat(false);
+          }}>{addingBoat ? "…" : "+"}</Btn>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <input ref={newBoatPhotoRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+            onChange={e => setNewBoatPhoto(e.target.files?.[0] || null)} />
+          {newBoatPhoto ? (
+            <>
+              <img src={URL.createObjectURL(newBoatPhoto)} alt="" style={{ width: 40, height: 40, borderRadius: R.sm, objectFit: "cover", border: `1px solid ${COLORS.line}` }} />
+              <Btn small color={COLORS.sub} outline onClick={() => setNewBoatPhoto(null)}>Αφαίρεση</Btn>
+            </>
+          ) : (
+            <Btn small color={COLORS.teal} outline onClick={() => newBoatPhotoRef.current?.click()}>📷 Φωτογραφία (προαιρετικό)</Btn>
+          )}
         </div>
         {isOwner && (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 10 }}>
