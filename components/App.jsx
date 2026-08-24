@@ -681,17 +681,23 @@ function AppInner() {
     })();
   }, []);
 
-  // Ασφαλής αποθήκευση με πολλές συσκευές ταυτόχρονα: αντί να γράφει πάνω στο ΤΟΠΙΚΟ state (που μπορεί να έχει
-  // μείνει πίσω αν κάποιος άλλος πρόλαβε να αλλάξει κάτι στο μεταξύ από άλλη συσκευή), διαβάζει την πιο πρόσφατη
-  // αποθηκευμένη τιμή ΑΚΡΙΒΩΣ πριν γράψει και εφαρμόζει πάνω σε αυτήν — έτσι μια αλλαγή από άλλη συσκευή δεν
-  // χάνεται όταν δύο άτομα αλλάζουν κάτι σχεδόν ταυτόχρονα. Δέχεται είτε έτοιμη τιμή είτε συνάρτηση (cur => next)·
-  // μόνο η δεύτερη μορφή ωφελείται πλήρως από το φρέσκο fetch, γι' αυτό οι κλήσεις πιο κάτω δίνουν πάντα συνάρτηση.
+  // Ασφαλής αποθήκευση με πολλές συσκευές ταυτόχρονα: διαβάζει την πιο πρόσφατη αποθηκευμένη τιμή (άλλη συσκευή)
+  // ΑΚΡΙΒΩΣ πριν γράψει. Η εφαρμογή της αλλαγής γίνεται ΠΑΝΤΑ μέσα σε λειτουργική ενημέρωση React
+  // (setter(prevLocal => ...)) πάνω στο πραγματικό τρέχον τοπικό state — ΠΟΤΕ πάνω σε «παγωμένο» στιγμιότυπο από
+  // το closure. Αυτό είναι κρίσιμο: όταν δεν υπάρχει φρέσκια τιμή από τον server (π.χ. Supabase μη διαθέσιμο, ή
+  // απλά καμία αλλαγή εκεί), η βάση πρέπει να είναι το ΑΛΗΘΙΝΟ τρέχον state (prevLocal), όχι το tasks/boats/κ.λπ.
+  // της στιγμής που δημιουργήθηκε αυτή η persistX — αλλιώς μια δεύτερη γρήγορη ενέργεια στο ίδιο tab θα διάγραφε
+  // την πρώτη (ακριβώς το bug που έλυνε το παλιό setTasks(cur => ...) πριν προστεθεί το fetch-πριν-write).
   const makePersist = (key, setter, fallback) => async (updater) => {
-    let latest = fallback;
-    try { const r = await load(key, null); if (r !== null && r !== undefined) latest = r; } catch {}
-    const next = typeof updater === "function" ? updater(latest) : updater;
-    setter(next);
-    if (next !== latest) await save(key, next);
+    let serverLatest;
+    try { const r = await load(key, null); if (r !== null && r !== undefined) serverLatest = r; } catch {}
+    let next;
+    setter(prevLocal => {
+      const base = serverLatest !== undefined ? serverLatest : (prevLocal !== undefined ? prevLocal : fallback);
+      next = typeof updater === "function" ? updater(base) : updater;
+      if (next !== base) save(key, next);
+      return next;
+    });
     return next;
   };
   const persistTasks = makePersist("app-tasks", setTasks, tasks);
@@ -3101,8 +3107,10 @@ function TasksView({ tasks, snoozedTasks, boats, users, isMgr, me, effectiveDead
             </div>
           )}
           {selectMode && (
+            // Badge έξω από την κάρτα (πάνω-δεξιά γωνία, όχι μέσα στο περιθώριο της κάρτας) — έτσι δεν επικαλύπτεται
+            // με το βελάκι ▸/▾ της κάρτας, που βρίσκεται ακριβώς στο ίδιο σημείο (πάνω-δεξιά, μέσα στο padding).
             <div style={{
-              position: "absolute", top: 10, right: 10, zIndex: 6, width: 24, height: 24, borderRadius: 8,
+              position: "absolute", top: -8, right: 8, zIndex: 6, width: 24, height: 24, borderRadius: 8,
               border: `2px solid ${COLORS.teal}`, background: selected[t.id] ? COLORS.teal : "#fff",
               display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 3px rgba(0,0,0,.15)", pointerEvents: "none",
             }}>{selected[t.id] && <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>✓</span>}</div>
@@ -3411,8 +3419,8 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
   const qLower = q.trim().toLowerCase();
   const done = qLower ? visible.filter(t => (t.desc || "").toLowerCase().includes(qLower) || (t.completionNote || "").toLowerCase().includes(qLower) || bn(t.boatId).toLowerCase().includes(qLower)) : visible;
   const exportCsv = () => {
-    const rows = [["Σκάφος", "Περιγραφή", "Ημερομηνία", "Ολοκληρώθηκε από", "Σημείωση"]];
-    done.forEach(t => rows.push([bn(t.boatId), t.desc || "", fmtDate(t.completedAt), users.find(u => u.id === t.completedBy)?.name || "", t.completionNote || ""]));
+    const rows = [["Σκάφος", "Τι έγινε", "Αρχικό αίτημα", "Ημερομηνία", "Ολοκληρώθηκε από"]];
+    done.forEach(t => rows.push([bn(t.boatId), t.completionNote || t.externalCloseNote || "", t.desc || "", fmtDate(t.completedAt), users.find(u => u.id === t.completedBy)?.name || ""]));
     downloadCsv(`service-book-${todayStr()}.csv`, rows);
   };
   return (
@@ -3442,8 +3450,12 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
         const boat = boats.find(b => b.id === t.boatId);
         return (
           <div key={t.id} style={{ background: COLORS.card, borderRadius: 12, padding: "12px 12px", marginBottom: 8, fontSize: 15 }}>
+            {/* Το βιβλίο service καταγράφει το ΓΕΓΟΝΟΣ — τι πραγματικά έγινε/άλλαξε (π.χ. «αντικαταστάθηκε ο εργάτης») —
+                όχι το αρχικό παράπονο/σύμπτωμα (π.χ. «πρόβλημα με την ασφάλεια του εργάτη»), που θα ήταν παραπλανητικό
+                να μείνει ως ο μόνιμος τίτλος αφού το πρόβλημα έχει λυθεί. Η σημείωση ολοκλήρωσης γίνεται ο τίτλος· το
+                αρχικό αίτημα μένει από κάτω, μικρό, μόνο ως πλαίσιο. */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-              <div style={{ fontWeight: 600 }}>{t.desc}</div>
+              <div style={{ fontWeight: 600 }}>{t.completionNote || t.externalCloseNote || t.desc}</div>
               <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                 {isMgr && (
                   <button onClick={() => onToggleService(t)} title={t.serviceRelevant ? "Αφαίρεση από βιβλίο service" : "Προσθήκη στο βιβλίο service"}
@@ -3456,6 +3468,9 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
                 )}
               </div>
             </div>
+            {(t.completionNote || t.externalCloseNote) && t.desc && (
+              <div style={{ fontSize: 13, color: COLORS.sub, marginTop: 2, fontStyle: "italic" }}>Αρχικό αίτημα: {t.desc}</div>
+            )}
             <div style={{ fontSize: 13, color: COLORS.sub, marginTop: 4 }}>
               {boat ? boat.name : tr("Βάση / Άλλο")} · {fmtDate(t.completedAt)}
               {t.closedAsExternal && " · " + tr("εξωτερικός συνεργάτης")}
