@@ -1213,7 +1213,10 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
   const returnTask = async (t, note) => {
     // Ο νέος υπεύθυνος γίνεται αυτός που την είχε ολοκληρώσει — αν ήταν βοηθός, πρέπει να βγει από τους βοηθούς,
     // αλλιώς θα εμφανιζόταν ταυτόχρονα ως υπεύθυνος ΚΑΙ βοηθός (και θα μετρούσε δύο φορές στα στατιστικά).
-    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, status: "open", assignedTo: x.completedBy, assignedToMore: (x.assignedToMore || []).filter(id => id !== x.completedBy), returns: (x.returns || 0) + 1, returnNote: note, returnedAt: new Date().toISOString() } : x));
+    // returnedEmployeeIds: καταγράφει ΜΟΝΙΜΑ ποιανού η δουλειά επιστράφηκε αυτή τη φορά (x.completedBy) — όχι το
+    // τρέχον completedBy/assignedTo, που μπορεί να αλλάξει αν η εργασία ανατεθεί αργότερα σε άλλον πριν ξαναγίνει.
+    // Έτσι τα Στατιστικά (βλ. Stats) φορτώνουν πάντα την επιστροφή στο σωστό άτομο, ό,τι κι αν συμβεί μετά.
+    await persistTasks(cur => cur.map(x => x.id === t.id ? { ...x, status: "open", assignedTo: x.completedBy, assignedToMore: (x.assignedToMore || []).filter(id => id !== x.completedBy), returns: (x.returns || 0) + 1, returnedEmployeeIds: [...(x.returnedEmployeeIds || []), x.completedBy], returnNote: note, returnedAt: new Date().toISOString() } : x));
     showToast("Η εργασία επιστράφηκε ως ατελής");
   };
   const rateTask = async (t, rating) => {
@@ -4042,7 +4045,7 @@ function CharterCalendar({ charters }) {
         {cells.map((d, i) => {
           if (d === null) return <div key={i} />;
           const booked = isBooked(d);
-          const isToday = dateStrOf(d) === todayS;
+          const isToday = cellDateStr(d) === todayS;
           return (
             <div key={i} style={{
               fontSize: 12, textAlign: "center", padding: "4px 0", borderRadius: 8,
@@ -4811,7 +4814,14 @@ function Stats({ users, tasks, boats }) {
     done: tasks.filter(t => t.completedBy === u.id && t.status === "done").length,
     helped: tasks.filter(t => t.status === "done" && t.completedBy !== u.id && (t.assignedToMore || []).includes(u.id)).length,
     prog: tasks.reduce((s, t) => s + (t.progress || []).filter(p => p.by === u.id).length, 0),
-    returns: tasks.filter(t => t.completedBy === u.id || (t.status === "open" && t.assignedTo === u.id && t.returnNote)).reduce((s, t) => s + (t.returns || 0), 0),
+    // returnedEmployeeIds καταγράφει σε ΠΟΙΟΝ ανήκε η δουλειά τη στιγμή κάθε επιστροφής — δεν επηρεάζεται από
+    // μεταγενέστερη ανάθεση σε άλλον πριν ξαναγίνει η εργασία (βλ. σχόλιο στο returnTask). Παλιές εργασίες χωρίς
+    // αυτό το πεδίο πέφτουν στην προηγούμενη (ατελή) λογική, ώστε να μη χαθεί το ιστορικό τους.
+    returns: tasks.reduce((s, t) => {
+      if (Array.isArray(t.returnedEmployeeIds)) return s + t.returnedEmployeeIds.filter(id => id === u.id).length;
+      const matches = t.completedBy === u.id || (t.status === "open" && t.assignedTo === u.id && t.returnNote);
+      return s + (matches ? (t.returns || 0) : 0);
+    }, 0),
   }));
   return (
     <div>
