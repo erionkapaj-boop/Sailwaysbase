@@ -450,6 +450,13 @@ async function uploadTaskPhotos(files, taskId) {
   return urls;
 }
 
+// Σειρά εκτέλεσης ανά κλειδί αποθήκευσης (π.χ. "app-tasks"): αν ο ίδιος χρήστης πατήσει δύο πράγματα διαδοχικά
+// πολύ γρήγορα (π.χ. τσεκάρει δύο αντικείμενα ενός checklist σχεδόν ταυτόχρονα), οι δύο κλήσεις persistX θα
+// ξεκινούσαν παράλληλα το δικό τους "διάβασε πριν γράψεις" και θα μπορούσε η μία να γράψει πάνω από την άλλη.
+// Αλυσιδώνοντας τις κλήσεις ανά κλειδί, η δεύτερη περιμένει να ολοκληρωθεί πλήρως η πρώτη πριν ξεκινήσει το δικό
+// της "διάβασμα" — έτσι βλέπει πάντα τη σωστή, πιο πρόσφατη εικόνα.
+const persistQueues = {};
+
 // ---------- Κύρια εφαρμογή ----------
 function AppInner() {
   const [ready, setReady] = useState(false);
@@ -688,17 +695,24 @@ function AppInner() {
   // απλά καμία αλλαγή εκεί), η βάση πρέπει να είναι το ΑΛΗΘΙΝΟ τρέχον state (prevLocal), όχι το tasks/boats/κ.λπ.
   // της στιγμής που δημιουργήθηκε αυτή η persistX — αλλιώς μια δεύτερη γρήγορη ενέργεια στο ίδιο tab θα διάγραφε
   // την πρώτη (ακριβώς το bug που έλυνε το παλιό setTasks(cur => ...) πριν προστεθεί το fetch-πριν-write).
-  const makePersist = (key, setter, fallback) => async (updater) => {
-    let serverLatest;
-    try { const r = await load(key, null); if (r !== null && r !== undefined) serverLatest = r; } catch {}
-    let next;
-    setter(prevLocal => {
-      const base = serverLatest !== undefined ? serverLatest : (prevLocal !== undefined ? prevLocal : fallback);
-      next = typeof updater === "function" ? updater(base) : updater;
-      if (next !== base) save(key, next);
+  const makePersist = (key, setter, fallback) => (updater) => {
+    // Αλυσιδώνεται πάνω στην ουρά του key (βλ. persistQueues πιο πάνω) — ώστε δύο σχεδόν ταυτόχρονες κλήσεις για
+    // το ΙΔΙΟ κλειδί (π.χ. δύο γρήγορα τσεκαρίσματα σε ένα checklist) να μη διαβάζουν "παλιά" δεδομένα η μία απ' την άλλη.
+    const run = async () => {
+      let serverLatest;
+      try { const r = await load(key, null); if (r !== null && r !== undefined) serverLatest = r; } catch {}
+      let next;
+      setter(prevLocal => {
+        const base = serverLatest !== undefined ? serverLatest : (prevLocal !== undefined ? prevLocal : fallback);
+        next = typeof updater === "function" ? updater(base) : updater;
+        if (next !== base) save(key, next);
+        return next;
+      });
       return next;
-    });
-    return next;
+    };
+    const queued = (persistQueues[key] || Promise.resolve()).then(run, run);
+    persistQueues[key] = queued.catch(() => {});
+    return queued;
   };
   const persistTasks = makePersist("app-tasks", setTasks, tasks);
   const patchTask = (taskId, patch) => { persistTasks(cur => cur.map(x => x.id === taskId ? { ...x, ...patch } : x)); };
@@ -832,13 +846,22 @@ function AppInner() {
   // Ενημέρωση ρυθμίσεων: γράφει ταυτόχρονα στο React state (για το UI) και στο module-level SET (για τις
   // βοηθητικές συναρτήσεις εκτός components) — αλλιώς οι δύο θα ξέφευγαν μεταξύ τους μέχρι το επόμενο άνοιγμα.
   const updateSettings = async (patch) => {
-    // Διαβάζει τις πιο πρόσφατες αποθηκευμένες ρυθμίσεις πριν εφαρμόσει το patch, ώστε αν δύο manager αλλάξουν
-    // διαφορετικές ρυθμίσεις σχεδόν ταυτόχρονα από διαφορετικές συσκευές, η μία αλλαγή να μη σβήσει την άλλη.
-    let latest = settings;
-    try { const r = await load("app-settings", null); if (r) latest = mergeSettings(r); } catch {}
-    const next = mergeSettings({ ...latest, ...patch });
-    SET = next; setSettings(next);
-    await save("app-settings", next);
+    // Διαβάζει τις πιο πρόσφατες αποθηκευμένες ρυθμίσεις πριν εφαρμόσει το patch. Η εφαρμογή γίνεται ΠΑΝΤΑ μέσα
+    // σε λειτουργική ενημέρωση React (setSettings(prevLocal => ...)) πάνω στο πραγματικό τρέχον τοπικό state —
+    // ίδιος λόγος με το makePersist: κάθε πληκτρολόγημα σε αριθμητικό πεδίο ρυθμίσεων καλεί ξανά αυτή τη
+    // συνάρτηση, και δύο σχεδόν ταυτόχρονες κλήσεις (γρήγορη πληκτρολόγηση, ή δύο manager μαζί) δεν πρέπει η μία
+    // να σβήνει την άλλη.
+    let serverLatest;
+    try { const r = await load("app-settings", null); if (r) serverLatest = mergeSettings(r); } catch {}
+    let next;
+    setSettings(prevLocal => {
+      const base = serverLatest || prevLocal;
+      next = mergeSettings({ ...base, ...patch });
+      SET = next;
+      save("app-settings", next);
+      return next;
+    });
+    return next;
   };
   const resetSettings = async () => {
     SET = { ...DEFAULT_SETTINGS }; setSettings({ ...DEFAULT_SETTINGS });
@@ -937,7 +960,9 @@ ${rules.map(r => "- " + r).join("\n")}
     // Έλεγχος υποχρεωτικού βαν τουλάχιστον 1x/εβδομάδα
     const vanLast7d = src.some(t => t.autoType === "van" && t.createdAt && (Date.now() - new Date(t.createdAt).getTime()) <= 7 * 24 * 60 * 60 * 1000);
     // Πρώτα εξάντλησε εργασίες σε αναμονή (backlog) πριν επινοήσεις νέες — αυτές είχαν ήδη οριστεί από τον χρήστη για «όταν υπάρχει κενό».
-    const backlog = src.filter(t => t.status === "backlog");
+    // inOps(t): ποτέ αυτόματη ενεργοποίηση/ανάθεση για backlog εργασία σκάφους «εκτός ροής» — μένει εκεί μέχρι να
+    // την ενεργοποιήσει χειροκίνητα ο Διαχειριστής, ακριβώς όπως κάθε άλλος αυτοματισμός αγνοεί τέτοια σκάφη.
+    const backlog = src.filter(t => t.status === "backlog" && inOps(t));
     const eligibleBacklog = backlog.filter(t => !t.scheduledFor || t.scheduledFor <= today);
     if (eligibleBacklog.length) {
       const toConvert = eligibleBacklog.slice(0, Math.min(lowLoad.length, Number(SET.maxBacklogConvert) || 3));
@@ -3884,7 +3909,9 @@ const nextDeparture = (b) => {
   const s = boatStatus(b);
   if (s.nextEventType === "depart") return { date: s.nextEventDate, days: s.nextEventDays };
   if (s.atSea) {
-    const after = getCharters(b).filter(c => c.from > s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
+    // >=, όχι >: ένα σκάφος επιτρέπεται ρητά (βλ. saveCharter) να φύγει ξανά ΤΗΝ ΙΔΙΑ μέρα που επιστρέφει —
+    // με strict > η γρήγορη επόμενη αναχώρηση της ίδιας μέρας δεν θα βρισκόταν ποτέ.
+    const after = getCharters(b).filter(c => c.from >= s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
     if (after) return { date: after.from, days: daysUntil(after.from) };
   }
   return null;
@@ -4249,7 +4276,7 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
       return { tier: 3, sortDate: null, s, statusText: "Στη βάση", statusColor: COLORS.sub, extra: null };
     }
     const returnColor = (s.nextEventDays !== null && s.nextEventDays > 7) ? COLORS.blue : COLORS.amber;
-    const after = charters.filter(c => c.from > s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
+    const after = charters.filter(c => c.from >= s.returnDate).sort((a, c) => a.from.localeCompare(c.from))[0];
     if (after) {
       return { tier: 2, sortDate: s.returnDate, s,
         statusText: "Έρχεται", statusColor: returnColor,
@@ -5145,7 +5172,7 @@ function PartnersAdmin({ partners, persistPartners }) {
                 {p.comment && <div style={{ fontSize: 13, color: COLORS.sub, marginTop: 6, whiteSpace: "pre-wrap" }}>{p.comment}</div>}
               </div>
               <div style={{ display: "flex", gap: 4, flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
-                <Btn small color={COLORS.navy} outline onClick={() => setEditingId(p.id)}>Επεξεργασία</Btn>
+                <Btn small color={COLORS.navy} outline onClick={() => { setAdding(false); setEditingId(p.id); }}>Επεξεργασία</Btn>
                 <Btn small color={COLORS.red} outline onClick={() => deletePartner(p)}>Διαγραφή</Btn>
               </div>
             </div>
@@ -5156,7 +5183,7 @@ function PartnersAdmin({ partners, persistPartners }) {
       {adding ? (
         <PartnerForm companies={companies} existingRoles={allRoles} onSave={addPartner} onCancel={() => setAdding(false)} />
       ) : (
-        <Btn small color={COLORS.navy} onClick={() => setAdding(true)}>+ Νέος συνεργάτης</Btn>
+        <Btn small color={COLORS.navy} onClick={() => { setEditingId(null); setAdding(true); }}>+ Νέος συνεργάτης</Btn>
       )}
     </div>
   );
