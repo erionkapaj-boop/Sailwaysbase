@@ -9,8 +9,7 @@ import {
   submitReview,
   replyToReview,
   listReviewsForBooking,
-  getRevealedSkipper,
-  getRevealedClient,
+  getBookingCounterpart,
 } from "../../../lib/platform/db";
 import { card, muted, button, input, badge, colors, money, radius } from "../../../lib/platform/theme";
 
@@ -43,11 +42,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   // bookings and most stay collapsed.
   useEffect(() => {
     if (!revealed || !expanded) return;
-    if (viewerRole === "client") {
-      getRevealedSkipper(booking.skipper_id).then(setCounterpart).catch(() => {});
-    } else {
-      getRevealedClient(booking.client_id).then(setCounterpart).catch(() => {});
-    }
+    getBookingCounterpart(booking.id).then(setCounterpart).catch(() => {});
     listMessages(booking.id).then(setMessages).catch(() => {});
     listReviewsForBooking(booking.id).then(setReviews).catch(() => {});
     // Opening the thread is what "reading" it means here — mark it read and
@@ -96,10 +91,10 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
     setBusy(true);
     setError("");
     try {
-      // client -> skipper: reviewee is the skipper's login user id (skipper_profiles.user_id)
-      // skipper -> client: reviewee is booking.client_id directly (client_profiles PK == users.id)
-      const targetId = viewerRole === "client" ? counterpart?.user_id : booking.client_id;
-      await submitReview({ bookingId: booking.id, revieweeId: targetId, rating, comment });
+      // get_booking_counterpart() already resolves to the other side's login
+      // user id regardless of direction — the skipper's account when you're
+      // the client, booking.client_id itself when you're the skipper.
+      await submitReview({ bookingId: booking.id, revieweeId: counterpart?.user_id, rating, comment });
       setReviews(await listReviewsForBooking(booking.id));
     } catch (err) {
       setError(err.message || String(err));
@@ -178,13 +173,9 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       {revealed && counterpart && (
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
           <div style={{ ...muted, fontSize: 13 }}>{viewerRole === "client" ? "Skipper" : "Πελάτης"}</div>
-          <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>
-            {viewerRole === "client" ? counterpart.full_name || "—" : "—"}
-          </div>
-          {(counterpart.users?.phone_number || counterpart.phone_number) && (
-            <div style={{ ...money, fontSize: 14, marginTop: 2 }}>
-              {counterpart.users?.phone_number || counterpart.phone_number}
-            </div>
+          <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>{counterpart.full_name || "—"}</div>
+          {counterpart.phone_number && (
+            <div style={{ ...money, fontSize: 14, marginTop: 2 }}>{counterpart.phone_number}</div>
           )}
         </div>
       )}
