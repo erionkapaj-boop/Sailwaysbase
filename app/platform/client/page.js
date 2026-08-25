@@ -9,6 +9,7 @@ import {
   getMyClientProfile,
 } from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
+import PendingReviewBanner from "../components/PendingReviewBanner";
 import Stars from "../components/Stars";
 import {
   container,
@@ -131,6 +132,7 @@ function ClientDashboardInner() {
   return (
     <div style={container}>
       <h1 style={h1}>Ο λογαριασμός μου</h1>
+      <PendingReviewBanner />
 
       {/* Same standing block a professional gets: clients are rated too, and
           a skipper deciding whether to claim their request reads exactly

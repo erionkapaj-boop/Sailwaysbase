@@ -171,12 +171,27 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       {expanded && (
         <div style={{ padding: "0 18px 18px" }}>
       {revealed && counterpart && (
-        <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
-          <div style={{ ...muted, fontSize: 13 }}>{viewerRole === "client" ? "Skipper" : "Πελάτης"}</div>
-          <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>{counterpart.full_name || "—"}</div>
-          {counterpart.phone_number && (
-            <div style={{ ...money, fontSize: 14, marginTop: 2 }}>{counterpart.phone_number}</div>
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${colors.border}`, display: "flex", gap: 12, alignItems: "center" }}>
+          {counterpart.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={counterpart.photo_url}
+              alt=""
+              style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              style={{ width: 44, height: 44, borderRadius: "50%", background: "#EFEDE8", flexShrink: 0 }}
+            />
           )}
+          <div>
+            <div style={{ ...muted, fontSize: 13 }}>{viewerRole === "client" ? "Skipper" : "Πελάτης"}</div>
+            <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>{counterpart.full_name || "—"}</div>
+            {counterpart.phone_number && (
+              <div style={{ ...money, fontSize: 14, marginTop: 2 }}>{counterpart.phone_number}</div>
+            )}
+          </div>
         </div>
       )}
 

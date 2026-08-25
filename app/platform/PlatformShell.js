@@ -79,11 +79,13 @@ const SKIPPER_ITEMS = [
   { href: "/platform/skipper/profile", label: "Το προφίλ μου" },
   { href: "/platform/skipper/wallet", label: "Το πορτοφόλι μου" },
   { href: "/platform/client", label: "Οι κρατήσεις μου ως πελάτης", group: true },
+  { href: "/platform/client/profile", label: "Η φωτογραφία μου ως πελάτης" },
 ];
 
 const CLIENT_ITEMS = [
   { href: "/platform", label: "Αρχική" },
   { href: "/platform/client", label: "Ο λογαριασμός μου", group: true },
+  { href: "/platform/client/profile", label: "Το προφίλ μου" },
 ];
 
 // The account that owns the platform wears three hats at once: it runs the
@@ -96,6 +98,7 @@ const ADMIN_ITEMS = [
   { href: "/platform", label: "Αρχική" },
   { href: "/platform/admin", label: "Πίνακας διαχείρισης", group: true },
   { href: "/platform/client", label: "Οι κρατήσεις μου ως πελάτης", group: true },
+  { href: "/platform/client/profile", label: "Η φωτογραφία μου" },
   { href: "/platform/skipper", label: "Ο πίνακάς μου ως επαγγελματίας", group: true },
   { href: "/platform/skipper/profile", label: "Το προφίλ μου (επαγγελματίας)" },
   { href: "/platform/skipper/wallet", label: "Το πορτοφόλι μου (επαγγελματίας)" },
@@ -108,7 +111,7 @@ function NavBar() {
     return (
       <AccountNavBar
         name={profile?.full_name}
-        photoUrl={profile?.photo_url}
+        photoUrl={profile?.photo_url || userRow?.photo_url}
         loading={loading}
         items={SKIPPER_ITEMS}
         onSignOut={signOut}
@@ -122,7 +125,7 @@ function NavBar() {
     return (
       <AccountNavBar
         name={userRow?.full_name}
-        photoUrl={null}
+        photoUrl={userRow?.photo_url}
         loading={loading}
         items={CLIENT_ITEMS}
         onSignOut={signOut}
@@ -136,7 +139,7 @@ function NavBar() {
     return (
       <AccountNavBar
         name={userRow?.full_name || "Διαχειριστής"}
-        photoUrl={null}
+        photoUrl={userRow?.photo_url}
         loading={loading}
         items={ADMIN_ITEMS}
         onSignOut={signOut}

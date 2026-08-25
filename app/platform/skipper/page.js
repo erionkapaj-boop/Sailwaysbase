@@ -13,6 +13,7 @@ import {
 import AvailabilityCalendar from "./AvailabilityCalendar";
 import MissingProfile from "./MissingProfile";
 import BookingPanel from "../components/BookingPanel";
+import PendingReviewBanner from "../components/PendingReviewBanner";
 import Stars from "../components/Stars";
 import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
 
@@ -217,6 +218,7 @@ function SkipperDashboardInner() {
   return (
     <div style={container}>
       <h1 style={h1}>Ο πίνακάς μου</h1>
+      <PendingReviewBanner />
 
       {profile.approval_status === "pending" && (
         <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
