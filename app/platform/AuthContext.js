@@ -75,7 +75,11 @@ export function AuthProvider({ children }) {
         if (u?.role === "client") setProfile(await getMyClientProfile());
         else if (u?.role === "skipper") setProfile(await getMySkipperProfile());
         else setProfile(null);
-        if (u?.role === "client" || u?.role === "skipper") refreshNotifications();
+        // Admin included: since 0026 an admin can be the client_id on a
+        // booking (their own charters, booked through the offers screen),
+        // so bookings/reviews/messages can generate notifications for them
+        // exactly as for any other client.
+        if (u?.role === "client" || u?.role === "skipper" || u?.role === "admin") refreshNotifications();
         else setNotifications(EMPTY_NOTIFICATIONS);
         // Activity signal, throttled server-side to one write per five minutes.
         // Never while viewing as someone: an admin browsing their account

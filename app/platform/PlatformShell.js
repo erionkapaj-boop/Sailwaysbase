@@ -86,6 +86,18 @@ const CLIENT_ITEMS = [
   { href: "/platform/client", label: "Ο λογαριασμός μου", group: true },
 ];
 
+// Since 0026 an admin can become the client_id on a booking — their own
+// charters, hired through the offers screen — so they need the same
+// reachability into that side of the app that any other client gets:
+// a dashboard, notifications, messages. Before this, admin fell through to
+// the plain marketing header below, which has none of that; the booking
+// existed but nothing in the UI could ever reach it.
+const ADMIN_ITEMS = [
+  { href: "/platform", label: "Αρχική" },
+  { href: "/platform/admin", label: "Πίνακας διαχείρισης", group: true },
+  { href: "/platform/client", label: "Οι κρατήσεις μου ως πελάτης", group: true },
+];
+
 function NavBar() {
   const { session, userRow, profile, loading, signOut, role, notifications, refreshNotifications } = useAuth();
 
@@ -119,7 +131,22 @@ function NavBar() {
     );
   }
 
-  // Signed out, or admin: the plain marketing header.
+  if (session && role === "admin") {
+    return (
+      <AccountNavBar
+        name={userRow?.full_name || "Διαχειριστής"}
+        photoUrl={null}
+        loading={loading}
+        items={ADMIN_ITEMS}
+        onSignOut={signOut}
+        notifications={notifications}
+        refreshNotifications={refreshNotifications}
+        basePath="/platform/client"
+      />
+    );
+  }
+
+  // Signed out: the plain marketing header.
   return (
     <div style={{ ...nav, flexWrap: "wrap", rowGap: 8, columnGap: 12 }}>
       <Link href="/platform" style={{ textDecoration: "none" }} aria-label="SkipperFinder — αρχική">
@@ -129,21 +156,9 @@ function NavBar() {
           search entry point) and deliberately no sign-up: registration is a
           step inside the flow, at the SMS OTP moment, not a separate door. */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", rowGap: 8 }}>
-        {session && role === "admin" && (
-          <>
-            <Link href="/platform/admin" style={navLink}>
-              Admin
-            </Link>
-            <button style={{ ...navLink, background: "none", border: "none", cursor: "pointer" }} onClick={signOut}>
-              Logout
-            </button>
-          </>
-        )}
-        {!session && (
-          <Link href="/platform/login" style={{ ...navLink, color: colors.ink }}>
-            Login
-          </Link>
-        )}
+        <Link href="/platform/login" style={{ ...navLink, color: colors.ink }}>
+          Login
+        </Link>
       </div>
     </div>
   );
