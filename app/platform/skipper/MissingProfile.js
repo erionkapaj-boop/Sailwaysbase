@@ -7,7 +7,7 @@ import { container, card, h1, muted, button, colors } from "../../../lib/platfor
 // the profile and wallet pages both need it, and importing from that page
 // dragged the entire dashboard — calendar, booking panels, pings inbox —
 // into their bundles for the sake of one error card.
-export default function MissingProfile({ refresh, loadError }) {
+export default function MissingProfile({ refresh, loadError, isAdmin = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -44,17 +44,35 @@ export default function MissingProfile({ refresh, loadError }) {
     }
   }
 
+  // Two different people land here for two different reasons. A skipper
+  // account without a profile row is a bug — the row should have been
+  // created at registration and wasn't. An admin without one hasn't done
+  // anything wrong; they just haven't opted into a professional profile
+  // yet, which is a normal starting state, not an error to explain away.
   return (
     <div style={container}>
-      <h1 style={h1}>Πίνακας Skipper</h1>
-      <div style={{ ...card, borderColor: colors.danger }}>
-        <b>Δεν βρέθηκε προφίλ skipper για τον λογαριασμό σου.</b>
-        <p style={muted}>
-          Ο λογαριασμός σου υπάρχει, αλλά η γραμμή προφίλ δεν δημιουργήθηκε (π.χ. λόγω διακοπής κατά την
-          εγγραφή). Πάτα το κουμπί για να τη φτιάξουμε τώρα.
-        </p>
+      <h1 style={h1}>{isAdmin ? "Προφίλ επαγγελματία" : "Πίνακας Skipper"}</h1>
+      <div style={{ ...card, borderColor: isAdmin ? colors.border : colors.danger }}>
+        {isAdmin ? (
+          <>
+            <b>Δεν έχεις ακόμα προφίλ επαγγελματία.</b>
+            <p style={muted}>
+              Ο λογαριασμός σου διαχειρίζεται όλη την πλατφόρμα και μπορεί επίσης να κάνει κρατήσεις σαν πελάτης.
+              Αν θέλεις να εμφανίζεσαι και να δέχεσαι δουλειές σαν επαγγελματίας, φτιάξε το προφίλ σου εδώ — θα
+              χρειαστεί να το εγκρίνεις μετά από τις «Εγκρίσεις», όπως κάθε άλλο προφίλ.
+            </p>
+          </>
+        ) : (
+          <>
+            <b>Δεν βρέθηκε προφίλ skipper για τον λογαριασμό σου.</b>
+            <p style={muted}>
+              Ο λογαριασμός σου υπάρχει, αλλά η γραμμή προφίλ δεν δημιουργήθηκε (π.χ. λόγω διακοπής κατά την
+              εγγραφή). Πάτα το κουμπί για να τη φτιάξουμε τώρα.
+            </p>
+          </>
+        )}
         <button style={button("primary")} disabled={busy} onClick={recreate}>
-          {busy ? "..." : "Δημιουργία προφίλ skipper"}
+          {busy ? "..." : isAdmin ? "Δημιουργία προφίλ επαγγελματία" : "Δημιουργία προφίλ skipper"}
         </button>
         {error && <p style={{ color: colors.danger, marginTop: 8 }}>{error}</p>}
       </div>

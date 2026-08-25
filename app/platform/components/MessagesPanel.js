@@ -16,7 +16,12 @@ const EnvelopeIcon = (
 // Opens a list of threads instead of navigating. Tapping the envelope used to
 // go to the dashboard, which is normally the page you're already on — so it
 // looked like the button did nothing at all.
-export default function MessagesPanel({ count = 0, basePath }) {
+//
+// No basePath prop: an account that can be both a client and crew (the admin,
+// since it can hold both) has some threads on each side, and a single fixed
+// destination would send half of them to the wrong dashboard. Each row's
+// as_client flag says which side that particular booking is on.
+export default function MessagesPanel({ count = 0 }) {
   const router = useRouter();
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -45,7 +50,7 @@ export default function MessagesPanel({ count = 0, basePath }) {
                 type="button"
                 onClick={() => {
                   close();
-                  router.push(`${basePath}?focus=${c.booking_id}`);
+                  router.push(`${c.as_client ? "/platform/client" : "/platform/skipper"}?focus=${c.booking_id}`);
                 }}
                 style={{
                   display: "block",

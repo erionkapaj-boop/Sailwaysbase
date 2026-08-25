@@ -24,7 +24,7 @@ const navLink = {
 // header shape — the parts they do have should sit where they sit everywhere
 // else. Roles beyond skipper (hostess, cook, deckhand) come through here
 // unchanged, since nothing in it is specific to what someone does on a boat.
-function AccountNavBar({ name, photoUrl, loading, items, onSignOut, notifications, refreshNotifications, basePath }) {
+function AccountNavBar({ name, photoUrl, loading, items, onSignOut, notifications, refreshNotifications }) {
   const unreadNotifications = notifications?.pendingRequests ?? 0;
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
@@ -67,7 +67,7 @@ function AccountNavBar({ name, photoUrl, loading, items, onSignOut, notification
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
         <NotificationPanel count={unreadNotifications} onRead={refreshNotifications} />
-        <MessagesPanel count={unreadBookingIds.length} basePath={basePath} />
+        <MessagesPanel count={unreadBookingIds.length} />
       </div>
     </div>
   );
@@ -86,16 +86,19 @@ const CLIENT_ITEMS = [
   { href: "/platform/client", label: "Ο λογαριασμός μου", group: true },
 ];
 
-// Since 0026 an admin can become the client_id on a booking — their own
-// charters, hired through the offers screen — so they need the same
-// reachability into that side of the app that any other client gets:
-// a dashboard, notifications, messages. Before this, admin fell through to
-// the plain marketing header below, which has none of that; the booking
-// existed but nothing in the UI could ever reach it.
+// The account that owns the platform wears three hats at once: it runs the
+// whole console, it hires crew like any client (0026), and — since the
+// owner is themselves sometimes the one taking a charter — it can also hold
+// a professional profile and get offered jobs. Before this, admin fell
+// through to the plain marketing header below, which had none of that; the
+// bookings existed but nothing in the UI could ever reach them.
 const ADMIN_ITEMS = [
   { href: "/platform", label: "Αρχική" },
   { href: "/platform/admin", label: "Πίνακας διαχείρισης", group: true },
   { href: "/platform/client", label: "Οι κρατήσεις μου ως πελάτης", group: true },
+  { href: "/platform/skipper", label: "Ο πίνακάς μου ως επαγγελματίας", group: true },
+  { href: "/platform/skipper/profile", label: "Το προφίλ μου (επαγγελματίας)" },
+  { href: "/platform/skipper/wallet", label: "Το πορτοφόλι μου (επαγγελματίας)" },
 ];
 
 function NavBar() {
@@ -111,7 +114,6 @@ function NavBar() {
         onSignOut={signOut}
         notifications={notifications}
         refreshNotifications={refreshNotifications}
-        basePath="/platform/skipper"
       />
     );
   }
@@ -126,7 +128,6 @@ function NavBar() {
         onSignOut={signOut}
         notifications={notifications}
         refreshNotifications={refreshNotifications}
-        basePath="/platform/client"
       />
     );
   }
@@ -141,7 +142,6 @@ function NavBar() {
         onSignOut={signOut}
         notifications={notifications}
         refreshNotifications={refreshNotifications}
-        basePath="/platform/client"
       />
     );
   }

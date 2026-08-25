@@ -187,7 +187,7 @@ export default function SkipperDashboard() {
 // notification bell) requires a Suspense boundary around it in the app
 // router — split out so the boundary wraps only what needs it.
 function SkipperDashboardInner() {
-  const { session, profile, userRow, loading, refresh, loadError, notifications } = useAuth();
+  const { session, profile, userRow, loading, refresh, loadError, notifications, isAdmin } = useAuth();
   const searchParams = useSearchParams();
   const focusBookingId = searchParams.get("focus");
   const [bookings, setBookings] = useState([]);
@@ -203,8 +203,13 @@ function SkipperDashboardInner() {
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
-  if (userRow?.role !== "skipper") return <div style={container}>Αυτή η σελίδα είναι μόνο για skippers.</div>;
-  if (!profile) return <MissingProfile userRow={userRow} refresh={refresh} loadError={loadError} />;
+  // The account that runs the platform can also hold a professional profile
+  // — the owner both hires crew and sometimes takes charters personally,
+  // and reaches it through the same dashboard as anyone else rather than a
+  // special admin-only version of it.
+  if (userRow?.role !== "skipper" && !isAdmin)
+    return <div style={container}>Αυτή η σελίδα είναι μόνο για επαγγελματίες.</div>;
+  if (!profile) return <MissingProfile userRow={userRow} isAdmin={isAdmin} refresh={refresh} loadError={loadError} />;
 
   // Πόσα περιστατικά υπάρχουν συνολικά να μιλήσουν για κάποιον.
   const history = (profile.completed_bookings_count || 0) + (profile.cancellation_flag_count || 0);

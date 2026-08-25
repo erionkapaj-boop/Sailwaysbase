@@ -74,6 +74,13 @@ export function AuthProvider({ children }) {
         setUserRow(u);
         if (u?.role === "client") setProfile(await getMyClientProfile());
         else if (u?.role === "skipper") setProfile(await getMySkipperProfile());
+        // The owner's account controls the platform but is also, in their
+        // own words, a client who hires crew and sometimes takes charters
+        // themselves. getMySkipperProfile() returns null rather than
+        // throwing when no row exists yet — that null is exactly what tells
+        // the professional dashboard to offer "create your profile" instead
+        // of showing a role wall.
+        else if (u?.role === "admin") setProfile(await getMySkipperProfile());
         else setProfile(null);
         // Admin included: since 0026 an admin can be the client_id on a
         // booking (their own charters, booked through the offers screen),
