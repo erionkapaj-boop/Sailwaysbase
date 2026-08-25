@@ -11,6 +11,7 @@ import {
 import BookingPanel from "../components/BookingPanel";
 import PendingReviewBanner from "../components/PendingReviewBanner";
 import Stars from "../components/Stars";
+import { formatDateTime } from "../../../lib/platform/notifications";
 import {
   container,
   card,
@@ -186,6 +187,10 @@ function ClientDashboardInner() {
                 {" · "}
                 {r.fee_paid_at ? "Πληρώθηκε" : "Δεν πληρώθηκε"}
               </p>
+              {/* Πότε ανέβηκε το ίδιο το αίτημα — διαφορετική στιγμή από το
+                  ναύλο που ζητάει, και η μόνη που λέει πόσο γρήγορα (ή αργά)
+                  κινήθηκε κάτι. */}
+              <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>Στάλθηκε {formatDateTime(r.created_at)}</p>
             </div>
           ))}
         </>
@@ -219,6 +224,7 @@ function ClientDashboardInner() {
                   </span>
                   <span style={badge(REQ_STATUS[r.status]?.[1] || "neutral")}>{REQ_STATUS[r.status]?.[0] || r.status}</span>
                 </div>
+                <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>Στάλθηκε {formatDateTime(r.created_at)}</p>
               </div>
             ))}
         </>

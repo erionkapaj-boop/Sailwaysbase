@@ -12,6 +12,7 @@ import {
   getBookingCounterpart,
 } from "../../../lib/platform/db";
 import { card, muted, button, input, badge, colors, money, radius } from "../../../lib/platform/theme";
+import { formatDateTime } from "../../../lib/platform/notifications";
 
 const STATUS_LABEL = {
   confirmed: ["Επιβεβαιωμένη", "success"],
@@ -170,6 +171,16 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
 
       {expanded && (
         <div style={{ padding: "0 18px 18px" }}>
+      {/* Πότε ακριβώς επιβεβαιώθηκε — διαφορετική στιγμή από το ναύλο που
+          κλείνει, χρήσιμη σε περίπτωση διαφωνίας για το ποιος ήξερε τι
+          πότε. confirmed_at λείπει μόνο σε ό,τι ήρθε από παλιά δεδομένα
+          πριν υπάρξει η στήλη· δεν εμφανίζεται τίποτα τότε αντί για
+          λανθασμένη ώρα. */}
+      {booking.confirmed_at && (
+        <p style={{ ...muted, fontSize: 12, margin: "10px 0 0" }}>
+          Επιβεβαιώθηκε {formatDateTime(booking.confirmed_at)}
+        </p>
+      )}
       {revealed && counterpart && (
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${colors.border}`, display: "flex", gap: 12, alignItems: "center" }}>
           {counterpart.photo_url ? (

@@ -16,6 +16,7 @@ import BookingPanel from "../components/BookingPanel";
 import PendingReviewBanner from "../components/PendingReviewBanner";
 import Stars from "../components/Stars";
 import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
+import { formatDateTime } from "../../../lib/platform/notifications";
 
 const CLAIM_ERRORS = {
   request_not_open: "Το αίτημα δεν είναι πια ανοιχτό — κάποιος άλλος πρόλαβε ή έληξε.",
@@ -120,6 +121,9 @@ function PingsInbox({ skipperId, onClaimed }) {
                 </div>
                 <p style={{ ...muted, margin: "6px 0 0" }}>
                   <span style={money}>{r.start_date}</span> → <span style={money}>{r.end_date}</span>
+                </p>
+                <p style={{ ...muted, fontSize: 12, margin: "2px 0 0" }}>
+                  Στάλθηκε {formatDateTime(r.created_at)}
                 </p>
                 {isOffer ? (
                   <p style={{ ...muted, margin: "4px 0 0" }}>
