@@ -259,7 +259,7 @@ function SkipperDashboardInner() {
           <BookingPanel
             key={b.id}
             booking={b}
-            viewerRole="skipper"
+            viewerRole={profile.role || "skipper"}
             viewerUserId={userRow.id}
             onChanged={loadBookings}
             autoExpand={b.id === focusBookingId}

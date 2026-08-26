@@ -5,7 +5,7 @@ import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
 import DateRangeCalendar from "../components/DateRangeCalendar";
 import { SUPPORTED_ROLES, labelForRole, computeCrewHighlights } from "../../../lib/platform/roles";
-import { REVIEW_CATEGORIES } from "../../../lib/platform/reviewCategories";
+import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import {
   listLookups,
   searchSkippers,
@@ -43,9 +43,10 @@ function dayCount(start, end) {
   return Math.round(ms / 86400000) + 1;
 }
 
-function SkipperCard({ s, selected, onToggle, days }) {
+function ProfessionalCard({ s, selected, onToggle, days }) {
   const total = days ? s.price_per_day * days : null;
   const highlights = computeCrewHighlights(s);
+  const categories = reviewCategoriesForRole(s.role);
   const [showBreakdown, setShowBreakdown] = useState(false);
   return (
     <div style={{ ...card, display: "flex", gap: 16, alignItems: "flex-start" }}>
@@ -110,7 +111,9 @@ function SkipperCard({ s, selected, onToggle, days }) {
 
         {/* Η ίδια αξιολόγηση σε 6 κατηγορίες — πατώντας πάνω στα αστέρια για
             να δει κανείς τι κρύβεται πίσω από τον γενικό μέσο όρο, αντί να
-            τον εμπιστευτεί τυφλά ή να τον αγνοήσει επειδή δεν λέει αρκετά. */}
+            τον εμπιστευτεί τυφλά ή να τον αγνοήσει επειδή δεν λέει αρκετά.
+            Οι κατηγορίες εξαρτώνται από την ιδιότητα ΑΥΤΟΥ του αποτελέσματος
+            (s.role), όχι από ποια ενότητα το δείχνει. */}
         {showBreakdown && s.rating_count > 0 && (
           <div
             style={{
@@ -120,7 +123,7 @@ function SkipperCard({ s, selected, onToggle, days }) {
               borderRadius: 8,
             }}
           >
-            {REVIEW_CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <div
                 key={c.key}
                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "3px 0" }}
@@ -151,6 +154,199 @@ function SkipperCard({ s, selected, onToggle, days }) {
   );
 }
 
+// One section per requested, supported crew role — each runs its own search
+// and its own broadcast. A skipper and a hostess are two separate jobs with
+// two separate fees today (the "book both together" nudge is planned for
+// later, once hostess has been live a while), so keeping them as two
+// independent panels is honest about that rather than implying one checkout
+// covers both.
+function RoleSection({ role, sharedFilters, lookups, fee, session, router }) {
+  const [boatTypeId, setBoatTypeId] = useState("");
+  const [gender, setGender] = useState("");
+  const [results, setResults] = useState(null);
+  const [selected, setSelected] = useState(new Set());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [broadcastDone, setBroadcastDone] = useState(false);
+
+  const needsBoatType = role === "skipper";
+  const days = dayCount(sharedFilters.startDate, sharedFilters.endDate);
+
+  const runSearch = useCallback(async () => {
+    setError("");
+    setBroadcastDone(false);
+    setSelected(new Set());
+    setBusy(true);
+    try {
+      setResults(
+        await searchSkippers({
+          startDate: sharedFilters.startDate,
+          endDate: sharedFilters.endDate,
+          portId: sharedFilters.portId,
+          boatTypeId: needsBoatType ? boatTypeId : null,
+          gender,
+          crewRole: role,
+        })
+      );
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [sharedFilters.startDate, sharedFilters.endDate, sharedFilters.portId, needsBoatType, boatTypeId, gender, role]);
+
+  const hasCompleteIncoming = Boolean(
+    sharedFilters.startDate && sharedFilters.endDate && sharedFilters.portId && (!needsBoatType || sharedFilters.boatTypeId)
+  );
+  useEffect(() => {
+    if (hasCompleteIncoming) {
+      if (needsBoatType) setBoatTypeId(sharedFilters.boatTypeId);
+      runSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCompleteIncoming]);
+
+  function toggle(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function handleSearch(e) {
+    e.preventDefault();
+    await runSearch();
+  }
+
+  async function handleBroadcast() {
+    if (!session) {
+      router.push("/platform/login");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      const request = await createBookingRequest({
+        startDate: sharedFilters.startDate,
+        endDate: sharedFilters.endDate,
+        portId: sharedFilters.portId,
+        boatTypeId: needsBoatType ? boatTypeId : null,
+        maxPriceFilter: null,
+        genderFilter: gender || null,
+        crewRole: role,
+      });
+      await payAndBroadcast(request.id, Array.from(selected));
+      setBroadcastDone(true);
+    } catch (err) {
+      setError(BROADCAST_ERRORS[err.message] || err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const roleLabel = labelForRole(role);
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <h2 style={h2}>{roleLabel}</h2>
+      <form
+        onSubmit={handleSearch}
+        style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}
+      >
+        {needsBoatType && (
+          <div>
+            <label style={label}>Τύπος σκάφους</label>
+            <select style={input} required value={boatTypeId} onChange={(e) => setBoatTypeId(e.target.value)}>
+              <option value="">Επιλογή...</option>
+              {lookups.boatTypes.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div>
+          <label style={label}>Φύλο {roleLabel.toLowerCase()} (προαιρετικό)</label>
+          <select style={input} value={gender} onChange={(e) => setGender(e.target.value)}>
+            <option value="">Αδιάφορο</option>
+            <option value="Άνδρας">Άνδρας</option>
+            <option value="Γυναίκα">Γυναίκα</option>
+          </select>
+        </div>
+        <div style={{ alignSelf: "end" }}>
+          <button style={{ ...button("primary"), width: "100%" }} disabled={busy} type="submit">
+            {busy ? "Αναζήτηση..." : "Αναζήτηση"}
+          </button>
+        </div>
+      </form>
+
+      {error && <p style={{ color: colors.danger }}>{error}</p>}
+
+      {results && (
+        <div style={{ marginTop: 14 }}>
+          <p style={muted}>
+            {results.length} διαθέσιμ{results.length === 1 ? "ος" : "οι"} {roleLabel.toLowerCase()}
+          </p>
+          {results.map((s) => (
+            <ProfessionalCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={toggle} days={days} />
+          ))}
+
+          {results.length > 0 && (
+            <div style={{ ...card, position: "sticky", bottom: 12, boxShadow: shadow.raised }}>
+              {broadcastDone ? (
+                <div>
+                  <p style={{ color: colors.accent, fontWeight: 600, margin: "0 0 14px" }}>
+                    ✓ Το καμπανάκι στάλθηκε σε <span style={money}>{selected.size}</span> {roleLabel.toLowerCase()}
+                  </p>
+                  <button style={button("primary")} onClick={() => router.push("/platform/client")}>
+                    Παρακολούθηση αιτήματος
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, fontSize: 14 }}>
+                      <span style={muted}>Επιλεγμέν{selected.size === 1 ? "ος/η" : "οι"} {roleLabel.toLowerCase()}</span>
+                      <span style={money}>{selected.size}</span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        gap: 12,
+                        marginTop: 8,
+                        paddingTop: 10,
+                        borderTop: `1px solid ${colors.border}`,
+                        fontSize: 15,
+                      }}
+                    >
+                      <span>Fee πλατφόρμας</span>
+                      <span style={{ ...money, fontSize: 17, fontWeight: 600 }}>{fee != null ? `${fee}€` : "—"}</span>
+                    </div>
+                    <p style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>
+                      Χρεώνεται μία φορά, ανεξάρτητα από το πλήθος των επιλεγμένων.
+                    </p>
+                  </div>
+                  <button
+                    style={{ ...button("primary"), width: "100%" }}
+                    disabled={selected.size === 0 || busy}
+                    onClick={handleBroadcast}
+                  >
+                    {busy ? "..." : session ? "Πληρωμή & αποστολή καμπανακιού" : "Σύνδεση για αποστολή"}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SearchPageInner() {
   const router = useRouter();
   const params = useSearchParams();
@@ -164,87 +360,17 @@ function SearchPageInner() {
     boatTypeId: params.get("boat") || "",
   };
   const requestedRoles = (params.get("roles") || "skipper").split(",").filter(Boolean);
+  const supportedRoles = requestedRoles.filter((r) => SUPPORTED_ROLES.includes(r));
   const unsupportedRoles = requestedRoles.filter((r) => !SUPPORTED_ROLES.includes(r));
 
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [] });
-  const [filters, setFilters] = useState({ ...incoming, gender: "" });
-  const [results, setResults] = useState(null);
-  const [selected, setSelected] = useState(new Set());
+  const [filters, setFilters] = useState(incoming);
   const [fee, setFee] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [broadcastDone, setBroadcastDone] = useState(false);
 
   useEffect(() => {
-    listLookups()
-      .then(setLookups)
-      .catch((err) => setError("Λίστες (λιμάνια/σκάφη) δεν φορτώθηκαν: " + (err.message || String(err))));
+    listLookups().then(setLookups).catch(() => {});
     getPlatformSetting("client_request_fee").then(setFee).catch(() => {});
   }, []);
-
-  const runSearch = useCallback(async (f) => {
-    setError("");
-    setBroadcastDone(false);
-    setSelected(new Set());
-    setBusy(true);
-    try {
-      setResults(await searchSkippers(f));
-    } catch (err) {
-      setError(err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
-  }, []);
-
-  // Arriving with a complete filter set from the home page means the user
-  // already pressed "Αναζήτηση" — don't make them press it a second time.
-  const hasCompleteIncoming = Boolean(
-    incoming.startDate && incoming.endDate && incoming.portId && incoming.boatTypeId
-  );
-  useEffect(() => {
-    if (hasCompleteIncoming) {
-      runSearch({ ...incoming, gender: "" });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasCompleteIncoming, incoming.startDate, incoming.endDate, incoming.portId, incoming.boatTypeId]);
-
-  function toggle(id) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-
-  async function handleSearch(e) {
-    e.preventDefault();
-    await runSearch(filters);
-  }
-
-  async function handleBroadcast() {
-    if (!session) {
-      router.push("/platform/login");
-      return;
-    }
-    setError("");
-    setBusy(true);
-    try {
-      const request = await createBookingRequest({
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        portId: filters.portId,
-        boatTypeId: filters.boatTypeId,
-        maxPriceFilter: null,
-        genderFilter: filters.gender || null,
-      });
-      await payAndBroadcast(request.id, Array.from(selected));
-      setBroadcastDone(true);
-    } catch (err) {
-      setError(BROADCAST_ERRORS[err.message] || err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <div style={container}>
@@ -255,12 +381,14 @@ function SearchPageInner() {
         <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
           <p style={{ ...muted, margin: 0 }}>
             {unsupportedRoles.map(labelForRole).join(", ")} — δεν είναι ακόμα διαθέσιμοι στην πλατφόρμα.
-            Τα αποτελέσματα παρακάτω αφορούν μόνο skippers.
+            {supportedRoles.length > 0
+              ? " Τα αποτελέσματα παρακάτω αφορούν μόνο " + supportedRoles.map(labelForRole).join(", ") + "."
+              : ""}
           </p>
         </div>
       )}
 
-      <form onSubmit={handleSearch} style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
+      <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={label}>Ημερομηνίες</label>
           <DateRangeCalendar
@@ -285,116 +413,19 @@ function SearchPageInner() {
             ))}
           </select>
         </div>
-        <div>
-          <label style={label}>Τύπος σκάφους</label>
-          <select
-            style={input}
-            required
-            value={filters.boatTypeId}
-            onChange={(e) => setFilters((f) => ({ ...f, boatTypeId: e.target.value }))}
-          >
-            <option value="">Επιλογή...</option>
-            {lookups.boatTypes.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {/* No max-price filter: each result already shows its own price per
-            day, so the client compares directly instead of guessing a ceiling
-            up front and silently hiding people just above it. */}
-        <div>
-          <label style={label}>Φύλο skipper (προαιρετικό)</label>
-          <select style={input} value={filters.gender} onChange={(e) => setFilters((f) => ({ ...f, gender: e.target.value }))}>
-            <option value="">Αδιάφορο</option>
-            <option value="Άνδρας">Άνδρας</option>
-            <option value="Γυναίκα">Γυναίκα</option>
-          </select>
-        </div>
-        <div style={{ alignSelf: "end" }}>
-          <button style={{ ...button("primary"), width: "100%" }} disabled={busy} type="submit">
-            {busy ? "Αναζήτηση..." : "Αναζήτηση"}
-          </button>
-        </div>
-      </form>
+      </div>
 
-      {error && <p style={{ color: colors.danger }}>{error}</p>}
-
-      {results && (
-        <div style={{ marginTop: 18 }}>
-          <h2 style={h2}>{results.length} διαθέσιμοι skippers</h2>
-          {results.map((s) => (
-            <SkipperCard
-              key={s.id}
-              s={s}
-              selected={selected.has(s.id)}
-              onToggle={toggle}
-              days={dayCount(filters.startDate, filters.endDate)}
-            />
-          ))}
-
-          {results.length > 0 && (
-            // A money moment: reads like a receipt line, not a sales pitch.
-            <div style={{ ...card, position: "sticky", bottom: 12, boxShadow: shadow.raised }}>
-              {broadcastDone ? (
-                <div>
-                  <p style={{ color: colors.accent, fontWeight: 600, margin: "0 0 14px" }}>
-                    ✓ Το καμπανάκι στάλθηκε σε <span style={money}>{selected.size}</span> skippers
-                  </p>
-                  <button style={button("primary")} onClick={() => router.push("/platform/client")}>
-                    Παρακολούθηση αιτήματος
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div style={{ marginBottom: 16 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "baseline",
-                        gap: 12,
-                        fontSize: 14,
-                      }}
-                    >
-                      <span style={muted}>Επιλεγμένοι skippers</span>
-                      <span style={money}>{selected.size}</span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "baseline",
-                        gap: 12,
-                        marginTop: 8,
-                        paddingTop: 10,
-                        borderTop: `1px solid ${colors.border}`,
-                        fontSize: 15,
-                      }}
-                    >
-                      <span>Fee πλατφόρμας</span>
-                      <span style={{ ...money, fontSize: 17, fontWeight: 600 }}>
-                        {fee != null ? `${fee}€` : "—"}
-                      </span>
-                    </div>
-                    <p style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>
-                      Χρεώνεται μία φορά, ανεξάρτητα από το πλήθος των skippers.
-                    </p>
-                  </div>
-                  <button
-                    style={{ ...button("primary"), width: "100%" }}
-                    disabled={selected.size === 0 || busy}
-                    onClick={handleBroadcast}
-                  >
-                    {busy ? "..." : session ? "Πληρωμή & αποστολή καμπανακιού" : "Σύνδεση για αποστολή"}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      {supportedRoles.map((role) => (
+        <RoleSection
+          key={role}
+          role={role}
+          sharedFilters={filters}
+          lookups={lookups}
+          fee={fee}
+          session={session}
+          router={router}
+        />
+      ))}
     </div>
   );
 }

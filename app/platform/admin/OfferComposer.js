@@ -161,10 +161,12 @@ export default function OfferComposer({ job = null, onDone }) {
 
   const feeShown = fee === "" ? defaultFee : Number(fee);
   // The search happily answers "who is free anywhere", but a job has a place
-  // and a boat — booking_requests has never allowed either to be unknown. So
-  // the gap is stated here rather than left to come back as a database error
-  // after you have already chosen the people.
-  const missingDetails = !replacing && (!portId || !boatTypeId);
+  // — and, for a skipper, a boat — that booking_requests has never allowed
+  // to be unknown. So the gap is stated here rather than left to come back
+  // as a database error after you have already chosen the people. A boat
+  // type only means anything for a skipper; hostess (or any future
+  // non-skipper role) doesn't operate one.
+  const missingDetails = !replacing && (!portId || (role === "skipper" && !boatTypeId));
 
   return (
     <>
@@ -211,18 +213,20 @@ export default function OfferComposer({ job = null, onDone }) {
                   </option>
                 ))}
               </select>
-              <select
-                style={{ ...control, flex: "1 1 150px" }}
-                value={boatTypeId}
-                onChange={(e) => setBoatTypeId(e.target.value)}
-              >
-                <option value="">Τύπος σκάφους…</option>
-                {lookups.boatTypes.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+              {role === "skipper" && (
+                <select
+                  style={{ ...control, flex: "1 1 150px" }}
+                  value={boatTypeId}
+                  onChange={(e) => setBoatTypeId(e.target.value)}
+                >
+                  <option value="">Τύπος σκάφους…</option>
+                  {lookups.boatTypes.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </>
           )}
           <button type="submit" style={button("secondary")} disabled={busy}>

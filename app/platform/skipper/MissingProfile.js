@@ -16,7 +16,7 @@ export default function MissingProfile({ refresh, loadError, isAdmin = false }) 
   if (loadError) {
     return (
       <div style={container}>
-        <h1 style={h1}>Πίνακας Skipper</h1>
+        <h1 style={h1}>Πίνακας επαγγελματία</h1>
         <div style={{ ...card, borderColor: colors.danger }}>
           <b>Δεν ήταν δυνατή η φόρτωση του προφίλ σου.</b>
           <p style={muted}>Σφάλμα από τη βάση δεδομένων:</p>
@@ -51,7 +51,7 @@ export default function MissingProfile({ refresh, loadError, isAdmin = false }) 
   // yet, which is a normal starting state, not an error to explain away.
   return (
     <div style={container}>
-      <h1 style={h1}>{isAdmin ? "Προφίλ επαγγελματία" : "Πίνακας Skipper"}</h1>
+      <h1 style={h1}>{isAdmin ? "Προφίλ επαγγελματία" : "Πίνακας επαγγελματία"}</h1>
       <div style={{ ...card, borderColor: isAdmin ? colors.border : colors.danger }}>
         {isAdmin ? (
           <>
@@ -64,7 +64,7 @@ export default function MissingProfile({ refresh, loadError, isAdmin = false }) 
           </>
         ) : (
           <>
-            <b>Δεν βρέθηκε προφίλ skipper για τον λογαριασμό σου.</b>
+            <b>Δεν βρέθηκε προφίλ επαγγελματία για τον λογαριασμό σου.</b>
             <p style={muted}>
               Ο λογαριασμός σου υπάρχει, αλλά η γραμμή προφίλ δεν δημιουργήθηκε (π.χ. λόγω διακοπής κατά την
               εγγραφή). Πάτα το κουμπί για να τη φτιάξουμε τώρα.
@@ -72,7 +72,7 @@ export default function MissingProfile({ refresh, loadError, isAdmin = false }) 
           </>
         )}
         <button style={button("primary")} disabled={busy} onClick={recreate}>
-          {busy ? "..." : isAdmin ? "Δημιουργία προφίλ επαγγελματία" : "Δημιουργία προφίλ skipper"}
+          {busy ? "..." : "Δημιουργία προφίλ επαγγελματία"}
         </button>
         {error && <p style={{ color: colors.danger, marginTop: 8 }}>{error}</p>}
       </div>

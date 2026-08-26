@@ -8,7 +8,14 @@ import { button, colors, muted, radius, h2 } from "../../lib/platform/theme";
 
 // Progressive disclosure (brief §4): one question on screen at a time, gentle
 // fade/slide between them — never the whole form at once.
-const STEPS = ["role", "dates", "port", "boat"];
+//
+// The "boat" step only makes sense when the search includes skipper: a boat
+// type is what a skipper operates, and hostess (or any future non-skipper
+// role) doesn't have one. A hostess-only search skips straight from port to
+// results instead of asking a question that has no right answer for it.
+function stepsFor(roles) {
+  return roles.includes("skipper") ? ["role", "dates", "port", "boat"] : ["role", "dates", "port"];
+}
 
 const stepWrap = {
   animation: "sf-step-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both",
@@ -46,6 +53,8 @@ export default function CrewSearchFlow({ onCancel }) {
     listLookups().then(setLookups).catch(() => {});
   }, []);
 
+  const STEPS = stepsFor(roles);
+
   function next() {
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   }
@@ -59,13 +68,16 @@ export default function CrewSearchFlow({ onCancel }) {
     setRoles((prev) => (prev.includes(key) ? prev.filter((r) => r !== key) : [...prev, key]));
   }
 
-  function finish(boatTypeId) {
+  // portOverride exists because the port step, when it's the last one (no
+  // "boat" step after it), calls finish() in the same handler that sets
+  // portId — and state set there isn't visible yet through the closure.
+  function finish(boatTypeId, portOverride) {
     const params = new URLSearchParams({
       roles: roles.join(","),
       start: dates.start,
       end: dates.end,
-      port: portId,
-      boat: boatTypeId,
+      port: portOverride ?? portId,
+      boat: boatTypeId || "",
     });
     router.push(`/platform/search?${params.toString()}`);
   }
@@ -175,7 +187,12 @@ export default function CrewSearchFlow({ onCancel }) {
                     style={option(portId === p.id)}
                     onClick={() => {
                       setPortId(p.id);
-                      next();
+                      // "boat" is only in STEPS when the search includes
+                      // skipper — otherwise port is the last question, so
+                      // finish straight from here instead of advancing into
+                      // a step that isn't there.
+                      if (STEPS.includes("boat")) next();
+                      else finish(null, p.id);
                     }}
                   >
                     {p.name}

@@ -13,7 +13,8 @@ import {
 } from "../../../lib/platform/db";
 import { card, muted, button, input, badge, colors, money, radius } from "../../../lib/platform/theme";
 import { formatDateTime } from "../../../lib/platform/notifications";
-import { REVIEW_CATEGORIES } from "../../../lib/platform/reviewCategories";
+import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
+import { labelForRole } from "../../../lib/platform/roles";
 
 const STATUS_LABEL = {
   confirmed: ["Επιβεβαιωμένη", "success"],
@@ -92,10 +93,19 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   const myReview = reviews.find((r) => r.reviewer_id === viewerUserId);
   const reviewOfMe = reviews.find((r) => r.reviewee_id === viewerUserId);
 
-  const allCategoriesChosen = REVIEW_CATEGORIES.every((c) => categories[c.key]);
+  // The categories being collected here are always about the counterpart
+  // (the professional) — so it's their crew_role that picks the set, not
+  // the viewer's own.
+  const counterpartCategories = reviewCategoriesForRole(counterpart?.crew_role);
+  const allCategoriesChosen = counterpartCategories.every((c) => categories[c.key]);
   const categoryAverage = allCategoriesChosen
-    ? REVIEW_CATEGORIES.reduce((sum, c) => sum + categories[c.key], 0) / REVIEW_CATEGORIES.length
+    ? counterpartCategories.reduce((sum, c) => sum + categories[c.key], 0) / counterpartCategories.length
     : null;
+  // reviewOfMe, on the other hand, is about the viewer's OWN crew_role — a
+  // client never has categories, so this is empty for them.
+  const myCategories = viewerRole !== "client" ? reviewCategoriesForRole(viewerRole) : [];
+  const hasCategoryBreakdown =
+    myCategories.length > 0 && myCategories.some((c) => reviewOfMe?.[`rating_${c.key}`] != null);
 
   async function handleSubmitReview() {
     setBusy(true);
@@ -212,7 +222,9 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
             />
           )}
           <div>
-            <div style={{ ...muted, fontSize: 13 }}>{viewerRole === "client" ? "Skipper" : "Πελάτης"}</div>
+            <div style={{ ...muted, fontSize: 13 }}>
+              {viewerRole === "client" ? labelForRole(counterpart.crew_role) || "Επαγγελματίας" : "Πελάτης"}
+            </div>
             <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>{counterpart.full_name || "—"}</div>
             {counterpart.phone_number && (
               <div style={{ ...money, fontSize: 14, marginTop: 2 }}>{counterpart.phone_number}</div>
@@ -286,7 +298,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
           <div style={{ margin: "10px 0" }}>
             {viewerRole === "client" ? (
               <>
-                {REVIEW_CATEGORIES.map((c) => (
+                {counterpartCategories.map((c) => (
                   <div key={c.key} style={{ marginBottom: 10 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 500 }}>{c.label}</div>
                     <div style={{ ...muted, fontSize: 11.5, margin: "2px 0 4px" }}>{c.hint}</div>
@@ -347,13 +359,14 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
             Σε αξιολόγησαν{" "}
             <span style={{ ...money, color: colors.ink }}>{Number(reviewOfMe.rating).toFixed(1)}</span> ★
           </div>
-          {/* Οι κατηγορίες υπάρχουν μόνο όταν ο αξιολογούμενος είναι ο
-              επαγγελματίας (trg_review_categories τις απαιτεί μόνο τότε). */}
-          {reviewOfMe.rating_safety != null && (
+          {/* Οι κατηγορίες υπάρχουν μόνο όταν ο αξιολογούμενος είναι
+              επαγγελματίας σε ρόλο που έχει δικές του κατηγορίες
+              (trg_review_categories τις απαιτεί μόνο τότε). */}
+          {hasCategoryBreakdown && (
             <details style={{ marginTop: 6 }}>
               <summary style={{ ...muted, fontSize: 12.5, cursor: "pointer" }}>Δες ανά κατηγορία</summary>
               <div style={{ marginTop: 6 }}>
-                {REVIEW_CATEGORIES.map((c) => (
+                {myCategories.map((c) => (
                   <div
                     key={c.key}
                     style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "2px 0" }}
