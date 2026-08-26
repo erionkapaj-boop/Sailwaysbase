@@ -144,6 +144,12 @@ export function Row({ children, onClick, tone }) {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
+    // Without this, a row with more than a couple of side actions (e.g. the
+    // users list once it grew a third button) had nowhere to put them:
+    // RowMain's flex:1 got squeezed toward zero width instead, truncating a
+    // name down to a single letter and breaking its meta line one word per
+    // line. Wrapping lets the actions drop to their own line instead.
+    flexWrap: "wrap",
     gap: 12,
     width: "100%",
     // Without this the 32px of horizontal padding is added *to* the 100%,
@@ -172,7 +178,10 @@ export function Row({ children, onClick, tone }) {
 
 export function RowMain({ title, meta }) {
   return (
-    <span style={{ minWidth: 0, flex: 1 }}>
+    // flex-basis 200px (not 0): gives the name/meta column a floor it won't
+    // shrink past, so a crowded action cluster wraps to its own line below
+    // instead of squeezing this down to an unreadable sliver.
+    <span style={{ minWidth: 160, flex: "1 1 200px" }}>
       <span
         style={{
           display: "block",
