@@ -13,6 +13,7 @@ import {
 } from "../../../lib/platform/db";
 import { card, muted, button, input, badge, colors, money, radius } from "../../../lib/platform/theme";
 import { formatDateTime } from "../../../lib/platform/notifications";
+import { REVIEW_CATEGORIES } from "../../../lib/platform/reviewCategories";
 
 const STATUS_LABEL = {
   confirmed: ["Επιβεβαιωμένη", "success"],
@@ -30,6 +31,9 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   const [newMessage, setNewMessage] = useState("");
   const [reviews, setReviews] = useState([]);
   const [rating, setRating] = useState(5);
+  // Μόνο ο πελάτης αξιολογεί σε κατηγορίες — ο επαγγελματίας εξακολουθεί να
+  // δίνει ένα απλό 1-5 στον πελάτη, όπως πριν.
+  const [categories, setCategories] = useState({});
   const [comment, setComment] = useState("");
   const [reply, setReply] = useState("");
   const [cancelReason, setCancelReason] = useState("");
@@ -88,6 +92,11 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   const myReview = reviews.find((r) => r.reviewer_id === viewerUserId);
   const reviewOfMe = reviews.find((r) => r.reviewee_id === viewerUserId);
 
+  const allCategoriesChosen = REVIEW_CATEGORIES.every((c) => categories[c.key]);
+  const categoryAverage = allCategoriesChosen
+    ? REVIEW_CATEGORIES.reduce((sum, c) => sum + categories[c.key], 0) / REVIEW_CATEGORIES.length
+    : null;
+
   async function handleSubmitReview() {
     setBusy(true);
     setError("");
@@ -95,7 +104,13 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       // get_booking_counterpart() already resolves to the other side's login
       // user id regardless of direction — the skipper's account when you're
       // the client, booking.client_id itself when you're the skipper.
-      await submitReview({ bookingId: booking.id, revieweeId: counterpart?.user_id, rating, comment });
+      await submitReview({
+        bookingId: booking.id,
+        revieweeId: counterpart?.user_id,
+        rating,
+        comment,
+        categories: viewerRole === "client" ? categories : undefined,
+      });
       setReviews(await listReviewsForBooking(booking.id));
     } catch (err) {
       setError(err.message || String(err));
@@ -268,14 +283,47 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       {booking.status === "completed" && isPastEnd && !myReview && (
         <div style={{ marginTop: 14, borderTop: `1px solid ${colors.border}`, paddingTop: 10 }}>
           <div style={{ ...muted, fontSize: 13, fontWeight: 500 }}>Άφησε αξιολόγηση</div>
-          <div style={{ margin: "8px 0" }}>
-            <select style={{ ...input, width: 100 }} value={rating} onChange={(e) => setRating(Number(e.target.value))}>
-              {[5, 4, 3, 2, 1].map((r) => (
-                <option key={r} value={r}>
-                  {"★".repeat(r)}
-                </option>
-              ))}
-            </select>
+          <div style={{ margin: "10px 0" }}>
+            {viewerRole === "client" ? (
+              <>
+                {REVIEW_CATEGORIES.map((c) => (
+                  <div key={c.key} style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 500 }}>{c.label}</div>
+                    <div style={{ ...muted, fontSize: 11.5, margin: "2px 0 4px" }}>{c.hint}</div>
+                    <select
+                      style={{ ...input, width: 100 }}
+                      value={categories[c.key] || ""}
+                      onChange={(e) =>
+                        setCategories((prev) => ({ ...prev, [c.key]: Number(e.target.value) }))
+                      }
+                    >
+                      <option value="" disabled>
+                        —
+                      </option>
+                      {[5, 4, 3, 2, 1].map((r) => (
+                        <option key={r} value={r}>
+                          {"★".repeat(r)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+                {categoryAverage != null && (
+                  <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 10px" }}>
+                    Συνολική βαθμολογία:{" "}
+                    <b style={{ ...money, color: colors.ink }}>{categoryAverage.toFixed(2)}</b> / 5
+                  </p>
+                )}
+              </>
+            ) : (
+              <select style={{ ...input, width: 100 }} value={rating} onChange={(e) => setRating(Number(e.target.value))}>
+                {[5, 4, 3, 2, 1].map((r) => (
+                  <option key={r} value={r}>
+                    {"★".repeat(r)}
+                  </option>
+                ))}
+              </select>
+            )}
             <textarea
               style={{ ...input, marginTop: 6, minHeight: 60 }}
               placeholder="Σχόλιο"
@@ -283,7 +331,11 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
               onChange={(e) => setComment(e.target.value)}
             />
           </div>
-          <button style={button("primary")} disabled={busy} onClick={handleSubmitReview}>
+          <button
+            style={button("primary")}
+            disabled={busy || (viewerRole === "client" && !allCategoriesChosen)}
+            onClick={handleSubmitReview}
+          >
             Υποβολή αξιολόγησης
           </button>
         </div>
@@ -292,8 +344,27 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       {reviewOfMe && (
         <div style={{ marginTop: 14, borderTop: `1px solid ${colors.border}`, paddingTop: 10 }}>
           <div style={{ ...muted, fontSize: 13, fontWeight: 500 }}>
-            Σε αξιολόγησαν <span style={{ ...money, color: colors.ink }}>{reviewOfMe.rating}</span> ★
+            Σε αξιολόγησαν{" "}
+            <span style={{ ...money, color: colors.ink }}>{Number(reviewOfMe.rating).toFixed(1)}</span> ★
           </div>
+          {/* Οι κατηγορίες υπάρχουν μόνο όταν ο αξιολογούμενος είναι ο
+              επαγγελματίας (trg_review_categories τις απαιτεί μόνο τότε). */}
+          {reviewOfMe.rating_safety != null && (
+            <details style={{ marginTop: 6 }}>
+              <summary style={{ ...muted, fontSize: 12.5, cursor: "pointer" }}>Δες ανά κατηγορία</summary>
+              <div style={{ marginTop: 6 }}>
+                {REVIEW_CATEGORIES.map((c) => (
+                  <div
+                    key={c.key}
+                    style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "2px 0" }}
+                  >
+                    <span style={muted}>{c.label}</span>
+                    <span style={{ ...money, color: colors.ink }}>{reviewOfMe[`rating_${c.key}`]} / 5</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
           <p style={{ ...muted, marginTop: 6 }}>{reviewOfMe.comment}</p>
           {reviewOfMe.reply ? (
             <p style={{ fontSize: 13, fontStyle: "italic" }}>Απάντησή σου: {reviewOfMe.reply}</p>

@@ -5,6 +5,7 @@ import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
 import DateRangeCalendar from "../components/DateRangeCalendar";
 import { SUPPORTED_ROLES, labelForRole, computeCrewHighlights } from "../../../lib/platform/roles";
+import { REVIEW_CATEGORIES } from "../../../lib/platform/reviewCategories";
 import {
   listLookups,
   searchSkippers,
@@ -45,6 +46,7 @@ function dayCount(start, end) {
 function SkipperCard({ s, selected, onToggle, days }) {
   const total = days ? s.price_per_day * days : null;
   const highlights = computeCrewHighlights(s);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   return (
     <div style={{ ...card, display: "flex", gap: 16, alignItems: "flex-start" }}>
       <div
@@ -82,7 +84,18 @@ function SkipperCard({ s, selected, onToggle, days }) {
         </div>
 
         <div style={{ margin: "10px 0", fontSize: 14, color: colors.inkSoft, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-          <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
+          {s.rating_count > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowBreakdown((v) => !v)}
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" }}
+              aria-expanded={showBreakdown}
+            >
+              <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
+            </button>
+          ) : (
+            <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
+          )}
           <span>
             {"· "}
             {s.reliability_percentage != null ? (
@@ -94,6 +107,30 @@ function SkipperCard({ s, selected, onToggle, days }) {
             )}
           </span>
         </div>
+
+        {/* Η ίδια αξιολόγηση σε 6 κατηγορίες — πατώντας πάνω στα αστέρια για
+            να δει κανείς τι κρύβεται πίσω από τον γενικό μέσο όρο, αντί να
+            τον εμπιστευτεί τυφλά ή να τον αγνοήσει επειδή δεν λέει αρκετά. */}
+        {showBreakdown && s.rating_count > 0 && (
+          <div
+            style={{
+              margin: "0 0 10px",
+              padding: "10px 12px",
+              background: colors.bgSoft || "#F7F5F0",
+              borderRadius: 8,
+            }}
+          >
+            {REVIEW_CATEGORIES.map((c) => (
+              <div
+                key={c.key}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "3px 0" }}
+              >
+                <span style={{ fontSize: 12.5, color: colors.inkSoft }}>{c.label}</span>
+                <Stars rating={s[`rating_avg_${c.key}`]} count={s.rating_count} size={11} showEmptyLabel={false} />
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Highlights are derived, never self-written — see computeCrewHighlights. */}
         {highlights.length > 0 && (
