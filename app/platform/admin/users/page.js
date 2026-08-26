@@ -20,6 +20,22 @@ const control = {
   boxSizing: "border-box",
 };
 
+// Same control, redrawn arrow instead of the raw per-browser <select> default.
+const selectControl = {
+  ...control,
+  appearance: "none",
+  WebkitAppearance: "none",
+  MozAppearance: "none",
+  paddingRight: 28,
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='${colors.inkSoft.replace(
+    "#",
+    "%23"
+  )}' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 9px center",
+  cursor: "pointer",
+};
+
 // Admins are one person today. Making them a third of the filter was giving a
 // third of the screen to a row you already know the contents of.
 const TABS = [
@@ -188,7 +204,7 @@ function UsersInner() {
           {/* Only professionals have a crew role, so the filter only appears
               where it means something. */}
           {tab === "pro" && (
-            <select style={{ ...control, flex: "1 1 150px" }} value={crewRole} onChange={(e) => setCrewRole(e.target.value)}>
+            <select style={{ ...selectControl, flex: "1 1 150px" }} value={crewRole} onChange={(e) => setCrewRole(e.target.value)}>
               <option value="">Όλες οι ιδιότητες</option>
               {CREW_ROLES.map((r) => (
                 <option key={r.key} value={r.key}>
@@ -197,7 +213,7 @@ function UsersInner() {
               ))}
             </select>
           )}
-          <select style={{ ...control, flex: "1 1 190px" }} value={sort} onChange={(e) => setSort(e.target.value)}>
+          <select style={{ ...selectControl, flex: "1 1 190px" }} value={sort} onChange={(e) => setSort(e.target.value)}>
             {SORTS.map(([k, label]) => (
               <option key={k} value={k}>
                 {label}

@@ -28,6 +28,24 @@ const control = {
   minWidth: 0,
 };
 
+// Same dense control, but for a <select>: redraws the arrow by hand instead
+// of the raw per-browser default, matching the fix applied to every other
+// dropdown on the platform.
+const selectControl = {
+  ...control,
+  appearance: "none",
+  WebkitAppearance: "none",
+  MozAppearance: "none",
+  paddingRight: 28,
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='${colors.inkSoft.replace(
+    "#",
+    "%23"
+  )}' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 9px center",
+  cursor: "pointer",
+};
+
 const ERRORS = {
   already_covered: "Έχει ήδη καλυφθεί από κάποιον άλλον.",
   offer_already_open: "Υπάρχει ήδη ανοιχτή πρόταση για αυτή την ακύρωση — απόσυρέ την πρώτα.",
@@ -173,7 +191,7 @@ export default function OfferComposer({ job = null, onDone }) {
       <Toolbar>
         <form onSubmit={search} style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: 1 }}>
           <select
-            style={{ ...control, flex: "1 1 130px" }}
+            style={{ ...selectControl, flex: "1 1 130px" }}
             value={role}
             onChange={(e) => setRole(e.target.value)}
             disabled={replacing}
@@ -202,7 +220,7 @@ export default function OfferComposer({ job = null, onDone }) {
           {!replacing && (
             <>
               <select
-                style={{ ...control, flex: "1 1 160px" }}
+                style={{ ...selectControl, flex: "1 1 160px" }}
                 value={portId}
                 onChange={(e) => setPortId(e.target.value)}
               >
@@ -215,7 +233,7 @@ export default function OfferComposer({ job = null, onDone }) {
               </select>
               {role === "skipper" && (
                 <select
-                  style={{ ...control, flex: "1 1 150px" }}
+                  style={{ ...selectControl, flex: "1 1 150px" }}
                   value={boatTypeId}
                   onChange={(e) => setBoatTypeId(e.target.value)}
                 >
@@ -315,7 +333,7 @@ export default function OfferComposer({ job = null, onDone }) {
             <label style={{ ...muted, fontSize: 12, flex: "1 1 130px" }}>
               Ισχύει για
               <select
-                style={{ ...control, width: "100%", marginTop: 4 }}
+                style={{ ...selectControl, width: "100%", marginTop: 4 }}
                 value={expiresHours}
                 onChange={(e) => setExpiresHours(e.target.value)}
               >

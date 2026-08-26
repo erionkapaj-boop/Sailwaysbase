@@ -53,3 +53,39 @@ export default function Footer() {
     </footer>
   );
 }
+
+// The signed-in shell (client/skipper/admin dashboards) doesn't need the
+// legal block on every screen — ΑΦΜ/ΓΕΜΗ and four marketing links have
+// nothing to do with reading your bookings, and repeating them under every
+// dashboard page was the one place the platform felt like two different
+// products stitched together. Someone who actually needs Όροι/Απόρρητο can
+// still get there from the public pages; this just points at "Σχετικά" as
+// the one way back out.
+export function AppFooter() {
+  return (
+    <footer
+      style={{
+        borderTop: `1px solid ${colors.border}`,
+        marginTop: 40,
+        padding: "14px 20px",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 960,
+          margin: "0 auto",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <span style={{ ...muted, fontSize: 12 }}>SkipperFinder</span>
+        <Link href="/platform/about" style={footerLink}>
+          Σχετικά &amp; βοήθεια
+        </Link>
+      </div>
+    </footer>
+  );
+}

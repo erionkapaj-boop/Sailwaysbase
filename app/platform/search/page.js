@@ -21,6 +21,7 @@ import {
   muted,
   button,
   input,
+  select,
   label,
   badge,
   colors,
@@ -257,7 +258,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router }) {
         {needsBoatType && (
           <div>
             <label style={label}>Τύπος σκάφους</label>
-            <select style={input} required value={boatTypeId} onChange={(e) => setBoatTypeId(e.target.value)}>
+            <select style={select} required value={boatTypeId} onChange={(e) => setBoatTypeId(e.target.value)}>
               <option value="">Επιλογή...</option>
               {lookups.boatTypes.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -269,7 +270,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router }) {
         )}
         <div>
           <label style={label}>Φύλο {roleLabel.toLowerCase()} (προαιρετικό)</label>
-          <select style={input} value={gender} onChange={(e) => setGender(e.target.value)}>
+          <select style={select} value={gender} onChange={(e) => setGender(e.target.value)}>
             <option value="">Αδιάφορο</option>
             <option value="Άνδρας">Άνδρας</option>
             <option value="Γυναίκα">Γυναίκα</option>
@@ -400,7 +401,7 @@ function SearchPageInner() {
         <div>
           <label style={label}>Λιμάνι/Περιοχή</label>
           <select
-            style={input}
+            style={select}
             required
             value={filters.portId}
             onChange={(e) => setFilters((f) => ({ ...f, portId: e.target.value }))}

@@ -11,7 +11,7 @@ import {
   listReviewsForBooking,
   getBookingCounterpart,
 } from "../../../lib/platform/db";
-import { card, muted, button, input, badge, colors, money, radius } from "../../../lib/platform/theme";
+import { card, muted, button, input, select, badge, colors, money, radius } from "../../../lib/platform/theme";
 import { formatDateTime } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { labelForRole } from "../../../lib/platform/roles";
@@ -302,7 +302,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
                 <div style={{ fontSize: 13.5, fontWeight: 500 }}>{c.label}</div>
                 <div style={{ ...muted, fontSize: 11.5, margin: "2px 0 4px" }}>{c.hint}</div>
                 <select
-                  style={{ ...input, width: 100 }}
+                  style={{ ...select, width: 100 }}
                   value={categories[c.key] || ""}
                   onChange={(e) =>
                     setCategories((prev) => ({ ...prev, [c.key]: Number(e.target.value) }))

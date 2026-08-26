@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthProvider, useAuth } from "./AuthContext";
-import Footer from "./components/Footer";
+import Footer, { AppFooter } from "./components/Footer";
 import Logo from "./components/Logo";
 import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
@@ -190,6 +190,8 @@ const globalStyles = `
 .platform-scope ::placeholder { color: ${colors.inkSoft}; opacity: 0.7; }
 .platform-scope button:disabled { opacity: 0.45; cursor: not-allowed; }
 .platform-scope a:hover { color: ${colors.ink}; }
+.platform-scope input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.65; }
+.platform-scope input[type=date]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .platform-scope .sf-cta:hover { background: ${colors.ink}; color: #fff; }
 .platform-scope .sf-cta:active { background: ${colors.brandDark}; color: #fff; }
 `;
@@ -315,6 +317,14 @@ function ReturnToAdminBanner() {
   );
 }
 
+// Signed in gets the slim app-footer everywhere (client, professional, and
+// admin dashboards alike); signed out — the marketing pages — keeps the full
+// legal footer.
+function SiteFooter() {
+  const { session } = useAuth();
+  return session ? <AppFooter /> : <Footer />;
+}
+
 export default function PlatformShell({ children }) {
   return (
     <AuthProvider>
@@ -324,7 +334,7 @@ export default function PlatformShell({ children }) {
         <ViewAsBanner />
         <NavBar />
         <div style={{ flex: 1 }}>{children}</div>
-        <Footer />
+        <SiteFooter />
       </div>
     </AuthProvider>
   );

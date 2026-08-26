@@ -16,6 +16,7 @@ import {
   muted,
   button,
   input,
+  select,
   label,
   colors,
   radius,
@@ -220,7 +221,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
             </label>
             <select
               id="p-gender"
-              style={input}
+              style={select}
               value={form.gender}
               onChange={(e) => setField("gender", e.target.value)}
             >
