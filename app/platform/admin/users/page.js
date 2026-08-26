@@ -232,6 +232,7 @@ function UsersInner() {
             <Row key={u.id}>
               <RowMain
                 title={u.full_name || "(χωρίς όνομα)"}
+                photoUrl={u.photo_url}
                 meta={
                   <>
                     <span style={money}>{u.phone_number}</span>
@@ -265,6 +266,16 @@ function UsersInner() {
                   gap: 6,
                   alignItems: "center",
                   flexShrink: 0,
+                  // Caps it to the row's own width once Row's wrap has
+                  // dropped it to its own line (a flex item with
+                  // flexShrink:0 otherwise ignores the row entirely and
+                  // just sizes to its content) — without this, a status
+                  // badge plus three buttons ran straight off the edge of
+                  // the screen instead of using its own flexWrap to stack
+                  // onto a second line. A ceiling, not a fixed width: on a
+                  // wide screen where it still fits beside RowMain on one
+                  // line, this never comes into play.
+                  maxWidth: "100%",
                   flexWrap: "wrap",
                   justifyContent: "flex-end",
                 }}

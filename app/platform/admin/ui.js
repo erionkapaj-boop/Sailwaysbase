@@ -176,28 +176,46 @@ export function Row({ children, onClick, tone }) {
   return <div style={base}>{children}</div>;
 }
 
-export function RowMain({ title, meta }) {
+// photoUrl is opt-in — only the accounts list passes it today. Every other
+// Row/RowMain caller (bookings, disputes, offers, coverage) is unaffected.
+export function RowMain({ title, meta, photoUrl }) {
   return (
-    // flex-basis 200px (not 0): gives the name/meta column a floor it won't
-    // shrink past, so a crowded action cluster wraps to its own line below
-    // instead of squeezing this down to an unreadable sliver.
-    <span style={{ minWidth: 160, flex: "1 1 200px" }}>
-      <span
-        style={{
-          display: "block",
-          fontSize: 14,
-          fontWeight: 500,
-          color: colors.ink,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {title}
-      </span>
-      {meta && (
-        <span style={{ ...muted, fontSize: 12.5, display: "block", marginTop: 3 }}>{meta}</span>
+    <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 160, flex: "1 1 200px" }}>
+      {photoUrl !== undefined && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <span
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            flexShrink: 0,
+            background: photoUrl ? `url(${photoUrl}) center/cover` : "#EFEDE8",
+          }}
+          aria-hidden="true"
+        />
       )}
+      {/* flex-basis 200px (not 0): gives the name/meta column a floor it
+          won't shrink past, so a crowded action cluster wraps to its own
+          line below instead of squeezing this down to an unreadable
+          sliver. */}
+      <span style={{ minWidth: 0, flex: 1 }}>
+        <span
+          style={{
+            display: "block",
+            fontSize: 14,
+            fontWeight: 500,
+            color: colors.ink,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {title}
+        </span>
+        {meta && (
+          <span style={{ ...muted, fontSize: 12.5, display: "block", marginTop: 3 }}>{meta}</span>
+        )}
+      </span>
     </span>
   );
 }
