@@ -1,11 +1,12 @@
 "use client";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
 import DateRangeCalendar from "../components/DateRangeCalendar";
 import { SUPPORTED_ROLES, labelForRole, computeCrewHighlights } from "../../../lib/platform/roles";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
+import { savePendingBroadcast, takePendingBroadcast } from "../../../lib/platform/pendingBroadcast";
 import {
   listLookups,
   searchSkippers,
@@ -161,7 +162,7 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
 // later, once hostess has been live a while), so keeping them as two
 // independent panels is honest about that rather than implying one checkout
 // covers both.
-function RoleSection({ role, sharedFilters, lookups, fee, session, router }) {
+function RoleSection({ role, sharedFilters, lookups, fee, session, router, initial }) {
   const [boatTypeId, setBoatTypeId] = useState("");
   const [gender, setGender] = useState("");
   const [results, setResults] = useState(null);
@@ -169,6 +170,23 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [broadcastDone, setBroadcastDone] = useState(false);
+  // Consumed once, the first time a search actually loads results — a plain
+  // prop can't survive that long since runSearch() below unconditionally
+  // clears `selected` at the start of every call, restore or not.
+  const pendingSelectedRef = useRef(null);
+  const [restoredNotice, setRestoredNotice] = useState(false);
+
+  // `initial` often arrives a render or two after this component already
+  // mounted (the parent only resolves sessionStorage in its own effect,
+  // post-hydration) — a lazy useState/useRef initializer would miss it
+  // entirely for the default role, so the restore has to react to the prop
+  // rather than seed from it once.
+  useEffect(() => {
+    if (!initial) return;
+    setGender(initial.gender || "");
+    pendingSelectedRef.current = initial.selected?.length ? initial.selected : null;
+    setRestoredNotice(true);
+  }, [initial]);
 
   const needsBoatType = role === "skipper";
   const days = dayCount(sharedFilters.startDate, sharedFilters.endDate);
@@ -179,16 +197,19 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router }) {
     setSelected(new Set());
     setBusy(true);
     try {
-      setResults(
-        await searchSkippers({
-          startDate: sharedFilters.startDate,
-          endDate: sharedFilters.endDate,
-          portId: sharedFilters.portId,
-          boatTypeId: needsBoatType ? boatTypeId : null,
-          gender,
-          crewRole: role,
-        })
-      );
+      const data = await searchSkippers({
+        startDate: sharedFilters.startDate,
+        endDate: sharedFilters.endDate,
+        portId: sharedFilters.portId,
+        boatTypeId: needsBoatType ? boatTypeId : null,
+        gender,
+        crewRole: role,
+      });
+      setResults(data);
+      if (pendingSelectedRef.current) {
+        setSelected(new Set(pendingSelectedRef.current));
+        pendingSelectedRef.current = null;
+      }
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -222,7 +243,21 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router }) {
 
   async function handleBroadcast() {
     if (!session) {
-      router.push("/platform/login");
+      // Nothing below this point has run yet — no request exists, nobody was
+      // charged. Save the pick so the trip through login (or register → OTP
+      // → set-PIN) doesn't throw it away, then come straight back here.
+      savePendingBroadcast({
+        role,
+        filters: {
+          startDate: sharedFilters.startDate,
+          endDate: sharedFilters.endDate,
+          portId: sharedFilters.portId,
+          boatTypeId: needsBoatType ? boatTypeId : "",
+        },
+        gender,
+        selected: Array.from(selected),
+      });
+      router.push("/platform/login?next=/platform/search");
       return;
     }
     setError("");
@@ -251,6 +286,11 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router }) {
   return (
     <div style={{ marginTop: 24 }}>
       <h2 style={h2}>{roleLabel}</h2>
+      {restoredNotice && (
+        <p style={{ ...muted, fontSize: 13, margin: "-6px 0 12px", color: colors.accent }}>
+          Οι επιλογές σου διατηρήθηκαν — πάτα ξανά «Πληρωμή &amp; αποστολή» για να ολοκληρώσεις.
+        </p>
+      )}
       <form
         onSubmit={handleSearch}
         style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}
@@ -360,13 +400,35 @@ function SearchPageInner() {
     portId: params.get("port") || "",
     boatTypeId: params.get("boat") || "",
   };
-  const requestedRoles = (params.get("roles") || "skipper").split(",").filter(Boolean);
-  const supportedRoles = requestedRoles.filter((r) => SUPPORTED_ROLES.includes(r));
-  const unsupportedRoles = requestedRoles.filter((r) => !SUPPORTED_ROLES.includes(r));
-
+  // sessionStorage doesn't exist during the server render, so this can only
+  // be read after mount — reading it any earlier (e.g. a useState lazy
+  // initializer) makes the client's first paint disagree with the server's
+  // and trips a hydration mismatch. Starts null on every render up to and
+  // including hydration; the effect below is what actually resolves it.
+  const [pending, setPending] = useState(null);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [] });
   const [filters, setFilters] = useState(incoming);
   const [fee, setFee] = useState(null);
+
+  useEffect(() => {
+    const p = takePendingBroadcast();
+    if (p) {
+      setPending(p);
+      setFilters(p.filters);
+    }
+    // Runs once, right after mount — deliberately not re-checked on every
+    // params change, since the marker is single-use by design (see
+    // takePendingBroadcast).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const requestedRoles = (
+    params.get("roles") ||
+    pending?.role ||
+    "skipper"
+  ).split(",").filter(Boolean);
+  const supportedRoles = requestedRoles.filter((r) => SUPPORTED_ROLES.includes(r));
+  const unsupportedRoles = requestedRoles.filter((r) => !SUPPORTED_ROLES.includes(r));
 
   useEffect(() => {
     listLookups().then(setLookups).catch(() => {});
@@ -425,6 +487,7 @@ function SearchPageInner() {
           fee={fee}
           session={session}
           router={router}
+          initial={pending && pending.role === role ? pending : null}
         />
       ))}
     </div>

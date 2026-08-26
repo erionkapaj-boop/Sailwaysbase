@@ -3,6 +3,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import { setPin } from "../../../lib/platform/db";
+import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
 import { container, card, h1, muted, button, input, label, colors } from "../../../lib/platform/theme";
 
 const MIN_LENGTH = 6;
@@ -30,6 +31,13 @@ function SetPinInner() {
     try {
       await setPin(pin);
       await refresh();
+      if (hasPendingBroadcast()) {
+        // A search + pick made before signing up is waiting on
+        // /platform/search — that takes priority over the usual
+        // role-based landing page.
+        router.push("/platform/search");
+        return;
+      }
       const next = params.get("next");
       router.push(next === "skipper" ? "/platform/skipper" : "/platform/client");
     } catch (err) {
