@@ -16,17 +16,44 @@ alter table booking_requests alter column boat_type_id drop not null;
 alter table bookings alter column boat_type_id drop not null;
 
 -- ----------------------------------------------------------------------------
--- 6 κατηγορίες αξιολόγησης για hostess: Καθαριότητα & Τάξη, Μαγειρική &
--- Διατροφή, Εξυπηρέτηση, Επαγγελματισμός, Επικοινωνία, Φιλοξενία. Οι 4 από
--- αυτές έχουν ήδη στήλη (cleanliness/professionalism/communication/
--- hospitality, 0033) — ίδιο νόημα, μόνο η ελληνική ετικέτα διαφέρει ανά
--- ιδιότητα (στο app layer). Μόνο 2 λείπουν: μαγειρική, εξυπηρέτηση.
+-- Το «column rating_avg_safety does not exist» σημαίνει ότι το 0033 δεν
+-- πρόλαβε ποτέ να δεσμευτεί εδώ (πιθανότατα κάτι αργότερα στο ίδιο script
+-- έσκασε και έκανε rollback ολόκληρο το batch, πριν προλάβει να τρέξει το
+-- COMMIT — το ίδιο ακριβώς που έπαθε το 0038 με το foreign key). Οπότε αυτό
+-- εδώ ξαναφτιάχνει από την αρχή, με ασφάλεια, ό,τι χρειαζόταν ήδη το 0033
+-- (οι 6 αρχικές κατηγορίες) πριν προσθέσει τις 2 καινούργιες της hostess —
+-- κάθε "if not exists"/drop-πριν-recreate είναι ήδη ακίνδυνο να ξανατρέξει
+-- ακόμα κι αν το 0033 ΕΙΧΕ τελικά περάσει.
 -- ----------------------------------------------------------------------------
+drop trigger if exists trg_apply_review_rating on reviews;
+alter table reviews alter column rating type numeric using rating::numeric;
+create trigger trg_apply_review_rating
+  after insert or update of rating, reviewee_id or delete on reviews
+  for each row execute function apply_review_rating();
+
 alter table reviews
+  add column if not exists rating_safety int check (rating_safety is null or rating_safety between 1 and 5),
+  add column if not exists rating_seamanship int check (rating_seamanship is null or rating_seamanship between 1 and 5),
+  add column if not exists rating_professionalism int check (rating_professionalism is null or rating_professionalism between 1 and 5),
+  add column if not exists rating_cleanliness int check (rating_cleanliness is null or rating_cleanliness between 1 and 5),
+  add column if not exists rating_communication int check (rating_communication is null or rating_communication between 1 and 5),
+  add column if not exists rating_hospitality int check (rating_hospitality is null or rating_hospitality between 1 and 5),
+  -- 6 κατηγορίες αξιολόγησης για hostess: Καθαριότητα & Τάξη, Μαγειρική &
+  -- Διατροφή, Εξυπηρέτηση, Επαγγελματισμός, Επικοινωνία, Φιλοξενία. Οι 4 από
+  -- αυτές μοιράζονται στήλη με τις παραπάνω (cleanliness/professionalism/
+  -- communication/hospitality) — ίδιο νόημα, μόνο η ελληνική ετικέτα διαφέρει
+  -- ανά ιδιότητα (στο app layer). Μόνο 2 λείπουν πραγματικά: μαγειρική,
+  -- εξυπηρέτηση.
   add column if not exists rating_cooking int check (rating_cooking is null or rating_cooking between 1 and 5),
   add column if not exists rating_service int check (rating_service is null or rating_service between 1 and 5);
 
 alter table skipper_profiles
+  add column if not exists rating_avg_safety numeric,
+  add column if not exists rating_avg_seamanship numeric,
+  add column if not exists rating_avg_professionalism numeric,
+  add column if not exists rating_avg_cleanliness numeric,
+  add column if not exists rating_avg_communication numeric,
+  add column if not exists rating_avg_hospitality numeric,
   add column if not exists rating_avg_cooking numeric,
   add column if not exists rating_avg_service numeric;
 
@@ -109,6 +136,14 @@ begin
   return new;
 end;
 $$;
+
+-- Ξαναφτιάχνεται και το ίδιο το trigger, όχι μόνο η συνάρτηση από πάνω —
+-- αν το 0033 έκανε rollback πριν το COMMIT, ούτε αυτό υπήρχε ποτέ, και μια
+-- CREATE OR REPLACE FUNCTION χωρίς το trigger της απλά δεν πυροδοτείται ποτέ.
+drop trigger if exists trg_review_categories on reviews;
+create trigger trg_review_categories
+  before insert on reviews
+  for each row execute function enforce_review_categories();
 
 create or replace function recalc_user_rating(p_user_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
@@ -386,3 +421,13 @@ begin
 end;
 $$;
 grant execute on function get_booking_counterpart(uuid) to authenticated;
+
+-- Αναδρομικός επαναϋπολογισμός, ακίνδυνος να ξανατρέξει: αν το 0033 ποτέ δεν
+-- πρόλαβε να γεμίσει τις 6 αρχικές στήλες μέσου όρου, το κάνει τώρα.
+do $$
+declare r record;
+begin
+  for r in select distinct user_id from skipper_profiles loop
+    perform recalc_user_rating(r.user_id);
+  end loop;
+end $$;
