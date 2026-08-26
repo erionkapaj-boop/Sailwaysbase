@@ -27,6 +27,13 @@ import {
   shadow,
 } from "../../../lib/platform/theme";
 
+const BROADCAST_ERRORS = {
+  insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο wallet για το τέλος αιτήματος.",
+  invalid_skipper_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος.",
+  no_skippers_selected: "Επίλεξε τουλάχιστον έναν επαγγελματία.",
+  already_paid_or_closed: "Αυτό το αίτημα έχει ήδη σταλεί.",
+};
+
 // Inclusive day count: a 1st→3rd booking is three days of work, not two.
 function dayCount(start, end) {
   if (!start || !end) return null;
@@ -196,7 +203,7 @@ function SearchPageInner() {
       await payAndBroadcast(request.id, Array.from(selected));
       setBroadcastDone(true);
     } catch (err) {
-      setError(err.message || String(err));
+      setError(BROADCAST_ERRORS[err.message] || err.message || String(err));
     } finally {
       setBusy(false);
     }
