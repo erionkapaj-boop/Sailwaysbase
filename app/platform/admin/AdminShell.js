@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../AuthContext";
@@ -26,14 +26,22 @@ export const SECTIONS = [
   { href: "/platform/admin/settings", label: "Ρυθμίσεις", icon: "⚙" },
 ];
 
-// Every section shows the same attention badges, so each one loads the same
-// single overview call rather than inventing its own count queries.
-export function useAdminCounts() {
+// Fetched once, in the layout that wraps every admin route, and shared from
+// there. Each page used to call this independently, which meant a fresh
+// round trip — and the nav badges briefly reading stale/zero — on every
+// single click between sections, not just on first load.
+const AdminCountsContext = createContext({});
+
+export function AdminCountsProvider({ children }) {
   const [counts, setCounts] = useState({});
   useEffect(() => {
     adminOverview().then(setCounts).catch(() => {});
   }, []);
-  return counts;
+  return <AdminCountsContext.Provider value={counts}>{children}</AdminCountsContext.Provider>;
+}
+
+export function useAdminCounts() {
+  return useContext(AdminCountsContext);
 }
 
 function NavItem({ section, active, count }) {
@@ -83,90 +91,68 @@ function NavItem({ section, active, count }) {
   );
 }
 
-export default function AdminShell({ title, subtitle, actions, counts = {}, children }) {
+// Lives in the layout now, not in each page, so it's one DOM node that
+// persists across navigation instead of a fresh one per route. Rebuilding it
+// on every click was what reset its horizontal scroll position on a phone —
+// tapping a tab further right in the strip snapped the whole strip back to
+// the start, so the screen you landed on looked like it had jumped back to
+// the first section even though the content underneath was correct.
+export function AdminNav() {
   const pathname = usePathname();
+  const counts = useAdminCounts();
+  const isActive = (s) => (s.exact ? pathname === s.href : pathname.startsWith(s.href));
+
+  return (
+    <nav className="sf-admin-nav">
+      <div className="sf-admin-nav-inner">
+        {SECTIONS.map((s) => (
+          <NavItem key={s.href} section={s} active={isActive(s)} count={counts[s.badge] || 0} />
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+// Per-page header only. Navigation and the counts fetch live one level up,
+// in app/platform/admin/layout.js, so they survive from one section to the
+// next instead of being torn down and rebuilt with every route.
+export default function AdminShell({ title, subtitle, actions, children }) {
   const { session, userRow, loading } = useAuth();
 
   if (loading) return <div style={{ padding: 32, ...muted }}>Φόρτωση…</div>;
   if (!session) return <div style={{ padding: 32 }}>Χρειάζεται σύνδεση.</div>;
   if (userRow?.role !== "admin") return <div style={{ padding: 32 }}>Πρόσβαση μόνο για admin.</div>;
 
-  const isActive = (s) => (s.exact ? pathname === s.href : pathname.startsWith(s.href));
-
   return (
-    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "20px 16px 64px" }}>
-      <div className="sf-admin-layout">
-        {/* Sidebar on a real screen; the same list scrolls horizontally on a
-            phone rather than collapsing into a menu, so the section you're in
-            and the ones needing attention stay visible either way. */}
-        <nav className="sf-admin-nav">
-          <div className="sf-admin-nav-inner">
-            {SECTIONS.map((s) => (
-              <NavItem key={s.href} section={s} active={isActive(s)} count={counts[s.badge] || 0} />
-            ))}
-          </div>
-        </nav>
-
-        <main style={{ flex: 1, minWidth: 0 }}>
-          <header
+    <>
+      <header
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+          marginBottom: 18,
+        }}
+      >
+        <div>
+          <h1
             style={{
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "space-between",
-              gap: 12,
-              flexWrap: "wrap",
-              marginBottom: 18,
+              fontFamily: fontSans,
+              fontSize: 22,
+              fontWeight: 600,
+              letterSpacing: "-0.015em",
+              margin: 0,
+              color: colors.ink,
             }}
           >
-            <div>
-              <h1
-                style={{
-                  fontFamily: fontSans,
-                  fontSize: 22,
-                  fontWeight: 600,
-                  letterSpacing: "-0.015em",
-                  margin: 0,
-                  color: colors.ink,
-                }}
-              >
-                {title}
-              </h1>
-              {subtitle && <p style={{ ...muted, fontSize: 13, margin: "5px 0 0" }}>{subtitle}</p>}
-            </div>
-            {actions}
-          </header>
-          {children}
-        </main>
-      </div>
-
-      <style>{`
-        /* Stacked on a phone, side by side once there's room. Keeping the
-           row direction at every width was what pushed the content off the
-           screen entirely on mobile. */
-        .sf-admin-layout { display: flex; flex-direction: column; }
-        .sf-admin-nav { min-width: 0; }
-        .sf-admin-nav-inner {
-          display: flex;
-          gap: 3px;
-          overflow-x: auto;
-          padding-bottom: 6px;
-          margin-bottom: 14px;
-          border-bottom: 1px solid ${colors.border};
-          scrollbar-width: none;
-        }
-        .sf-admin-nav-inner::-webkit-scrollbar { display: none; }
-        @media (min-width: 860px) {
-          .sf-admin-layout { flex-direction: row; gap: 24px; align-items: flex-start; }
-          .sf-admin-nav { width: 208px; flex-shrink: 0; position: sticky; top: 76px; }
-          .sf-admin-nav-inner {
-            flex-direction: column;
-            overflow: visible;
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-          }
-        }
-      `}</style>
-    </div>
+            {title}
+          </h1>
+          {subtitle && <p style={{ ...muted, fontSize: 13, margin: "5px 0 0" }}>{subtitle}</p>}
+        </div>
+        {actions}
+      </header>
+      {children}
+    </>
   );
 }

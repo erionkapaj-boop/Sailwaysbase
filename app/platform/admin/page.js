@@ -104,19 +104,36 @@ export default function AdminOverview() {
       </Panel>
 
       <MetricGrid>
-        <Metric label="Χρήστες" value={counts.users_total ?? "—"} hint={`+${counts.users_new_7d ?? 0} την εβδομάδα`} />
-        <Metric label="Επαγγελματίες" value={counts.pros_total ?? "—"} />
-        <Metric label="Πελάτες" value={counts.clients_total ?? "—"} />
+        <Metric
+          label="Χρήστες"
+          value={counts.users_total ?? "—"}
+          hint={`+${counts.users_new_7d ?? 0} την εβδομάδα`}
+          href="/platform/admin/users?tab=all"
+        />
+        <Metric label="Επαγγελματίες" value={counts.pros_total ?? "—"} href="/platform/admin/users?tab=pro" />
+        <Metric label="Πελάτες" value={counts.clients_total ?? "—"} href="/platform/admin/users?tab=client" />
+        {/* Χωρίς σύνδεσμο επίτηδες: δεν υπάρχει καμία οθόνη στο admin που να
+            δείχνει τα ανοιχτά αιτήματα πελατών ένα προς ένα — θα ήταν ένα
+            κουμπί που δεν πάει πουθενά, ακριβώς το πρόβλημα που φτιάχνουμε. */}
         <Metric label="Ανοιχτά αιτήματα" value={counts.requests_open ?? "—"} hint="σε αναμονή διεκδίκησης" />
       </MetricGrid>
 
       <MetricGrid>
-        <Metric label="Επερχόμενες κρατήσεις" value={counts.bookings_upcoming ?? "—"} />
-        <Metric label="Ολοκληρωμένες" value={counts.bookings_completed ?? "—"} />
+        <Metric
+          label="Επερχόμενες κρατήσεις"
+          value={counts.bookings_upcoming ?? "—"}
+          href="/platform/admin/bookings?filter=upcoming"
+        />
+        <Metric
+          label="Ολοκληρωμένες"
+          value={counts.bookings_completed ?? "—"}
+          href="/platform/admin/bookings?filter=completed"
+        />
         <Metric
           label="Ακυρώσεις (30 ημ.)"
           value={counts.bookings_cancelled_30d ?? "—"}
           tone={counts.bookings_cancelled_30d > 0 ? "attention" : "plain"}
+          href="/platform/admin/bookings?filter=cancelled"
         />
         {/* Δουλειά που έδωσες εσύ και περιμένει απάντηση — χωριστά από τα
             αιτήματα των πελατών, γιατί την παρακολουθείς αλλιώς. */}
@@ -124,7 +141,10 @@ export default function AdminOverview() {
           label="Προτάσεις σε αναμονή"
           value={counts.offers_open ?? "—"}
           hint={counts.coverage_offered > 0 ? `${counts.coverage_offered} για κάλυψη ακύρωσης` : "δικές σου αναθέσεις"}
+          href="/platform/admin/offers"
         />
+        {/* Χωρίς σύνδεσμο για τον ίδιο λόγο: δεν υπάρχει λίστα άκαρπων
+            αιτημάτων πουθενά στο admin ακόμα. */}
         <Metric
           label="Άκαρπα αιτήματα (7 ημ.)"
           value={counts.requests_unclaimed_7d ?? "—"}

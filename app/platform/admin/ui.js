@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { colors, radius, muted, money, fontSans, badge, button } from "../../../lib/platform/theme";
 
 // Building blocks for the console.
@@ -106,6 +107,16 @@ export function Metric({ label, value, hint, tone = "plain", href, onClick }) {
       <button type="button" onClick={onClick} style={style}>
         {inner}
       </button>
+    );
+  }
+  // href was accepted and folded into `clickable` (the pointer cursor, the
+  // hover-ready styling) but nothing ever turned it into an actual link — a
+  // tile that looked clickable and did nothing on tap.
+  if (href) {
+    return (
+      <Link href={href} style={style}>
+        {inner}
+      </Link>
     );
   }
   return <div style={style}>{inner}</div>;

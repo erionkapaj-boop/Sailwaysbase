@@ -54,8 +54,13 @@ function UsersInner() {
   // Επισκόπηση — μόνο επαγγελματίες μπορούν να ταιριάξουν, οπότε κλειδώνει
   // την καρτέλα κιόλας, αλλιώς ο σύνδεσμος θα έδειχνε τη λίστα πελατών.
   const invisibleOnly = searchParams.get("filter") === "invisible";
+  // Τα άλλα κουτιά της Επισκόπησης («Χρήστες», «Επαγγελματίες», «Πελάτες»)
+  // δείχνουν εδώ με ?tab=..., ώστε να ανοίγουν κατευθείαν στη σωστή καρτέλα
+  // αντί να αφήνουν τον admin να την ψάξει μόνος του.
+  const tabParam = searchParams.get("tab");
+  const initialTab = invisibleOnly ? "pro" : TABS.some((t) => t.key === tabParam) ? tabParam : "client";
 
-  const [tab, setTab] = useState(invisibleOnly ? "pro" : "client");
+  const [tab, setTab] = useState(initialTab);
   const [crewRole, setCrewRole] = useState("");
   const [sort, setSort] = useState("recent");
   const [search, setSearch] = useState("");

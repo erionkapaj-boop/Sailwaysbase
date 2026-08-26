@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { adminListBookings } from "../../../../lib/platform/db";
@@ -12,10 +13,16 @@ const FILTERS = [
   ["", "Όλες"],
 ];
 
-export default function BookingsPage() {
+function BookingsInner() {
+  const searchParams = useSearchParams();
+  // Δίνει στα κουτιά της Επισκόπησης («Επερχόμενες», «Ολοκληρωμένες»,
+  // «Ακυρώσεις») έναν σύνδεσμο που ανοίγει κατευθείαν στο σωστό φίλτρο.
+  const filterParam = searchParams.get("filter");
+  const initialFilter = FILTERS.some((f) => f[0] === filterParam) ? filterParam : "upcoming";
+
   const counts = useAdminCounts();
   const [all, setAll] = useState([]);
-  const [filter, setFilter] = useState("upcoming");
+  const [filter, setFilter] = useState(initialFilter);
   const [busy, setBusy] = useState(true);
 
   useEffect(() => {
@@ -80,5 +87,13 @@ export default function BookingsPage() {
         ))}
       </Panel>
     </AdminShell>
+  );
+}
+
+export default function BookingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <BookingsInner />
+    </Suspense>
   );
 }
