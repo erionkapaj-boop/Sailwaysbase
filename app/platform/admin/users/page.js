@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import { useAuth } from "../../AuthContext";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
@@ -46,10 +46,16 @@ function ageFrom(dob) {
 
 function UsersInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const counts = useAdminCounts();
   const { startViewAs } = useAuth();
 
-  const [tab, setTab] = useState("client");
+  // Έρχεται εδώ από το κουτί «εγκεκριμένοι χωρίς διαθεσιμότητα» στην
+  // Επισκόπηση — μόνο επαγγελματίες μπορούν να ταιριάξουν, οπότε κλειδώνει
+  // την καρτέλα κιόλας, αλλιώς ο σύνδεσμος θα έδειχνε τη λίστα πελατών.
+  const invisibleOnly = searchParams.get("filter") === "invisible";
+
+  const [tab, setTab] = useState(invisibleOnly ? "pro" : "client");
   const [crewRole, setCrewRole] = useState("");
   const [sort, setSort] = useState("recent");
   const [search, setSearch] = useState("");
@@ -70,6 +76,7 @@ function UsersInner() {
           crewRole: tab === "pro" && crewRole ? crewRole : null,
           search,
           sort,
+          invisibleOnly,
         })
       );
     } catch (err) {
@@ -77,13 +84,13 @@ function UsersInner() {
     } finally {
       setBusy(false);
     }
-  }, [tab, crewRole, sort, search]);
+  }, [tab, crewRole, sort, search, invisibleOnly]);
 
   // Filters re-query rather than filtering in the page: the sort has to happen
   // over the whole table, not over whatever slice was already fetched.
   useEffect(() => {
     load();
-  }, [tab, crewRole, sort]);
+  }, [tab, crewRole, sort, invisibleOnly]);
 
   function enterViewAs(u) {
     startViewAs({ id: u.id, name: u.full_name, phone: u.phone_number, role: u.role });
@@ -110,16 +117,44 @@ function UsersInner() {
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
+      {invisibleOnly && (
+        <div
+          style={{
+            ...button("secondary"),
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            padding: "10px 14px",
+            marginBottom: 12,
+            cursor: "default",
+          }}
+        >
+          <span style={{ fontSize: 13 }}>
+            Φίλτρο: εγκεκριμένοι που δεν εμφανίζονται σε καμία αναζήτηση (λείπει διαθεσιμότητα ή τύπος σκάφους).
+          </span>
+          <Link href="/platform/admin/users" style={{ textDecoration: "none", flexShrink: 0 }}>
+            <span style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}>Καθαρισμός</span>
+          </Link>
+        </div>
+      )}
+
       <Panel title={`${TABS.find((t) => t.key === tab)?.label} (${list.length})`} padded={false}>
         <Toolbar>
           {TABS.map((t) => (
             <button
               key={t.key}
+              disabled={invisibleOnly && t.key !== "pro"}
               onClick={() => {
                 setTab(t.key);
                 if (t.key !== "pro") setCrewRole("");
               }}
-              style={{ ...button(tab === t.key ? "primary" : "secondary"), padding: "6px 13px", fontSize: 13 }}
+              style={{
+                ...button(tab === t.key ? "primary" : "secondary"),
+                padding: "6px 13px",
+                fontSize: 13,
+                opacity: invisibleOnly && t.key !== "pro" ? 0.4 : 1,
+              }}
             >
               {t.label}
             </button>
