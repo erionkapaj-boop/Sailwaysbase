@@ -1,4 +1,6 @@
 "use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer from "./components/Footer";
@@ -6,6 +8,7 @@ import Logo from "./components/Logo";
 import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
 import AccountMenu from "./components/AccountMenu";
+import { hasStashedAdminSession, returnToAdminSession } from "../../lib/platform/db";
 import { nav, colors, fontSans } from "../../lib/platform/theme";
 
 const navLink = {
@@ -233,11 +236,85 @@ function ViewAsBanner() {
   );
 }
 
+// Visible on every screen while signed in as a test account through "Σύνδεση
+// ως" (a real session swap — see loginAsTestAccount), so getting back to
+// admin never means remembering the admin PIN again. Reads sessionStorage
+// directly rather than through AuthContext: it has to survive full sign-ins
+// (this account's own, then back to admin's), which reset everything
+// AuthContext tracks about "who is this" but never touch this one stashed
+// value.
+function ReturnToAdminBanner() {
+  const router = useRouter();
+  const { session } = useAuth();
+  const [visible, setVisible] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setVisible(hasStashedAdminSession());
+  }, [session]);
+
+  if (!visible) return null;
+
+  async function handleReturn() {
+    setBusy(true);
+    try {
+      await returnToAdminSession();
+      router.push("/platform/admin");
+    } catch {
+      // Stashed tokens can expire if the test session ran long — the only
+      // way back at that point is a normal admin sign-in.
+      router.push("/platform/admin/login");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+        background: colors.ink,
+        color: "#fff",
+        padding: "8px 14px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        fontSize: 13,
+        fontFamily: fontSans,
+      }}
+    >
+      <span>Συνδεδεμένος ως δοκιμαστικός λογαριασμός</span>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={handleReturn}
+        style={{
+          background: "rgba(255,255,255,0.2)",
+          color: "#fff",
+          border: "1px solid rgba(255,255,255,0.5)",
+          borderRadius: 6,
+          padding: "4px 10px",
+          fontSize: 12,
+          cursor: "pointer",
+          fontFamily: "inherit",
+          flexShrink: 0,
+        }}
+      >
+        {busy ? "…" : "Επιστροφή σε admin"}
+      </button>
+    </div>
+  );
+}
+
 export default function PlatformShell({ children }) {
   return (
     <AuthProvider>
       <style>{globalStyles}</style>
       <div className="platform-scope" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        <ReturnToAdminBanner />
         <ViewAsBanner />
         <NavBar />
         <div style={{ flex: 1 }}>{children}</div>

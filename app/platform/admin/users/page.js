@@ -6,7 +6,7 @@ import AdminShell, { useAdminCounts } from "../AdminShell";
 import { useAuth } from "../../AuthContext";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { CREW_ROLES, labelForRole } from "../../../../lib/platform/roles";
-import { adminListAccounts, adminSeedDemoUsers } from "../../../../lib/platform/db";
+import { adminListAccounts, adminSeedDemoUsers, loginAsTestAccount } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
 
 const control = {
@@ -100,6 +100,24 @@ function UsersInner() {
   function enterViewAs(u) {
     startViewAs({ id: u.id, name: u.full_name, phone: u.phone_number, role: u.role });
     router.push(u.role === "skipper" ? "/platform/skipper" : "/platform/client");
+  }
+
+  async function enterLoginAs(u) {
+    if (
+      !confirm(
+        `Θα γίνει πραγματική σύνδεση ως ${u.full_name || u.phone_number} — ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`
+      )
+    )
+      return;
+    setBusy(true);
+    setError("");
+    try {
+      await loginAsTestAccount(u.id);
+      router.push(u.role === "skipper" ? "/platform/skipper" : u.role === "admin" ? "/platform/admin" : "/platform/client");
+    } catch (err) {
+      setError(err.message || String(err));
+      setBusy(false);
+    }
   }
 
   async function seed() {
@@ -259,6 +277,17 @@ function UsersInner() {
                     onClick={() => enterViewAs(u)}
                   >
                     Προβολή ως
+                  </button>
+                )}
+                {/* Πραγματική σύνδεση, όχι μόνο ανάγνωση — μόνο για
+                    λογαριασμούς που σημειώθηκαν ρητά ως τεστ (βλ. Στοιχεία). */}
+                {u.is_test_account && (
+                  <button
+                    style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
+                    disabled={busy}
+                    onClick={() => enterLoginAs(u)}
+                  >
+                    Σύνδεση ως
                   </button>
                 )}
                 <Link href={`/platform/admin/user/${u.id}`} style={{ textDecoration: "none" }}>

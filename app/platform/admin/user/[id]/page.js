@@ -8,6 +8,8 @@ import {
   adminGetUserOverview,
   adminApproveSkipper,
   adminRejectSkipper,
+  adminSetTestAccount,
+  loginAsTestAccount,
 } from "../../../../../lib/platform/db";
 import { computeCrewHighlights } from "../../../../../lib/platform/roles";
 import Stat from "../../../components/Stat";
@@ -104,6 +106,37 @@ export default function AdminUserViewPage() {
     }
   }
 
+  async function handleToggleTestAccount() {
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await adminSetTestAccount(id, !target.is_test_account);
+      await load();
+    } catch (err) {
+      setActionError(err.message || String(err));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleLoginAs() {
+    if (
+      !confirm(
+        `Θα γίνει πραγματική σύνδεση ως ${target.full_name || target.phone_number} — ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`
+      )
+    )
+      return;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await loginAsTestAccount(id);
+      router.push(target.role === "skipper" ? "/platform/skipper" : target.role === "admin" ? "/platform/admin" : "/platform/client");
+    } catch (err) {
+      setActionError(err.message || String(err));
+      setActionBusy(false);
+    }
+  }
+
   if (loading) return <div style={container}>Φόρτωση…</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
   if (userRow?.role !== "admin") return <div style={container}>Πρόσβαση μόνο για admin.</div>;
@@ -125,7 +158,7 @@ export default function AdminUserViewPage() {
         </p>
         {target && target.role !== "admin" && (
           <button
-            style={button("secondary")}
+            style={{ ...button("secondary"), marginRight: 8 }}
             onClick={() => {
               startViewAs({ id: target.id, name: target.full_name, phone: target.phone_number, role: target.role });
               router.push(target.role === "skipper" ? "/platform/skipper" : "/platform/client");
@@ -134,6 +167,28 @@ export default function AdminUserViewPage() {
             Προβολή ως {target.full_name || target.phone_number}
           </button>
         )}
+        {target?.is_test_account && (
+          <button style={{ ...button("primary"), marginRight: 8 }} disabled={actionBusy} onClick={handleLoginAs}>
+            Σύνδεση ως {target.full_name || target.phone_number}
+          </button>
+        )}
+        {target && (
+          <div style={{ marginTop: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={Boolean(target.is_test_account)}
+                disabled={actionBusy}
+                onChange={handleToggleTestAccount}
+              />
+              Λογαριασμός τεστ
+              <span style={{ ...muted, fontWeight: 400 }}>
+                — επιτρέπει «Σύνδεση ως» (επαναφέρει το PIN του, πραγματική σύνδεση)
+              </span>
+            </label>
+          </div>
+        )}
+        {actionError && <p style={{ color: colors.danger, marginTop: 8, fontSize: 13 }}>{actionError}</p>}
       </div>
 
       {busy && <p style={muted}>Φόρτωση…</p>}
