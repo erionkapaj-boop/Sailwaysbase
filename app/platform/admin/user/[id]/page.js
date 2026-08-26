@@ -9,6 +9,7 @@ import {
   adminApproveSkipper,
   adminRejectSkipper,
   adminSetTestAccount,
+  adminSetStaffAdmin,
   loginAsTestAccount,
 } from "../../../../../lib/platform/db";
 import { computeCrewHighlights } from "../../../../../lib/platform/roles";
@@ -76,7 +77,7 @@ export default function AdminUserViewPage() {
   }
 
   useEffect(() => {
-    if (!id || userRow?.role !== "admin") return;
+    if (!id || (userRow?.role !== "admin" && !userRow?.is_staff_admin)) return;
     load();
   }, [id, userRow]);
 
@@ -119,6 +120,19 @@ export default function AdminUserViewPage() {
     }
   }
 
+  async function handleToggleStaffAdmin() {
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await adminSetStaffAdmin(id, !target.is_staff_admin);
+      await load();
+    } catch (err) {
+      setActionError(err.message || String(err));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
   async function handleLoginAs() {
     if (
       !confirm(
@@ -139,7 +153,8 @@ export default function AdminUserViewPage() {
 
   if (loading) return <div style={container}>Φόρτωση…</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
-  if (userRow?.role !== "admin") return <div style={container}>Πρόσβαση μόνο για admin.</div>;
+  if (userRow?.role !== "admin" && !userRow?.is_staff_admin)
+    return <div style={container}>Πρόσβαση μόνο για admin.</div>;
 
   return (
     <div style={container}>
@@ -184,6 +199,19 @@ export default function AdminUserViewPage() {
               Λογαριασμός τεστ
               <span style={{ ...muted, fontWeight: 400 }}>
                 — επιτρέπει «Σύνδεση ως» (επαναφέρει το PIN του, πραγματική σύνδεση)
+              </span>
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", marginTop: 8 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(target.is_staff_admin)}
+                disabled={actionBusy}
+                onChange={handleToggleStaffAdmin}
+              />
+              Δικαιώματα admin
+              <span style={{ ...muted, fontWeight: 400 }}>
+                — μπαίνει και στο admin console (/platform/admin/login) με το ίδιο τηλέφωνο/PIN,
+                χωρίς να αλλάξει τον κανονικό του λογαριασμό
               </span>
             </label>
           </div>

@@ -66,7 +66,7 @@ export function AuthProvider({ children }) {
           return getMyUserRow();
         })();
         setAdminUserRow(meRow);
-        const allowed = meRow?.role === "admin" ? subject : null;
+        const allowed = meRow?.role === "admin" || meRow?.is_staff_admin ? subject : null;
         setViewAsUser(allowed?.id || null);
         setViewingAs(allowed);
 
@@ -158,7 +158,7 @@ export function AuthProvider({ children }) {
         viewingAs,
         startViewAs,
         stopViewAs,
-        isAdmin: adminUserRow?.role === "admin",
+        isAdmin: adminUserRow?.role === "admin" || Boolean(adminUserRow?.is_staff_admin),
         readOnly: Boolean(viewingAs),
         needsRoleSelection: !!session && !loading && !userRow,
         role: userRow?.role || null,

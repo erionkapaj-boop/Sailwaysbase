@@ -121,7 +121,8 @@ export default function AdminShell({ title, subtitle, actions, children }) {
 
   if (loading) return <div style={{ padding: 32, ...muted }}>Φόρτωση…</div>;
   if (!session) return <div style={{ padding: 32 }}>Χρειάζεται σύνδεση.</div>;
-  if (userRow?.role !== "admin") return <div style={{ padding: 32 }}>Πρόσβαση μόνο για admin.</div>;
+  if (userRow?.role !== "admin" && !userRow?.is_staff_admin)
+    return <div style={{ padding: 32 }}>Πρόσβαση μόνο για admin.</div>;
 
   return (
     <>

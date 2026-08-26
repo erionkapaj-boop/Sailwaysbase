@@ -39,7 +39,7 @@ export default function AdminLoginPage() {
     try {
       await signInWithPin(phone, pin);
       const me = await getMyUserRow();
-      if (me?.role !== "admin") {
+      if (me?.role !== "admin" && !me?.is_staff_admin) {
         // Don't leave them half-signed-in on an admin URL — drop the session
         // and say plainly that this door isn't theirs.
         await signOut();
