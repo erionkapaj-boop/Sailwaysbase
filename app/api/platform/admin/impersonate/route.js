@@ -19,8 +19,8 @@ async function requireAdmin(req, db) {
   if (!token) return null;
   const { data, error } = await db.auth.getUser(token);
   if (error || !data?.user) return null;
-  const { data: row } = await db.from("users").select("role").eq("id", data.user.id).maybeSingle();
-  return row?.role === "admin" ? data.user : null;
+  const { data: row } = await db.from("users").select("role, is_staff_admin").eq("id", data.user.id).maybeSingle();
+  return row?.role === "admin" || row?.is_staff_admin ? data.user : null;
 }
 
 export async function POST(req) {
