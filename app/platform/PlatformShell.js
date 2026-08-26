@@ -108,7 +108,27 @@ const ADMIN_ITEMS = [
 ];
 
 function NavBar() {
-  const { session, userRow, profile, loading, signOut, role, notifications, refreshNotifications } = useAuth();
+  const { session, userRow, profile, loading, signOut, role, isAdmin, notifications, refreshNotifications } = useAuth();
+
+  // Checked before the per-role branches below: an account can carry
+  // is_staff_admin on top of its normal role (a skipper who is also an
+  // admin, one phone/PIN for both) and still needs a way back into
+  // /platform/admin from wherever it wandered off to. Falling through to
+  // the plain SKIPPER_ITEMS menu for such an account left no link back to
+  // the console at all once you left it.
+  if (session && isAdmin) {
+    return (
+      <AccountNavBar
+        name={profile?.full_name || userRow?.full_name || "Διαχειριστής"}
+        photoUrl={profile?.photo_url || userRow?.photo_url}
+        loading={loading}
+        items={ADMIN_ITEMS}
+        onSignOut={signOut}
+        notifications={notifications}
+        refreshNotifications={refreshNotifications}
+      />
+    );
+  }
 
   if (session && role === "skipper") {
     return (
@@ -131,20 +151,6 @@ function NavBar() {
         photoUrl={userRow?.photo_url}
         loading={loading}
         items={CLIENT_ITEMS}
-        onSignOut={signOut}
-        notifications={notifications}
-        refreshNotifications={refreshNotifications}
-      />
-    );
-  }
-
-  if (session && role === "admin") {
-    return (
-      <AccountNavBar
-        name={userRow?.full_name || "Διαχειριστής"}
-        photoUrl={userRow?.photo_url}
-        loading={loading}
-        items={ADMIN_ITEMS}
         onSignOut={signOut}
         notifications={notifications}
         refreshNotifications={refreshNotifications}
