@@ -128,10 +128,22 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
     }
   }
 
-  // Three things decide whether this profile can be found by a client.
-  const hasPhoto = Boolean(form.photo_url);
+  // Αυτά είναι ΑΚΡΙΒΩΣ τα κριτήρια που εφαρμόζει η αναζήτηση
+  // (search_available_skippers + skipper_public), όχι μια κατά προσέγγιση
+  // εκδοχή τους: η λίστα έλεγε «χρειάζονται και τα τρία» ενώ ζητούσε
+  // φωτογραφία (που η αναζήτηση ΔΕΝ ελέγχει) και παρέλειπε τους τύπους
+  // σκάφους (που τους ελέγχει και χωρίς αυτούς κανείς δεν εμφανίζεται ποτέ).
+  // Αποτέλεσμα: πράσινο «είσαι ορατός» σε κάποιον μόνιμα αόρατο.
   const hasPrice = Number(form.price_per_day) >= MIN_PRICE;
-  const visible = hasPhoto && hasPrice && hasAvailability;
+  // Ζητείται μόνο όπου προσφέρεται: η ενότητα «Τύποι σκαφών» εμφανίζεται μόνο
+  // για skipper, οπότε σε άλλη ιδιότητα θα ήταν κριτήριο χωρίς κουμπί.
+  const hasBoatTypes = !isSkipper || boatTypeIds.length > 0;
+  const isApproved = profile.approval_status === "approved";
+  const visible = hasPrice && hasBoatTypes && hasAvailability && isApproved;
+
+  // Δεν κρύβει από την αναζήτηση, αλλά η κάρτα βγαίνει με κενό γκρι κύκλο
+  // αντί για πρόσωπο — χωριστά, ως σύσταση, όχι ως προϋπόθεση.
+  const hasPhoto = Boolean(form.photo_url);
 
   const highlights = computeCrewHighlights(
     { ...profile, years_experience: form.years_experience },
@@ -151,16 +163,35 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
           {visible ? "Το προφίλ σου είναι ορατό" : "Το προφίλ σου δεν είναι ακόμα ορατό"}
         </b>
         <p style={{ ...muted, fontSize: 13, margin: "6px 0 12px" }}>
-          Χρειάζονται και τα τρία για να σε βρίσκουν οι πελάτες.
+          Χρειάζονται όλα τα παρακάτω για να σε βρίσκουν οι πελάτες.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <Criterion met={hasPhoto}>Φωτογραφία</Criterion>
+          <Criterion met={isApproved}>Έγκριση λογαριασμού</Criterion>
           <Criterion met={hasPrice}>Τιμή ανά ημέρα</Criterion>
+          <Criterion met={hasBoatTypes}>Τύποι σκάφους</Criterion>
           <Criterion met={hasAvailability}>Διαθεσιμότητα</Criterion>
         </div>
+        {!isApproved && (
+          <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
+            Ο λογαριασμός σου περιμένει έγκριση από τη διαχείριση. Μέχρι τότε μπορείς να συμπληρώσεις
+            τα υπόλοιπα κανονικά.
+          </p>
+        )}
+        {!hasBoatTypes && (
+          <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
+            Διάλεξε τουλάχιστον έναν τύπο σκάφους παρακάτω. Οι πελάτες ψάχνουν πάντα για συγκεκριμένο
+            σκάφος — χωρίς αυτό δεν εμφανίζεσαι σε καμία αναζήτηση.
+          </p>
+        )}
         {!hasAvailability && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
             Δήλωσε διαθεσιμότητα από το ημερολόγιο στον <Link href="/platform/skipper" style={{ color: colors.ink }}>πίνακά σου</Link>.
+          </p>
+        )}
+        {visible && !hasPhoto && (
+          <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
+            Δεν έχεις φωτογραφία. Εμφανίζεσαι κανονικά, αλλά η κάρτα σου βγαίνει χωρίς πρόσωπο —
+            πρόσθεσε μία παρακάτω.
           </p>
         )}
       </div>

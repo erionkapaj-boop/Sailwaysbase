@@ -1,8 +1,15 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "../../AuthContext";
-import { signInWithPin, getMyUserRow, signOut } from "../../../../lib/platform/db";
+import {
+  signInWithPin,
+  getMyUserRow,
+  signOut,
+  checkLoginAllowed,
+  normalizePhone,
+} from "../../../../lib/platform/db";
 import { container, card, h1, muted, button, input, label, colors } from "../../../../lib/platform/theme";
 
 // Separate entrance so admin sign-in never sits alongside the public one.
@@ -19,6 +26,11 @@ export default function AdminLoginPage() {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Το κλείδωμα δεν λήγει με τον χρόνο: μετράει τις αποτυχίες από την
+  // τελευταία ΕΠΙΤΥΧΙΑ, οπότε τρία λάθη κλειδώνουν μόνιμα. Ο μόνος δρόμος
+  // πίσω είναι νέος κωδικός — και χωρίς αυτόν τον σύνδεσμο ο διαχειριστής
+  // έμενε σε αδιέξοδη οθόνη, κλειδωμένος έξω από την ίδια του την πλατφόρμα.
+  const [lockedOut, setLockedOut] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
@@ -38,11 +50,15 @@ export default function AdminLoginPage() {
       await refresh();
       router.push("/platform/admin");
     } catch (err) {
-      setError(
-        err.message === "locked_out"
-          ? "Ο λογαριασμός κλειδώθηκε μετά από τρεις αποτυχημένες προσπάθειες."
-          : "Λάθος τηλέφωνο ή κωδικός."
-      );
+      if (err.message === "locked_out") {
+        setLockedOut(true);
+        setError("");
+      } else {
+        setError("Λάθος τηλέφωνο ή κωδικός.");
+        // Δείξε το κλείδωμα στην προσπάθεια που το προκαλεί, όχι στην επόμενη.
+        const stillAllowed = await checkLoginAllowed(normalizePhone(phone));
+        if (!stillAllowed) setLockedOut(true);
+      }
     } finally {
       setBusy(false);
     }
@@ -54,6 +70,20 @@ export default function AdminLoginPage() {
         <h1 style={h1}>Admin</h1>
         <p style={muted}>Είσοδος διαχειριστή.</p>
 
+        {lockedOut ? (
+          // Χωρίς πεδία για νέα προσπάθεια: το κλείδωμα δεν λήγει μόνο του,
+          // οπότε η φόρμα εδώ θα ήταν απλώς μια κλειστή πόρτα.
+          <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
+            <b style={{ fontWeight: 600 }}>Ο λογαριασμός κλειδώθηκε.</b>
+            <p style={{ ...muted, margin: "8px 0 16px" }}>
+              Έγιναν τρεις αποτυχημένες προσπάθειες. Το κλείδωμα δεν λήγει από μόνο του — για να
+              συνεχίσεις, όρισε νέο κωδικό με το τηλέφωνό σου.
+            </p>
+            <Link href="/platform/forgot-pin">
+              <button style={button("primary")}>Ορισμός νέου κωδικού</button>
+            </Link>
+          </div>
+        ) : (
         <form onSubmit={submit} style={{ ...card, marginTop: 20 }}>
           <label style={label} htmlFor="a-phone">
             Κινητό τηλέφωνο
@@ -87,6 +117,7 @@ export default function AdminLoginPage() {
 
           {error && <p style={{ color: colors.danger, marginTop: 12, marginBottom: 0 }}>{error}</p>}
         </form>
+        )}
       </div>
     </div>
   );
