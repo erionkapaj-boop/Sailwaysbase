@@ -31,9 +31,9 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [reviews, setReviews] = useState([]);
-  const [rating, setRating] = useState(5);
-  // Μόνο ο πελάτης αξιολογεί σε κατηγορίες — ο επαγγελματίας εξακολουθεί να
-  // δίνει ένα απλό 1-5 στον πελάτη, όπως πριν.
+  // Και οι δύο κατευθύνσεις αξιολογούν πλέον σε κατηγορίες — ο πελάτης τον
+  // επαγγελματία με το δικό του σετ (ανά crew_role), ο επαγγελματίας τον
+  // πελάτη με το δικό του.
   const [categories, setCategories] = useState({});
   const [comment, setComment] = useState("");
   const [reply, setReply] = useState("");
@@ -93,19 +93,21 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   const myReview = reviews.find((r) => r.reviewer_id === viewerUserId);
   const reviewOfMe = reviews.find((r) => r.reviewee_id === viewerUserId);
 
-  // The categories being collected here are always about the counterpart
-  // (the professional) — so it's their crew_role that picks the set, not
-  // the viewer's own.
-  const counterpartCategories = reviewCategoriesForRole(counterpart?.crew_role);
+  // The categories being collected here are always about the counterpart:
+  // their crew_role picks the set when the viewer is a client (rating the
+  // professional); a professional rating a client always uses the client's
+  // own set, since it doesn't depend on which professional role is doing
+  // the rating.
+  const counterpartCategories =
+    viewerRole === "client" ? reviewCategoriesForRole(counterpart?.crew_role) : reviewCategoriesForRole("client");
   const allCategoriesChosen = counterpartCategories.every((c) => categories[c.key]);
   const categoryAverage = allCategoriesChosen
     ? counterpartCategories.reduce((sum, c) => sum + categories[c.key], 0) / counterpartCategories.length
     : null;
-  // reviewOfMe, on the other hand, is about the viewer's OWN crew_role — a
-  // client never has categories, so this is empty for them.
-  const myCategories = viewerRole !== "client" ? reviewCategoriesForRole(viewerRole) : [];
-  const hasCategoryBreakdown =
-    myCategories.length > 0 && myCategories.some((c) => reviewOfMe?.[`rating_${c.key}`] != null);
+  // reviewOfMe is about the viewer's OWN role — a client now has a category
+  // set too (reviewCategoriesForRole("client")), same mechanism.
+  const myCategories = reviewCategoriesForRole(viewerRole);
+  const hasCategoryBreakdown = myCategories.some((c) => reviewOfMe?.[`rating_${c.key}`] != null);
 
   async function handleSubmitReview() {
     setBusy(true);
@@ -117,9 +119,8 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       await submitReview({
         bookingId: booking.id,
         revieweeId: counterpart?.user_id,
-        rating,
         comment,
-        categories: viewerRole === "client" ? categories : undefined,
+        categories,
       });
       setReviews(await listReviewsForBooking(booking.id));
     } catch (err) {
@@ -296,45 +297,32 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
         <div style={{ marginTop: 14, borderTop: `1px solid ${colors.border}`, paddingTop: 10 }}>
           <div style={{ ...muted, fontSize: 13, fontWeight: 500 }}>Άφησε αξιολόγηση</div>
           <div style={{ margin: "10px 0" }}>
-            {viewerRole === "client" ? (
-              <>
-                {counterpartCategories.map((c) => (
-                  <div key={c.key} style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500 }}>{c.label}</div>
-                    <div style={{ ...muted, fontSize: 11.5, margin: "2px 0 4px" }}>{c.hint}</div>
-                    <select
-                      style={{ ...input, width: 100 }}
-                      value={categories[c.key] || ""}
-                      onChange={(e) =>
-                        setCategories((prev) => ({ ...prev, [c.key]: Number(e.target.value) }))
-                      }
-                    >
-                      <option value="" disabled>
-                        —
-                      </option>
-                      {[5, 4, 3, 2, 1].map((r) => (
-                        <option key={r} value={r}>
-                          {"★".repeat(r)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-                {categoryAverage != null && (
-                  <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 10px" }}>
-                    Συνολική βαθμολογία:{" "}
-                    <b style={{ ...money, color: colors.ink }}>{categoryAverage.toFixed(2)}</b> / 5
-                  </p>
-                )}
-              </>
-            ) : (
-              <select style={{ ...input, width: 100 }} value={rating} onChange={(e) => setRating(Number(e.target.value))}>
-                {[5, 4, 3, 2, 1].map((r) => (
-                  <option key={r} value={r}>
-                    {"★".repeat(r)}
+            {counterpartCategories.map((c) => (
+              <div key={c.key} style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 500 }}>{c.label}</div>
+                <div style={{ ...muted, fontSize: 11.5, margin: "2px 0 4px" }}>{c.hint}</div>
+                <select
+                  style={{ ...input, width: 100 }}
+                  value={categories[c.key] || ""}
+                  onChange={(e) =>
+                    setCategories((prev) => ({ ...prev, [c.key]: Number(e.target.value) }))
+                  }
+                >
+                  <option value="" disabled>
+                    —
                   </option>
-                ))}
-              </select>
+                  {[5, 4, 3, 2, 1].map((r) => (
+                    <option key={r} value={r}>
+                      {"★".repeat(r)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            {categoryAverage != null && (
+              <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 10px" }}>
+                Συνολική βαθμολογία: <b style={{ ...money, color: colors.ink }}>{categoryAverage.toFixed(2)}</b> / 5
+              </p>
             )}
             <textarea
               style={{ ...input, marginTop: 6, minHeight: 60 }}
@@ -343,11 +331,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
               onChange={(e) => setComment(e.target.value)}
             />
           </div>
-          <button
-            style={button("primary")}
-            disabled={busy || (viewerRole === "client" && !allCategoriesChosen)}
-            onClick={handleSubmitReview}
-          >
+          <button style={button("primary")} disabled={busy || !allCategoriesChosen} onClick={handleSubmitReview}>
             Υποβολή αξιολόγησης
           </button>
         </div>
@@ -359,9 +343,10 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
             Σε αξιολόγησαν{" "}
             <span style={{ ...money, color: colors.ink }}>{Number(reviewOfMe.rating).toFixed(1)}</span> ★
           </div>
-          {/* Οι κατηγορίες υπάρχουν μόνο όταν ο αξιολογούμενος είναι
-              επαγγελματίας σε ρόλο που έχει δικές του κατηγορίες
-              (trg_review_categories τις απαιτεί μόνο τότε). */}
+          {/* Κάθε ρόλος (client/skipper/hostess) έχει πλέον δικό του σετ
+              κατηγοριών — myCategories τις παίρνει από reviewCategoriesForRole
+              με βάση τον ίδιο τον viewerRole, εδώ γίνεται μόνο ο έλεγχος αν
+              όντως στάλθηκαν (trg_review_categories τις απαιτεί πάντα μαζί). */}
           {hasCategoryBreakdown && (
             <details style={{ marginTop: 6 }}>
               <summary style={{ ...muted, fontSize: 12.5, cursor: "pointer" }}>Δες ανά κατηγορία</summary>
