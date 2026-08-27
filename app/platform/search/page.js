@@ -629,11 +629,28 @@ function SearchPageInner() {
     return Object.keys(errors).length === 0;
   }
 
+  // Arriving from the wizard already answered "where/when" — re-showing that
+  // whole form here just to ask the two things it never asked (party size,
+  // private cabin) made someone re-read choices they'd literally just made.
+  // Collapsed to a one-line summary whenever the incoming state is already
+  // complete; "Αλλαγή" reopens it in place for anyone who does want to
+  // change something.
+  const [showFullFilters, setShowFullFilters] = useState(
+    !(incoming.startDate && incoming.endDate && incoming.regionId)
+  );
+
   useEffect(() => {
     const p = takePendingBroadcast();
     if (p) {
       setPending(p);
       setFilters(p.filters);
+      // The pending-restore path lands back on a bare /platform/search (no
+      // query string), so the collapse decision above — made from `incoming`
+      // — couldn't see these values yet. Same rule, just applied once the
+      // restored filters are actually known.
+      if (p.filters?.startDate && p.filters?.endDate && p.filters?.regionId) {
+        setShowFullFilters(false);
+      }
     }
     // Runs once, right after mount — deliberately not re-checked on every
     // params change, since the marker is single-use by design (see
@@ -657,6 +674,7 @@ function SearchPageInner() {
   // The chosen region's curated ports, offered as quick picks above the
   // free-text field — same pattern as the wizard's own port step.
   const portsInRegion = lookups.ports.filter((p) => p.region_id === filters.regionId);
+  const regionName = lookups.regions.find((r) => r.id === filters.regionId)?.name;
 
   return (
     <div style={container}>
@@ -674,80 +692,112 @@ function SearchPageInner() {
         </div>
       )}
 
-      <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
-        <div
-          style={{
-            gridColumn: "1 / -1",
-            ...(fieldErrors.dates ? { border: `1px solid ${colors.danger}`, borderRadius: radius.md, padding: 10 } : {}),
-          }}
-        >
-          <label style={label}>Ημερομηνίες</label>
-          <DateRangeCalendar
-            startDate={filters.startDate}
-            endDate={filters.endDate}
-            onChange={({ startDate, endDate }) => {
-              setFilters((f) => ({ ...f, startDate, endDate }));
-              clearFieldError("dates");
-            }}
-          />
-          {fieldErrors.dates && (
-            <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "6px 0 0" }}>Επίλεξε ημερομηνίες.</p>
-          )}
-        </div>
-        <div>
-          <label style={label}>Περιοχή</label>
-          <select
-            style={fieldErrors.regionId ? { ...select, border: `1px solid ${colors.danger}` } : select}
-            value={filters.regionId}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, regionId: e.target.value }));
-              clearFieldError("regionId");
+      {/* Collapsed to a one-line recap whenever these arrived already
+          answered (the wizard) — re-showing the whole form here made anyone
+          coming from it re-read choices they'd just made a step earlier.
+          "Αλλαγή" reopens it in place for anyone who does want to change
+          something. */}
+      {showFullFilters ? (
+        <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              ...(fieldErrors.dates ? { border: `1px solid ${colors.danger}`, borderRadius: radius.md, padding: 10 } : {}),
             }}
           >
-            <option value="">Επιλογή...</option>
-            {lookups.regions.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.regionId && (
-            <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
-          )}
-        </div>
-        <div style={portsInRegion.length > 0 ? { gridColumn: "1 / -1" } : undefined}>
-          <label style={label}>Λιμάνι αναχώρησης</label>
-          {portsInRegion.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "4px 0 8px" }}>
-              {portsInRegion.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  style={chip(filters.departurePoint === p.name)}
-                  onClick={() => {
-                    setFilters((f) => ({ ...f, departurePoint: p.name }));
-                    clearFieldError("departurePoint");
-                  }}
-                >
-                  {p.name}
-                </button>
+            <label style={label}>Ημερομηνίες</label>
+            <DateRangeCalendar
+              startDate={filters.startDate}
+              endDate={filters.endDate}
+              onChange={({ startDate, endDate }) => {
+                setFilters((f) => ({ ...f, startDate, endDate }));
+                clearFieldError("dates");
+              }}
+            />
+            {fieldErrors.dates && (
+              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "6px 0 0" }}>Επίλεξε ημερομηνίες.</p>
+            )}
+          </div>
+          <div>
+            <label style={label}>Περιοχή</label>
+            <select
+              style={fieldErrors.regionId ? { ...select, border: `1px solid ${colors.danger}` } : select}
+              value={filters.regionId}
+              onChange={(e) => {
+                setFilters((f) => ({ ...f, regionId: e.target.value }));
+                clearFieldError("regionId");
+              }}
+            >
+              <option value="">Επιλογή...</option>
+              {lookups.regions.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
               ))}
-            </div>
-          )}
-          <input
-            type="text"
-            style={fieldErrors.departurePoint ? { ...input, border: `1px solid ${colors.danger}` } : input}
-            placeholder="π.χ. Καλλιθέα"
-            value={filters.departurePoint || ""}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, departurePoint: e.target.value }));
-              clearFieldError("departurePoint");
-            }}
-          />
-          {fieldErrors.departurePoint && (
-            <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
-          )}
+            </select>
+            {fieldErrors.regionId && (
+              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+            )}
+          </div>
+          <div style={portsInRegion.length > 0 ? { gridColumn: "1 / -1" } : undefined}>
+            <label style={label}>Λιμάνι αναχώρησης</label>
+            {portsInRegion.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "4px 0 8px" }}>
+                {portsInRegion.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    style={chip(filters.departurePoint === p.name)}
+                    onClick={() => {
+                      setFilters((f) => ({ ...f, departurePoint: p.name }));
+                      clearFieldError("departurePoint");
+                    }}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <input
+              type="text"
+              style={fieldErrors.departurePoint ? { ...input, border: `1px solid ${colors.danger}` } : input}
+              placeholder="π.χ. Καλλιθέα"
+              value={filters.departurePoint || ""}
+              onChange={(e) => {
+                setFilters((f) => ({ ...f, departurePoint: e.target.value }));
+                clearFieldError("departurePoint");
+              }}
+            />
+            {fieldErrors.departurePoint && (
+              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+            )}
+          </div>
         </div>
+      ) : (
+        <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 14 }}>
+            <b style={{ ...money, color: colors.ink }}>
+              {filters.startDate} → {filters.endDate}
+            </b>
+            <span style={muted}>
+              {" · "}
+              {regionName}
+              {filters.departurePoint ? ` · ${filters.departurePoint}` : ""}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowFullFilters(true)}
+            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.accent, fontSize: 13.5, fontFamily: "inherit" }}
+          >
+            Αλλαγή
+          </button>
+        </div>
+      )}
+
+      {/* What the wizard never asked — always shown, regardless of whether
+          the above is collapsed. */}
+      <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
         <div>
           <label style={label}>Γλώσσα (προαιρετικό)</label>
           <select
