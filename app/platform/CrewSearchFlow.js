@@ -4,17 +4,24 @@ import { useRouter } from "next/navigation";
 import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
+import { Mark } from "./components/Logo";
 import { button, colors, muted, radius, h2 } from "../../lib/platform/theme";
 
 // Progressive disclosure (brief §4): one question on screen at a time, gentle
 // fade/slide between them — never the whole form at once.
+//
+// "country" exists as its own step even though Greece is the only option
+// today — the regions table was always meant to grow beyond one country
+// (see its own seed comment), so the step is there to grow into rather than
+// retrofit later.
 //
 // The "boat" step only makes sense when the search includes skipper: a boat
 // type is what a skipper operates, and hostess (or any future non-skipper
 // role) doesn't have one. A hostess-only search skips straight from port to
 // results instead of asking a question that has no right answer for it.
 function stepsFor(roles) {
-  return roles.includes("skipper") ? ["role", "dates", "port", "boat"] : ["role", "dates", "port"];
+  const base = ["role", "dates", "country", "region", "port"];
+  return roles.includes("skipper") ? [...base, "boat"] : base;
 }
 
 const stepWrap = {
@@ -44,9 +51,10 @@ function StepHeading({ children }) {
 export default function CrewSearchFlow({ onCancel }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [lookups, setLookups] = useState({ ports: [], boatTypes: [] });
+  const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [] });
   const [roles, setRoles] = useState([]);
   const [dates, setDates] = useState({ start: "", end: "" });
+  const [regionId, setRegionId] = useState("");
   const [portId, setPortId] = useState("");
 
   useEffect(() => {
@@ -82,13 +90,9 @@ export default function CrewSearchFlow({ onCancel }) {
     router.push(`/platform/search?${params.toString()}`);
   }
 
-  // Ports arrive ordered by tier then region from the query; group them so the
-  // list reads by area instead of as one long flat run.
-  const portsByRegion = lookups.ports.reduce((acc, p) => {
-    const key = p.regions?.name || "Άλλα";
-    (acc[key] ||= []).push(p);
-    return acc;
-  }, {});
+  // The region step already narrowed this down — no need to re-group by
+  // region here, just the ports that actually belong to the chosen one.
+  const portsInRegion = lookups.ports.filter((p) => p.region_id === regionId);
 
   const current = STEPS[step];
 
@@ -173,34 +177,71 @@ export default function CrewSearchFlow({ onCancel }) {
         </div>
       )}
 
+      {current === "country" && (
+        <div key="country" data-sf-step style={stepWrap}>
+          <StepHeading>Ποια χώρα;</StepHeading>
+          <button
+            type="button"
+            onClick={next}
+            style={{
+              ...option(true),
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <Mark size={22} />
+            Ελλάδα
+          </button>
+        </div>
+      )}
+
+      {current === "region" && (
+        <div key="region" data-sf-step style={stepWrap}>
+          <StepHeading>Ποια περιοχή;</StepHeading>
+          <div style={{ maxHeight: 380, overflowY: "auto", marginBottom: 20 }}>
+            {lookups.regions.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                style={option(regionId === r.id)}
+                onClick={() => {
+                  setRegionId(r.id);
+                  setPortId("");
+                  next();
+                }}
+              >
+                {r.name}
+              </button>
+            ))}
+            {lookups.regions.length === 0 && <p style={muted}>Φόρτωση περιοχών…</p>}
+          </div>
+        </div>
+      )}
+
       {current === "port" && (
         <div key="port" data-sf-step style={stepWrap}>
           <StepHeading>Από ποιο λιμάνι;</StepHeading>
           <div style={{ maxHeight: 380, overflowY: "auto", marginBottom: 20 }}>
-            {Object.entries(portsByRegion).map(([region, ports]) => (
-              <div key={region} style={{ marginBottom: 14 }}>
-                <div style={{ ...muted, fontSize: 12, marginBottom: 8 }}>{region}</div>
-                {ports.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    style={option(portId === p.id)}
-                    onClick={() => {
-                      setPortId(p.id);
-                      // "boat" is only in STEPS when the search includes
-                      // skipper — otherwise port is the last question, so
-                      // finish straight from here instead of advancing into
-                      // a step that isn't there.
-                      if (STEPS.includes("boat")) next();
-                      else finish(null, p.id);
-                    }}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
+            {portsInRegion.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                style={option(portId === p.id)}
+                onClick={() => {
+                  setPortId(p.id);
+                  // "boat" is only in STEPS when the search includes
+                  // skipper — otherwise port is the last question, so
+                  // finish straight from here instead of advancing into
+                  // a step that isn't there.
+                  if (STEPS.includes("boat")) next();
+                  else finish(null, p.id);
+                }}
+              >
+                {p.name}
+              </button>
             ))}
-            {lookups.ports.length === 0 && <p style={muted}>Φόρτωση λιμανιών…</p>}
+            {portsInRegion.length === 0 && <p style={muted}>Δεν υπάρχουν λιμάνια σε αυτή την περιοχή ακόμα.</p>}
           </div>
         </div>
       )}

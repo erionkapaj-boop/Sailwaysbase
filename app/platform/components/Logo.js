@@ -7,7 +7,7 @@ import { colors, fontSerif } from "../../../lib/platform/theme";
 //
 // "inline" is the small horizontal lockup for the header; "stacked" is the
 // large centred one that anchors the home screen.
-function Mark({ size }) {
+export function Mark({ size }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="12" r="7.25" stroke={colors.ink} strokeWidth="1.15" />
