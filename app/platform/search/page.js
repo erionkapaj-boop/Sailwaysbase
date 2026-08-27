@@ -60,25 +60,90 @@ function dayCount(start, end) {
   return Math.round(ms / 86400000) + 1;
 }
 
-function ProfessionalCard({ s, selected, onToggle, days }) {
+// Bottom-sheet chrome, matching the pattern already established for the
+// availability calendar's day-detail popup (AvailabilityCalendar.js) — same
+// look for the same kind of "more about this one thing" overlay.
+const sheetOverlayStyle = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(22,40,60,0.35)",
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  zIndex: 40,
+  padding: 16,
+};
+const sheetStyle = {
+  background: colors.card,
+  borderRadius: radius.lg,
+  border: `1px solid ${colors.border}`,
+  padding: 20,
+  width: "100%",
+  maxWidth: 480,
+  boxShadow: shadow.raised,
+  maxHeight: "85vh",
+  overflowY: "auto",
+};
+
+function RatingLine({ s }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontSize: 14, color: colors.inkSoft }}>
+      <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
+      <span>
+        {"· "}
+        {s.reliability_percentage != null ? (
+          <>
+            <span style={{ ...money, color: colors.ink }}>{s.reliability_percentage}%</span> αξιοπιστία
+          </>
+        ) : (
+          "νέος στην πλατφόρμα"
+        )}
+      </span>
+    </div>
+  );
+}
+
+// The full picture behind the one-line summary on the card: bigger photo,
+// every one of the 6 review axes with its own score AND what it actually
+// measures (the card only ever had room for the headline number), plus
+// everything else already on the card. Selecting from in here doesn't close
+// it — comparing candidates means opening several of these in a row without
+// losing the ones already picked.
+function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
   const total = days ? s.price_per_day * days : null;
   const highlights = computeCrewHighlights(s);
   const categories = reviewCategoriesForRole(s.role);
-  const [showBreakdown, setShowBreakdown] = useState(false);
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
-    <div style={{ ...card, display: "flex", gap: 16, alignItems: "flex-start" }}>
-      <div
-        style={{
-          width: 60,
-          height: 60,
-          borderRadius: "50%",
-          background: s.photo_url ? `url(${s.photo_url}) center/cover` : "#EFEFF1",
-          flexShrink: 0,
-        }}
-      />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
-          <div>
+    <div style={sheetOverlayStyle} onClick={onClose}>
+      <div style={sheetStyle} onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 14, fontFamily: "inherit", marginBottom: 14 }}
+        >
+          ← Πίσω
+        </button>
+
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+          <div
+            style={{
+              width: 108,
+              height: 108,
+              borderRadius: "50%",
+              background: s.photo_url ? `url(${s.photo_url}) center/cover` : "#EFEFF1",
+              flexShrink: 0,
+            }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
             <span style={badge(s.tier === "high" ? "success" : s.tier === "low" ? "warn" : "neutral")}>
               {s.tier === "high" ? "Top βαθμίδα" : s.tier === "low" ? "Νέος" : "Μεσαία βαθμίδα"}
             </span>
@@ -89,9 +154,7 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
                 {s.languages?.join(", ")}
               </div>
             )}
-          </div>
-          <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-            <div style={{ ...money, fontSize: 19, fontWeight: 600 }}>
+            <div style={{ ...money, fontSize: 19, fontWeight: 600, marginTop: 6 }}>
               {s.price_per_day}€
               <span style={{ ...muted, fontFamily: "inherit", fontSize: 13 }}> /ημέρα</span>
             </div>
@@ -104,60 +167,12 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
           </div>
         </div>
 
-        <div style={{ margin: "10px 0", fontSize: 14, color: colors.inkSoft, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-          {s.rating_count > 0 ? (
-            <button
-              type="button"
-              onClick={() => setShowBreakdown((v) => !v)}
-              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" }}
-              aria-expanded={showBreakdown}
-            >
-              <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
-            </button>
-          ) : (
-            <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
-          )}
-          <span>
-            {"· "}
-            {s.reliability_percentage != null ? (
-              <>
-                <span style={{ ...money, color: colors.ink }}>{s.reliability_percentage}%</span> αξιοπιστία
-              </>
-            ) : (
-              "νέος στην πλατφόρμα"
-            )}
-          </span>
+        <div style={{ margin: "14px 0" }}>
+          <RatingLine s={s} />
         </div>
 
-        {/* Η ίδια αξιολόγηση σε 6 κατηγορίες — πατώντας πάνω στα αστέρια για
-            να δει κανείς τι κρύβεται πίσω από τον γενικό μέσο όρο, αντί να
-            τον εμπιστευτεί τυφλά ή να τον αγνοήσει επειδή δεν λέει αρκετά.
-            Οι κατηγορίες εξαρτώνται από την ιδιότητα ΑΥΤΟΥ του αποτελέσματος
-            (s.role), όχι από ποια ενότητα το δείχνει. */}
-        {showBreakdown && s.rating_count > 0 && (
-          <div
-            style={{
-              margin: "0 0 10px",
-              padding: "10px 12px",
-              background: colors.bgSoft || "#F7F5F0",
-              borderRadius: 8,
-            }}
-          >
-            {categories.map((c) => (
-              <div
-                key={c.key}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "3px 0" }}
-              >
-                <span style={{ fontSize: 12.5, color: colors.inkSoft }}>{c.label}</span>
-                <Stars rating={s[`rating_avg_${c.key}`]} count={s.rating_count} size={11} showEmptyLabel={false} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Highlights are derived, never self-written — see computeCrewHighlights. */}
         {highlights.length > 0 && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
             {highlights.map((h) => (
               <span key={h} style={{ ...badge("neutral"), fontFamily: "inherit", fontWeight: 400 }}>
                 {h}
@@ -166,11 +181,116 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
           </div>
         )}
 
-        <button style={button(selected ? "primary" : "secondary")} onClick={() => onToggle(s.id)}>
+        <h3 style={{ ...h2, fontSize: 16, margin: "0 0 10px" }}>Αναλυτική αξιολόγηση</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
+          {categories.map((c) => (
+            <div key={c.key}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <span style={{ fontSize: 14, fontWeight: 500 }}>{c.label}</span>
+                <Stars rating={s[`rating_avg_${c.key}`]} count={s.rating_count} size={13} showEmptyLabel={false} />
+              </div>
+              <p style={{ ...muted, fontSize: 12.5, margin: "3px 0 0" }}>{c.hint}</p>
+            </div>
+          ))}
+        </div>
+
+        <button style={{ ...button(selected ? "primary" : "secondary"), width: "100%" }} onClick={() => onToggle(s.id)}>
           {selected ? "✓ Επιλέχθηκε" : "Επιλογή"}
         </button>
       </div>
     </div>
+  );
+}
+
+function ProfessionalCard({ s, selected, onToggle, days }) {
+  const total = days ? s.price_per_day * days : null;
+  const highlights = computeCrewHighlights(s);
+  const [showDetail, setShowDetail] = useState(false);
+  return (
+    <>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setShowDetail(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") setShowDetail(true);
+        }}
+        style={{ ...card, display: "flex", gap: 16, alignItems: "flex-start", cursor: "pointer", boxShadow: shadow.card }}
+      >
+        <div
+          style={{
+            width: 60,
+            height: 60,
+            borderRadius: "50%",
+            background: s.photo_url ? `url(${s.photo_url}) center/cover` : "#EFEFF1",
+            flexShrink: 0,
+          }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <span style={badge(s.tier === "high" ? "success" : s.tier === "low" ? "warn" : "neutral")}>
+                {s.tier === "high" ? "Top βαθμίδα" : s.tier === "low" ? "Νέος" : "Μεσαία βαθμίδα"}
+              </span>
+              {(s.nationality_name || s.languages?.length > 0) && (
+                <div style={{ ...muted, marginTop: 6 }}>
+                  {s.nationality_name}
+                  {s.nationality_name && s.languages?.length > 0 ? " · " : ""}
+                  {s.languages?.join(", ")}
+                </div>
+              )}
+            </div>
+            <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+              <div style={{ ...money, fontSize: 19, fontWeight: 600 }}>
+                {s.price_per_day}€
+                <span style={{ ...muted, fontFamily: "inherit", fontSize: 13 }}> /ημέρα</span>
+              </div>
+              {total != null && (
+                <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
+                  <span style={money}>{total}€</span> για <span style={money}>{days}</span>{" "}
+                  {days === 1 ? "ημέρα" : "ημέρες"}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={{ margin: "10px 0" }}>
+            <RatingLine s={s} />
+          </div>
+
+          {/* Highlights are derived, never self-written — see computeCrewHighlights. */}
+          {highlights.length > 0 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+              {highlights.map((h) => (
+                <span key={h} style={{ ...badge("neutral"), fontFamily: "inherit", fontWeight: 400 }}>
+                  {h}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <button
+              style={button(selected ? "primary" : "secondary")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle(s.id);
+              }}
+            >
+              {selected ? "✓ Επιλέχθηκε" : "Επιλογή"}
+            </button>
+            {/* The only thing on the card that says "there's more behind this"
+                — without it, tapping anywhere else looked identical to tapping
+                nothing at all. */}
+            <span style={{ ...muted, fontSize: 13, color: colors.accent }}>Δες πλήρες προφίλ →</span>
+          </div>
+        </div>
+      </div>
+
+      {showDetail && (
+        <ProfessionalDetailSheet s={s} selected={selected} onToggle={onToggle} onClose={() => setShowDetail(false)} days={days} />
+      )}
+    </>
   );
 }
 
