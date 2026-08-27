@@ -300,7 +300,7 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
 // later, once hostess has been live a while), so keeping them as two
 // independent panels is honest about that rather than implying one checkout
 // covers both.
-function RoleSection({ role, sharedFilters, lookups, fee, session, router, initial, validateShared }) {
+function RoleSection({ role, sharedFilters, lookups, fee, session, router, initial, validateShared, showFullFilters }) {
   const [boatTypeId, setBoatTypeId] = useState("");
   const [boatTypeError, setBoatTypeError] = useState(false);
   const [results, setResults] = useState(null);
@@ -459,39 +459,45 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
           Οι επιλογές σου διατηρήθηκαν — πάτα ξανά «Αποστολή αιτήματος» για να ολοκληρώσεις.
         </p>
       )}
-      <form
-        onSubmit={handleSearch}
-        style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}
-      >
-        {needsBoatType && (
-          <div>
-            <label style={label}>Τύπος σκάφους</label>
-            <select
-              style={boatTypeError ? { ...select, border: `1px solid ${colors.danger}` } : select}
-              value={boatTypeId}
-              onChange={(e) => {
-                setBoatTypeId(e.target.value);
-                setBoatTypeError(false);
-              }}
-            >
-              <option value="">Επιλογή...</option>
-              {lookups.boatTypes.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            {boatTypeError && (
-              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
-            )}
+      {/* Same rule as the shared block above: a boat type that arrived
+          already chosen (the wizard's own "Τι σκάφος;" step) has no reason
+          to be re-asked here too — the whole per-role form only reappears
+          once "Αλλαγή" reopens editing. */}
+      {showFullFilters && (
+        <form
+          onSubmit={handleSearch}
+          style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}
+        >
+          {needsBoatType && (
+            <div>
+              <label style={label}>Τύπος σκάφους</label>
+              <select
+                style={boatTypeError ? { ...select, border: `1px solid ${colors.danger}` } : select}
+                value={boatTypeId}
+                onChange={(e) => {
+                  setBoatTypeId(e.target.value);
+                  setBoatTypeError(false);
+                }}
+              >
+                <option value="">Επιλογή...</option>
+                {lookups.boatTypes.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+              {boatTypeError && (
+                <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+              )}
+            </div>
+          )}
+          <div style={{ alignSelf: "end" }}>
+            <button style={{ ...button("primary"), width: "100%" }} disabled={busy} type="submit">
+              {busy ? "Αναζήτηση..." : "Αναζήτηση"}
+            </button>
           </div>
-        )}
-        <div style={{ alignSelf: "end" }}>
-          <button style={{ ...button("primary"), width: "100%" }} disabled={busy} type="submit">
-            {busy ? "Αναζήτηση..." : "Αναζήτηση"}
-          </button>
-        </div>
-      </form>
+        </form>
+      )}
 
       {error && <p style={{ color: colors.danger }}>{error}</p>}
 
@@ -679,6 +685,7 @@ function SearchPageInner() {
   // free-text field — same pattern as the wizard's own port step.
   const portsInRegion = lookups.ports.filter((p) => p.region_id === filters.regionId);
   const regionName = lookups.regions.find((r) => r.id === filters.regionId)?.name;
+  const boatTypeName = lookups.boatTypes.find((b) => b.id === filters.boatTypeId)?.name;
 
   return (
     <div style={container}>
@@ -840,6 +847,7 @@ function SearchPageInner() {
               {filters.partySize} άτομα
               {" · "}
               Ιδιωτική καμπίνα: {filters.privateCabin ? "Ναι" : "Όχι"}
+              {boatTypeName ? ` · ${boatTypeName}` : ""}
             </span>
           </div>
           <button
@@ -863,6 +871,7 @@ function SearchPageInner() {
           router={router}
           initial={pending && pending.role === role ? pending : null}
           validateShared={validateShared}
+          showFullFilters={showFullFilters}
         />
       ))}
     </div>
