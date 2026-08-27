@@ -82,9 +82,27 @@ export default function CrewSearchFlow() {
   const [partySize, setPartySize] = useState("");
   const [privateCabin, setPrivateCabin] = useState(undefined);
 
+  const [lookupsError, setLookupsError] = useState(false);
+  const [lookupsAttempt, setLookupsAttempt] = useState(0);
+
+  // A failed fetch here (network hiccup, cold start) used to leave the
+  // region/boat steps stuck on "Φόρτωση…" forever with no way out except
+  // reloading the whole page — nothing told the visitor anything had gone
+  // wrong. Retrying just bumps lookupsAttempt to re-run the effect below.
   useEffect(() => {
-    listLookups().then(setLookups).catch(() => {});
-  }, []);
+    let cancelled = false;
+    setLookupsError(false);
+    listLookups()
+      .then((data) => {
+        if (!cancelled) setLookups(data);
+      })
+      .catch(() => {
+        if (!cancelled) setLookupsError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lookupsAttempt]);
 
   // HomeEntry pushed one history entry (step 0) the moment it opened this
   // component — every step forward pushes one more on top, so the device's
@@ -266,7 +284,15 @@ export default function CrewSearchFlow() {
                 {r.name}
               </button>
             ))}
-            {lookups.regions.length === 0 && <p style={muted}>Φόρτωση περιοχών…</p>}
+            {lookups.regions.length === 0 && lookupsError && (
+              <div>
+                <p style={{ ...muted, color: colors.danger }}>Κάτι πήγε στραβά κατά τη φόρτωση των περιοχών.</p>
+                <button type="button" style={chip(false)} onClick={() => setLookupsAttempt((n) => n + 1)}>
+                  Δοκίμασε ξανά
+                </button>
+              </div>
+            )}
+            {lookups.regions.length === 0 && !lookupsError && <p style={muted}>Φόρτωση περιοχών…</p>}
           </div>
         </div>
       )}
@@ -328,7 +354,15 @@ export default function CrewSearchFlow() {
               {b.name}
             </button>
           ))}
-          {lookups.boatTypes.length === 0 && <p style={muted}>Φόρτωση τύπων σκάφους…</p>}
+          {lookups.boatTypes.length === 0 && lookupsError && (
+            <div>
+              <p style={{ ...muted, color: colors.danger }}>Κάτι πήγε στραβά κατά τη φόρτωση των τύπων σκάφους.</p>
+              <button type="button" style={chip(false)} onClick={() => setLookupsAttempt((n) => n + 1)}>
+                Δοκίμασε ξανά
+              </button>
+            </div>
+          )}
+          {lookups.boatTypes.length === 0 && !lookupsError && <p style={muted}>Φόρτωση τύπων σκάφους…</p>}
         </div>
       )}
 
