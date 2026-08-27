@@ -100,16 +100,6 @@ function RatingLine({ s }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontSize: 14, color: colors.inkSoft }}>
       <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
-      <span>
-        {"· "}
-        {s.reliability_percentage != null ? (
-          <>
-            <span style={{ ...money, color: colors.ink }}>{s.reliability_percentage}%</span> αξιοπιστία
-          </>
-        ) : (
-          "νέος στην πλατφόρμα"
-        )}
-      </span>
     </div>
   );
 }
@@ -155,10 +145,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
             }}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <span style={badge(s.tier === "high" ? "success" : s.tier === "low" ? "warn" : "neutral")}>
-              {s.tier === "high" ? "Top βαθμίδα" : s.tier === "low" ? "Νέος" : "Μεσαία βαθμίδα"}
-            </span>
-            {identityLine(s) && <div style={{ ...muted, marginTop: 6 }}>{identityLine(s)}</div>}
+            {identityLine(s) && <div style={muted}>{identityLine(s)}</div>}
             <div style={{ ...money, fontSize: 19, fontWeight: 600, marginTop: 6 }}>
               {s.price_per_day}€
               <span style={{ ...muted, fontFamily: "inherit", fontSize: 13 }}> /ημέρα</span>
@@ -233,12 +220,7 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
-            <div>
-              <span style={badge(s.tier === "high" ? "success" : s.tier === "low" ? "warn" : "neutral")}>
-                {s.tier === "high" ? "Top βαθμίδα" : s.tier === "low" ? "Νέος" : "Μεσαία βαθμίδα"}
-              </span>
-              {identityLine(s) && <div style={{ ...muted, marginTop: 6 }}>{identityLine(s)}</div>}
-            </div>
+            <div>{identityLine(s) && <div style={muted}>{identityLine(s)}</div>}</div>
             <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
               <div style={{ ...money, fontSize: 19, fontWeight: 600 }}>
                 {s.price_per_day}€
