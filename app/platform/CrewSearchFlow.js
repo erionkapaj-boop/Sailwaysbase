@@ -5,7 +5,7 @@ import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
 import { Mark } from "./components/Logo";
-import { button, colors, muted, radius, h2 } from "../../lib/platform/theme";
+import { button, colors, input, muted, radius, h2 } from "../../lib/platform/theme";
 
 // Progressive disclosure (brief §4): one question on screen at a time, gentle
 // fade/slide between them — never the whole form at once.
@@ -55,7 +55,7 @@ export default function CrewSearchFlow({ onCancel }) {
   const [roles, setRoles] = useState([]);
   const [dates, setDates] = useState({ start: "", end: "" });
   const [regionId, setRegionId] = useState("");
-  const [portId, setPortId] = useState("");
+  const [departurePoint, setDeparturePoint] = useState("");
 
   useEffect(() => {
     listLookups().then(setLookups).catch(() => {});
@@ -76,23 +76,17 @@ export default function CrewSearchFlow({ onCancel }) {
     setRoles((prev) => (prev.includes(key) ? prev.filter((r) => r !== key) : [...prev, key]));
   }
 
-  // portOverride exists because the port step, when it's the last one (no
-  // "boat" step after it), calls finish() in the same handler that sets
-  // portId — and state set there isn't visible yet through the closure.
-  function finish(boatTypeId, portOverride) {
+  function finish(boatTypeId) {
     const params = new URLSearchParams({
       roles: roles.join(","),
       start: dates.start,
       end: dates.end,
-      port: portOverride ?? portId,
+      region: regionId,
+      point: departurePoint.trim(),
       boat: boatTypeId || "",
     });
     router.push(`/platform/search?${params.toString()}`);
   }
-
-  // The region step already narrowed this down — no need to re-group by
-  // region here, just the ports that actually belong to the chosen one.
-  const portsInRegion = lookups.ports.filter((p) => p.region_id === regionId);
 
   const current = STEPS[step];
 
@@ -207,7 +201,7 @@ export default function CrewSearchFlow({ onCancel }) {
                 style={option(regionId === r.id)}
                 onClick={() => {
                   setRegionId(r.id);
-                  setPortId("");
+                  setDeparturePoint("");
                   next();
                 }}
               >
@@ -221,28 +215,30 @@ export default function CrewSearchFlow({ onCancel }) {
 
       {current === "port" && (
         <div key="port" data-sf-step style={stepWrap}>
-          <StepHeading>Από ποιο λιμάνι;</StepHeading>
-          <div style={{ maxHeight: 380, overflowY: "auto", marginBottom: 20 }}>
-            {portsInRegion.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                style={option(portId === p.id)}
-                onClick={() => {
-                  setPortId(p.id);
-                  // "boat" is only in STEPS when the search includes
-                  // skipper — otherwise port is the last question, so
-                  // finish straight from here instead of advancing into
-                  // a step that isn't there.
-                  if (STEPS.includes("boat")) next();
-                  else finish(null, p.id);
-                }}
-              >
-                {p.name}
-              </button>
-            ))}
-            {portsInRegion.length === 0 && <p style={muted}>Δεν υπάρχουν λιμάνια σε αυτή την περιοχή ακόμα.</p>}
-          </div>
+          <StepHeading>Από πού φεύγεις;</StepHeading>
+          <p style={{ ...muted, fontSize: 13, margin: "-8px 0 14px" }}>
+            Γράψε το ακριβές σημείο αναχώρησης — λιμάνι, όρμος, ό,τι θέλεις
+            (π.χ. Άλιμος, Αίγινα).
+          </p>
+          <input
+            type="text"
+            autoFocus
+            style={{ ...input, marginBottom: 20 }}
+            placeholder="π.χ. Άλιμος"
+            value={departurePoint}
+            onChange={(e) => setDeparturePoint(e.target.value)}
+          />
+          <button
+            type="button"
+            disabled={!departurePoint.trim()}
+            // "boat" is only in STEPS when the search includes skipper —
+            // otherwise this is the last question, so finish straight from
+            // here instead of advancing into a step that isn't there.
+            onClick={() => (STEPS.includes("boat") ? next() : finish(null))}
+            style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15 }}
+          >
+            Συνέχεια
+          </button>
         </div>
       )}
 

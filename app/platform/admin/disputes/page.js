@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
-import { adminListCancellationReports, adminResolveReport } from "../../../../lib/platform/db";
+import { adminListCancellationReports, adminResolveReport, departureLabel } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
 
 export default function DisputesPage() {
@@ -57,7 +57,7 @@ export default function DisputesPage() {
           <div key={r.id} style={{ borderBottom: `1px solid ${colors.border}`, padding: "14px 16px", background: "#FBF6EC" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <RowMain
-                title={`${r.bookings?.ports?.name || "Κράτηση"} · υπαίτιος: ${
+                title={`${r.bookings ? departureLabel(r.bookings) : "Κράτηση"} · υπαίτιος: ${
                   r.at_fault_party === "client" ? "πελάτης" : "επαγγελματίας"
                 }`}
                 meta={
@@ -102,7 +102,7 @@ export default function DisputesPage() {
         {done.map((r) => (
           <Row key={r.id}>
             <RowMain
-              title={r.bookings?.ports?.name || "Κράτηση"}
+              title={r.bookings ? departureLabel(r.bookings) : "Κράτηση"}
               meta={r.resolution_note || r.reason}
             />
             <span style={{ ...muted, fontSize: 11.5, flexShrink: 0 }}>{timeAgo(r.resolved_at)}</span>

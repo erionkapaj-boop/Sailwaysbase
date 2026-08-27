@@ -201,7 +201,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
       const data = await searchSkippers({
         startDate: sharedFilters.startDate,
         endDate: sharedFilters.endDate,
-        portId: sharedFilters.portId,
+        regionId: sharedFilters.regionId,
         boatTypeId: needsBoatType ? boatTypeId : null,
         crewRole: role,
         languageId: sharedFilters.languageId || null,
@@ -219,7 +219,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   }, [
     sharedFilters.startDate,
     sharedFilters.endDate,
-    sharedFilters.portId,
+    sharedFilters.regionId,
     sharedFilters.languageId,
     needsBoatType,
     boatTypeId,
@@ -227,7 +227,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   ]);
 
   const hasCompleteIncoming = Boolean(
-    sharedFilters.startDate && sharedFilters.endDate && sharedFilters.portId && (!needsBoatType || sharedFilters.boatTypeId)
+    sharedFilters.startDate && sharedFilters.endDate && sharedFilters.regionId && (!needsBoatType || sharedFilters.boatTypeId)
   );
   useEffect(() => {
     if (hasCompleteIncoming) {
@@ -264,7 +264,8 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
         filters: {
           startDate: sharedFilters.startDate,
           endDate: sharedFilters.endDate,
-          portId: sharedFilters.portId,
+          regionId: sharedFilters.regionId,
+          departurePoint: sharedFilters.departurePoint || "",
           boatTypeId: needsBoatType ? boatTypeId : "",
           languageId: sharedFilters.languageId || "",
           partySize: sharedFilters.partySize,
@@ -281,7 +282,8 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
       const request = await createBookingRequest({
         startDate: sharedFilters.startDate,
         endDate: sharedFilters.endDate,
-        portId: sharedFilters.portId,
+        regionId: sharedFilters.regionId,
+        departurePoint: sharedFilters.departurePoint,
         boatTypeId: needsBoatType ? boatTypeId : null,
         maxPriceFilter: null,
         crewRole: role,
@@ -405,7 +407,8 @@ function SearchPageInner() {
   const incoming = {
     startDate: params.get("start") || "",
     endDate: params.get("end") || "",
-    portId: params.get("port") || "",
+    regionId: params.get("region") || "",
+    departurePoint: params.get("point") || "",
     boatTypeId: params.get("boat") || "",
     languageId: params.get("lang") || "",
   };
@@ -415,7 +418,7 @@ function SearchPageInner() {
   // and trips a hydration mismatch. Starts null on every render up to and
   // including hydration; the effect below is what actually resolves it.
   const [pending, setPending] = useState(null);
-  const [lookups, setLookups] = useState({ ports: [], boatTypes: [], languages: [] });
+  const [lookups, setLookups] = useState({ ports: [], boatTypes: [], languages: [], regions: [] });
   const [filters, setFilters] = useState(incoming);
   const [fee, setFee] = useState(null);
 
@@ -470,20 +473,31 @@ function SearchPageInner() {
           />
         </div>
         <div>
-          <label style={label}>Λιμάνι/Περιοχή</label>
+          <label style={label}>Περιοχή</label>
           <select
             style={select}
             required
-            value={filters.portId}
-            onChange={(e) => setFilters((f) => ({ ...f, portId: e.target.value }))}
+            value={filters.regionId}
+            onChange={(e) => setFilters((f) => ({ ...f, regionId: e.target.value }))}
           >
             <option value="">Επιλογή...</option>
-            {lookups.ports.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.regions?.name})
+            {lookups.regions.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label style={label}>Λιμάνι αναχώρησης</label>
+          <input
+            type="text"
+            required
+            style={input}
+            placeholder="π.χ. Άλιμος"
+            value={filters.departurePoint || ""}
+            onChange={(e) => setFilters((f) => ({ ...f, departurePoint: e.target.value }))}
+          />
         </div>
         <div>
           <label style={label}>Γλώσσα (προαιρετικό)</label>

@@ -11,6 +11,7 @@ import {
   adminSetTestAccount,
   adminSetStaffAdmin,
   loginAsTestAccount,
+  departureLabel,
 } from "../../../../../lib/platform/db";
 import { computeCrewHighlights } from "../../../../../lib/platform/roles";
 import Stat from "../../../components/Stat";
@@ -255,7 +256,7 @@ export default function AdminUserViewPage() {
                   key={r.id}
                   left={
                     <>
-                      {r.ports?.name} · <span style={money}>{r.start_date}</span> →{" "}
+                      {departureLabel(r)} · <span style={money}>{r.start_date}</span> →{" "}
                       <span style={money}>{r.end_date}</span>
                     </>
                   }
@@ -270,7 +271,7 @@ export default function AdminUserViewPage() {
                   key={b.id}
                   left={
                     <>
-                      {b.ports?.name} · <span style={money}>{b.start_date}</span> →{" "}
+                      {departureLabel(b)} · <span style={money}>{b.start_date}</span> →{" "}
                       <span style={money}>{b.end_date}</span>
                     </>
                   }
@@ -379,11 +380,7 @@ export default function AdminUserViewPage() {
                   </div>
                   <div style={{ marginTop: 8 }}>
                     <Chips
-                      items={
-                        w.all_ports
-                          ? ["Από οπουδήποτε"]
-                          : (w.availability_window_ports || []).map((p) => p.ports?.name).filter(Boolean)
-                      }
+                      items={(w.availability_window_regions || []).map((r) => r.regions?.name).filter(Boolean)}
                     />
                   </div>
                 </div>
@@ -396,7 +393,7 @@ export default function AdminUserViewPage() {
                   key={p.id}
                   left={
                     <>
-                      {p.booking_requests?.ports?.name} ·{" "}
+                      {departureLabel(p.booking_requests)} ·{" "}
                       <span style={money}>{p.booking_requests?.start_date}</span> →{" "}
                       <span style={money}>{p.booking_requests?.end_date}</span>
                     </>
@@ -412,7 +409,7 @@ export default function AdminUserViewPage() {
                   key={b.id}
                   left={
                     <>
-                      {b.ports?.name} · <span style={money}>{b.start_date}</span> →{" "}
+                      {departureLabel(b)} · <span style={money}>{b.start_date}</span> →{" "}
                       <span style={money}>{b.end_date}</span>
                     </>
                   }

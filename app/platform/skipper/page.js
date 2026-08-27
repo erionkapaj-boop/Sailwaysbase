@@ -9,6 +9,7 @@ import {
   listMyBookingsAsSkipper,
   getMyStanding,
   getPlatformSetting,
+  departureLabel,
 } from "../../../lib/platform/db";
 import AvailabilityCalendar from "./AvailabilityCalendar";
 import MissingProfile from "./MissingProfile";
@@ -139,7 +140,7 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
         <div>
           <div style={{ fontWeight: 500, fontSize: 15 }}>
-            {r.ports?.name} · {r.boat_types?.name}
+            {departureLabel(r)} · {r.boat_types?.name}
           </div>
           {(r.party_size != null || r.private_cabin != null) && (
             <p style={{ ...muted, fontSize: 13, margin: "2px 0 0" }}>

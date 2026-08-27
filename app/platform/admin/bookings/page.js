@@ -3,7 +3,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
-import { adminListBookings } from "../../../../lib/platform/db";
+import { adminListBookings, departureLabel } from "../../../../lib/platform/db";
 
 const FILTERS = [
   ["upcoming", "Επερχόμενες"],
@@ -75,7 +75,7 @@ function BookingsInner() {
         {list.map((b) => (
           <Row key={b.id}>
             <RowMain
-              title={`${b.ports?.name || "—"}${b.boat_types?.name ? " · " + b.boat_types.name : ""}`}
+              title={`${departureLabel(b)}${b.boat_types?.name ? " · " + b.boat_types.name : ""}`}
               meta={
                 <>
                   <span style={money}>{b.start_date}</span> → <span style={money}>{b.end_date}</span>

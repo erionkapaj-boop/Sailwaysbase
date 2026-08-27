@@ -7,6 +7,7 @@ import {
   listMyBookingsAsClient,
   createMissingProfile,
   getMyClientProfile,
+  departureLabel,
 } from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
 import PendingReviewBanner from "../components/PendingReviewBanner";
@@ -176,7 +177,7 @@ function ClientDashboardInner() {
             <div key={r.id} style={card}>
               <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                 <span style={{ fontWeight: 500 }}>
-                  {r.ports?.name} · {r.boat_types?.name}
+                  {departureLabel(r)} · {r.boat_types?.name}
                 </span>
                 <span style={badge(REQ_STATUS[r.status]?.[1] || "neutral")}>{REQ_STATUS[r.status]?.[0] || r.status}</span>
               </div>
@@ -219,7 +220,7 @@ function ClientDashboardInner() {
               <div key={r.id} style={{ ...card, opacity: 0.75 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                   <span>
-                    {r.ports?.name} · <span style={money}>{r.start_date}</span> →{" "}
+                    {departureLabel(r)} · <span style={money}>{r.start_date}</span> →{" "}
                     <span style={money}>{r.end_date}</span>
                   </span>
                   <span style={badge(REQ_STATUS[r.status]?.[1] || "neutral")}>{REQ_STATUS[r.status]?.[0] || r.status}</span>

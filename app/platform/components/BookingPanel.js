@@ -10,6 +10,7 @@ import {
   replyToReview,
   listReviewsForBooking,
   getBookingCounterpart,
+  departureLabel,
 } from "../../../lib/platform/db";
 import { card, muted, button, input, select, badge, colors, money, radius } from "../../../lib/platform/theme";
 import { formatDateTime } from "../../../lib/platform/notifications";
@@ -168,7 +169,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
         }}
       >
         <span style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 14, fontWeight: 500 }}>{booking.ports?.name}</span>
+          <span style={{ fontSize: 14, fontWeight: 500 }}>{departureLabel(booking)}</span>
           <span style={{ ...money, fontSize: 13, color: colors.inkSoft }}>
             {booking.start_date} → {booking.end_date}
           </span>
