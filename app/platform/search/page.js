@@ -180,8 +180,9 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
 // later, once hostess has been live a while), so keeping them as two
 // independent panels is honest about that rather than implying one checkout
 // covers both.
-function RoleSection({ role, sharedFilters, lookups, fee, session, router, initial }) {
+function RoleSection({ role, sharedFilters, lookups, fee, session, router, initial, validateShared }) {
   const [boatTypeId, setBoatTypeId] = useState("");
+  const [boatTypeError, setBoatTypeError] = useState(false);
   const [results, setResults] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [busy, setBusy] = useState(false);
@@ -262,6 +263,15 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
 
   async function handleSearch(e) {
     e.preventDefault();
+    // All the shared fields (dates, region, departure point, party size,
+    // private cabin) plus this section's own boat type (skipper only) must
+    // be filled before a search runs — otherwise whoever gets this far ends
+    // up on the broadcast step still missing something. Whatever's empty is
+    // flagged in place instead of just failing later.
+    const sharedOk = validateShared();
+    const boatMissing = needsBoatType && !boatTypeId;
+    setBoatTypeError(boatMissing);
+    if (!sharedOk || boatMissing) return;
     await runSearch();
   }
 
@@ -336,7 +346,14 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
         {needsBoatType && (
           <div>
             <label style={label}>Τύπος σκάφους</label>
-            <select style={select} required value={boatTypeId} onChange={(e) => setBoatTypeId(e.target.value)}>
+            <select
+              style={boatTypeError ? { ...select, border: `1px solid ${colors.danger}` } : select}
+              value={boatTypeId}
+              onChange={(e) => {
+                setBoatTypeId(e.target.value);
+                setBoatTypeError(false);
+              }}
+            >
               <option value="">Επιλογή...</option>
               {lookups.boatTypes.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -344,6 +361,9 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
                 </option>
               ))}
             </select>
+            {boatTypeError && (
+              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+            )}
           </div>
         )}
         <div style={{ alignSelf: "end" }}>
@@ -441,6 +461,35 @@ function SearchPageInner() {
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], languages: [], regions: [] });
   const [filters, setFilters] = useState(incoming);
   const [fee, setFee] = useState(null);
+  // Which shared fields are missing the moment "Αναζήτηση" is pressed — not
+  // updated live as the user types elsewhere, only cleared field-by-field as
+  // each one gets filled in (see clearFieldError), so fixing one doesn't
+  // silently blank out the flags on the others.
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  function clearFieldError(key) {
+    setFieldErrors((e) => {
+      if (!e[key]) return e;
+      const next = { ...e };
+      delete next[key];
+      return next;
+    });
+  }
+
+  // Every shared field is required before a search can run — language stays
+  // exempt, it's explicitly optional. Whatever's missing is flagged so the
+  // form points at exactly what still needs filling in, rather than the
+  // search just quietly doing nothing or failing later at broadcast time.
+  function validateShared() {
+    const errors = {};
+    if (!filters.startDate || !filters.endDate) errors.dates = true;
+    if (!filters.regionId) errors.regionId = true;
+    if (!filters.departurePoint || !filters.departurePoint.trim()) errors.departurePoint = true;
+    if (!filters.partySize) errors.partySize = true;
+    if (filters.privateCabin === undefined) errors.privateCabin = true;
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
 
   useEffect(() => {
     const p = takePendingBroadcast();
@@ -488,21 +537,34 @@ function SearchPageInner() {
       )}
 
       <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
-        <div style={{ gridColumn: "1 / -1" }}>
+        <div
+          style={{
+            gridColumn: "1 / -1",
+            ...(fieldErrors.dates ? { border: `1px solid ${colors.danger}`, borderRadius: radius.md, padding: 10 } : {}),
+          }}
+        >
           <label style={label}>Ημερομηνίες</label>
           <DateRangeCalendar
             startDate={filters.startDate}
             endDate={filters.endDate}
-            onChange={({ startDate, endDate }) => setFilters((f) => ({ ...f, startDate, endDate }))}
+            onChange={({ startDate, endDate }) => {
+              setFilters((f) => ({ ...f, startDate, endDate }));
+              clearFieldError("dates");
+            }}
           />
+          {fieldErrors.dates && (
+            <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "6px 0 0" }}>Επίλεξε ημερομηνίες.</p>
+          )}
         </div>
         <div>
           <label style={label}>Περιοχή</label>
           <select
-            style={select}
-            required
+            style={fieldErrors.regionId ? { ...select, border: `1px solid ${colors.danger}` } : select}
             value={filters.regionId}
-            onChange={(e) => setFilters((f) => ({ ...f, regionId: e.target.value }))}
+            onChange={(e) => {
+              setFilters((f) => ({ ...f, regionId: e.target.value }));
+              clearFieldError("regionId");
+            }}
           >
             <option value="">Επιλογή...</option>
             {lookups.regions.map((r) => (
@@ -511,6 +573,9 @@ function SearchPageInner() {
               </option>
             ))}
           </select>
+          {fieldErrors.regionId && (
+            <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+          )}
         </div>
         <div style={portsInRegion.length > 0 ? { gridColumn: "1 / -1" } : undefined}>
           <label style={label}>Λιμάνι αναχώρησης</label>
@@ -521,7 +586,10 @@ function SearchPageInner() {
                   key={p.id}
                   type="button"
                   style={chip(filters.departurePoint === p.name)}
-                  onClick={() => setFilters((f) => ({ ...f, departurePoint: p.name }))}
+                  onClick={() => {
+                    setFilters((f) => ({ ...f, departurePoint: p.name }));
+                    clearFieldError("departurePoint");
+                  }}
                 >
                   {p.name}
                 </button>
@@ -530,12 +598,17 @@ function SearchPageInner() {
           )}
           <input
             type="text"
-            required
-            style={input}
+            style={fieldErrors.departurePoint ? { ...input, border: `1px solid ${colors.danger}` } : input}
             placeholder="π.χ. Καλλιθέα"
             value={filters.departurePoint || ""}
-            onChange={(e) => setFilters((f) => ({ ...f, departurePoint: e.target.value }))}
+            onChange={(e) => {
+              setFilters((f) => ({ ...f, departurePoint: e.target.value }));
+              clearFieldError("departurePoint");
+            }}
           />
+          {fieldErrors.departurePoint && (
+            <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+          )}
         </div>
         <div>
           <label style={label}>Γλώσσα (προαιρετικό)</label>
@@ -557,24 +630,34 @@ function SearchPageInner() {
           <input
             type="number"
             min={1}
-            required
-            style={input}
+            style={fieldErrors.partySize ? { ...input, border: `1px solid ${colors.danger}` } : input}
             value={filters.partySize || ""}
-            onChange={(e) => setFilters((f) => ({ ...f, partySize: e.target.value }))}
+            onChange={(e) => {
+              setFilters((f) => ({ ...f, partySize: e.target.value }));
+              clearFieldError("partySize");
+            }}
           />
+          {fieldErrors.partySize && (
+            <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+          )}
         </div>
         <div>
           <label style={label}>Ιδιωτική καμπίνα για τον επαγγελματία</label>
           <select
-            style={select}
-            required
+            style={fieldErrors.privateCabin ? { ...select, border: `1px solid ${colors.danger}` } : select}
             value={filters.privateCabin === undefined ? "" : String(filters.privateCabin)}
-            onChange={(e) => setFilters((f) => ({ ...f, privateCabin: e.target.value === "true" }))}
+            onChange={(e) => {
+              setFilters((f) => ({ ...f, privateCabin: e.target.value === "true" }));
+              clearFieldError("privateCabin");
+            }}
           >
             <option value="">Επιλογή...</option>
             <option value="true">Ναι</option>
             <option value="false">Όχι</option>
           </select>
+          {fieldErrors.privateCabin && (
+            <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+          )}
         </div>
       </div>
 
@@ -588,6 +671,7 @@ function SearchPageInner() {
           session={session}
           router={router}
           initial={pending && pending.role === role ? pending : null}
+          validateShared={validateShared}
         />
       ))}
     </div>
