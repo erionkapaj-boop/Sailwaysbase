@@ -141,6 +141,13 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
           <div style={{ fontWeight: 500, fontSize: 15 }}>
             {r.ports?.name} · {r.boat_types?.name}
           </div>
+          {(r.party_size != null || r.private_cabin != null) && (
+            <p style={{ ...muted, fontSize: 13, margin: "2px 0 0" }}>
+              {r.party_size != null && <>Άτομα: {r.party_size}</>}
+              {r.party_size != null && r.private_cabin != null ? " · " : ""}
+              {r.private_cabin != null && <>Ιδιωτική καμπίνα: {r.private_cabin ? "Ναι" : "Όχι"}</>}
+            </p>
+          )}
           <p style={{ ...muted, margin: "6px 0 0" }}>
             <span style={money}>{r.start_date}</span> → <span style={money}>{r.end_date}</span>
           </p>

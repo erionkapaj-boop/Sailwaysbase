@@ -251,6 +251,10 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   }
 
   async function handleBroadcast() {
+    if (!sharedFilters.partySize || sharedFilters.privateCabin === undefined) {
+      setError("Συμπλήρωσε αριθμό ατόμων και ιδιωτική καμπίνα πριν στείλεις το αίτημα.");
+      return;
+    }
     if (!session) {
       // Nothing below this point has run yet — no request exists, nobody was
       // charged. Save the pick so the trip through login (or register → OTP
@@ -263,6 +267,8 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
           portId: sharedFilters.portId,
           boatTypeId: needsBoatType ? boatTypeId : "",
           languageId: sharedFilters.languageId || "",
+          partySize: sharedFilters.partySize,
+          privateCabin: sharedFilters.privateCabin,
         },
         selected: Array.from(selected),
       });
@@ -279,6 +285,8 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
         boatTypeId: needsBoatType ? boatTypeId : null,
         maxPriceFilter: null,
         crewRole: role,
+        partySize: Number(sharedFilters.partySize),
+        privateCabin: sharedFilters.privateCabin,
       });
       await payAndBroadcast(request.id, Array.from(selected));
       setBroadcastDone(true);
@@ -472,7 +480,7 @@ function SearchPageInner() {
             <option value="">Επιλογή...</option>
             {lookups.ports.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name} ({p.region})
+                {p.name} ({p.regions?.name})
               </option>
             ))}
           </select>
@@ -490,6 +498,30 @@ function SearchPageInner() {
                 {l.name}
               </option>
             ))}
+          </select>
+        </div>
+        <div>
+          <label style={label}>Αριθμός ατόμων</label>
+          <input
+            type="number"
+            min={1}
+            required
+            style={input}
+            value={filters.partySize || ""}
+            onChange={(e) => setFilters((f) => ({ ...f, partySize: e.target.value }))}
+          />
+        </div>
+        <div>
+          <label style={label}>Ιδιωτική καμπίνα για τον επαγγελματία</label>
+          <select
+            style={select}
+            required
+            value={filters.privateCabin === undefined ? "" : String(filters.privateCabin)}
+            onChange={(e) => setFilters((f) => ({ ...f, privateCabin: e.target.value === "true" }))}
+          >
+            <option value="">Επιλογή...</option>
+            <option value="true">Ναι</option>
+            <option value="false">Όχι</option>
           </select>
         </div>
       </div>

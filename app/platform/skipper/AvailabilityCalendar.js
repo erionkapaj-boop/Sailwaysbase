@@ -61,7 +61,7 @@ const chip = (active) => ({
 export default function AvailabilityCalendar({ skipperId, bookings = [], onChanged }) {
   const [windows, setWindows] = useState([]);
   const [blocks, setBlocks] = useState([]);
-  const [ports, setPorts] = useState([]);
+  const [regions, setRegions] = useState([]);
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   // "open" declares availability, "close" carves days out of it. An explicit
   // mode beats overloading the same tap, since the two produce opposite
@@ -70,8 +70,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   const [selStart, setSelStart] = useState(null);
   const [detail, setDetail] = useState(null); // date string
   const [sheet, setSheet] = useState(null); // { startDate, endDate, bulk }
-  const [sheetAllPorts, setSheetAllPorts] = useState(false);
-  const [sheetPortIds, setSheetPortIds] = useState([]);
+  const [sheetRegionIds, setSheetRegionIds] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -86,7 +85,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   }
   useEffect(() => {
     load();
-    listLookups().then((l) => setPorts(l.ports)).catch(() => {});
+    listLookups().then((l) => setRegions(l.regions)).catch(() => {});
   }, [skipperId]);
 
   const today = fmt(new Date());
@@ -113,24 +112,22 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
     if (windowsFor(dateStr).length > 0) return "available";
     return "empty";
   }
-  // Identifies which window(s)/ports cover a day, so consecutive days that
+  // Identifies which window(s)/regions cover a day, so consecutive days that
   // belong to the same declared block can be told apart from a boundary
-  // into a different one (different ports, or a gap).
+  // into a different one (different regions, or a gap).
   function daySignature(dateStr) {
     const ws = windowsFor(dateStr);
     if (ws.length === 0) return null;
-    if (ws.some((w) => w.all_ports)) return "ALL";
     const names = [
-      ...new Set(ws.flatMap((w) => (w.availability_window_ports || []).map((p) => p.ports?.name).filter(Boolean))),
+      ...new Set(ws.flatMap((w) => (w.availability_window_regions || []).map((r) => r.regions?.name).filter(Boolean))),
     ].sort();
     return names.join(",");
   }
   function dayLabel(dateStr) {
     const ws = windowsFor(dateStr);
     if (ws.length === 0) return null;
-    if (ws.some((w) => w.all_ports)) return "Παντού";
     const names = [
-      ...new Set(ws.flatMap((w) => (w.availability_window_ports || []).map((p) => p.ports?.name).filter(Boolean))),
+      ...new Set(ws.flatMap((w) => (w.availability_window_regions || []).map((r) => r.regions?.name).filter(Boolean))),
     ];
     if (names.length === 0) return null;
     return names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
@@ -243,8 +240,8 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   }
 
   async function confirmSheet() {
-    if (!sheetAllPorts && sheetPortIds.length === 0) {
-      setError("Διάλεξε τουλάχιστον ένα λιμάνι, ή «Από οπουδήποτε».");
+    if (sheetRegionIds.length === 0) {
+      setError("Διάλεξε τουλάχιστον μία περιοχή.");
       return;
     }
     setBusy(true);
@@ -256,7 +253,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         return;
       }
       for (const [startDate, endDate] of ranges) {
-        await addAvailabilityWindow(skipperId, { startDate, endDate, allPorts: sheetAllPorts, portIds: sheetPortIds });
+        await addAvailabilityWindow(skipperId, { startDate, endDate, regionIds: sheetRegionIds });
       }
       closeSheet();
       await load();
@@ -269,8 +266,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   }
   function closeSheet() {
     setSheet(null);
-    setSheetAllPorts(false);
-    setSheetPortIds([]);
+    setSheetRegionIds([]);
   }
 
   async function removeWindow(id) {
@@ -294,10 +290,6 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   for (let i = 0; i < offset; i++) gridDays.push(null);
   for (let d = 1; d <= last.getDate(); d++) gridDays.push(new Date(month.getFullYear(), month.getMonth(), d));
 
-  const portsByRegion = ports.reduce((acc, p) => {
-    (acc[p.region || "Άλλα"] ||= []).push(p);
-    return acc;
-  }, {});
 
   return (
     <div style={{ ...card, position: "relative" }}>
@@ -508,7 +500,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                   {w.start_date} → {w.end_date}
                   <br />
                   <span style={{ ...muted, fontSize: 12 }}>
-                    {w.all_ports ? "Από οπουδήποτε" : (w.availability_window_ports || []).map((p) => p.ports?.name).join(", ")}
+                    {(w.availability_window_regions || []).map((r) => r.regions?.name).join(", ")}
                   </span>
                 </span>
                 <button type="button" disabled={busy} style={{ ...button("secondary"), padding: "6px 10px", fontSize: 12 }} onClick={() => removeWindow(w.id)}>
@@ -561,39 +553,34 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
             <h3 style={{ ...sectionLabel, margin: "0 0 10px" }}>
               {sheet.bulk ? `Όλος ο ${MONTH_NAMES[month.getMonth()]}` : `${sheet.startDate} → ${sheet.endDate}`}
             </h3>
+            <p style={{ ...muted, fontSize: 13, margin: "0 0 10px" }}>
+              Διάλεξε τις περιοχές όπου είσαι διαθέσιμος/η — όχι συγκεκριμένα λιμάνια. Ένας πελάτης που ζητά ένα
+              λιμάνι μέσα σε μια από αυτές τις περιοχές θα σε βρίσκει, ακόμα κι αν δεν έχεις δηλώσει ποτέ εκείνο το
+              λιμάνι.
+            </p>
             <button
               type="button"
-              style={{ ...chip(sheetAllPorts), marginBottom: 10 }}
-              onClick={() => {
-                setSheetAllPorts((v) => !v);
-                setSheetPortIds([]);
-              }}
+              style={{ ...chip(regions.length > 0 && sheetRegionIds.length === regions.length), marginBottom: 10 }}
+              onClick={() =>
+                setSheetRegionIds((ids) => (ids.length === regions.length ? [] : regions.map((r) => r.id)))
+              }
             >
-              Από οπουδήποτε
+              Όλες οι περιοχές
             </button>
-            {!sheetAllPorts && (
-              <div style={{ maxHeight: 240, overflowY: "auto" }}>
-                {Object.entries(portsByRegion).map(([region, list]) => (
-                  <div key={region} style={{ marginBottom: 10 }}>
-                    <div style={{ ...muted, fontSize: 12, marginBottom: 6 }}>{region}</div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {list.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          style={chip(sheetPortIds.includes(p.id))}
-                          onClick={() =>
-                            setSheetPortIds((ids) => (ids.includes(p.id) ? ids.filter((x) => x !== p.id) : [...ids, p.id]))
-                          }
-                        >
-                          {p.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {regions.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  style={chip(sheetRegionIds.includes(r.id))}
+                  onClick={() =>
+                    setSheetRegionIds((ids) => (ids.includes(r.id) ? ids.filter((x) => x !== r.id) : [...ids, r.id]))
+                  }
+                >
+                  {r.name}
+                </button>
+              ))}
+            </div>
             {error && <p style={{ color: colors.danger, fontSize: 13, marginTop: 10 }}>{error}</p>}
             <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
               <button type="button" disabled={busy} style={{ ...button("primary"), flex: 1 }} onClick={confirmSheet}>

@@ -85,7 +85,7 @@ export default function CrewSearchFlow({ onCancel }) {
   // Ports arrive ordered by tier then region from the query; group them so the
   // list reads by area instead of as one long flat run.
   const portsByRegion = lookups.ports.reduce((acc, p) => {
-    const key = p.region || "Άλλα";
+    const key = p.regions?.name || "Άλλα";
     (acc[key] ||= []).push(p);
     return acc;
   }, {});
