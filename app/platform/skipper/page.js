@@ -201,6 +201,13 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
                   ))}
                 </div>
               )}
+              {(cp?.nationalities?.name || cp?.client_languages?.length > 0) && (
+                <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
+                  {cp?.nationalities?.name}
+                  {cp?.nationalities?.name && cp?.client_languages?.length > 0 ? " · " : ""}
+                  {cp?.client_languages?.map((cl) => cl.languages?.name).filter(Boolean).join(", ")}
+                </p>
+              )}
             </>
           )}
           {/* Το ποσό δίπλα στην απόφαση, όχι στο πορτοφόλι μετά. */}

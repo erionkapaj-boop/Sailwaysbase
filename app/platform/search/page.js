@@ -71,6 +71,13 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
               {s.gender ? `${s.gender} · ` : ""}
               <span style={money}>{s.years_experience}</span> χρόνια εμπειρίας
             </div>
+            {(s.nationality_name || s.languages?.length > 0) && (
+              <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
+                {s.nationality_name}
+                {s.nationality_name && s.languages?.length > 0 ? " · " : ""}
+                {s.languages?.join(", ")}
+              </div>
+            )}
           </div>
           <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
             <div style={{ ...money, fontSize: 19, fontWeight: 600 }}>
@@ -204,6 +211,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
         boatTypeId: needsBoatType ? boatTypeId : null,
         gender,
         crewRole: role,
+        languageId: sharedFilters.languageId || null,
       });
       setResults(data);
       if (pendingSelectedRef.current) {
@@ -215,7 +223,16 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
     } finally {
       setBusy(false);
     }
-  }, [sharedFilters.startDate, sharedFilters.endDate, sharedFilters.portId, needsBoatType, boatTypeId, gender, role]);
+  }, [
+    sharedFilters.startDate,
+    sharedFilters.endDate,
+    sharedFilters.portId,
+    sharedFilters.languageId,
+    needsBoatType,
+    boatTypeId,
+    gender,
+    role,
+  ]);
 
   const hasCompleteIncoming = Boolean(
     sharedFilters.startDate && sharedFilters.endDate && sharedFilters.portId && (!needsBoatType || sharedFilters.boatTypeId)
@@ -253,6 +270,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
           endDate: sharedFilters.endDate,
           portId: sharedFilters.portId,
           boatTypeId: needsBoatType ? boatTypeId : "",
+          languageId: sharedFilters.languageId || "",
         },
         gender,
         selected: Array.from(selected),
@@ -399,6 +417,7 @@ function SearchPageInner() {
     endDate: params.get("end") || "",
     portId: params.get("port") || "",
     boatTypeId: params.get("boat") || "",
+    languageId: params.get("lang") || "",
   };
   // sessionStorage doesn't exist during the server render, so this can only
   // be read after mount — reading it any earlier (e.g. a useState lazy
@@ -406,7 +425,7 @@ function SearchPageInner() {
   // and trips a hydration mismatch. Starts null on every render up to and
   // including hydration; the effect below is what actually resolves it.
   const [pending, setPending] = useState(null);
-  const [lookups, setLookups] = useState({ ports: [], boatTypes: [] });
+  const [lookups, setLookups] = useState({ ports: [], boatTypes: [], languages: [] });
   const [filters, setFilters] = useState(incoming);
   const [fee, setFee] = useState(null);
 
@@ -472,6 +491,21 @@ function SearchPageInner() {
             {lookups.ports.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name} ({p.region})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={label}>Γλώσσα (προαιρετικό)</label>
+          <select
+            style={select}
+            value={filters.languageId || ""}
+            onChange={(e) => setFilters((f) => ({ ...f, languageId: e.target.value }))}
+          >
+            <option value="">Αδιάφορο</option>
+            {lookups.languages.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
               </option>
             ))}
           </select>

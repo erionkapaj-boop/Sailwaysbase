@@ -61,10 +61,11 @@ function Criterion({ met, children }) {
 }
 
 export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 }) {
-  const [lookups, setLookups] = useState({ languages: [], boatTypes: [], ports: [] });
+  const [lookups, setLookups] = useState({ languages: [], boatTypes: [], ports: [], nationalities: [] });
   const [form, setForm] = useState({
     full_name: profile.full_name || "",
     gender: profile.gender || "",
+    nationality_id: profile.nationality_id || "",
     photo_url: profile.photo_url || "",
     date_of_birth: profile.date_of_birth || "",
     years_experience: profile.years_experience || 0,
@@ -113,6 +114,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
       await updateSkipperProfile({
         ...form,
         date_of_birth: form.date_of_birth || null,
+        nationality_id: form.nationality_id || null,
         price_per_day: Number(form.price_per_day),
         years_experience: Number(form.years_experience),
       });
@@ -228,6 +230,24 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
               <option value="">—</option>
               <option value="Άνδρας">Άνδρας</option>
               <option value="Γυναίκα">Γυναίκα</option>
+            </select>
+          </div>
+          <div>
+            <label style={label} htmlFor="p-nationality">
+              Εθνικότητα
+            </label>
+            <select
+              id="p-nationality"
+              style={select}
+              value={form.nationality_id}
+              onChange={(e) => setField("nationality_id", e.target.value)}
+            >
+              <option value="">—</option>
+              {lookups.nationalities?.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.name}
+                </option>
+              ))}
             </select>
           </div>
           <div>
