@@ -104,8 +104,39 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
   async function handleSave(e) {
     e.preventDefault();
     setError("");
+    // Στη φάση του στησίματος της πλατφόρμας θέλουμε πλήρη προφίλ — τίποτα
+    // προαιρετικό. Ελέγχονται με τη σειρά που εμφανίζονται στη φόρμα, ώστε
+    // το μήνυμα σφάλματος να δείχνει πάντα το πρώτο πράγμα που λείπει.
+    if (!form.full_name.trim()) {
+      setError("Συμπλήρωσε το ονοματεπώνυμο.");
+      return;
+    }
+    if (!form.photo_url) {
+      setError("Ανέβασε φωτογραφία προφίλ.");
+      return;
+    }
+    if (!form.gender) {
+      setError("Επίλεξε φύλο.");
+      return;
+    }
+    if (!form.nationality_id) {
+      setError("Επίλεξε εθνικότητα.");
+      return;
+    }
+    if (!form.date_of_birth) {
+      setError("Συμπλήρωσε ημερομηνία γέννησης.");
+      return;
+    }
     if (Number(form.price_per_day) < MIN_PRICE) {
       setError(`Η τιμή ανά ημέρα δεν μπορεί να είναι κάτω από ${MIN_PRICE}€.`);
+      return;
+    }
+    if (languageIds.length === 0) {
+      setError("Επίλεξε τουλάχιστον μία γλώσσα.");
+      return;
+    }
+    if (isSkipper && boatTypeIds.length === 0) {
+      setError("Επίλεξε τουλάχιστον έναν τύπο σκάφους.");
       return;
     }
     setBusy(true);
@@ -198,6 +229,9 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         <div style={{ marginBottom: 20 }}>
           <span style={label}>Φωτογραφία</span>
           <PhotoUpload value={form.photo_url} onUploaded={(url) => setField("photo_url", url)} />
+          {!form.photo_url && (
+            <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>Υποχρεωτική.</p>
+          )}
         </div>
 
         <label style={label} htmlFor="p-name">
@@ -218,6 +252,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
             </label>
             <select
               id="p-gender"
+              required
               style={select}
               value={form.gender}
               onChange={(e) => setField("gender", e.target.value)}
@@ -233,6 +268,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
             </label>
             <select
               id="p-nationality"
+              required
               style={select}
               value={form.nationality_id}
               onChange={(e) => setField("nationality_id", e.target.value)}
@@ -252,6 +288,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
             <input
               id="p-dob"
               type="date"
+              required
               style={input}
               value={form.date_of_birth || ""}
               onChange={(e) => setField("date_of_birth", e.target.value)}
@@ -294,7 +331,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         </div>
       </Section>
 
-      <Section title="Γλώσσες">
+      <Section title="Γλώσσες" note="Επίλεξε τουλάχιστον μία.">
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {lookups.languages.map((l) => (
             <button
@@ -310,7 +347,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
       </Section>
 
       {isSkipper && (
-        <Section title="Τύποι σκαφών">
+        <Section title="Τύποι σκαφών" note="Επίλεξε τουλάχιστον έναν.">
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {lookups.boatTypes.map((b) => (
               <button
