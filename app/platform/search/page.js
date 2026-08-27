@@ -67,12 +67,8 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
             <span style={badge(s.tier === "high" ? "success" : s.tier === "low" ? "warn" : "neutral")}>
               {s.tier === "high" ? "Top βαθμίδα" : s.tier === "low" ? "Νέος" : "Μεσαία βαθμίδα"}
             </span>
-            <div style={{ ...muted, marginTop: 6 }}>
-              {s.gender ? `${s.gender} · ` : ""}
-              <span style={money}>{s.years_experience}</span> χρόνια εμπειρίας
-            </div>
             {(s.nationality_name || s.languages?.length > 0) && (
-              <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
+              <div style={{ ...muted, marginTop: 6 }}>
                 {s.nationality_name}
                 {s.nationality_name && s.languages?.length > 0 ? " · " : ""}
                 {s.languages?.join(", ")}
@@ -171,7 +167,6 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
 // covers both.
 function RoleSection({ role, sharedFilters, lookups, fee, session, router, initial }) {
   const [boatTypeId, setBoatTypeId] = useState("");
-  const [gender, setGender] = useState("");
   const [results, setResults] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [busy, setBusy] = useState(false);
@@ -190,7 +185,6 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   // rather than seed from it once.
   useEffect(() => {
     if (!initial) return;
-    setGender(initial.gender || "");
     pendingSelectedRef.current = initial.selected?.length ? initial.selected : null;
     setRestoredNotice(true);
   }, [initial]);
@@ -209,7 +203,6 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
         endDate: sharedFilters.endDate,
         portId: sharedFilters.portId,
         boatTypeId: needsBoatType ? boatTypeId : null,
-        gender,
         crewRole: role,
         languageId: sharedFilters.languageId || null,
       });
@@ -230,7 +223,6 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
     sharedFilters.languageId,
     needsBoatType,
     boatTypeId,
-    gender,
     role,
   ]);
 
@@ -272,7 +264,6 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
           boatTypeId: needsBoatType ? boatTypeId : "",
           languageId: sharedFilters.languageId || "",
         },
-        gender,
         selected: Array.from(selected),
       });
       router.push("/platform/login?next=/platform/search");
@@ -287,7 +278,6 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
         portId: sharedFilters.portId,
         boatTypeId: needsBoatType ? boatTypeId : null,
         maxPriceFilter: null,
-        genderFilter: gender || null,
         crewRole: role,
       });
       await payAndBroadcast(request.id, Array.from(selected));
@@ -326,14 +316,6 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
             </select>
           </div>
         )}
-        <div>
-          <label style={label}>Φύλο {roleLabel.toLowerCase()} (προαιρετικό)</label>
-          <select style={select} value={gender} onChange={(e) => setGender(e.target.value)}>
-            <option value="">Αδιάφορο</option>
-            <option value="Άνδρας">Άνδρας</option>
-            <option value="Γυναίκα">Γυναίκα</option>
-          </select>
-        </div>
         <div style={{ alignSelf: "end" }}>
           <button style={{ ...button("primary"), width: "100%" }} disabled={busy} type="submit">
             {busy ? "Αναζήτηση..." : "Αναζήτηση"}

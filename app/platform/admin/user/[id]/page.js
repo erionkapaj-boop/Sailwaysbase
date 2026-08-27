@@ -349,11 +349,9 @@ export default function AdminUserViewPage() {
 
               <h2 style={h2}>Προφίλ</h2>
               <div style={card}>
-                <p style={{ ...muted, margin: "0 0 4px" }}>Εμπειρία</p>
-                <p style={{ margin: "0 0 14px" }}>
-                  <span style={money}>{data.profile.years_experience}</span> χρόνια
-                  {data.profile.gender ? ` · ${data.profile.gender}` : ""}
-                </p>
+                {data.profile.gender && (
+                  <p style={{ margin: "0 0 14px" }}>{data.profile.gender}</p>
+                )}
 
                 <p style={{ ...muted, margin: "0 0 6px" }}>Highlights</p>
                 <Chips

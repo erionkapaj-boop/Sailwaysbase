@@ -68,7 +68,6 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
     nationality_id: profile.nationality_id || "",
     photo_url: profile.photo_url || "",
     date_of_birth: profile.date_of_birth || "",
-    years_experience: profile.years_experience || 0,
     price_per_day: profile.price_per_day || MIN_PRICE,
   });
   const [languageIds, setLanguageIds] = useState([]);
@@ -116,7 +115,6 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         date_of_birth: form.date_of_birth || null,
         nationality_id: form.nationality_id || null,
         price_per_day: Number(form.price_per_day),
-        years_experience: Number(form.years_experience),
       });
       // No portIds: ports belong to availability windows now, and rewriting
       // the retired skipper_coverage_areas rows on every save achieved
@@ -148,10 +146,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
   // αντί για πρόσωπο — χωριστά, ως σύσταση, όχι ως προϋπόθεση.
   const hasPhoto = Boolean(form.photo_url);
 
-  const highlights = computeCrewHighlights(
-    { ...profile, years_experience: form.years_experience },
-    { languageCount: languageIds.length }
-  );
+  const highlights = computeCrewHighlights(profile, { languageCount: languageIds.length });
 
   return (
     // Bottom padding leaves room for the fixed save bar.
@@ -260,19 +255,6 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
               style={input}
               value={form.date_of_birth || ""}
               onChange={(e) => setField("date_of_birth", e.target.value)}
-            />
-          </div>
-          <div>
-            <label style={label} htmlFor="p-years">
-              Χρόνια εμπειρίας
-            </label>
-            <input
-              id="p-years"
-              type="number"
-              min={0}
-              style={input}
-              value={form.years_experience}
-              onChange={(e) => setField("years_experience", e.target.value)}
             />
           </div>
         </div>

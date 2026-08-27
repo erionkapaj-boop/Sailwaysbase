@@ -93,7 +93,6 @@ export default function ApprovalsPage() {
                   <>
                     <span style={money}>{s.users?.phone_number}</span>
                     {" · "}
-                    <span style={money}>{s.years_experience}</span> χρόνια ·{" "}
                     <span style={money}>{s.price_per_day}€</span>/ημέρα
                   </>
                 }
