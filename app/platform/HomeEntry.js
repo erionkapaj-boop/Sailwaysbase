@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
@@ -11,7 +11,26 @@ import { button, colors, muted } from "../../lib/platform/theme";
 export default function HomeEntry() {
   const [started, setStarted] = useState(false);
 
-  if (started) return <CrewSearchFlow onCancel={() => setStarted(false)} />;
+  // Opening the wizard used to be pure component state — nothing on this
+  // one /platform URL ever changed, so the device's own back button/gesture
+  // had no idea the wizard was open and would leave the page entirely on
+  // the first press instead of just closing it. Pushing a history entry
+  // here gives the wizard (and its own per-step entries, see
+  // CrewSearchFlow) something real to step back through.
+  useEffect(() => {
+    function onPopState(e) {
+      setStarted(Boolean(e.state?.sfWizardOpen));
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  function openWizard() {
+    window.history.pushState({ sfWizardOpen: true, sfStep: 0 }, "");
+    setStarted(true);
+  }
+
+  if (started) return <CrewSearchFlow />;
 
   return (
     <div style={{ textAlign: "center" }}>
@@ -27,7 +46,7 @@ export default function HomeEntry() {
       <button
         type="button"
         className="sf-cta"
-        onClick={() => setStarted(true)}
+        onClick={openWizard}
         style={{
           ...button("secondary"),
           fontSize: 17,

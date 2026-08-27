@@ -69,7 +69,7 @@ function StepHeading({ children }) {
   return <h2 style={{ ...h2, fontSize: 24, marginBottom: 20 }}>{children}</h2>;
 }
 
-export default function CrewSearchFlow({ onCancel }) {
+export default function CrewSearchFlow() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [], languages: [] });
@@ -86,15 +86,39 @@ export default function CrewSearchFlow({ onCancel }) {
     listLookups().then(setLookups).catch(() => {});
   }, []);
 
+  // HomeEntry pushed one history entry (step 0) the moment it opened this
+  // component — every step forward pushes one more on top, so the device's
+  // own back button/gesture steps back through the wizard one question at a
+  // time instead of leaving the whole page in a single press. Popping past
+  // step 0 lands on HomeEntry's own pre-wizard entry; its matching listener
+  // is what actually closes the wizard, so there's nothing left to do here
+  // once a popstate carries no step number.
+  useEffect(() => {
+    function onPopState(e) {
+      if (typeof e.state?.sfStep === "number") setStep(e.state.sfStep);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const STEPS = stepsFor(roles);
 
+  // Pushes history itself rather than inside a setStep updater — React
+  // (StrictMode, in dev) can invoke an updater function twice per call,
+  // which would push two history entries for a single "Συνέχεια" click and
+  // throw the step count out of sync with the real stack.
   function next() {
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    const n = Math.min(step + 1, STEPS.length - 1);
+    window.history.pushState({ sfWizardOpen: true, sfStep: n }, "");
+    setStep(n);
   }
 
+  // Always the same action regardless of step — history.back() either
+  // steps to the previous question (there's an entry for it) or, from step
+  // 0, pops past the wizard entirely; either way the popstate handlers
+  // above and in HomeEntry are what actually update the UI.
   function back() {
-    if (step === 0) return onCancel?.();
-    setStep((s) => s - 1);
+    window.history.back();
   }
 
   function toggleRole(key) {
