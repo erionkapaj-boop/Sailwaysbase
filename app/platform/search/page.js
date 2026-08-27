@@ -28,7 +28,22 @@ import {
   colors,
   money,
   shadow,
+  radius,
 } from "../../../lib/platform/theme";
+
+// Quick picks for the region's main ports, sitting above the free-text
+// field — a tap fills the same field a keystroke would, it just saves the
+// typing for the common cases.
+const chip = (active) => ({
+  padding: "8px 14px",
+  borderRadius: radius.pill,
+  fontSize: 14,
+  fontFamily: "inherit",
+  cursor: "pointer",
+  border: `1px solid ${active ? colors.ink : colors.border}`,
+  background: active ? colors.ink : "transparent",
+  color: active ? "#fff" : colors.ink,
+});
 
 const BROADCAST_ERRORS = {
   insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο wallet για το τέλος αιτήματος.",
@@ -251,14 +266,15 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   }
 
   async function handleBroadcast() {
-    if (!sharedFilters.partySize || sharedFilters.privateCabin === undefined) {
-      setError("Συμπλήρωσε αριθμό ατόμων και ιδιωτική καμπίνα πριν στείλεις το αίτημα.");
-      return;
-    }
     if (!session) {
-      // Nothing below this point has run yet — no request exists, nobody was
-      // charged. Save the pick so the trip through login (or register → OTP
-      // → set-PIN) doesn't throw it away, then come straight back here.
+      // Checked before the party-size/cabin validation below on purpose: an
+      // anonymous visitor who hasn't filled those two yet (they live on this
+      // results page, not in the wizard that got them here) must still reach
+      // login when they hit "send" — a validation error here would dead-end
+      // them on this page instead, and the whole point of pendingBroadcast is
+      // that nothing below this line has run yet, so there's nothing to lose
+      // by sending them to log in first and letting them finish the details
+      // after they're back.
       savePendingBroadcast({
         role,
         filters: {
@@ -274,6 +290,10 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
         selected: Array.from(selected),
       });
       router.push("/platform/login?next=/platform/search");
+      return;
+    }
+    if (!sharedFilters.partySize || sharedFilters.privateCabin === undefined) {
+      setError("Συμπλήρωσε αριθμό ατόμων και ιδιωτική καμπίνα πριν στείλεις το αίτημα.");
       return;
     }
     setError("");
@@ -447,6 +467,10 @@ function SearchPageInner() {
     getPlatformSetting("client_request_fee").then(setFee).catch(() => {});
   }, []);
 
+  // The chosen region's curated ports, offered as quick picks above the
+  // free-text field — same pattern as the wizard's own port step.
+  const portsInRegion = lookups.ports.filter((p) => p.region_id === filters.regionId);
+
   return (
     <div style={container}>
       <h1 style={h1}>Αποτελέσματα</h1>
@@ -488,13 +512,27 @@ function SearchPageInner() {
             ))}
           </select>
         </div>
-        <div>
+        <div style={portsInRegion.length > 0 ? { gridColumn: "1 / -1" } : undefined}>
           <label style={label}>Λιμάνι αναχώρησης</label>
+          {portsInRegion.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "4px 0 8px" }}>
+              {portsInRegion.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  style={chip(filters.departurePoint === p.name)}
+                  onClick={() => setFilters((f) => ({ ...f, departurePoint: p.name }))}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
           <input
             type="text"
             required
             style={input}
-            placeholder="π.χ. Άλιμος"
+            placeholder="π.χ. Καλλιθέα"
             value={filters.departurePoint || ""}
             onChange={(e) => setFilters((f) => ({ ...f, departurePoint: e.target.value }))}
           />

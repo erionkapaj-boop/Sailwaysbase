@@ -44,6 +44,21 @@ const option = (active) => ({
   color: colors.ink,
 });
 
+// Quick picks for the region's main ports, sitting above the free-text
+// field — a tap fills the same field a keystroke would, it just saves the
+// typing for the common cases (see chip() in AvailabilityCalendar for the
+// same pattern applied to region selection).
+const chip = (active) => ({
+  padding: "8px 14px",
+  borderRadius: radius.pill,
+  fontSize: 14,
+  fontFamily: "inherit",
+  cursor: "pointer",
+  border: `1px solid ${active ? colors.ink : colors.border}`,
+  background: active ? colors.ink : "transparent",
+  color: active ? "#fff" : colors.ink,
+});
+
 function StepHeading({ children }) {
   return <h2 style={{ ...h2, fontSize: 24, marginBottom: 20 }}>{children}</h2>;
 }
@@ -87,6 +102,12 @@ export default function CrewSearchFlow({ onCancel }) {
     });
     router.push(`/platform/search?${params.toString()}`);
   }
+
+  // The region step already narrowed this down — just the curated ports that
+  // actually belong to the chosen one, offered as quick picks. The catalog
+  // never has to be complete: whatever isn't listed is exactly what the
+  // free-text field below is for.
+  const portsInRegion = lookups.ports.filter((p) => p.region_id === regionId);
 
   const current = STEPS[step];
 
@@ -216,15 +237,30 @@ export default function CrewSearchFlow({ onCancel }) {
       {current === "port" && (
         <div key="port" data-sf-step style={stepWrap}>
           <StepHeading>Από πού φεύγεις;</StepHeading>
-          <p style={{ ...muted, fontSize: 13, margin: "-8px 0 14px" }}>
-            Γράψε το ακριβές σημείο αναχώρησης — λιμάνι, όρμος, ό,τι θέλεις
-            (π.χ. Άλιμος, Αίγινα).
+          {portsInRegion.length > 0 && (
+            <>
+              <p style={{ ...muted, fontSize: 13, margin: "-8px 0 10px" }}>Βασικά λιμάνια της περιοχής:</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+                {portsInRegion.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    style={chip(departurePoint === p.name)}
+                    onClick={() => setDeparturePoint(p.name)}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>
+            Ή γράψε το ακριβές σημείο αναχώρησης — λιμάνι, όρμος, ό,τι θέλεις (π.χ. Καλλιθέα, Αίγινα).
           </p>
           <input
             type="text"
-            autoFocus
             style={{ ...input, marginBottom: 20 }}
-            placeholder="π.χ. Άλιμος"
+            placeholder="π.χ. Καλλιθέα"
             value={departurePoint}
             onChange={(e) => setDeparturePoint(e.target.value)}
           />
