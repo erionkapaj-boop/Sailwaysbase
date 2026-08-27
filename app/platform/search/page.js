@@ -456,7 +456,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
       <h2 style={h2}>{roleLabel}</h2>
       {restoredNotice && (
         <p style={{ ...muted, fontSize: 13, margin: "-6px 0 12px", color: colors.accent }}>
-          Οι επιλογές σου διατηρήθηκαν — πάτα ξανά «Πληρωμή &amp; αποστολή» για να ολοκληρώσεις.
+          Οι επιλογές σου διατηρήθηκαν — πάτα ξανά «Αποστολή αιτήματος» για να ολοκληρώσεις.
         </p>
       )}
       <form
@@ -500,6 +500,20 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
           <p style={muted}>
             {results.length} διαθέσιμ{results.length === 1 ? "ος" : "οι"} {roleLabel.toLowerCase()}
           </p>
+
+          {/* Χωρίς αυτό, τίποτα στη σελίδα δεν λέει στον πελάτη ότι το
+              "Επιλογή" είναι πολλαπλής επιλογής ή τι σημαίνει να διαλέξει
+              παραπάνω από έναν — η καθοδήγηση πρέπει να έρχεται πριν αρχίσει
+              να επιλέγει, όχι μόνο κάτω στο κουμπί αποστολής. */}
+          {results.length > 0 && (
+            <div style={{ ...card, background: colors.bgSoft || "#F7F5F0", marginBottom: 14 }}>
+              <p style={{ margin: 0, fontSize: 13.5 }}>
+                Μπορείς να επιλέξεις όσους {roleLabel.toLowerCase()} θέλεις πατώντας «Επιλογή» σε καθέναν. Το αίτημα
+                στέλνεται μαζί σε όλους τους επιλεγμένους — ο πρώτος που θα το αποδεχτεί αναλαμβάνει το ταξίδι σου.
+              </p>
+            </div>
+          )}
+
           {results.map((s) => (
             <ProfessionalCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={toggle} days={days} />
           ))}
@@ -509,7 +523,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
               {broadcastDone ? (
                 <div>
                   <p style={{ color: colors.accent, fontWeight: 600, margin: "0 0 14px" }}>
-                    ✓ Το καμπανάκι στάλθηκε σε <span style={money}>{selected.size}</span> {roleLabel.toLowerCase()}
+                    ✓ Το αίτημα στάλθηκε σε <span style={money}>{selected.size}</span> {roleLabel.toLowerCase()}
                   </p>
                   <button style={button("primary")} onClick={() => router.push("/platform/client")}>
                     Παρακολούθηση αιτήματος
@@ -546,8 +560,12 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
                     disabled={selected.size === 0 || busy}
                     onClick={handleBroadcast}
                   >
-                    {busy ? "..." : session ? "Πληρωμή & αποστολή καμπανακιού" : "Σύνδεση για αποστολή"}
+                    {busy ? "..." : session ? "Αποστολή αιτήματος" : "Σύνδεση για αποστολή"}
                   </button>
+                  <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0", textAlign: "center" }}>
+                    Το αίτημά σου θα σταλεί στους επιλεγμένους {roleLabel.toLowerCase()}. Ο πρώτος που θα το αποδεχτεί
+                    θα σε συνοδεύσει στο ταξίδι σου.
+                  </p>
                 </>
               )}
             </div>
@@ -643,7 +661,7 @@ function SearchPageInner() {
   return (
     <div style={container}>
       <h1 style={h1}>Αποτελέσματα</h1>
-      <p style={muted}>Δωρεάν, χωρίς δέσμευση. Πληρώνεις μόνο όταν στέλνεις καμπανάκι.</p>
+      <p style={muted}>Δωρεάν, χωρίς δέσμευση. Πληρώνεις μόνο όταν στέλνεις αίτημα.</p>
 
       {unsupportedRoles.length > 0 && (
         <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
