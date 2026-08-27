@@ -65,7 +65,7 @@ function dayCount(start, end) {
 // detail sheet alike) instead of each place growing its own separator logic.
 function identityLine(s) {
   const parts = [];
-  if (s.nationality_name) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${s.nationality_name}`);
+  if (s.nationality_country) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${s.nationality_country}`);
   if (s.age) parts.push(`${s.age} ετών`);
   if (s.languages?.length > 0) parts.push(s.languages.join(", "));
   return parts.join(" · ");
