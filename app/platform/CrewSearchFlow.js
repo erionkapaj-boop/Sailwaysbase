@@ -5,7 +5,7 @@ import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
 import { Mark } from "./components/Logo";
-import { button, colors, input, muted, radius, h2 } from "../../lib/platform/theme";
+import { button, colors, input, label, muted, radius, select, h2 } from "../../lib/platform/theme";
 
 // Progressive disclosure (brief §4): one question on screen at a time, gentle
 // fade/slide between them — never the whole form at once.
@@ -18,10 +18,16 @@ import { button, colors, input, muted, radius, h2 } from "../../lib/platform/the
 // The "boat" step only makes sense when the search includes skipper: a boat
 // type is what a skipper operates, and hostess (or any future non-skipper
 // role) doesn't have one. A hostess-only search skips straight from port to
-// results instead of asking a question that has no right answer for it.
+// "extras" instead of asking a question that has no right answer for it.
+//
+// "extras" (language/party size/private cabin) is always last — everything
+// the results page used to ask for AFTER the wizard handed off now gets
+// asked for here instead, so landing on results means there's nothing left
+// to fill in, just candidates to browse and pick.
 function stepsFor(roles) {
   const base = ["role", "dates", "country", "region", "port"];
-  return roles.includes("skipper") ? [...base, "boat"] : base;
+  const withBoat = roles.includes("skipper") ? [...base, "boat"] : base;
+  return [...withBoat, "extras"];
 }
 
 const stepWrap = {
@@ -66,11 +72,15 @@ function StepHeading({ children }) {
 export default function CrewSearchFlow({ onCancel }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [] });
+  const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [], languages: [] });
   const [roles, setRoles] = useState([]);
   const [dates, setDates] = useState({ start: "", end: "" });
   const [regionId, setRegionId] = useState("");
   const [departurePoint, setDeparturePoint] = useState("");
+  const [boatTypeId, setBoatTypeId] = useState("");
+  const [languageId, setLanguageId] = useState("");
+  const [partySize, setPartySize] = useState("");
+  const [privateCabin, setPrivateCabin] = useState(undefined);
 
   useEffect(() => {
     listLookups().then(setLookups).catch(() => {});
@@ -91,7 +101,7 @@ export default function CrewSearchFlow({ onCancel }) {
     setRoles((prev) => (prev.includes(key) ? prev.filter((r) => r !== key) : [...prev, key]));
   }
 
-  function finish(boatTypeId) {
+  function finish() {
     const params = new URLSearchParams({
       roles: roles.join(","),
       start: dates.start,
@@ -99,6 +109,9 @@ export default function CrewSearchFlow({ onCancel }) {
       region: regionId,
       point: departurePoint.trim(),
       boat: boatTypeId || "",
+      lang: languageId || "",
+      party: partySize || "",
+      cabin: privateCabin === undefined ? "" : String(privateCabin),
     });
     router.push(`/platform/search?${params.toString()}`);
   }
@@ -267,10 +280,7 @@ export default function CrewSearchFlow({ onCancel }) {
           <button
             type="button"
             disabled={!departurePoint.trim()}
-            // "boat" is only in STEPS when the search includes skipper —
-            // otherwise this is the last question, so finish straight from
-            // here instead of advancing into a step that isn't there.
-            onClick={() => (STEPS.includes("boat") ? next() : finish(null))}
+            onClick={next}
             style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15 }}
           >
             Συνέχεια
@@ -282,11 +292,66 @@ export default function CrewSearchFlow({ onCancel }) {
         <div key="boat" data-sf-step style={stepWrap}>
           <StepHeading>Τι σκάφος;</StepHeading>
           {lookups.boatTypes.map((b) => (
-            <button key={b.id} type="button" style={option(false)} onClick={() => finish(b.id)}>
+            <button
+              key={b.id}
+              type="button"
+              style={option(boatTypeId === b.id)}
+              onClick={() => {
+                setBoatTypeId(b.id);
+                next();
+              }}
+            >
               {b.name}
             </button>
           ))}
           {lookups.boatTypes.length === 0 && <p style={muted}>Φόρτωση τύπων σκάφους…</p>}
+        </div>
+      )}
+
+      {current === "extras" && (
+        <div key="extras" data-sf-step style={stepWrap}>
+          <StepHeading>Λίγες τελευταίες λεπτομέρειες</StepHeading>
+          <div style={{ marginBottom: 16 }}>
+            <label style={label}>Γλώσσα (προαιρετικό)</label>
+            <select style={select} value={languageId} onChange={(e) => setLanguageId(e.target.value)}>
+              <option value="">Αδιάφορο</option>
+              {lookups.languages.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={label}>Αριθμός ατόμων</label>
+            <input
+              type="number"
+              min={1}
+              style={input}
+              value={partySize}
+              onChange={(e) => setPartySize(e.target.value)}
+            />
+          </div>
+          <div style={{ marginBottom: 24 }}>
+            <label style={label}>Ιδιωτική καμπίνα για τον επαγγελματία</label>
+            <select
+              style={select}
+              value={privateCabin === undefined ? "" : String(privateCabin)}
+              onChange={(e) => setPrivateCabin(e.target.value === "true")}
+            >
+              <option value="">Επιλογή...</option>
+              <option value="true">Ναι</option>
+              <option value="false">Όχι</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            disabled={!partySize || privateCabin === undefined}
+            onClick={finish}
+            style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15 }}
+          >
+            Ολοκλήρωση
+          </button>
         </div>
       )}
     </div>

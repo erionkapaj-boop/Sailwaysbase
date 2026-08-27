@@ -581,7 +581,7 @@ function SearchPageInner() {
   const params = useSearchParams();
   const { session } = useAuth();
 
-  // Filters arriving from the home page form.
+  // Filters arriving from the search wizard.
   const incoming = {
     startDate: params.get("start") || "",
     endDate: params.get("end") || "",
@@ -589,6 +589,8 @@ function SearchPageInner() {
     departurePoint: params.get("point") || "",
     boatTypeId: params.get("boat") || "",
     languageId: params.get("lang") || "",
+    partySize: params.get("party") || "",
+    privateCabin: params.get("cabin") === "true" ? true : params.get("cabin") === "false" ? false : undefined,
   };
   // sessionStorage doesn't exist during the server render, so this can only
   // be read after mount — reading it any earlier (e.g. a useState lazy
@@ -629,15 +631,17 @@ function SearchPageInner() {
     return Object.keys(errors).length === 0;
   }
 
-  // Arriving from the wizard already answered "where/when" — re-showing that
-  // whole form here just to ask the two things it never asked (party size,
-  // private cabin) made someone re-read choices they'd literally just made.
-  // Collapsed to a one-line summary whenever the incoming state is already
-  // complete; "Αλλαγή" reopens it in place for anyone who does want to
-  // change something.
-  const [showFullFilters, setShowFullFilters] = useState(
-    !(incoming.startDate && incoming.endDate && incoming.regionId)
-  );
+  // Arriving from the wizard already answered everything this block covers —
+  // re-showing the whole form here made someone re-read choices they'd
+  // literally just made a step earlier. Collapsed to a one-line summary
+  // whenever the incoming state is already complete; "Αλλαγή" reopens it in
+  // place for anyone who does want to change something.
+  function isComplete(f) {
+    return Boolean(
+      f.startDate && f.endDate && f.regionId && f.departurePoint && f.partySize && f.privateCabin !== undefined
+    );
+  }
+  const [showFullFilters, setShowFullFilters] = useState(!isComplete(incoming));
 
   useEffect(() => {
     const p = takePendingBroadcast();
@@ -648,7 +652,7 @@ function SearchPageInner() {
       // query string), so the collapse decision above — made from `incoming`
       // — couldn't see these values yet. Same rule, just applied once the
       // restored filters are actually known.
-      if (p.filters?.startDate && p.filters?.endDate && p.filters?.regionId) {
+      if (isComplete(p.filters || {})) {
         setShowFullFilters(false);
       }
     }
@@ -772,6 +776,55 @@ function SearchPageInner() {
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
             )}
           </div>
+          <div>
+            <label style={label}>Γλώσσα (προαιρετικό)</label>
+            <select
+              style={select}
+              value={filters.languageId || ""}
+              onChange={(e) => setFilters((f) => ({ ...f, languageId: e.target.value }))}
+            >
+              <option value="">Αδιάφορο</option>
+              {lookups.languages.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={label}>Αριθμός ατόμων</label>
+            <input
+              type="number"
+              min={1}
+              style={fieldErrors.partySize ? { ...input, border: `1px solid ${colors.danger}` } : input}
+              value={filters.partySize || ""}
+              onChange={(e) => {
+                setFilters((f) => ({ ...f, partySize: e.target.value }));
+                clearFieldError("partySize");
+              }}
+            />
+            {fieldErrors.partySize && (
+              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+            )}
+          </div>
+          <div>
+            <label style={label}>Ιδιωτική καμπίνα για τον επαγγελματία</label>
+            <select
+              style={fieldErrors.privateCabin ? { ...select, border: `1px solid ${colors.danger}` } : select}
+              value={filters.privateCabin === undefined ? "" : String(filters.privateCabin)}
+              onChange={(e) => {
+                setFilters((f) => ({ ...f, privateCabin: e.target.value === "true" }));
+                clearFieldError("privateCabin");
+              }}
+            >
+              <option value="">Επιλογή...</option>
+              <option value="true">Ναι</option>
+              <option value="false">Όχι</option>
+            </select>
+            {fieldErrors.privateCabin && (
+              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+            )}
+          </div>
         </div>
       ) : (
         <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -783,6 +836,10 @@ function SearchPageInner() {
               {" · "}
               {regionName}
               {filters.departurePoint ? ` · ${filters.departurePoint}` : ""}
+              {" · "}
+              {filters.partySize} άτομα
+              {" · "}
+              Ιδιωτική καμπίνα: {filters.privateCabin ? "Ναι" : "Όχι"}
             </span>
           </div>
           <button
@@ -794,60 +851,6 @@ function SearchPageInner() {
           </button>
         </div>
       )}
-
-      {/* What the wizard never asked — always shown, regardless of whether
-          the above is collapsed. */}
-      <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
-        <div>
-          <label style={label}>Γλώσσα (προαιρετικό)</label>
-          <select
-            style={select}
-            value={filters.languageId || ""}
-            onChange={(e) => setFilters((f) => ({ ...f, languageId: e.target.value }))}
-          >
-            <option value="">Αδιάφορο</option>
-            {lookups.languages.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label style={label}>Αριθμός ατόμων</label>
-          <input
-            type="number"
-            min={1}
-            style={fieldErrors.partySize ? { ...input, border: `1px solid ${colors.danger}` } : input}
-            value={filters.partySize || ""}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, partySize: e.target.value }));
-              clearFieldError("partySize");
-            }}
-          />
-          {fieldErrors.partySize && (
-            <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
-          )}
-        </div>
-        <div>
-          <label style={label}>Ιδιωτική καμπίνα για τον επαγγελματία</label>
-          <select
-            style={fieldErrors.privateCabin ? { ...select, border: `1px solid ${colors.danger}` } : select}
-            value={filters.privateCabin === undefined ? "" : String(filters.privateCabin)}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, privateCabin: e.target.value === "true" }));
-              clearFieldError("privateCabin");
-            }}
-          >
-            <option value="">Επιλογή...</option>
-            <option value="true">Ναι</option>
-            <option value="false">Όχι</option>
-          </select>
-          {fieldErrors.privateCabin && (
-            <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
-          )}
-        </div>
-      </div>
 
       {supportedRoles.map((role) => (
         <RoleSection
