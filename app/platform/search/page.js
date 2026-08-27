@@ -60,6 +60,17 @@ function dayCount(start, end) {
   return Math.round(ms / 86400000) + 1;
 }
 
+// Flag + nationality, age, languages — whichever of the three are actually
+// set, in that order, joined the same way everywhere it's shown (card and
+// detail sheet alike) instead of each place growing its own separator logic.
+function identityLine(s) {
+  const parts = [];
+  if (s.nationality_name) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${s.nationality_name}`);
+  if (s.age) parts.push(`${s.age} ετών`);
+  if (s.languages?.length > 0) parts.push(s.languages.join(", "));
+  return parts.join(" · ");
+}
+
 // Bottom-sheet chrome, matching the pattern already established for the
 // availability calendar's day-detail popup (AvailabilityCalendar.js) — same
 // look for the same kind of "more about this one thing" overlay.
@@ -147,13 +158,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
             <span style={badge(s.tier === "high" ? "success" : s.tier === "low" ? "warn" : "neutral")}>
               {s.tier === "high" ? "Top βαθμίδα" : s.tier === "low" ? "Νέος" : "Μεσαία βαθμίδα"}
             </span>
-            {(s.nationality_name || s.languages?.length > 0) && (
-              <div style={{ ...muted, marginTop: 6 }}>
-                {s.nationality_name}
-                {s.nationality_name && s.languages?.length > 0 ? " · " : ""}
-                {s.languages?.join(", ")}
-              </div>
-            )}
+            {identityLine(s) && <div style={{ ...muted, marginTop: 6 }}>{identityLine(s)}</div>}
             <div style={{ ...money, fontSize: 19, fontWeight: 600, marginTop: 6 }}>
               {s.price_per_day}€
               <span style={{ ...muted, fontFamily: "inherit", fontSize: 13 }}> /ημέρα</span>
@@ -232,13 +237,7 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
               <span style={badge(s.tier === "high" ? "success" : s.tier === "low" ? "warn" : "neutral")}>
                 {s.tier === "high" ? "Top βαθμίδα" : s.tier === "low" ? "Νέος" : "Μεσαία βαθμίδα"}
               </span>
-              {(s.nationality_name || s.languages?.length > 0) && (
-                <div style={{ ...muted, marginTop: 6 }}>
-                  {s.nationality_name}
-                  {s.nationality_name && s.languages?.length > 0 ? " · " : ""}
-                  {s.languages?.join(", ")}
-                </div>
-              )}
+              {identityLine(s) && <div style={{ ...muted, marginTop: 6 }}>{identityLine(s)}</div>}
             </div>
             <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
               <div style={{ ...money, fontSize: 19, fontWeight: 600 }}>
@@ -797,6 +796,9 @@ function SearchPageInner() {
                 </option>
               ))}
             </select>
+            <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
+              Θα δεις μόνο επαγγελματίες που μιλάνε αυτή τη γλώσσα.
+            </p>
           </div>
           <div>
             <label style={label}>Αριθμός ατόμων</label>
@@ -810,8 +812,12 @@ function SearchPageInner() {
                 clearFieldError("partySize");
               }}
             />
-            {fieldErrors.partySize && (
+            {fieldErrors.partySize ? (
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+            ) : (
+              <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
+                Πόσα άτομα θα είναι συνολικά στο ταξίδι — το βλέπει ο επαγγελματίας πριν αποφασίσει.
+              </p>
             )}
           </div>
           <div>

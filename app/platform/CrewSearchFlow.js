@@ -345,6 +345,9 @@ export default function CrewSearchFlow() {
                 </option>
               ))}
             </select>
+            <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
+              Θα δεις μόνο επαγγελματίες που μιλάνε αυτή τη γλώσσα.
+            </p>
           </div>
           <div style={{ marginBottom: 16 }}>
             <label style={label}>Αριθμός ατόμων</label>
@@ -355,6 +358,9 @@ export default function CrewSearchFlow() {
               value={partySize}
               onChange={(e) => setPartySize(e.target.value)}
             />
+            <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
+              Πόσα άτομα θα είναι συνολικά στο ταξίδι — το βλέπει ο επαγγελματίας πριν αποφασίσει.
+            </p>
           </div>
           <div style={{ marginBottom: 24 }}>
             <label style={label}>Ιδιωτική καμπίνα για τον επαγγελματία</label>
