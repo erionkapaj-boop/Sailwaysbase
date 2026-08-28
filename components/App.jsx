@@ -2583,7 +2583,7 @@ function BaseStyles() {
       @media print {
         body * { visibility: hidden; }
         .print-area, .print-area * { visibility: visible; }
-        .print-area { display: block !important; position: absolute; top: 0; left: 0; width: 100%; padding: 0; margin: 0; }
+        .print-area { display: block !important; position: absolute; top: 0; left: 0; width: 100%; margin: 0; }
       }
     `}</style>
   );
@@ -4302,7 +4302,7 @@ function BoatTaskPrintSheet({ boat, tasks }) {
   if (!boat) return null;
   const printedAt = new Date().toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
   return (
-    <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px" }}>
+    <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px", boxSizing: "border-box" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 20, borderBottom: "2px solid #111", paddingBottom: 18, marginBottom: 22 }}>
         {boat.photoUrl && (
           <img src={boat.photoUrl} alt="" style={{ width: 112, height: 112, objectFit: "cover", borderRadius: 10, border: "1px solid #ccc", flexShrink: 0 }} />
