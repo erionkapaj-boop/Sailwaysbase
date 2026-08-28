@@ -188,17 +188,46 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
           </div>
         )}
 
-        <h3 style={{ ...h2, fontSize: 16, margin: "0 0 10px" }}>Αναλυτική αξιολόγηση</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
-          {categories.map((c) => (
-            <div key={c.key}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <span style={{ fontSize: 14, fontWeight: 500 }}>{c.label}</span>
-                <Stars rating={s[`rating_avg_${c.key}`]} count={s.rating_count} size={13} showEmptyLabel={false} />
+        <h3 style={{ ...h2, fontSize: 16, margin: "0 0 4px" }}>Αναλυτική αξιολόγηση</h3>
+        <div style={{ marginBottom: 20 }}>
+          {categories.map((c, i) => {
+            const rating = s[`rating_avg_${c.key}`];
+            const value = s.rating_count > 0 && rating != null ? Number(rating) : null;
+            const pct = value != null ? Math.max(0, Math.min(100, (value / 5) * 100)) : 0;
+            return (
+              <div
+                key={c.key}
+                style={{ padding: "12px 0", borderTop: i > 0 ? `1px solid ${colors.border}` : "none" }}
+              >
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{c.label}</span>
+                  {value != null ? (
+                    <span style={{ ...money, fontSize: 15, fontWeight: 600, color: colors.ink, flexShrink: 0 }}>
+                      {value.toFixed(1)}
+                      <span style={{ ...muted, fontFamily: "inherit", fontWeight: 400, fontSize: 12 }}> / 5</span>
+                    </span>
+                  ) : (
+                    <span style={{ ...muted, fontSize: 12.5, flexShrink: 0 }}>Καμία ακόμα</span>
+                  )}
+                </div>
+                {/* A bar per category reads at a glance without six rows of
+                    nearly-identical star icons competing for attention —
+                    the same reason review breakdowns elsewhere favour bars
+                    over repeating a 5-star row per line. */}
+                <div style={{ height: 5, borderRadius: radius.pill, background: colors.border, marginTop: 7, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${pct}%`,
+                      background: colors.accent,
+                      borderRadius: radius.pill,
+                    }}
+                  />
+                </div>
+                <p style={{ ...muted, fontSize: 12, margin: "7px 0 0", lineHeight: 1.4 }}>{c.hint}</p>
               </div>
-              <p style={{ ...muted, fontSize: 12.5, margin: "3px 0 0" }}>{c.hint}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <button
