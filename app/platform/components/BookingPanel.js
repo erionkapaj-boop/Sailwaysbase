@@ -31,6 +31,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   const [counterpart, setCounterpart] = useState(null);
   const [counterpartError, setCounterpartError] = useState(false);
   const [counterpartAttempt, setCounterpartAttempt] = useState(0);
+  const [photoExpanded, setPhotoExpanded] = useState(false);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [reviews, setReviews] = useState([]);
@@ -219,12 +220,19 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       {revealed && counterpart && (
         <div style={{ padding: "0 18px 14px", display: "flex", gap: 12, alignItems: "center" }}>
           {counterpart.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={counterpart.photo_url}
-              alt=""
-              style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-            />
+            <button
+              type="button"
+              onClick={() => setPhotoExpanded(true)}
+              aria-label="Μεγέθυνση φωτογραφίας"
+              style={{ padding: 0, border: "none", background: "none", cursor: "pointer", flexShrink: 0, borderRadius: "50%" }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={counterpart.photo_url}
+                alt=""
+                style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover", display: "block" }}
+              />
+            </button>
           ) : (
             <span
               aria-hidden="true"
@@ -240,6 +248,52 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
               <div style={{ ...money, fontSize: 14, marginTop: 2 }}>{counterpart.phone_number}</div>
             )}
           </div>
+        </div>
+      )}
+      {/* Tap the small avatar to see it properly — a 44px circle is enough
+          to recognise a face was uploaded, not enough to actually look at
+          the person you're about to spend a day at sea with. */}
+      {photoExpanded && counterpart?.photo_url && (
+        <div
+          onClick={() => setPhotoExpanded(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(22,40,60,0.75)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+            padding: 24,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={counterpart.photo_url}
+            alt={counterpart.full_name || ""}
+            style={{ maxWidth: "min(100%, 420px)", maxHeight: "80vh", borderRadius: radius.lg, objectFit: "contain" }}
+          />
+          <button
+            type="button"
+            onClick={() => setPhotoExpanded(false)}
+            aria-label="Κλείσιμο"
+            style={{
+              position: "fixed",
+              top: 18,
+              right: 18,
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(255,255,255,0.9)",
+              color: colors.ink,
+              fontSize: 18,
+              cursor: "pointer",
+              lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
         </div>
       )}
       {revealed && counterpartError && (
