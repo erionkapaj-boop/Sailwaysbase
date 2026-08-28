@@ -3953,7 +3953,10 @@ const nextDeparture = (b) => {
   return null;
 };
 
-function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, isOwner, persistBoats, showToast, onDeleteBoat }) {
+function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, isOwner, persistBoats, showToast, onPrintTasks, onPrintObservations, onDeleteBoat }) {
+  const [obsFormOpen, setObsFormOpen] = useState(false);
+  const [obsDate, setObsDate] = useState("");
+  const [obsCompany, setObsCompany] = useState("");
   const [noteText, setNoteText] = useState("");
   const [notePhotos, setNotePhotos] = useState([]);
   const noteFileRef = useRef(null);
@@ -4020,6 +4023,8 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, is
         </div>
       )}
 
+      {onPrintTasks && <Btn small color={COLORS.sub} outline onClick={onPrintTasks}>📄 Εκτύπωση εργασιών</Btn>}
+
       <Btn small color={COLORS.teal} onClick={() => ask("Τι θέματα ή επαναλαμβανόμενα προβλήματα έχει αυτό το σκάφος; Αν κάτι φαίνεται καινούργιο (δηλαδή υπάρχει παλιότερη ένδειξη ότι δούλευε καλά), ανάφερέ το ρητά. Δώσε σύντομη επισκόπηση.")}>{busy ? "…" : "Επισκόπηση AI"}</Btn>
       <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
         <input value={aiQ} onChange={e => setAiQ(e.target.value)} placeholder="Ρώτησε κάτι για αυτό το σκάφος…" style={{ ...inputStyle, flex: 1 }} />
@@ -4029,7 +4034,20 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, is
 
       {isOwner && (
         <>
-          <div style={{ fontWeight: 700, marginTop: 12, marginBottom: 4, fontSize: 13 }}>Παρατηρήσεις <span style={{ fontWeight: 400, color: COLORS.sub, fontSize: 12 }}>(θετικές ή αρνητικές — και τα δύο βοηθούν — ορατές μόνο σε σένα)</span></div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 12 }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>Παρατηρήσεις <span style={{ fontWeight: 400, color: COLORS.sub, fontSize: 12 }}>(θετικές ή αρνητικές — και τα δύο βοηθούν — ορατές μόνο σε σένα)</span></div>
+            {onPrintObservations && <Btn small color={COLORS.sub} outline onClick={() => { setObsFormOpen(v => !v); setObsDate(""); setObsCompany(""); }}>📝 Εκτύπωση</Btn>}
+          </div>
+          {obsFormOpen && (
+            <div style={{ margin: "4px 0 8px", background: COLORS.card, borderRadius: 8, padding: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.sub, marginBottom: 4 }}>Στοιχεία εκτύπωσης παρατηρήσεων</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                <input type="date" value={obsDate} onChange={e => setObsDate(e.target.value)} placeholder="Ημερομηνία ναύλου" style={{ ...inputStyle, width: "auto" }} />
+                <input value={obsCompany} onChange={e => setObsCompany(e.target.value)} placeholder="Εταιρεία συνεργασίας" style={{ ...inputStyle, flex: 1, minWidth: 160 }} />
+              </div>
+              <Btn small color={COLORS.navy} onClick={() => { onPrintObservations(obsDate, obsCompany); setObsFormOpen(false); }}>🖨 Εκτύπωση</Btn>
+            </div>
+          )}
           {myNotes.length === 0 && <div style={{ color: COLORS.sub, fontSize: 13 }}>Καμία ακόμα.</div>}
           {myNotes.map(n => (
             <div key={n.id} style={{ fontSize: 13, padding: "4px 0", borderBottom: `1px dashed ${COLORS.line}` }}>
@@ -4462,10 +4480,7 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
 
   // «Παρατηρήσεις καπετάνιου»: ξεχωριστό έντυπο από τη λίστα εργασιών, με στοιχεία (καπετάνιος/ημερομηνία
   // ναύλου/εταιρεία) που δεν αποθηκεύονται στο σκάφος — τα ζητάμε στη στιγμή της εκτύπωσης γιατί αλλάζουν
-  // κάθε φορά. Ορατό/διαθέσιμο μόνο στον ιδιοκτήτη, όπως και οι ίδιες οι παρατηρήσεις.
-  const [obsPrintFor, setObsPrintFor] = useState(null);
-  const [obsDate, setObsDate] = useState("");
-  const [obsCompany, setObsCompany] = useState("");
+  // κάθε φορά. Το φορμάκι ημερομηνίας/εταιρείας ζει μέσα στο BoatDetail (owner-only)· εδώ μόνο το print sheet.
   const [printObs, setPrintObs] = useState(null);
   useEffect(() => {
     if (!printObs) return;
@@ -4576,23 +4591,8 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
                 <Btn small color={COLORS.navy} outline onClick={() => { setSchedFor(schedFor === b.id ? null : b.id); setNewFrom(""); setNewTo(""); }}>Ναύλα</Btn>
                 <Btn small color={COLORS.sub} outline onClick={() => setDetailFor(detailFor === b.id ? null : b.id)}>Πληροφορίες</Btn>
                 {onStartInventory && <Btn small color={COLORS.sub} outline onClick={() => onStartInventory(b)}>Inventory</Btn>}
-                <Btn small color={COLORS.sub} outline onClick={() => setPrintBoat(b)}>📄 Εκτύπωση εργασιών</Btn>
-                {isOwner && (
-                  <Btn small color={COLORS.sub} outline onClick={() => { setObsPrintFor(obsPrintFor === b.id ? null : b.id); setObsDate(""); setObsCompany(""); }}>📝 Εκτύπωση παρατηρήσεων</Btn>
-                )}
               </div>
             </div>
-
-            {isOwner && obsPrintFor === b.id && (
-              <div style={{ marginTop: 8, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 8 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.sub, marginBottom: 4 }}>Στοιχεία εκτύπωσης παρατηρήσεων</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                  <input type="date" value={obsDate} onChange={e => setObsDate(e.target.value)} placeholder="Ημερομηνία ναύλου" style={{ ...inputStyle, width: "auto" }} />
-                  <input value={obsCompany} onChange={e => setObsCompany(e.target.value)} placeholder="Εταιρεία συνεργασίας" style={{ ...inputStyle, flex: 1, minWidth: 160 }} />
-                </div>
-                <Btn small color={COLORS.navy} onClick={() => { setPrintObs({ boat: b, charterDate: obsDate, company: obsCompany }); setObsPrintFor(null); }}>🖨 Εκτύπωση</Btn>
-              </div>
-            )}
 
             {schedFor === b.id && (
               <div style={{ marginTop: 8, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 8 }}>
@@ -4641,7 +4641,9 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
               </div>
             )}
             {detailFor === b.id && (
-              <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} isOwner={isOwner} persistBoats={persistBoats} showToast={showToast} onDeleteBoat={() => { persistBoats(cur => cur.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
+              <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} isOwner={isOwner} persistBoats={persistBoats} showToast={showToast}
+                onPrintTasks={() => setPrintBoat(b)} onPrintObservations={(charterDate, company) => setPrintObs({ boat: b, charterDate, company })}
+                onDeleteBoat={() => { persistBoats(cur => cur.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
             )}
           </div>
         </React.Fragment>
