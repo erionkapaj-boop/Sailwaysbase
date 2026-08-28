@@ -160,9 +160,27 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
       {/* Tapping anywhere on the open card closes it again — the same
           gesture that opened it, not just the back button or the dark
           backdrop around it. The photo and "Επιλογή" opt out below since
-          they each already mean something else. */}
-      <div style={sheetStyle} onClick={onClose}>
-        <BackButton onClick={onClose} style={{ marginBottom: 14 }} />
+          they each already mean something else.
+          stopPropagation here matters, not just style: without it this
+          click also bubbles to the overlay's own onClose above, so a
+          single tap called onClose() twice — closeDetail() is
+          window.history.back(), so that silently popped two history
+          entries instead of one and could land several steps further
+          back than the tap ever asked for. */}
+      <div
+        style={sheetStyle}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+      >
+        <BackButton
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          style={{ marginBottom: 14 }}
+        />
 
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
           <button
