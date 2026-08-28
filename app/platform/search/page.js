@@ -30,6 +30,7 @@ import {
   money,
   shadow,
   radius,
+  sectionLabel,
 } from "../../../lib/platform/theme";
 
 // Quick picks for the region's main ports, sitting above the free-text
@@ -105,6 +106,34 @@ function RatingLine({ s }) {
   );
 }
 
+// The one number that matters most before anything else — its own quiet
+// panel instead of a thin row of stars easy to skim past. Only rendered
+// once there's an actual average to show; a "0.0" for someone with zero
+// reviews would read as a real, poor score instead of simply new.
+function RatingStat({ s }) {
+  if (!(s.rating_count > 0) || s.rating_avg == null) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        padding: "12px 16px",
+        background: colors.seaGlass,
+        borderRadius: radius.md,
+      }}
+    >
+      <span style={{ ...money, fontSize: 26, fontWeight: 700, color: colors.ink, lineHeight: 1 }}>
+        {Number(s.rating_avg).toFixed(1)}
+      </span>
+      {/* Stars already prints its own "4.5 / 5 · 6 αξιολογήσεις" line —
+          repeating the count in a second line under the big number here
+          would just say the same thing twice. */}
+      <Stars rating={s.rating_avg} count={s.rating_count} size={14} showEmptyLabel={false} />
+    </div>
+  );
+}
+
 // The full picture behind the one-line summary on the card: bigger photo,
 // every one of the 6 review axes with its own score AND what it actually
 // measures (the card only ever had room for the headline number), plus
@@ -153,33 +182,33 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
               height: 108,
               borderRadius: "50%",
               background: s.photo_url ? `url(${s.photo_url}) center/cover` : "#EFEFF1",
+              border: `1px solid ${colors.border}`,
               flexShrink: 0,
               padding: 0,
-              border: "none",
               cursor: s.photo_url ? "pointer" : "default",
             }}
           />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {identityLine(s) && <div style={muted}>{identityLine(s)}</div>}
-            <div style={{ ...money, fontSize: 19, fontWeight: 600, marginTop: 6 }}>
+          <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+            <div style={{ ...money, fontSize: 22, fontWeight: 700, lineHeight: 1.15 }}>
               {s.price_per_day}€
-              <span style={{ ...muted, fontFamily: "inherit", fontSize: 13 }}> /ημέρα</span>
+              <span style={{ ...muted, fontFamily: "inherit", fontSize: 13, fontWeight: 400 }}> /ημέρα</span>
             </div>
             {total != null && (
-              <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
+              <div style={{ ...muted, fontSize: 13, marginTop: 3 }}>
                 <span style={money}>{total}€</span> για <span style={money}>{days}</span>{" "}
                 {days === 1 ? "ημέρα" : "ημέρες"}
               </div>
             )}
+            {identityLine(s) && <div style={{ ...muted, fontSize: 13, marginTop: 8, lineHeight: 1.4 }}>{identityLine(s)}</div>}
           </div>
         </div>
 
-        <div style={{ margin: "14px 0" }}>
-          <RatingLine s={s} />
+        <div style={{ margin: "16px 0" }}>
+          <RatingStat s={s} />
         </div>
 
         {highlights.length > 0 && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
             {highlights.map((h) => (
               <span key={h} style={{ ...badge("neutral"), fontFamily: "inherit", fontWeight: 400 }}>
                 {h}
@@ -188,8 +217,8 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
           </div>
         )}
 
-        <h3 style={{ ...h2, fontSize: 16, margin: "0 0 4px" }}>Αναλυτική αξιολόγηση</h3>
-        <div style={{ marginBottom: 20 }}>
+        <h3 style={{ ...sectionLabel, margin: "0 0 6px" }}>Αναλυτική αξιολόγηση</h3>
+        <div style={{ marginBottom: 24 }}>
           {categories.map((c, i) => {
             const rating = s[`rating_avg_${c.key}`];
             const value = s.rating_count > 0 && rating != null ? Number(rating) : null;
@@ -315,25 +344,25 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
             height: 60,
             borderRadius: "50%",
             background: s.photo_url ? `url(${s.photo_url}) center/cover` : "#EFEFF1",
+            border: `1px solid ${colors.border}`,
             flexShrink: 0,
           }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
-            <div>{identityLine(s) && <div style={muted}>{identityLine(s)}</div>}</div>
-            <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-              <div style={{ ...money, fontSize: 19, fontWeight: 600 }}>
-                {s.price_per_day}€
-                <span style={{ ...muted, fontFamily: "inherit", fontSize: 13 }}> /ημέρα</span>
-              </div>
-              {total != null && (
-                <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
-                  <span style={money}>{total}€</span> για <span style={money}>{days}</span>{" "}
-                  {days === 1 ? "ημέρα" : "ημέρες"}
-                </div>
-              )}
-            </div>
+          {/* Same order as the detail sheet (price, then the stay total,
+              then who they are) — the two views read as one continuous
+              profile instead of two different layouts for the same data. */}
+          <div style={{ ...money, fontSize: 19, fontWeight: 700, lineHeight: 1.15 }}>
+            {s.price_per_day}€
+            <span style={{ ...muted, fontFamily: "inherit", fontSize: 13, fontWeight: 400 }}> /ημέρα</span>
           </div>
+          {total != null && (
+            <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
+              <span style={money}>{total}€</span> για <span style={money}>{days}</span>{" "}
+              {days === 1 ? "ημέρα" : "ημέρες"}
+            </div>
+          )}
+          {identityLine(s) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s)}</div>}
 
           <div style={{ margin: "10px 0" }}>
             <RatingLine s={s} />
