@@ -13,7 +13,7 @@ import {
   departureLabel,
 } from "../../../lib/platform/db";
 import { card, muted, button, input, select, badge, colors, money, radius } from "../../../lib/platform/theme";
-import { formatDateTime } from "../../../lib/platform/notifications";
+import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { labelForRole } from "../../../lib/platform/roles";
 
@@ -29,6 +29,8 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   const rootRef = useRef(null);
   const [expanded, setExpanded] = useState(autoExpand);
   const [counterpart, setCounterpart] = useState(null);
+  const [counterpartError, setCounterpartError] = useState(false);
+  const [counterpartAttempt, setCounterpartAttempt] = useState(0);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [reviews, setReviews] = useState([]);
@@ -45,11 +47,25 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   const isPastEnd = new Date(booking.end_date) < new Date(new Date().toDateString());
   const revealed = ["confirmed", "completed", "cancelled_by_client", "cancelled_by_skipper"].includes(booking.status);
 
-  // Loaded on first expand rather than on mount — the list can hold many
-  // bookings and most stay collapsed.
+  // Loaded as soon as the booking is revealed, regardless of whether the row
+  // is expanded — the whole point of a confirmed booking is that the two
+  // sides can now identify and reach each other, so that shouldn't wait on
+  // an extra click to notice it's there. Failure isn't swallowed: a client
+  // staring at "Επιβεβαιωμένη" with no name and no obvious reason why is
+  // worse than a visible retry.
+  useEffect(() => {
+    if (!revealed) return;
+    setCounterpartError(false);
+    getBookingCounterpart(booking.id)
+      .then(setCounterpart)
+      .catch(() => setCounterpartError(true));
+  }, [booking.id, revealed, counterpartAttempt]);
+
+  // Messages/reviews stay behind the expand click — the list can hold many
+  // bookings and most stay collapsed, and those are worth fetching only once
+  // someone actually opens the thread.
   useEffect(() => {
     if (!revealed || !expanded) return;
-    getBookingCounterpart(booking.id).then(setCounterpart).catch(() => {});
     listMessages(booking.id).then(setMessages).catch(() => {});
     listReviewsForBooking(booking.id).then(setReviews).catch(() => {});
     // Opening the thread is what "reading" it means here — mark it read and
@@ -171,7 +187,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
         <span style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
           <span style={{ fontSize: 14, fontWeight: 500 }}>{departureLabel(booking)}</span>
           <span style={{ ...money, fontSize: 13, color: colors.inkSoft }}>
-            {booking.start_date} → {booking.end_date}
+            {formatDate(booking.start_date)} → {formatDate(booking.end_date)}
           </span>
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -196,20 +212,12 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
         </span>
       </button>
 
-      {expanded && (
-        <div style={{ padding: "0 18px 18px" }}>
-      {/* Πότε ακριβώς επιβεβαιώθηκε — διαφορετική στιγμή από το ναύλο που
-          κλείνει, χρήσιμη σε περίπτωση διαφωνίας για το ποιος ήξερε τι
-          πότε. confirmed_at λείπει μόνο σε ό,τι ήρθε από παλιά δεδομένα
-          πριν υπάρξει η στήλη· δεν εμφανίζεται τίποτα τότε αντί για
-          λανθασμένη ώρα. */}
-      {booking.confirmed_at && (
-        <p style={{ ...muted, fontSize: 12, margin: "10px 0 0" }}>
-          Επιβεβαιώθηκε {formatDateTime(booking.confirmed_at)}
-        </p>
-      )}
+      {/* Always visible once revealed — not gated behind expanding the row.
+          A confirmed booking's whole point is that both sides can now
+          identify and reach each other; that shouldn't hide behind a click
+          nobody knows to make. */}
       {revealed && counterpart && (
-        <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${colors.border}`, display: "flex", gap: 12, alignItems: "center" }}>
+        <div style={{ padding: "0 18px 14px", display: "flex", gap: 12, alignItems: "center" }}>
           {counterpart.photo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -233,6 +241,33 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
             )}
           </div>
         </div>
+      )}
+      {revealed && counterpartError && (
+        <div style={{ padding: "0 18px 14px" }}>
+          <p style={{ ...muted, color: colors.danger, fontSize: 12.5, margin: 0 }}>
+            Δεν φορτώθηκαν τα στοιχεία επικοινωνίας.{" "}
+            <button
+              type="button"
+              onClick={() => setCounterpartAttempt((n) => n + 1)}
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.accent, fontFamily: "inherit", fontSize: "inherit", textDecoration: "underline" }}
+            >
+              Δοκίμασε ξανά
+            </button>
+          </p>
+        </div>
+      )}
+
+      {expanded && (
+        <div style={{ padding: "0 18px 18px" }}>
+      {/* Πότε ακριβώς επιβεβαιώθηκε — διαφορετική στιγμή από το ναύλο που
+          κλείνει, χρήσιμη σε περίπτωση διαφωνίας για το ποιος ήξερε τι
+          πότε. confirmed_at λείπει μόνο σε ό,τι ήρθε από παλιά δεδομένα
+          πριν υπάρξει η στήλη· δεν εμφανίζεται τίποτα τότε αντί για
+          λανθασμένη ώρα. */}
+      {booking.confirmed_at && (
+        <p style={{ ...muted, fontSize: 12, margin: "10px 0 0" }}>
+          Επιβεβαιώθηκε {formatDateTime(booking.confirmed_at)}
+        </p>
       )}
 
       {booking.status === "confirmed" && (
