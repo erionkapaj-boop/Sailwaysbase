@@ -115,6 +115,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
   const total = days ? s.price_per_day * days : null;
   const highlights = computeCrewHighlights(s);
   const categories = reviewCategoriesForRole(s.role);
+  const [photoExpanded, setPhotoExpanded] = useState(false);
 
   useEffect(() => {
     function onKey(e) {
@@ -126,7 +127,11 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
 
   return (
     <div style={sheetOverlayStyle} onClick={onClose}>
-      <div style={sheetStyle} onClick={(e) => e.stopPropagation()}>
+      {/* Tapping anywhere on the open card closes it again — the same
+          gesture that opened it, not just the back button or the dark
+          backdrop around it. The photo and "Επιλογή" opt out below since
+          they each already mean something else. */}
+      <div style={sheetStyle} onClick={onClose}>
         <button
           type="button"
           onClick={onClose}
@@ -136,13 +141,22 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
         </button>
 
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-          <div
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (s.photo_url) setPhotoExpanded(true);
+            }}
+            aria-label="Μεγέθυνση φωτογραφίας"
             style={{
               width: 108,
               height: 108,
               borderRadius: "50%",
               background: s.photo_url ? `url(${s.photo_url}) center/cover` : "#EFEFF1",
               flexShrink: 0,
+              padding: 0,
+              border: "none",
+              cursor: s.photo_url ? "pointer" : "default",
             }}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -187,10 +201,66 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
           ))}
         </div>
 
-        <button style={{ ...button(selected ? "primary" : "secondary"), width: "100%" }} onClick={() => onToggle(s.id)}>
+        <button
+          style={{ ...button(selected ? "primary" : "secondary"), width: "100%" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle(s.id);
+          }}
+        >
           {selected ? "✓ Επιλέχθηκε" : "Επιλογή"}
         </button>
       </div>
+
+      {photoExpanded && s.photo_url && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            setPhotoExpanded(false);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(22,40,60,0.75)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 60,
+            padding: 24,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={s.photo_url}
+            alt=""
+            style={{ maxWidth: "min(100%, 420px)", maxHeight: "80vh", borderRadius: radius.lg, objectFit: "contain" }}
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPhotoExpanded(false);
+            }}
+            aria-label="Κλείσιμο"
+            style={{
+              position: "fixed",
+              top: 18,
+              right: 18,
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(255,255,255,0.9)",
+              color: colors.ink,
+              fontSize: 18,
+              cursor: "pointer",
+              lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }
