@@ -475,6 +475,14 @@ async function printWhenImagesReady(isCancelled) {
   })));
   if (!isCancelled()) window.print();
 }
+// Το «Αποθήκευση ως PDF» του browser προτείνει σαν όνομα αρχείου τον τίτλο της σελίδας τη στιγμή της εκτύπωσης
+// — γι' αυτό αλλάζουμε προσωρινά το document.title πριν το print() και το επαναφέρουμε μετά, αντί να ζητάμε
+// από τον χρήστη να πληκτρολογεί κάθε φορά όνομα.
+function printFileName(prefix, boatName) {
+  const d = new Date();
+  const date = `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+  return `${prefix} - ${boatName} - ${date}`;
+}
 
 // Σειρά εκτέλεσης ανά κλειδί αποθήκευσης (π.χ. "app-tasks"): αν ο ίδιος χρήστης πατήσει δύο πράγματα διαδοχικά
 // πολύ γρήγορα (π.χ. τσεκάρει δύο αντικείμενα ενός checklist σχεδόν ταυτόχρονα), οι δύο κλήσεις persistX θα
@@ -4501,10 +4509,12 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
   useEffect(() => {
     if (!printBoat) return;
     let cancelled = false;
+    const prevTitle = document.title;
+    document.title = printFileName("Εργασίες", printBoat.name);
     printWhenImagesReady(() => cancelled);
-    const reset = () => setPrintBoat(null);
+    const reset = () => { setPrintBoat(null); document.title = prevTitle; };
     window.addEventListener("afterprint", reset);
-    return () => { cancelled = true; window.removeEventListener("afterprint", reset); };
+    return () => { cancelled = true; window.removeEventListener("afterprint", reset); document.title = prevTitle; };
   }, [printBoat]);
 
   // «Παρατηρήσεις καπετάνιου»: ξεχωριστό έντυπο από τη λίστα εργασιών, με στοιχεία (καπετάνιος/ημερομηνία
@@ -4514,10 +4524,12 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
   useEffect(() => {
     if (!printObs) return;
     let cancelled = false;
+    const prevTitle = document.title;
+    document.title = printFileName("Παρατηρήσεις", printObs.boat.name);
     printWhenImagesReady(() => cancelled);
-    const reset = () => setPrintObs(null);
+    const reset = () => { setPrintObs(null); document.title = prevTitle; };
     window.addEventListener("afterprint", reset);
-    return () => { cancelled = true; window.removeEventListener("afterprint", reset); };
+    return () => { cancelled = true; window.removeEventListener("afterprint", reset); document.title = prevTitle; };
   }, [printObs]);
 
   // Προτεραιότητα σε 4 επίπεδα, με απλή χρωματική σήμανση:
