@@ -4303,12 +4303,12 @@ function BoatTaskPrintSheet({ boat, tasks }) {
   const printedAt = new Date().toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
   return (
     <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 18, borderBottom: "2px solid #111", paddingBottom: 16, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 20, borderBottom: "2px solid #111", paddingBottom: 18, marginBottom: 22 }}>
         {boat.photoUrl && (
-          <img src={boat.photoUrl} alt="" style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc", flexShrink: 0 }} />
+          <img src={boat.photoUrl} alt="" style={{ width: 112, height: 112, objectFit: "cover", borderRadius: 10, border: "1px solid #ccc", flexShrink: 0 }} />
         )}
         <div>
-          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: 0.2 }}>{boat.name}</div>
+          <div style={{ fontSize: 27, fontWeight: 800, letterSpacing: 0.2 }}>{boat.name}</div>
           {boat.type && <div style={{ fontSize: 14, color: "#555", marginTop: 2 }}>{boat.type}</div>}
         </div>
         <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 12, color: "#555" }}>
@@ -4322,7 +4322,7 @@ function BoatTaskPrintSheet({ boat, tasks }) {
       ) : (
         <ol style={{ margin: 0, padding: 0, listStyle: "none" }}>
           {tasks.map((t, i) => (
-            <li key={t.id} style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid #ddd", breakInside: "avoid" }}>
+            <li key={t.id} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: "1px solid #ddd", breakInside: "avoid" }}>
               <div style={{ fontWeight: 800, fontSize: 15, width: 24, flexShrink: 0 }}>{i + 1}.</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 15, lineHeight: 1.5 }}>
@@ -4330,9 +4330,9 @@ function BoatTaskPrintSheet({ boat, tasks }) {
                   {t.urgent && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: "#8A1F1F", border: "1px solid #8A1F1F", borderRadius: 4, padding: "1px 6px" }}>ΕΠΕΙΓΟΝ</span>}
                 </div>
                 {t.photos?.length > 0 && (
-                  <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                     {t.photos.map((url, pi) => (
-                      <img key={pi} src={url} alt="" style={{ width: 70, height: 70, objectFit: "cover", borderRadius: 6, border: "1px solid #ccc" }} />
+                      <img key={pi} src={url} alt="" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc" }} />
                     ))}
                   </div>
                 )}
@@ -4380,10 +4380,23 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
   const [printBoat, setPrintBoat] = useState(null);
   useEffect(() => {
     if (!printBoat) return;
-    const timer = setTimeout(() => window.print(), 80);
+    let cancelled = false;
+    (async () => {
+      // Δίνουμε χρόνο στο React να αποδώσει το print-area, μετά περιμένουμε να κατέβουν όλες οι φωτογραφίες
+      // (φωτογραφία σκάφους + εργασιών) πριν καλέσουμε print — αλλιώς η εκτύπωση παίρνει «στιγμιότυπο» της
+      // σελίδας πριν προλάβουν να φορτώσουν από το δίκτυο και βγαίνουν κενές.
+      await new Promise(r => setTimeout(r, 50));
+      const imgs = Array.from(document.querySelectorAll(".print-area img"));
+      await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => {
+        img.addEventListener("load", res, { once: true });
+        img.addEventListener("error", res, { once: true });
+        setTimeout(res, 5000);
+      })));
+      if (!cancelled) window.print();
+    })();
     const reset = () => setPrintBoat(null);
     window.addEventListener("afterprint", reset);
-    return () => { clearTimeout(timer); window.removeEventListener("afterprint", reset); };
+    return () => { cancelled = true; window.removeEventListener("afterprint", reset); };
   }, [printBoat]);
 
   // Προτεραιότητα σε 4 επίπεδα, με απλή χρωματική σήμανση:
