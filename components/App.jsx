@@ -1513,6 +1513,12 @@ ${histLines}
     await persistBoatNotes(cur => cur.filter(n => n.id !== id));
     showToast("Η παρατήρηση διαγράφηκε");
   };
+  // Μαζική διαγραφή μετά την εκτύπωση/παράδοση σε συνεργαζόμενη εταιρεία — οι παρατηρήσεις αφορούν έναν
+  // συγκεκριμένο κύκλο παράδοσης, δεν έχει νόημα να μένουν μαζεμένες μετά.
+  const clearBoatNotes = async (boatId) => {
+    await persistBoatNotes(cur => cur.filter(n => n.boatId !== boatId));
+    showToast("Οι παρατηρήσεις διαγράφηκαν");
+  };
   const persistAiMemories = makePersist("app-aimemories", setAiMemories, aiMemories);
   const addAiMemory = async (text, byOverride) => {
     const m = { id: "am" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), text, at: new Date().toISOString(), by: byOverride || acting.id };
@@ -1786,7 +1792,7 @@ ${histLines}
           onAssign={assignTask} onAssignWithDeadline={assignTaskWithDeadline} onDowngrade={toggleUrgent} onEdit={editTask} onDelete={deleteTask} onBulkDelete={deleteTasks} canAssign={canAssign} onChecklistItem={resolveChecklistItem} onInventoryItem={resolveInventoryItem} onBulkCategory={bulkInventoryCategory} onFinishInventory={finishInventory} onConfirmInventory={confirmInventory} onSetDeadline={setTaskDeadline} onSetDeadlineDuration={setTaskDeadlineByDuration} onToggleExcludeDeadline={toggleExcludeDeadline} onSnooze={snoozeTask} onUnsnooze={unsnoozeTask} onAddBeforePhotos={addBeforePhotos} onLogFinding={logFinding} onTranslate={translateTask} onHelp={getTaskHelp} onDecline={declineTask} /></ErrorBoundary>}
         {tab === "new" && <ErrorBoundary label="Νέα εργασία"><NewTask boats={shownBoats} quick={quick} users={users} isMgr={isMgr} onAdd={addTask} onAddMany={addTasks} onAddParsed={addParsed} /></ErrorBoundary>}
         {tab === "service" && <ErrorBoundary label="Service Book"><ServiceBook boats={opsBoats} tasks={opsActiveTasks} users={users} isMgr={isMgr} onDelete={deleteTask} onToggleService={toggleServiceRelevant} /></ErrorBoundary>}
-        {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={shownBoats} opsTasks={opsActiveTasks} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} inventory={inventory} persistInventory={persistInventory} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
+        {tab === "admin" && isMgr && <ErrorBoundary label="Admin"><AdminView me={acting} users={users} boats={shownBoats} opsTasks={opsActiveTasks} tasks={activeTasks} quick={quick} checklist={checklist} closingChecklist={closingChecklist} inventory={inventory} persistInventory={persistInventory} boatNotes={boatNotes} onAddBoatNote={addBoatNote} onDeleteBoatNote={deleteBoatNote} onClearBoatNotes={clearBoatNotes} aiMemories={aiMemories} onAddMemory={addAiMemory} onDeleteMemory={deleteAiMemory} onAddScheduled={addScheduledBacklogTask} absences={absences}
           persistUsers={persistUsers} persistBoats={persistBoats} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist}
           onReturn={returnTask} onCloseExternal={closeExternal} onDowngrade={toggleUrgent} onRate={rateTask}
           onAssign={assignTask} runDistribution={() => runDistribution(true).then(fresh => generateAutoTasks(fresh))} generateClosingChecks={generateClosingChecks} effectiveDeadline={effectiveDeadline}
@@ -3554,7 +3560,7 @@ function ServiceBook({ boats, tasks, users, isMgr, onDelete, onToggleService }) 
 
 // ---------- Διοίκηση (manager + owner) ----------
 function AdminView(props) {
-  const { me, users, boats, tasks, opsTasks, quick, checklist, closingChecklist, inventory, persistInventory, boatNotes, onAddBoatNote, onDeleteBoatNote, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
+  const { me, users, boats, tasks, opsTasks, quick, checklist, closingChecklist, inventory, persistInventory, boatNotes, onAddBoatNote, onDeleteBoatNote, onClearBoatNotes, aiMemories, onAddMemory, onDeleteMemory, onAddScheduled, absences, persistUsers, persistBoats, persistQuick, persistChecklist, persistClosingChecklist,
     onReturn, onCloseExternal, onDowngrade, onRate, runDistribution, generateClosingChecks, effectiveDeadline, settings, updateSettings, resetSettings, onStartInventory, onConfirmInventory, signoffs, showToast, onViewAs, realOwner, onAddAbsence, onDeleteAbsence, section, setSection, tasksRaw, onRestore, partners, persistPartners } = props;
   const isOwner = me.role === "owner";
   // Δύο επίπεδα αντί για 12 καρτέλες σε οριζόντιο scroll: 4 ομάδες που χωράνε όλες στην οθόνη, και από κάτω
@@ -3597,7 +3603,7 @@ function AdminView(props) {
       )}
       {section === "overview" && <Overview boats={boats} tasks={opsTasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} onConfirmInventory={onConfirmInventory} signoffs={signoffs} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
-      {section === "boats" && <BoatsAdmin boats={boats} isOwner={isOwner} me={me} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} onStartInventory={onStartInventory} showToast={showToast} />}
+      {section === "boats" && <BoatsAdmin boats={boats} isOwner={isOwner} me={me} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} onClearBoatNotes={onClearBoatNotes} partners={partners} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} onStartInventory={onStartInventory} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} inventory={inventory} persistInventory={persistInventory} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "partners" && isOwner && <PartnersAdmin partners={partners} persistPartners={persistPartners} />}
@@ -3953,10 +3959,13 @@ const nextDeparture = (b) => {
   return null;
 };
 
-function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, isOwner, persistBoats, showToast, onPrintTasks, onPrintObservations, onDeleteBoat }) {
+function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNotes, partners, isMgr, isOwner, persistBoats, showToast, onPrintTasks, onPrintObservations, onDeleteBoat }) {
   const [obsFormOpen, setObsFormOpen] = useState(false);
-  const [obsDate, setObsDate] = useState("");
+  const [obsFrom, setObsFrom] = useState("");
+  const [obsTo, setObsTo] = useState("");
   const [obsCompany, setObsCompany] = useState("");
+  const [confirmClearNotes, setConfirmClearNotes] = useState(false);
+  const partnerCompanies = [...new Set((partners || []).map(p => p.company).filter(Boolean))].sort((a, b) => a.localeCompare(b, "el"));
   const [noteText, setNoteText] = useState("");
   const [notePhotos, setNotePhotos] = useState([]);
   const noteFileRef = useRef(null);
@@ -4034,18 +4043,33 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, is
 
       {isOwner && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>Παρατηρήσεις <span style={{ fontWeight: 400, color: COLORS.sub, fontSize: 12 }}>(θετικές ή αρνητικές — και τα δύο βοηθούν — ορατές μόνο σε σένα)</span></div>
-            {onPrintObservations && <Btn small color={COLORS.sub} outline onClick={() => { setObsFormOpen(v => !v); setObsDate(""); setObsCompany(""); }}>📝 Εκτύπωση</Btn>}
+            <div style={{ display: "flex", gap: 4 }}>
+              {onPrintObservations && <Btn small color={COLORS.sub} outline onClick={() => { setObsFormOpen(v => !v); setObsFrom(""); setObsTo(""); setObsCompany(""); }}>📝 Εκτύπωση</Btn>}
+              {onClearNotes && myNotes.length > 0 && <Btn small color={COLORS.red} outline onClick={() => setConfirmClearNotes(true)}>🗑 Διαγραφή όλων</Btn>}
+            </div>
           </div>
+          {confirmClearNotes && (
+            <div style={{ margin: "4px 0 8px", background: COLORS.card, borderRadius: 8, padding: 8 }}>
+              <div style={{ fontSize: 13, color: COLORS.red, marginBottom: 8 }}>Διαγραφή και των {myNotes.length} παρατηρήσεων; Κάν' το αφού πρώτα τις έχεις παραδώσει — δεν αναιρείται.</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn small color={COLORS.red} onClick={() => { onClearNotes(); setConfirmClearNotes(false); }}>Ναι, διαγραφή</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => setConfirmClearNotes(false)}>Άκυρο</Btn>
+              </div>
+            </div>
+          )}
           {obsFormOpen && (
             <div style={{ margin: "4px 0 8px", background: COLORS.card, borderRadius: 8, padding: 8 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.sub, marginBottom: 4 }}>Στοιχεία εκτύπωσης παρατηρήσεων</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                <input type="date" value={obsDate} onChange={e => setObsDate(e.target.value)} placeholder="Ημερομηνία ναύλου" style={{ ...inputStyle, width: "auto" }} />
-                <input value={obsCompany} onChange={e => setObsCompany(e.target.value)} placeholder="Εταιρεία συνεργασίας" style={{ ...inputStyle, flex: 1, minWidth: 160 }} />
+              <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+                <input type="date" value={obsFrom} onChange={e => setObsFrom(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
+                <span style={{ color: COLORS.sub }}>→</span>
+                <input type="date" min={obsFrom} value={obsTo} onChange={e => setObsTo(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
               </div>
-              <Btn small color={COLORS.navy} onClick={() => { onPrintObservations(obsDate, obsCompany); setObsFormOpen(false); }}>🖨 Εκτύπωση</Btn>
+              <input value={obsCompany} onChange={e => setObsCompany(e.target.value)} placeholder="Εταιρεία συνεργασίας" list="obs-company-suggestions" style={{ ...inputStyle, marginBottom: 8 }} />
+              <datalist id="obs-company-suggestions">{partnerCompanies.map(c => <option key={c} value={c} />)}</datalist>
+              <Btn small color={COLORS.navy} onClick={() => { onPrintObservations(obsFrom, obsTo, obsCompany); setObsFormOpen(false); }}>🖨 Εκτύπωση</Btn>
             </div>
           )}
           {myNotes.length === 0 && <div style={{ color: COLORS.sub, fontSize: 13 }}>Καμία ακόμα.</div>}
@@ -4331,6 +4355,47 @@ function BulkScheduleEntry({ boats, persistBoats, showToast }) {
   );
 }
 
+// Κοινά κομμάτια των δύο εντύπων παρακάτω (λίστα εργασιών / παρατηρήσεις καπετάνιου): ίδια κεφαλίδα σκάφους,
+// ίδια αριθμημένη λίστα με φωτογραφίες — ώστε μια αλλαγή στυλ να γίνεται σε ένα σημείο, όχι σε δύο αντίγραφα.
+function PrintSheetHeader({ boat, title, printedAt }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 20, borderBottom: "2px solid #111", paddingBottom: 18, marginBottom: 18 }}>
+      {boat.photoUrl && (
+        <img src={boat.photoUrl} alt="" style={{ width: 112, height: 112, objectFit: "cover", borderRadius: 10, border: "1px solid #ccc", flexShrink: 0 }} />
+      )}
+      <div>
+        <div style={{ fontSize: 27, fontWeight: 800, letterSpacing: 0.2 }}>{boat.name}</div>
+        {boat.type && <div style={{ fontSize: 14, color: "#555", marginTop: 2 }}>{boat.type}</div>}
+      </div>
+      <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 12, color: "#555" }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: "#111" }}>{title}</div>
+        <div>{printedAt}</div>
+      </div>
+    </div>
+  );
+}
+function PrintNumberedList({ items, emptyText, renderItem }) {
+  if (items.length === 0) return <div style={{ fontSize: 15, color: "#555" }}>{emptyText}</div>;
+  return (
+    <ol style={{ margin: 0, padding: 0, listStyle: "none" }}>
+      {items.map((item, i) => (
+        <li key={item.id} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: "1px solid #ddd", breakInside: "avoid" }}>
+          <div style={{ fontWeight: 800, fontSize: 15, width: 24, flexShrink: 0 }}>{i + 1}.</div>
+          <div style={{ flex: 1 }}>{renderItem(item)}</div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+function PrintPhotoRow({ urls }) {
+  if (!urls?.length) return null;
+  return (
+    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+      {urls.map((url, pi) => <img key={pi} src={url} alt="" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc" }} />)}
+    </div>
+  );
+}
+
 // Επίσημο, καθαρό φύλλο εργασιών ενός σκάφους για εκτύπωση/PDF: όνομα + φωτογραφία πάνω, μετά μόνο η λίστα
 // των ανοιχτών εργασιών (χωρίς ανάθεση/κατάσταση — αυτά αφορούν τη βάση, όχι όποιον θα κάνει τη δουλειά) με τις
 // φωτογραφίες τους αν υπάρχουν, ώστε να μπορεί κανείς να το δώσει σε χέρι σαν έντυπη οδηγία.
@@ -4339,44 +4404,17 @@ function BoatTaskPrintSheet({ boat, tasks }) {
   const printedAt = new Date().toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
   return (
     <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px", boxSizing: "border-box" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 20, borderBottom: "2px solid #111", paddingBottom: 18, marginBottom: 22 }}>
-        {boat.photoUrl && (
-          <img src={boat.photoUrl} alt="" style={{ width: 112, height: 112, objectFit: "cover", borderRadius: 10, border: "1px solid #ccc", flexShrink: 0 }} />
-        )}
-        <div>
-          <div style={{ fontSize: 27, fontWeight: 800, letterSpacing: 0.2 }}>{boat.name}</div>
-          {boat.type && <div style={{ fontSize: 14, color: "#555", marginTop: 2 }}>{boat.type}</div>}
-        </div>
-        <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 12, color: "#555" }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#111" }}>Λίστα εργασιών</div>
-          <div>{printedAt}</div>
-        </div>
-      </div>
+      <PrintSheetHeader boat={boat} title="Λίστα εργασιών" printedAt={printedAt} />
 
-      {tasks.length === 0 ? (
-        <div style={{ fontSize: 15, color: "#555" }}>Καμία ανοιχτή εργασία αυτή τη στιγμή.</div>
-      ) : (
-        <ol style={{ margin: 0, padding: 0, listStyle: "none" }}>
-          {tasks.map((t, i) => (
-            <li key={t.id} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: "1px solid #ddd", breakInside: "avoid" }}>
-              <div style={{ fontWeight: 800, fontSize: 15, width: 24, flexShrink: 0 }}>{i + 1}.</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 15, lineHeight: 1.5 }}>
-                  {t.desc}
-                  {t.urgent && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: "#8A1F1F", border: "1px solid #8A1F1F", borderRadius: 4, padding: "1px 6px" }}>ΕΠΕΙΓΟΝ</span>}
-                </div>
-                {t.photos?.length > 0 && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                    {t.photos.map((url, pi) => (
-                      <img key={pi} src={url} alt="" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc" }} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
+      <PrintNumberedList items={tasks} emptyText="Καμία ανοιχτή εργασία αυτή τη στιγμή." renderItem={t => (
+        <>
+          <div style={{ fontSize: 15, lineHeight: 1.5 }}>
+            {t.desc}
+            {t.urgent && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: "#8A1F1F", border: "1px solid #8A1F1F", borderRadius: 4, padding: "1px 6px" }}>ΕΠΕΙΓΟΝ</span>}
+          </div>
+          <PrintPhotoRow urls={t.photos} />
+        </>
+      )} />
 
       <div style={{ marginTop: 28, paddingTop: 10, borderTop: "1px solid #ddd", fontSize: 11, color: "#888", display: "flex", justifyContent: "space-between" }}>
         <span>Sailways — Βάση Αλίμου</span>
@@ -4388,54 +4426,46 @@ function BoatTaskPrintSheet({ boat, tasks }) {
 
 // Ξεχωριστό έντυπο από τη λίστα εργασιών: προσωπικές παρατηρήσεις του καπετάνιου κατά την παραλαβή ενός
 // σκάφους (π.χ. από άντρες συνεργαζόμενης εταιρείας), με στοιχεία που αλλάζουν κάθε φορά (ημερομηνία ναύλου,
-// εταιρεία) — γι' αυτό ζητούνται στη στιγμή της εκτύπωσης αντί να αποθηκεύονται στο σκάφος. Σκόπιμα χωρίς το
-// υποσέλιδο «Sailways — Βάση Αλίμου» της λίστας εργασιών.
-function BoatObservationsPrintSheet({ boat, notes, captainName, charterDate, company }) {
+// εταιρεία) — γι' αυτό ζητούνται στη στιγμή της εκτύπωσης αντί να αποθηκεύονται στο σκάφος. Παρακάτω από τις
+// παρατηρήσεις μπαίνει και η ίδια λίστα ανοιχτών εργασιών, ώστε ένα μόνο έντυπο να καλύπτει ό,τι χρειάζεται η
+// συνεργαζόμενη εταιρεία. Σκόπιμα χωρίς το υποσέλιδο «Sailways — Βάση Αλίμου» της λίστας εργασιών.
+function BoatObservationsPrintSheet({ boat, notes, tasks, captainName, charterFrom, charterTo, company }) {
   if (!boat) return null;
   const printedAt = new Date().toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const charterRange = charterFrom || charterTo
+    ? `${charterFrom ? fmtDate(charterFrom) : "—"} – ${charterTo ? fmtDate(charterTo) : "—"}`
+    : "—";
   return (
     <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px", boxSizing: "border-box" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 20, borderBottom: "2px solid #111", paddingBottom: 18, marginBottom: 18 }}>
-        {boat.photoUrl && (
-          <img src={boat.photoUrl} alt="" style={{ width: 112, height: 112, objectFit: "cover", borderRadius: 10, border: "1px solid #ccc", flexShrink: 0 }} />
-        )}
-        <div>
-          <div style={{ fontSize: 27, fontWeight: 800, letterSpacing: 0.2 }}>{boat.name}</div>
-          {boat.type && <div style={{ fontSize: 14, color: "#555", marginTop: 2 }}>{boat.type}</div>}
-        </div>
-        <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 12, color: "#555" }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#111" }}>Παρατηρήσεις καπετάνιου</div>
-          <div>{printedAt}</div>
-        </div>
-      </div>
+      <PrintSheetHeader boat={boat} title="Παρατηρήσεις καπετάνιου" printedAt={printedAt} />
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", fontSize: 13, color: "#333", marginBottom: 22, paddingBottom: 14, borderBottom: "1px solid #ddd" }}>
         <div><span style={{ color: "#888" }}>Καπετάνιος: </span><b>{captainName || "—"}</b></div>
-        <div><span style={{ color: "#888" }}>Ημερομηνία ναύλου: </span><b>{charterDate ? fmtDate(charterDate) : "—"}</b></div>
+        <div><span style={{ color: "#888" }}>Ημερομηνία ναύλου: </span><b>{charterRange}</b></div>
         <div><span style={{ color: "#888" }}>Εταιρεία: </span><b>{company || "—"}</b></div>
       </div>
 
-      {notes.length === 0 ? (
-        <div style={{ fontSize: 15, color: "#555" }}>Καμία παρατήρηση καταχωρημένη.</div>
-      ) : (
-        <ol style={{ margin: 0, padding: 0, listStyle: "none" }}>
-          {notes.map((n, i) => (
-            <li key={n.id} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: "1px solid #ddd", breakInside: "avoid" }}>
-              <div style={{ fontWeight: 800, fontSize: 15, width: 24, flexShrink: 0 }}>{i + 1}.</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 15, lineHeight: 1.5 }}>{n.text}</div>
-                <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>{fmtDate(n.at)}</div>
-                {n.photos?.length > 0 && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                    {n.photos.map((url, pi) => (
-                      <img key={pi} src={url} alt="" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc" }} />
-                    ))}
-                  </div>
-                )}
+      <PrintNumberedList items={notes} emptyText="Καμία παρατήρηση καταχωρημένη." renderItem={n => (
+        <>
+          <div style={{ fontSize: 15, lineHeight: 1.5 }}>{n.text}</div>
+          <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>{fmtDate(n.at)}</div>
+          <PrintPhotoRow urls={n.photos} />
+        </>
+      )} />
+
+      {tasks.length > 0 && (
+        <>
+          <div style={{ fontWeight: 700, fontSize: 14, marginTop: 24, marginBottom: 4, paddingTop: 14, borderTop: "1px solid #ddd" }}>Εργασίες σκάφους</div>
+          <PrintNumberedList items={tasks} emptyText="" renderItem={t => (
+            <>
+              <div style={{ fontSize: 15, lineHeight: 1.5 }}>
+                {t.desc}
+                {t.urgent && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: "#8A1F1F", border: "1px solid #8A1F1F", borderRadius: 4, padding: "1px 6px" }}>ΕΠΕΙΓΟΝ</span>}
               </div>
-            </li>
-          ))}
-        </ol>
+              <PrintPhotoRow urls={t.photos} />
+            </>
+          )} />
+        </>
       )}
     </div>
   );
@@ -4456,7 +4486,7 @@ function BoatAvatar({ boat, size = 44 }) {
   );
 }
 
-function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, onStartInventory, showToast }) {
+function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, onClearBoatNotes, partners, isMgr, persistBoats, onStartInventory, showToast }) {
   const [detailFor, setDetailFor] = useState(null);
   const [schedFor, setSchedFor] = useState(null);
   const [newFrom, setNewFrom] = useState("");
@@ -4641,8 +4671,8 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
               </div>
             )}
             {detailFor === b.id && (
-              <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} isOwner={isOwner} persistBoats={persistBoats} showToast={showToast}
-                onPrintTasks={() => setPrintBoat(b)} onPrintObservations={(charterDate, company) => setPrintObs({ boat: b, charterDate, company })}
+              <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} onClearNotes={onClearBoatNotes ? () => onClearBoatNotes(b.id) : null} partners={partners} isMgr={isMgr} isOwner={isOwner} persistBoats={persistBoats} showToast={showToast}
+                onPrintTasks={() => setPrintBoat(b)} onPrintObservations={(charterFrom, charterTo, company) => setPrintObs({ boat: b, charterFrom, charterTo, company })}
                 onDeleteBoat={() => { persistBoats(cur => cur.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
             )}
           </div>
@@ -4690,8 +4720,10 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
       <BoatObservationsPrintSheet
         boat={printObs?.boat || null}
         notes={printObs ? boatNotes.filter(n => n.boatId === printObs.boat.id).sort((a, c) => c.at.localeCompare(a.at)) : []}
+        tasks={printObs ? tasks.filter(t => t.boatId === printObs.boat.id && t.status === "open") : []}
         captainName={me?.name}
-        charterDate={printObs?.charterDate}
+        charterFrom={printObs?.charterFrom}
+        charterTo={printObs?.charterTo}
         company={printObs?.company}
       />
     </div>
