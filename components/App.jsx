@@ -4445,30 +4445,29 @@ function BoatObservationsPrintSheet({ boat, notes, tasks, captainName, charterFr
         <div><span style={{ color: "#888" }}>Εταιρεία: </span><b>{company || "—"}</b></div>
       </div>
 
-      <PrintNumberedList items={notes} emptyText="Καμία παρατήρηση καταχωρημένη." renderItem={n => (
+      <PrintNumberedList items={combinedObservations(notes, tasks)} emptyText="Καμία παρατήρηση καταχωρημένη." renderItem={item => (
         <>
-          <div style={{ fontSize: 15, lineHeight: 1.5 }}>{n.text}</div>
-          <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>{fmtDate(n.at)}</div>
-          <PrintPhotoRow urls={n.photos} />
+          <div style={{ fontSize: 15, lineHeight: 1.5 }}>
+            {item.text}
+            {item.urgent && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: "#8A1F1F", border: "1px solid #8A1F1F", borderRadius: 4, padding: "1px 6px" }}>ΕΠΕΙΓΟΝ</span>}
+          </div>
+          {item.date && <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>{fmtDate(item.date)}</div>}
+          <PrintPhotoRow urls={item.photos} />
         </>
       )} />
-
-      {tasks.length > 0 && (
-        <>
-          <div style={{ fontWeight: 700, fontSize: 14, marginTop: 24, marginBottom: 4, paddingTop: 14, borderTop: "1px solid #ddd" }}>Εργασίες σκάφους</div>
-          <PrintNumberedList items={tasks} emptyText="" renderItem={t => (
-            <>
-              <div style={{ fontSize: 15, lineHeight: 1.5 }}>
-                {t.desc}
-                {t.urgent && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: "#8A1F1F", border: "1px solid #8A1F1F", borderRadius: 4, padding: "1px 6px" }}>ΕΠΕΙΓΟΝ</span>}
-              </div>
-              <PrintPhotoRow urls={t.photos} />
-            </>
-          )} />
-        </>
-      )}
     </div>
   );
+}
+// Στο έγγραφο που δίνεται σε συνεργαζόμενη εταιρεία, ό,τι έχει καταγραφεί (χειροκίνητες παρατηρήσεις ΚΑΙ οι
+// ίδιες οι ανοιχτές εργασίες του σκάφους) εμφανίζεται σαν ΜΙΑ ενιαία λίστα «παρατηρήσεων» με συνεχόμενη
+// αρίθμηση — σκόπιμα χωρίς να ξεχωρίζει ή να ονομάζεται τίποτα «εργασία»: δεν δίνει εντολές σε προσωπικό
+// άλλης εταιρείας, απλά τους ενημερώνει τι έχει βρει. Η ίδια πληροφορία λέγεται «εργασίες» μόνο στο έντυπο
+// για το δικό του προσωπικό (BoatTaskPrintSheet).
+function combinedObservations(notes, tasks) {
+  return [
+    ...notes.map(n => ({ id: n.id, text: n.text, photos: n.photos, date: n.at, urgent: false })),
+    ...tasks.map(t => ({ id: t.id, text: t.desc, photos: t.photos, date: null, urgent: t.urgent })),
+  ];
 }
 
 // Φωτογραφία σκάφους αν υπάρχει, αλλιώς το αρχικό γράμμα του ονόματος σε ήρεμο φόντο — μικρό, σταθερό μέγεθος
