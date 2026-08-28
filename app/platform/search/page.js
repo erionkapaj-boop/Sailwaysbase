@@ -309,7 +309,15 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   const needsBoatType = role === "skipper";
   const days = dayCount(sharedFilters.startDate, sharedFilters.endDate);
 
-  const runSearch = useCallback(async () => {
+  // Accepts an explicit boat type rather than always reading the `boatTypeId`
+  // state: the auto-search effect below calls this in the very same tick as
+  // setBoatTypeId(sharedFilters.boatTypeId), and that update isn't visible
+  // yet — reading the state here would send boatTypeId "" (still the initial
+  // value) on that first, automatic search. An empty boat type isn't merely
+  // "no filter": search_available_skippers requires bt.boat_type_id to equal
+  // it, and nothing ever equals null, so every skipper was silently excluded
+  // the moment a search arrived already answered from the wizard.
+  const runSearch = useCallback(async (boatTypeIdOverride) => {
     setError("");
     setBroadcastDone(false);
     setSelected(new Set());
@@ -319,7 +327,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
         startDate: sharedFilters.startDate,
         endDate: sharedFilters.endDate,
         regionId: sharedFilters.regionId,
-        boatTypeId: needsBoatType ? boatTypeId : null,
+        boatTypeId: needsBoatType ? (boatTypeIdOverride !== undefined ? boatTypeIdOverride : boatTypeId) : null,
         crewRole: role,
         languageId: sharedFilters.languageId || null,
       });
@@ -349,7 +357,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   useEffect(() => {
     if (hasCompleteIncoming) {
       if (needsBoatType) setBoatTypeId(sharedFilters.boatTypeId);
-      runSearch();
+      runSearch(needsBoatType ? sharedFilters.boatTypeId : undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasCompleteIncoming]);
