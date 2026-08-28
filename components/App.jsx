@@ -2575,6 +2575,16 @@ function BaseStyles() {
       /* Ορατή εστίαση πληκτρολογίου, χωρίς να εμφανίζεται στο άγγιγμα. */
       button:focus-visible, a:focus-visible { outline: 2px solid ${COLORS.navy}; outline-offset: 2px; }
       @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+      /* Εκτύπωση λίστας εργασιών σκάφους: κρυμμένο στην κανονική οθόνη, μοναδικό ορατό περιεχόμενο στην εκτύπωση —
+         ώστε να μη χρειάζεται ξεχωριστή σελίδα/route, μόνο ένα κρυφό τμήμα μέσα στην ίδια εφαρμογή. */
+      .print-area { display: none; }
+      @page { margin: 16mm; }
+      @media print {
+        body * { visibility: hidden; }
+        .print-area, .print-area * { visibility: visible; }
+        .print-area { display: block !important; position: absolute; top: 0; left: 0; width: 100%; padding: 0; margin: 0; }
+      }
     `}</style>
   );
 }
@@ -4285,6 +4295,61 @@ function BulkScheduleEntry({ boats, persistBoats, showToast }) {
   );
 }
 
+// Επίσημο, καθαρό φύλλο εργασιών ενός σκάφους για εκτύπωση/PDF: όνομα + φωτογραφία πάνω, μετά μόνο η λίστα
+// των ανοιχτών εργασιών (χωρίς ανάθεση/κατάσταση — αυτά αφορούν τη βάση, όχι όποιον θα κάνει τη δουλειά) με τις
+// φωτογραφίες τους αν υπάρχουν, ώστε να μπορεί κανείς να το δώσει σε χέρι σαν έντυπη οδηγία.
+function BoatTaskPrintSheet({ boat, tasks }) {
+  if (!boat) return null;
+  const printedAt = new Date().toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return (
+    <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 18, borderBottom: "2px solid #111", paddingBottom: 16, marginBottom: 20 }}>
+        {boat.photoUrl && (
+          <img src={boat.photoUrl} alt="" style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc", flexShrink: 0 }} />
+        )}
+        <div>
+          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: 0.2 }}>{boat.name}</div>
+          {boat.type && <div style={{ fontSize: 14, color: "#555", marginTop: 2 }}>{boat.type}</div>}
+        </div>
+        <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 12, color: "#555" }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#111" }}>Λίστα εργασιών</div>
+          <div>{printedAt}</div>
+        </div>
+      </div>
+
+      {tasks.length === 0 ? (
+        <div style={{ fontSize: 15, color: "#555" }}>Καμία ανοιχτή εργασία αυτή τη στιγμή.</div>
+      ) : (
+        <ol style={{ margin: 0, padding: 0, listStyle: "none" }}>
+          {tasks.map((t, i) => (
+            <li key={t.id} style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid #ddd", breakInside: "avoid" }}>
+              <div style={{ fontWeight: 800, fontSize: 15, width: 24, flexShrink: 0 }}>{i + 1}.</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, lineHeight: 1.5 }}>
+                  {t.desc}
+                  {t.urgent && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: "#8A1F1F", border: "1px solid #8A1F1F", borderRadius: 4, padding: "1px 6px" }}>ΕΠΕΙΓΟΝ</span>}
+                </div>
+                {t.photos?.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                    {t.photos.map((url, pi) => (
+                      <img key={pi} src={url} alt="" style={{ width: 70, height: 70, objectFit: "cover", borderRadius: 6, border: "1px solid #ccc" }} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <div style={{ marginTop: 28, paddingTop: 10, borderTop: "1px solid #ddd", fontSize: 11, color: "#888", display: "flex", justifyContent: "space-between" }}>
+        <span>Sailways — Βάση Αλίμου</span>
+        <span>{tasks.length} {tasks.length === 1 ? "εργασία" : "εργασίες"}</span>
+      </div>
+    </div>
+  );
+}
+
 // Φωτογραφία σκάφους αν υπάρχει, αλλιώς το αρχικό γράμμα του ονόματος σε ήρεμο φόντο — μικρό, σταθερό μέγεθος
 // σε όλα τα σημεία που εμφανίζεται, ώστε να προσθέτει ζεστασιά χωρίς να διαταράσσει τη λιτή λίστα.
 function BoatAvatar({ boat, size = 44 }) {
@@ -4312,6 +4377,14 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
   const [newBoatPhoto, setNewBoatPhoto] = useState(null);
   const [addingBoat, setAddingBoat] = useState(false);
   const newBoatPhotoRef = useRef(null);
+  const [printBoat, setPrintBoat] = useState(null);
+  useEffect(() => {
+    if (!printBoat) return;
+    const timer = setTimeout(() => window.print(), 80);
+    const reset = () => setPrintBoat(null);
+    window.addEventListener("afterprint", reset);
+    return () => { clearTimeout(timer); window.removeEventListener("afterprint", reset); };
+  }, [printBoat]);
 
   // Προτεραιότητα σε 4 επίπεδα, με απλή χρωματική σήμανση:
   // 1. Στη βάση + φεύγει σύντομα — ΠΡΑΣΙΝΟ
@@ -4413,6 +4486,7 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
                 <Btn small color={COLORS.navy} outline onClick={() => { setSchedFor(schedFor === b.id ? null : b.id); setNewFrom(""); setNewTo(""); }}>Ναύλα</Btn>
                 <Btn small color={COLORS.sub} outline onClick={() => setDetailFor(detailFor === b.id ? null : b.id)}>Πληροφορίες</Btn>
                 {onStartInventory && <Btn small color={COLORS.sub} outline onClick={() => onStartInventory(b)}>Inventory</Btn>}
+                <Btn small color={COLORS.sub} outline onClick={() => setPrintBoat(b)}>📄 Εκτύπωση εργασιών</Btn>
               </div>
             </div>
 
@@ -4506,6 +4580,7 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
           </div>
         )}
       </div>
+      <BoatTaskPrintSheet boat={printBoat} tasks={printBoat ? tasks.filter(t => t.boatId === printBoat.id && t.status === "open") : []} />
     </div>
   );
 }
