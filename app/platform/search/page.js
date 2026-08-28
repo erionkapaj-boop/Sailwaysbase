@@ -1,7 +1,6 @@
 "use client";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
 import DateRangeCalendar from "../components/DateRangeCalendar";
@@ -426,6 +425,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   // every "Επιλογή" tap, which read as pressuring someone into a payment
   // decision they hadn't actually chosen to make yet.
   const [phase, setPhase] = useState("select");
+  const [termsOpen, setTermsOpen] = useState(false);
   // Consumed once, the first time a search actually loads results — a plain
   // prop can't survive that long since runSearch() below unconditionally
   // clears `selected` at the start of every call, restore or not.
@@ -771,15 +771,46 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
                   </button>
                   <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
                     Πατώντας «Αποστολή αιτήματος» αποδέχεσαι την παραπάνω χρέωση και τους{" "}
-                    <Link href="/platform/terms" style={{ color: colors.inkSoft, textDecoration: "underline" }}>
+                    {/* Άνοιγμα εδώ, όχι πλοήγηση σε άλλη σελίδα — μέσα σε
+                        εφαρμογή (όχι απλός browser) ένα target="_blank" δεν
+                        είναι σίγουρο ότι θα δουλέψει καθόλου, και πλοήγηση
+                        μακριά από εδώ χάνει την επιλογή χωρίς τρόπο επιστροφής
+                        σε αυτό το ίδιο σημείο. */}
+                    <button
+                      type="button"
+                      onClick={() => setTermsOpen(true)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        font: "inherit",
+                        color: colors.inkSoft,
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
                       Όρους Χρήσης
-                    </Link>
+                    </button>
                     .
                   </p>
                 </>
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {termsOpen && (
+        <div style={sheetOverlayStyle} onClick={() => setTermsOpen(false)}>
+          <div style={{ ...sheetStyle, maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ ...h2, fontSize: 16, margin: "0 0 10px" }}>Όροι χρήσης</h3>
+            <p style={{ ...muted, lineHeight: 1.6, marginBottom: 20 }}>
+              Το κείμενο των όρων χρήσης ετοιμάζεται.
+            </p>
+            <button style={{ ...button("secondary"), width: "100%" }} onClick={() => setTermsOpen(false)}>
+              Κλείσιμο
+            </button>
+          </div>
         </div>
       )}
     </div>
