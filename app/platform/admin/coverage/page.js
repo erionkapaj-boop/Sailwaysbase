@@ -5,6 +5,7 @@ import OfferComposer from "../OfferComposer";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { adminCoverageNeeded, adminCancelOffer } from "../../../../lib/platform/db";
+import { formatDate } from "../../../../lib/platform/notifications";
 
 export default function CoveragePage() {
   const counts = useAdminCounts();
@@ -62,7 +63,7 @@ export default function CoveragePage() {
               title={`${j.port_name || "—"} · ${j.client_name || "πελάτης"}`}
               meta={
                 <>
-                  <span style={money}>{j.start_date}</span> → <span style={money}>{j.end_date}</span> ·{" "}
+                  <span style={money}>{formatDate(j.start_date)}</span> → <span style={money}>{formatDate(j.end_date)}</span> ·{" "}
                   {labelForRole(j.crew_role)}
                   {j.cancellation_reason ? ` · «${j.cancellation_reason}»` : ""}
                 </>
@@ -77,7 +78,7 @@ export default function CoveragePage() {
 
       {selected && (
         <Panel
-          title={`Διαθέσιμοι ${selected.start_date} → ${selected.end_date}`}
+          title={`Διαθέσιμοι ${formatDate(selected.start_date)} → ${formatDate(selected.end_date)}`}
           subtitle={
             selected.port_name
               ? `${selected.port_name} · μόνο όσοι δηλώνουν αυτό το λιμάνι και είναι ελεύθεροι όλες τις ημέρες`
@@ -107,7 +108,7 @@ export default function CoveragePage() {
                 title={`${j.port_name || "—"} · ${j.client_name || "πελάτης"}`}
                 meta={
                   <>
-                    <span style={money}>{j.start_date}</span> → <span style={money}>{j.end_date}</span> ·{" "}
+                    <span style={money}>{formatDate(j.start_date)}</span> → <span style={money}>{formatDate(j.end_date)}</span> ·{" "}
                     {labelForRole(j.crew_role)} · <span style={money}>{j.offer_pending}</span> δεν έχουν απαντήσει
                   </>
                 }

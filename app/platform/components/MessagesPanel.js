@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderPanel from "./HeaderPanel";
 import { listMyConversations } from "../../../lib/platform/db";
-import { timeAgo } from "../../../lib/platform/notifications";
+import { timeAgo, formatDate } from "../../../lib/platform/notifications";
 import { colors, muted, money } from "../../../lib/platform/theme";
 
 const EnvelopeIcon = (
@@ -90,7 +90,7 @@ export default function MessagesPanel({ count = 0 }) {
                   )}
                 </span>
                 <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>
-                  <span style={money}>{c.start_date}</span> → <span style={money}>{c.end_date}</span>
+                  <span style={money}>{formatDate(c.start_date)}</span> → <span style={money}>{formatDate(c.end_date)}</span>
                 </span>
                 {c.last_message && (
                   <span

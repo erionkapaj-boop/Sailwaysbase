@@ -17,7 +17,7 @@ import BookingPanel from "../components/BookingPanel";
 import PendingReviewBanner from "../components/PendingReviewBanner";
 import Stars from "../components/Stars";
 import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
-import { formatDateTime } from "../../../lib/platform/notifications";
+import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 
 const CLIENT_CATEGORIES = reviewCategoriesForRole("client");
@@ -150,7 +150,7 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
             </p>
           )}
           <p style={{ ...muted, margin: "6px 0 0" }}>
-            <span style={money}>{r.start_date}</span> → <span style={money}>{r.end_date}</span>
+            <span style={money}>{formatDate(r.start_date)}</span> → <span style={money}>{formatDate(r.end_date)}</span>
           </p>
           <p style={{ ...muted, fontSize: 12, margin: "2px 0 0" }}>Στάλθηκε {formatDateTime(r.created_at)}</p>
           {isOffer ? (

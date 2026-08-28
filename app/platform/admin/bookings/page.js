@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { adminListBookings, departureLabel } from "../../../../lib/platform/db";
+import { formatDate } from "../../../../lib/platform/notifications";
 
 const FILTERS = [
   ["upcoming", "Επερχόμενες"],
@@ -78,7 +79,7 @@ function BookingsInner() {
               title={`${departureLabel(b)}${b.boat_types?.name ? " · " + b.boat_types.name : ""}`}
               meta={
                 <>
-                  <span style={money}>{b.start_date}</span> → <span style={money}>{b.end_date}</span>
+                  <span style={money}>{formatDate(b.start_date)}</span> → <span style={money}>{formatDate(b.end_date)}</span>
                 </>
               }
             />

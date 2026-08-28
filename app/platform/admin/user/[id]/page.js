@@ -27,6 +27,7 @@ import {
   colors,
   money,
 } from "../../../../../lib/platform/theme";
+import { formatDate } from "../../../../../lib/platform/notifications";
 
 function Row({ left, right, tone = "neutral" }) {
   return (
@@ -256,8 +257,8 @@ export default function AdminUserViewPage() {
                   key={r.id}
                   left={
                     <>
-                      {departureLabel(r)} · <span style={money}>{r.start_date}</span> →{" "}
-                      <span style={money}>{r.end_date}</span>
+                      {departureLabel(r)} · <span style={money}>{formatDate(r.start_date)}</span> →{" "}
+                      <span style={money}>{formatDate(r.end_date)}</span>
                     </>
                   }
                   right={r.status}
@@ -271,8 +272,8 @@ export default function AdminUserViewPage() {
                   key={b.id}
                   left={
                     <>
-                      {departureLabel(b)} · <span style={money}>{b.start_date}</span> →{" "}
-                      <span style={money}>{b.end_date}</span>
+                      {departureLabel(b)} · <span style={money}>{formatDate(b.start_date)}</span> →{" "}
+                      <span style={money}>{formatDate(b.end_date)}</span>
                     </>
                   }
                   right={b.status}
@@ -376,7 +377,7 @@ export default function AdminUserViewPage() {
               {data.availability.map((w) => (
                 <div key={w.id} style={card}>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>
-                    <span style={money}>{w.start_date}</span> → <span style={money}>{w.end_date}</span>
+                    <span style={money}>{formatDate(w.start_date)}</span> → <span style={money}>{formatDate(w.end_date)}</span>
                   </div>
                   <div style={{ marginTop: 8 }}>
                     <Chips
@@ -394,8 +395,8 @@ export default function AdminUserViewPage() {
                   left={
                     <>
                       {departureLabel(p.booking_requests)} ·{" "}
-                      <span style={money}>{p.booking_requests?.start_date}</span> →{" "}
-                      <span style={money}>{p.booking_requests?.end_date}</span>
+                      <span style={money}>{formatDate(p.booking_requests?.start_date)}</span> →{" "}
+                      <span style={money}>{formatDate(p.booking_requests?.end_date)}</span>
                     </>
                   }
                   right={p.status}
@@ -409,8 +410,8 @@ export default function AdminUserViewPage() {
                   key={b.id}
                   left={
                     <>
-                      {departureLabel(b)} · <span style={money}>{b.start_date}</span> →{" "}
-                      <span style={money}>{b.end_date}</span>
+                      {departureLabel(b)} · <span style={money}>{formatDate(b.start_date)}</span> →{" "}
+                      <span style={money}>{formatDate(b.end_date)}</span>
                     </>
                   }
                   right={b.status}

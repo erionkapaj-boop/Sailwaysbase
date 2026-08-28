@@ -7,6 +7,7 @@ import DateRangeCalendar from "../components/DateRangeCalendar";
 import { SUPPORTED_ROLES, labelForRole, computeCrewHighlights } from "../../../lib/platform/roles";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { savePendingBroadcast, takePendingBroadcast } from "../../../lib/platform/pendingBroadcast";
+import { formatDate } from "../../../lib/platform/notifications";
 import {
   listLookups,
   searchSkippers,
@@ -833,7 +834,7 @@ function SearchPageInner() {
         <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 14 }}>
             <b style={{ ...money, color: colors.ink }}>
-              {filters.startDate} → {filters.endDate}
+              {formatDate(filters.startDate)} → {formatDate(filters.endDate)}
             </b>
             <span style={muted}>
               {" · "}

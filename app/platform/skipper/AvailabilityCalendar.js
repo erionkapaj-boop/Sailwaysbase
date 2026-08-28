@@ -21,6 +21,7 @@ import {
   calendarDay,
   shadow,
 } from "../../../lib/platform/theme";
+import { formatDate } from "../../../lib/platform/notifications";
 
 const WEEKDAYS = ["Δε", "Τρ", "Τε", "Πε", "Πα", "Σα", "Κυ"];
 const MONTH_NAMES = [
@@ -480,7 +481,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${colors.border}` }}
               >
                 <span style={{ fontSize: 13 }}>
-                  Κλειστό: {b.start_date} → {b.end_date}
+                  Κλειστό: {formatDate(b.start_date)} → {formatDate(b.end_date)}
                   <span style={{ ...muted, fontSize: 12, display: "block" }}>Δεν δέχεσαι κρατήσεις</span>
                 </span>
                 <button
@@ -497,7 +498,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
             {windowsFor(detail).map((w) => (
               <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${colors.border}` }}>
                 <span style={{ fontSize: 13 }}>
-                  {w.start_date} → {w.end_date}
+                  {formatDate(w.start_date)} → {formatDate(w.end_date)}
                   <br />
                   <span style={{ ...muted, fontSize: 12 }}>
                     {(w.availability_window_regions || []).map((r) => r.regions?.name).join(", ")}
@@ -551,7 +552,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         <div style={sheetOverlayStyle}>
           <div style={sheetStyle}>
             <h3 style={{ ...sectionLabel, margin: "0 0 10px" }}>
-              {sheet.bulk ? `Όλος ο ${MONTH_NAMES[month.getMonth()]}` : `${sheet.startDate} → ${sheet.endDate}`}
+              {sheet.bulk ? `Όλος ο ${MONTH_NAMES[month.getMonth()]}` : `${formatDate(sheet.startDate)} → ${formatDate(sheet.endDate)}`}
             </h3>
             <p style={{ ...muted, fontSize: 13, margin: "0 0 10px" }}>
               Διάλεξε τις περιοχές όπου είσαι διαθέσιμος/η — όχι συγκεκριμένα λιμάνια. Ένας πελάτης που ζητά ένα

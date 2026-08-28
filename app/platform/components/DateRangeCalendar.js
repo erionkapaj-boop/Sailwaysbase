@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { card, muted, button, colors, radius, fontSans, fontMono, calendarDay } from "../../../lib/platform/theme";
+import { formatDate } from "../../../lib/platform/notifications";
 
 const WEEKDAYS = ["Δε", "Τρ", "Τε", "Πε", "Πα", "Σα", "Κυ"];
 const MONTH_NAMES = [
@@ -142,7 +143,7 @@ export default function DateRangeCalendar({ startDate, endDate, onChange, minDat
         {pendingStart && !endDate
           ? "Διάλεξε και την ημέρα επιστροφής."
           : nights
-          ? `${startDate} → ${endDate} · ${nights} ${nights === 1 ? "ημέρα" : "ημέρες"}`
+          ? `${formatDate(startDate)} → ${formatDate(endDate)} · ${nights} ${nights === 1 ? "ημέρα" : "ημέρες"}`
           : "Διάλεξε ημερομηνία αναχώρησης."}
       </div>
     </div>

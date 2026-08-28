@@ -5,7 +5,7 @@ import OfferComposer from "../OfferComposer";
 import { Panel, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { adminListOffers, adminCancelOffer } from "../../../../lib/platform/db";
-import { timeAgo } from "../../../../lib/platform/notifications";
+import { timeAgo, formatDate } from "../../../../lib/platform/notifications";
 
 const ORIGIN_LABEL = {
   admin_direct: "Δικό σου ναύλο",
@@ -93,7 +93,7 @@ export default function OffersPage() {
               title={`${o.port_name || "—"} · ${labelForRole(o.crew_role)}`}
               meta={
                 <>
-                  <span style={money}>{o.start_date}</span> → <span style={money}>{o.end_date}</span> ·{" "}
+                  <span style={money}>{formatDate(o.start_date)}</span> → <span style={money}>{formatDate(o.end_date)}</span> ·{" "}
                   {ORIGIN_LABEL[o.origin] || o.origin}
                   {o.claim_fee_amount > 0 ? (
                     <>

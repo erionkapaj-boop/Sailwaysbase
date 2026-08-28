@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
 import { adminListCancellationReports, adminResolveReport, departureLabel } from "../../../../lib/platform/db";
-import { timeAgo } from "../../../../lib/platform/notifications";
+import { timeAgo, formatDate } from "../../../../lib/platform/notifications";
 
 export default function DisputesPage() {
   const counts = useAdminCounts();
@@ -62,8 +62,8 @@ export default function DisputesPage() {
                 }`}
                 meta={
                   <>
-                    <span style={money}>{r.bookings?.start_date}</span> →{" "}
-                    <span style={money}>{r.bookings?.end_date}</span> · {timeAgo(r.created_at)}
+                    <span style={money}>{formatDate(r.bookings?.start_date)}</span> →{" "}
+                    <span style={money}>{formatDate(r.bookings?.end_date)}</span> · {timeAgo(r.created_at)}
                   </>
                 }
               />

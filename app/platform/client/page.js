@@ -12,7 +12,7 @@ import {
 import BookingPanel from "../components/BookingPanel";
 import PendingReviewBanner from "../components/PendingReviewBanner";
 import Stars from "../components/Stars";
-import { formatDateTime } from "../../../lib/platform/notifications";
+import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
 import {
   container,
   card,
@@ -182,7 +182,7 @@ function ClientDashboardInner() {
                 <span style={badge(REQ_STATUS[r.status]?.[1] || "neutral")}>{REQ_STATUS[r.status]?.[0] || r.status}</span>
               </div>
               <p style={{ ...muted, marginBottom: 0 }}>
-                <span style={money}>{r.start_date}</span> → <span style={money}>{r.end_date}</span>
+                <span style={money}>{formatDate(r.start_date)}</span> → <span style={money}>{formatDate(r.end_date)}</span>
                 {" · Fee "}
                 <span style={{ ...money, color: colors.ink }}>{r.fee_amount}€</span>
                 {" · "}
@@ -220,8 +220,8 @@ function ClientDashboardInner() {
               <div key={r.id} style={{ ...card, opacity: 0.75 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                   <span>
-                    {departureLabel(r)} · <span style={money}>{r.start_date}</span> →{" "}
-                    <span style={money}>{r.end_date}</span>
+                    {departureLabel(r)} · <span style={money}>{formatDate(r.start_date)}</span> →{" "}
+                    <span style={money}>{formatDate(r.end_date)}</span>
                   </span>
                   <span style={badge(REQ_STATUS[r.status]?.[1] || "neutral")}>{REQ_STATUS[r.status]?.[0] || r.status}</span>
                 </div>
