@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import { setPin } from "../../../lib/platform/db";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
+import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, colors } from "../../../lib/platform/theme";
 
 const MIN_LENGTH = 6;
@@ -50,14 +51,16 @@ function SetPinInner() {
   if (!session) {
     return (
       <div style={{ ...container, maxWidth: 460 }}>
-        <p style={muted}>Χρειάζεται σύνδεση για να ορίσεις κωδικό.</p>
+        <BackButton onClick={() => router.back()} />
+        <p style={{ ...muted, marginTop: 20 }}>Χρειάζεται σύνδεση για να ορίσεις κωδικό.</p>
       </div>
     );
   }
 
   return (
     <div style={{ ...container, maxWidth: 460 }}>
-      <h1 style={h1}>Δημιούργησε κωδικό</h1>
+      <BackButton onClick={() => router.back()} />
+      <h1 style={{ ...h1, marginTop: 20 }}>Δημιούργησε κωδικό</h1>
       <p style={muted}>
         Θα τον χρησιμοποιείς μαζί με το τηλέφωνό σου σε κάθε επόμενη είσοδο. Διάλεξε ό,τι θες, αρκεί
         να έχει {MIN_LENGTH} χαρακτήρες ή περισσότερους.

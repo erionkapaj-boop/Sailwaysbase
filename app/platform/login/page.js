@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import { signInWithPin, checkLoginAllowed, normalizePhone } from "../../../lib/platform/db";
+import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, colors } from "../../../lib/platform/theme";
 
 function LoginInner() {
@@ -52,7 +53,8 @@ function LoginInner() {
 
   return (
     <div style={{ ...container, maxWidth: 460 }}>
-      <h1 style={h1}>Είσοδος</h1>
+      <BackButton onClick={() => router.back()} />
+      <h1 style={{ ...h1, marginTop: 20 }}>Είσοδος</h1>
 
       {lockedOut ? (
         // Deliberately no retry field: after three consecutive failures the

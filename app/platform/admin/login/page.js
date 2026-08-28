@@ -10,6 +10,7 @@ import {
   checkLoginAllowed,
   normalizePhone,
 } from "../../../../lib/platform/db";
+import BackButton from "../../components/BackButton";
 import { container, card, h1, muted, button, input, label, colors } from "../../../../lib/platform/theme";
 
 // Separate entrance so admin sign-in never sits alongside the public one.
@@ -66,8 +67,9 @@ export default function AdminLoginPage() {
 
   return (
     <div style={{ ...container, maxWidth: 420 }}>
-      <div style={{ paddingTop: 40 }}>
-        <h1 style={h1}>Admin</h1>
+      <div style={{ paddingTop: 24 }}>
+        <BackButton onClick={() => router.back()} />
+        <h1 style={{ ...h1, marginTop: 20 }}>Admin</h1>
         <p style={muted}>Είσοδος διαχειριστή.</p>
 
         {lockedOut ? (

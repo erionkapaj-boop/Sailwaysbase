@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import { sendOtp, verifyOtp, createUserDraft } from "../../../lib/platform/db";
 import { CREW_ROLES } from "../../../lib/platform/roles";
+import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, select, colors, radius } from "../../../lib/platform/theme";
 
 // Ο κωδικός χώρας του τηλεφώνου είναι αυτό που καθορίζει το τέλος
@@ -124,7 +125,8 @@ function RegisterInner() {
 
   return (
     <div style={{ ...container, maxWidth: 460 }}>
-      <h1 style={h1}>{isProfessional ? "Εγγραφή επαγγελματία" : "Εγγραφή"}</h1>
+      <BackButton onClick={() => router.back()} />
+      <h1 style={{ ...h1, marginTop: 20 }}>{isProfessional ? "Εγγραφή επαγγελματία" : "Εγγραφή"}</h1>
 
       {step === "details" && (
         <form onSubmit={submitDetails} style={{ ...card, marginTop: 20 }}>

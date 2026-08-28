@@ -8,6 +8,7 @@ import {
   requestPinResetEmail,
   confirmPinResetEmail,
 } from "../../../lib/platform/db";
+import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, colors, radius } from "../../../lib/platform/theme";
 
 const MIN_LENGTH = 6;
@@ -89,7 +90,8 @@ export default function ForgotPinPage() {
 
   return (
     <div style={{ ...container, maxWidth: 460 }}>
-      <h1 style={h1}>Ξέχασα τον κωδικό</h1>
+      <BackButton onClick={() => router.back()} />
+      <h1 style={{ ...h1, marginTop: 20 }}>Ξέχασα τον κωδικό</h1>
       <p style={muted}>Επίλεξε πώς θέλεις να επιβεβαιώσεις την ταυτότητά σου.</p>
 
       <div style={{ display: "flex", gap: 8, margin: "20px 0" }}>
