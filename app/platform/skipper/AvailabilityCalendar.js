@@ -347,13 +347,23 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
       </p>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <button type="button" onClick={() => setMonth((m) => addMonths(m, -1))} style={{ ...button("secondary"), padding: "6px 12px" }}>
+        <button
+          type="button"
+          aria-label="Προηγούμενος μήνας"
+          onClick={() => setMonth((m) => addMonths(m, -1))}
+          style={{ ...button("secondary"), padding: "6px 12px" }}
+        >
           ‹
         </button>
         <span style={{ fontFamily: fontSans, fontSize: 16, fontWeight: 600 }}>
           {MONTH_NAMES[month.getMonth()]} {month.getFullYear()}
         </span>
-        <button type="button" onClick={() => setMonth((m) => addMonths(m, 1))} style={{ ...button("secondary"), padding: "6px 12px" }}>
+        <button
+          type="button"
+          aria-label="Επόμενος μήνας"
+          onClick={() => setMonth((m) => addMonths(m, 1))}
+          style={{ ...button("secondary"), padding: "6px 12px" }}
+        >
           ›
         </button>
       </div>
