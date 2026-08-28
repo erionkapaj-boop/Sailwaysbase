@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../AuthContext";
 import {
@@ -16,6 +15,7 @@ import {
 import { computeCrewHighlights } from "../../../../../lib/platform/roles";
 import Stat from "../../../components/Stat";
 import Stars from "../../../components/Stars";
+import BackButton from "../../../components/BackButton";
 import {
   container,
   card,
@@ -160,9 +160,7 @@ export default function AdminUserViewPage() {
 
   return (
     <div style={container}>
-      <Link href="/platform/admin/users" style={{ ...muted, fontSize: 14, textDecoration: "none" }}>
-        ← Πίσω στους χρήστες
-      </Link>
+      <BackButton href="/platform/admin/users" />
 
       {/* This screen is the record; walking the app as them is the other
           button. Keeping the two distinct stops "I looked at their data" and

@@ -1,8 +1,8 @@
 "use client";
-import Link from "next/link";
 import { useAuth } from "../../AuthContext";
 import MissingProfile from "../MissingProfile";
 import ProfileForm from "../ProfileForm";
+import BackButton from "../../components/BackButton";
 import { container, h1, muted } from "../../../../lib/platform/theme";
 
 // Profile now lives behind the header's hamburger menu rather than as a card
@@ -20,9 +20,7 @@ export default function SkipperProfilePage() {
 
   return (
     <div style={container}>
-      <Link href="/platform/skipper" style={{ ...muted, fontSize: 14, textDecoration: "none" }}>
-        ← Πίσω στον πίνακα
-      </Link>
+      <BackButton href="/platform/skipper" />
       <h1 style={{ ...h1, marginTop: 14 }}>Το προφίλ μου</h1>
       <ProfileForm profile={profile} onSaved={refresh} />
     </div>

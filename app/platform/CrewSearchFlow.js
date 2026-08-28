@@ -5,6 +5,7 @@ import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
 import { Mark } from "./components/Logo";
+import BackButton from "./components/BackButton";
 import { button, colors, input, label, muted, radius, select, h2 } from "../../lib/platform/theme";
 
 // Progressive disclosure (brief §4): one question on screen at a time, gentle
@@ -179,21 +180,7 @@ export default function CrewSearchFlow() {
       `}</style>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-        <button
-          type="button"
-          onClick={back}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            color: colors.inkSoft,
-            fontSize: 14,
-            fontFamily: "inherit",
-          }}
-        >
-          ← Πίσω
-        </button>
+        <BackButton onClick={back} />
         <span style={{ ...muted, fontSize: 13, marginLeft: "auto" }}>
           {step + 1} / {STEPS.length}
         </span>

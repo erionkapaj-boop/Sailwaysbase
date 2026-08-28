@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useAuth } from "../../AuthContext";
 import MissingProfile from "../MissingProfile";
+import BackButton from "../../components/BackButton";
 import { listMyWalletTransactions } from "../../../../lib/platform/db";
 import { container, card, h1, sectionLabel, muted, badge, colors, money } from "../../../../lib/platform/theme";
 
@@ -33,9 +33,7 @@ export default function SkipperWalletPage() {
 
   return (
     <div style={container}>
-      <Link href="/platform/skipper" style={{ ...muted, fontSize: 14, textDecoration: "none" }}>
-        ← Πίσω στον πίνακα
-      </Link>
+      <BackButton href="/platform/skipper" />
       <h1 style={{ ...h1, marginTop: 14 }}>Το πορτοφόλι μου</h1>
 
       <div style={card}>

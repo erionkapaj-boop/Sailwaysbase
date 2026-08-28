@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useAuth } from "../../AuthContext";
 import PhotoUpload from "../../components/PhotoUpload";
+import BackButton from "../../components/BackButton";
 import {
   updateMyPhoto,
   listLookups,
@@ -81,9 +81,7 @@ export default function MyPhotoPage() {
 
   return (
     <div style={container}>
-      <Link href="/platform" style={{ ...muted, fontSize: 14, textDecoration: "none" }}>
-        ← Πίσω
-      </Link>
+      <BackButton href="/platform" />
       <h1 style={{ ...h1, marginTop: 14 }}>Το προφίλ μου</h1>
 
       <div style={card}>

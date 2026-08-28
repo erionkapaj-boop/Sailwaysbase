@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
 import DateRangeCalendar from "../components/DateRangeCalendar";
+import BackButton from "../components/BackButton";
 import { SUPPORTED_ROLES, labelForRole, computeCrewHighlights } from "../../../lib/platform/roles";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { savePendingBroadcast, takePendingBroadcast } from "../../../lib/platform/pendingBroadcast";
@@ -161,13 +162,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
           backdrop around it. The photo and "Επιλογή" opt out below since
           they each already mean something else. */}
       <div style={sheetStyle} onClick={onClose}>
-        <button
-          type="button"
-          onClick={onClose}
-          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 14, fontFamily: "inherit", marginBottom: 14 }}
-        >
-          ← Πίσω
-        </button>
+        <BackButton onClick={onClose} style={{ marginBottom: 14 }} />
 
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
           <button
@@ -696,13 +691,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
                 </div>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => setPhase("select")}
-                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 14, fontFamily: "inherit", marginBottom: 14 }}
-                  >
-                    ← Πίσω στην επιλογή
-                  </button>
+                  <BackButton onClick={() => setPhase("select")} label="Πίσω στην επιλογή" style={{ marginBottom: 14 }} />
 
                   <h3 style={{ ...h2, fontSize: 16, margin: "0 0 12px" }}>Επιβεβαίωση αιτήματος</h3>
 
