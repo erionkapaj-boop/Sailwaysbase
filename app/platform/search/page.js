@@ -632,9 +632,15 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
 
       {results && (
         <div style={{ marginTop: 14 }}>
-          <p style={muted}>
-            {results.length} διαθέσιμ{results.length === 1 ? "ος" : "οι"} {roleLabel.toLowerCase()}
-          </p>
+          {/* Only relevant while still browsing — once someone's on the
+              confirm step, they've already made their pick and how many
+              others were available has nothing to do with sending the
+              request anymore. */}
+          {phase === "select" && (
+            <p style={muted}>
+              {results.length} διαθέσιμ{results.length === 1 ? "ος" : "οι"} {roleLabel.toLowerCase()}
+            </p>
+          )}
 
           {/* Χωρίς αυτό, τίποτα στη σελίδα δεν λέει στον πελάτη ότι το
               "Επιλογή" είναι πολλαπλής επιλογής ή τι σημαίνει να διαλέξει
