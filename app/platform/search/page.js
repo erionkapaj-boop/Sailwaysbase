@@ -322,14 +322,41 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
   const total = days ? s.price_per_day * days : null;
   const highlights = computeCrewHighlights(s);
   const [showDetail, setShowDetail] = useState(false);
+
+  // Same reasoning as the wizard (see HomeEntry/CrewSearchFlow): without a
+  // real history entry, the phone's own back gesture has no idea this sheet
+  // is "in front of" the results list and would leave the search page
+  // entirely on the first press instead of just closing the sheet — exactly
+  // the moment someone who tapped the wrong card wants a plain, expected
+  // back to work.
+  useEffect(() => {
+    function onPopState(e) {
+      if (!e.state?.sfDetailOpen) setShowDetail(false);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  function openDetail() {
+    window.history.pushState({ sfDetailOpen: true }, "");
+    setShowDetail(true);
+  }
+
+  // Every close path (backdrop tap, "← Πίσω", tapping the open card, Escape)
+  // funnels through here so the device's back button and the on-screen ones
+  // always agree — going back once always means exactly one step back.
+  function closeDetail() {
+    window.history.back();
+  }
+
   return (
     <>
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setShowDetail(true)}
+        onClick={openDetail}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") setShowDetail(true);
+          if (e.key === "Enter" || e.key === " ") openDetail();
         }}
         style={{ ...card, display: "flex", gap: 16, alignItems: "flex-start", cursor: "pointer", boxShadow: shadow.card }}
       >
@@ -393,7 +420,7 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
       </div>
 
       {showDetail && (
-        <ProfessionalDetailSheet s={s} selected={selected} onToggle={onToggle} onClose={() => setShowDetail(false)} days={days} />
+        <ProfessionalDetailSheet s={s} selected={selected} onToggle={onToggle} onClose={closeDetail} days={days} />
       )}
     </>
   );
@@ -421,6 +448,29 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   // decision they hadn't actually chosen to make yet.
   const [phase, setPhase] = useState("select");
   const [termsOpen, setTermsOpen] = useState(false);
+
+  // Same reasoning as the professional detail sheet and the wizard: without
+  // a real history entry, the phone's own back gesture skips straight past
+  // "confirm" and leaves the search page entirely — exactly wrong for the
+  // one screen someone is most likely to reach for "back" on second
+  // thoughts about a payment. Scoped by role (sfConfirmRole) since a page
+  // can hold more than one RoleSection at once.
+  useEffect(() => {
+    function onPopState(e) {
+      if (e.state?.sfConfirmRole !== role) setPhase("select");
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [role]);
+
+  function goToConfirm() {
+    window.history.pushState({ sfConfirmRole: role }, "");
+    setPhase("confirm");
+  }
+
+  function goToSelect() {
+    window.history.back();
+  }
   // Consumed once, the first time a search actually loads results — a plain
   // prop can't survive that long since runSearch() below unconditionally
   // clears `selected` at the start of every call, restore or not.
@@ -677,7 +727,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
                   <button
                     style={{ ...button("primary"), width: "100%" }}
                     disabled={selected.size === 0}
-                    onClick={() => setPhase("confirm")}
+                    onClick={goToConfirm}
                   >
                     Συνέχεια
                   </button>
@@ -697,7 +747,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
                 </div>
               ) : (
                 <>
-                  <BackButton onClick={() => setPhase("select")} label="Πίσω στην επιλογή" style={{ marginBottom: 14 }} />
+                  <BackButton onClick={goToSelect} label="Πίσω στην επιλογή" style={{ marginBottom: 14 }} />
 
                   <h3 style={{ ...h2, fontSize: 16, margin: "0 0 12px" }}>Επιβεβαίωση αιτήματος</h3>
 
