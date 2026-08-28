@@ -734,8 +734,13 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
                 <ProfessionalCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={toggle} days={days} />
               ))}
 
+              {/* Not sticky: a page can show more than one role's results at
+                  once (the wizard allows picking several), and two sticky
+                  "Συνέχεια" panels sharing the same scroll context land on
+                  top of each other and whatever card is still visible below
+                  them — found by walking a real skipper+hostess search. */}
               {results.length > 0 && (
-                <div style={{ ...card, position: "sticky", bottom: 12, boxShadow: shadow.raised }}>
+                <div style={{ ...card, boxShadow: shadow.raised }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 12 }}>
                     <span style={{ fontSize: 14 }}>
                       Επιλεγμέν{selected.size === 1 ? "ος/η" : "οι"} {roleLabel.toLowerCase()}
