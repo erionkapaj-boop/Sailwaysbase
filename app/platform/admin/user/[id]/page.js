@@ -427,7 +427,7 @@ export default function AdminUserViewPage() {
                   key={w.id}
                   left={
                     <>
-                      <span style={money}>{w.created_at?.slice(0, 10)}</span> · {w.type}
+                      <span style={money}>{formatDate(w.created_at?.slice(0, 10))}</span> · {w.type}
                     </>
                   }
                   right={`${w.amount > 0 ? "+" : ""}${w.amount}€`}

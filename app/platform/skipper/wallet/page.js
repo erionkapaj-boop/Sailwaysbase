@@ -4,6 +4,7 @@ import { useAuth } from "../../AuthContext";
 import MissingProfile from "../MissingProfile";
 import BackButton from "../../components/BackButton";
 import { listMyWalletTransactions } from "../../../../lib/platform/db";
+import { formatDate } from "../../../../lib/platform/notifications";
 import { container, card, h1, sectionLabel, muted, badge, colors, money } from "../../../../lib/platform/theme";
 
 const TYPE_LABEL = {
@@ -67,7 +68,7 @@ export default function SkipperWalletPage() {
             <span>
               <span style={{ fontSize: 14 }}>{TYPE_LABEL[t.type] || t.type}</span>
               <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>
-                {t.created_at?.slice(0, 10)}
+                {formatDate(t.created_at?.slice(0, 10))}
               </span>
             </span>
             <span style={badge(t.amount > 0 ? "success" : "neutral")}>

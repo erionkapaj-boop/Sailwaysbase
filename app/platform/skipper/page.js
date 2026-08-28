@@ -198,15 +198,22 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
                     borderRadius: 8,
                   }}
                 >
-                  {CLIENT_CATEGORIES.map((c) => (
-                    <div
-                      key={c.key}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "3px 0" }}
-                    >
-                      <span style={{ fontSize: 12.5, color: colors.inkSoft }}>{c.label}</span>
-                      <Stars rating={cp[`rating_avg_${c.key}`]} count={cp.rating_count} size={11} showEmptyLabel={false} />
-                    </div>
-                  ))}
+                  {CLIENT_CATEGORIES.map((c) => {
+                    const catRating = cp[`rating_avg_${c.key}`];
+                    return (
+                      <div
+                        key={c.key}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "3px 0" }}
+                      >
+                        <span style={{ fontSize: 12.5, color: colors.inkSoft }}>{c.label}</span>
+                        {catRating != null ? (
+                          <Stars rating={catRating} count={cp.rating_count} size={11} showEmptyLabel={false} />
+                        ) : (
+                          <span style={{ fontSize: 12, color: colors.inkSoft }}>Καμία ακόμα</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               {(cp?.nationalities?.country_name || cp?.client_languages?.length > 0) && (
