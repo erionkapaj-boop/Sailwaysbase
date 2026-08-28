@@ -1,6 +1,7 @@
 "use client";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
 import DateRangeCalendar from "../components/DateRangeCalendar";
@@ -418,6 +419,13 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [broadcastDone, setBroadcastDone] = useState(false);
+  // "select" = browsing/picking candidates, one "Επιλογή" at a time.
+  // "confirm" = a distinct second screen — what got picked, what it costs,
+  // one deliberate button to actually send it. Splitting these two apart is
+  // the whole point: the fee and the send button used to sit right under
+  // every "Επιλογή" tap, which read as pressuring someone into a payment
+  // decision they hadn't actually chosen to make yet.
+  const [phase, setPhase] = useState("select");
   // Consumed once, the first time a search actually loads results — a plain
   // prop can't survive that long since runSearch() below unconditionally
   // clears `selected` at the start of every call, restore or not.
@@ -433,6 +441,10 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
     if (!initial) return;
     pendingSelectedRef.current = initial.selected?.length ? initial.selected : null;
     setRestoredNotice(true);
+    // Whoever comes back from the login wall already went through the
+    // picking step once — landing them back on the list instead of where
+    // they left off would just make them redo the same taps.
+    if (initial.selected?.length) setPhase("confirm");
   }, [initial]);
 
   const needsBoatType = role === "skipper";
@@ -450,6 +462,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
     setError("");
     setBroadcastDone(false);
     setSelected(new Set());
+    setPhase("select");
     setBusy(true);
     try {
       const data = await searchSkippers({
@@ -617,7 +630,10 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
         </form>
       )}
 
-      {error && <p style={{ color: colors.danger }}>{error}</p>}
+      {/* Broadcast errors get their own, contextual spot next to the confirm
+          button below instead — showing the same error here too would just
+          repeat it. */}
+      {error && phase === "select" && <p style={{ color: colors.danger }}>{error}</p>}
 
       {results && (
         <div style={{ marginTop: 14 }}>
@@ -629,21 +645,46 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
               "Επιλογή" είναι πολλαπλής επιλογής ή τι σημαίνει να διαλέξει
               παραπάνω από έναν — η καθοδήγηση πρέπει να έρχεται πριν αρχίσει
               να επιλέγει, όχι μόνο κάτω στο κουμπί αποστολής. */}
-          {results.length > 0 && (
+          {results.length > 0 && phase === "select" && (
             <div style={{ ...card, background: colors.bgSoft || "#F7F5F0", marginBottom: 14 }}>
               <p style={{ margin: 0, fontSize: 13.5 }}>
-                Μπορείς να επιλέξεις όσους {roleLabel.toLowerCase()} θέλεις πατώντας «Επιλογή» σε καθέναν. Το αίτημα
-                στέλνεται μαζί σε όλους τους επιλεγμένους — ο πρώτος που θα το αποδεχτεί αναλαμβάνει το ταξίδι σου.
+                Μπορείς να επιλέξεις όσους {roleLabel.toLowerCase()} θέλεις πατώντας «Επιλογή» σε καθέναν. Στο επόμενο
+                βήμα θα δεις τι κοστίζει και θα επιβεβαιώσεις πριν σταλεί οτιδήποτε.
               </p>
             </div>
           )}
 
-          {results.map((s) => (
-            <ProfessionalCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={toggle} days={days} />
-          ))}
+          {/* Picking and paying are two separate decisions — the fee and the
+              send button used to sit directly under every "Επιλογή" tap,
+              which read as pressuring someone into a payment they hadn't
+              actually agreed to yet. "select" is just browsing/choosing;
+              "confirm" is its own screen for the one deliberate commitment. */}
+          {phase === "select" ? (
+            <>
+              {results.map((s) => (
+                <ProfessionalCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={toggle} days={days} />
+              ))}
 
-          {results.length > 0 && (
-            <div style={{ ...card, position: "sticky", bottom: 12, boxShadow: shadow.raised }}>
+              {results.length > 0 && (
+                <div style={{ ...card, position: "sticky", bottom: 12, boxShadow: shadow.raised }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 12 }}>
+                    <span style={{ fontSize: 14 }}>
+                      Επιλεγμέν{selected.size === 1 ? "ος/η" : "οι"} {roleLabel.toLowerCase()}
+                    </span>
+                    <span style={{ ...money, fontSize: 17, fontWeight: 600 }}>{selected.size}</span>
+                  </div>
+                  <button
+                    style={{ ...button("primary"), width: "100%" }}
+                    disabled={selected.size === 0}
+                    onClick={() => setPhase("confirm")}
+                  >
+                    Συνέχεια
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={card}>
               {broadcastDone ? (
                 <div>
                   <p style={{ color: colors.accent, fontWeight: 600, margin: "0 0 14px" }}>
@@ -655,40 +696,85 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
                 </div>
               ) : (
                 <>
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, fontSize: 14 }}>
-                      <span style={muted}>Επιλεγμέν{selected.size === 1 ? "ος/η" : "οι"} {roleLabel.toLowerCase()}</span>
-                      <span style={money}>{selected.size}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPhase("select")}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 14, fontFamily: "inherit", marginBottom: 14 }}
+                  >
+                    ← Πίσω στην επιλογή
+                  </button>
+
+                  <h3 style={{ ...h2, fontSize: 16, margin: "0 0 12px" }}>Επιβεβαίωση αιτήματος</h3>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                    <div style={{ display: "flex" }}>
+                      {results
+                        .filter((s) => selected.has(s.id))
+                        .slice(0, 6)
+                        .map((s, i) =>
+                          s.photo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={s.id}
+                              src={s.photo_url}
+                              alt=""
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                                border: `2px solid ${colors.card}`,
+                                marginLeft: i > 0 ? -10 : 0,
+                                flexShrink: 0,
+                              }}
+                            />
+                          ) : (
+                            <div
+                              key={s.id}
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: "50%",
+                                background: "#EFEFF1",
+                                border: `2px solid ${colors.card}`,
+                                marginLeft: i > 0 ? -10 : 0,
+                                flexShrink: 0,
+                              }}
+                            />
+                          )
+                        )}
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "baseline",
-                        gap: 12,
-                        marginTop: 8,
-                        paddingTop: 10,
-                        borderTop: `1px solid ${colors.border}`,
-                        fontSize: 15,
-                      }}
-                    >
-                      <span>Fee πλατφόρμας</span>
-                      <span style={{ ...money, fontSize: 17, fontWeight: 600 }}>{fee != null ? `${fee}€` : "—"}</span>
+                    <span style={{ fontSize: 14 }}>
+                      Επέλεξες <span style={money}>{selected.size}</span> {roleLabel.toLowerCase()}
+                    </span>
+                  </div>
+
+                  <div style={{ padding: "12px 14px", background: colors.seaGlass, borderRadius: radius.md, marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+                      <span style={{ fontSize: 14 }}>Τέλος πλατφόρμας</span>
+                      <span style={{ ...money, fontSize: 18, fontWeight: 700 }}>{fee != null ? `${fee}€` : "—"}</span>
                     </div>
-                    <p style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>
-                      Χρεώνεται μία φορά, ανεξάρτητα από το πλήθος των επιλεγμένων.
+                    <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
+                      Αφαιρείται μία φορά από το πορτοφόλι σου, ανεξάρτητα από το πλήθος των επιλεγμένων {roleLabel.toLowerCase()}.
+                      Το αίτημά σου θα σταλεί σε όλους μαζί· ο πρώτος που θα το αποδεχτεί αναλαμβάνει το ταξίδι σου.
                     </p>
                   </div>
+
+                  {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}
+
                   <button
                     style={{ ...button("primary"), width: "100%" }}
-                    disabled={selected.size === 0 || busy}
+                    disabled={busy}
                     onClick={handleBroadcast}
                   >
                     {busy ? "..." : session ? "Αποστολή αιτήματος" : "Σύνδεση για αποστολή"}
                   </button>
-                  <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0", textAlign: "center" }}>
-                    Το αίτημά σου θα σταλεί στους επιλεγμένους {roleLabel.toLowerCase()}. Ο πρώτος που θα το αποδεχτεί
-                    θα σε συνοδεύσει στο ταξίδι σου.
+                  <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
+                    Πατώντας «Αποστολή αιτήματος» αποδέχεσαι την παραπάνω χρέωση και τους{" "}
+                    <Link href="/platform/terms" style={{ color: colors.inkSoft, textDecoration: "underline" }}>
+                      Όρους Χρήσης
+                    </Link>
+                    .
                   </p>
                 </>
               )}
