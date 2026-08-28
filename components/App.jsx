@@ -462,6 +462,19 @@ async function uploadBoatPhoto(file, boatId) {
     return data?.publicUrl || null;
   } catch { return null; }
 }
+// window.print() «φωτογραφίζει» τη σελίδα αμέσως όταν κληθεί — αν οι φωτογραφίες του .print-area δεν έχουν
+// προλάβει να κατέβουν από το δίκτυο, βγαίνουν κενές στο τυπωμένο/PDF. Περιμένουμε να φορτώσουν όλες πρώτα
+// (ή να αποτύχουν, με όριο 5s ώστε μία χαλασμένη φωτογραφία να μην κολλήσει την εκτύπωση επ' άπειρον).
+async function printWhenImagesReady(isCancelled) {
+  await new Promise(r => setTimeout(r, 50));
+  const imgs = Array.from(document.querySelectorAll(".print-area img"));
+  await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => {
+    img.addEventListener("load", res, { once: true });
+    img.addEventListener("error", res, { once: true });
+    setTimeout(res, 5000);
+  })));
+  if (!isCancelled()) window.print();
+}
 
 // Σειρά εκτέλεσης ανά κλειδί αποθήκευσης (π.χ. "app-tasks"): αν ο ίδιος χρήστης πατήσει δύο πράγματα διαδοχικά
 // πολύ γρήγορα (π.χ. τσεκάρει δύο αντικείμενα ενός checklist σχεδόν ταυτόχρονα), οι δύο κλήσεις persistX θα
@@ -3584,7 +3597,7 @@ function AdminView(props) {
       )}
       {section === "overview" && <Overview boats={boats} tasks={opsTasks} effectiveDeadline={effectiveDeadline} runDistribution={runDistribution} generateClosingChecks={generateClosingChecks} settings={settings} users={users} me={me} absences={absences} onConfirmInventory={onConfirmInventory} signoffs={signoffs} />}
       {section === "control" && <ControlPanel tasks={tasks} boats={boats} users={users} onReturn={onReturn} onCloseExternal={onCloseExternal} onDowngrade={onDowngrade} onRate={onRate} onDelete={props.onDelete} />}
-      {section === "boats" && <BoatsAdmin boats={boats} isOwner={isOwner} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} onStartInventory={onStartInventory} showToast={showToast} />}
+      {section === "boats" && <BoatsAdmin boats={boats} isOwner={isOwner} me={me} tasks={tasks} boatNotes={boatNotes} onAddBoatNote={onAddBoatNote} onDeleteBoatNote={onDeleteBoatNote} isMgr={me.role === "manager" || me.role === "owner"} persistBoats={persistBoats} onStartInventory={onStartInventory} showToast={showToast} />}
       {section === "lists" && <ListsAdmin quick={quick} checklist={checklist} closingChecklist={closingChecklist} persistQuick={persistQuick} persistChecklist={persistChecklist} persistClosingChecklist={persistClosingChecklist} inventory={inventory} persistInventory={persistInventory} />}
       {section === "absences" && <AbsencesAdmin users={users} absences={absences} onAdd={onAddAbsence} onDelete={onDeleteAbsence} />}
       {section === "partners" && isOwner && <PartnersAdmin partners={partners} persistPartners={persistPartners} />}
@@ -3940,7 +3953,7 @@ const nextDeparture = (b) => {
   return null;
 };
 
-function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, persistBoats, showToast, onDeleteBoat }) {
+function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, isOwner, persistBoats, showToast, onDeleteBoat }) {
   const [noteText, setNoteText] = useState("");
   const [notePhotos, setNotePhotos] = useState([]);
   const noteFileRef = useRef(null);
@@ -3976,7 +3989,8 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, pe
       const serviceText = serviceHistory.map(t => `"${t.desc}" (${fmtDate(t.completedAt)})`).join("; ") || "(κενό)";
       // Χρονολογική σειρά (παλιότερο → νεότερο) ώστε το AI να «διαβάζει» εξέλιξη — π.χ. θετική παρατήρηση παλιότερα, πρόβλημα μεταγενέστερα, άρα νέο ζήτημα.
       const notesChrono = [...myNotes].sort((a, b) => a.at.localeCompare(b.at));
-      const notesText = notesChrono.map(n => `"${n.text}" (${fmtDate(n.at)})`).join("; ") || "(κενό)";
+      // Οι παρατηρήσεις είναι ορατές μόνο στον ιδιοκτήτη (βλ. UI παρακάτω) — δεν τις περνάμε στο AI για κανέναν άλλο ρόλο, αλλιώς θα «διέρρεαν» μέσα από τις απαντήσεις.
+      const notesText = isOwner ? (notesChrono.map(n => `"${n.text}" (${fmtDate(n.at)})`).join("; ") || "(κενό)") : "(μη διαθέσιμο)";
       const routineText = allDone.map(t => `"${t.desc}" (${fmtDate(t.completedAt)})`).join("; ") || "(κενό)";
       const prompt = `Είσαι βοηθός βάσης σκαφών, ειδικός για το σκάφος "${boat.name}". Απάντησε στην ερώτηση χρησιμοποιώντας ΜΟΝΟ τα παρακάτω δεδομένα.
 Οι ΠΑΡΑΤΗΡΗΣΕΙΣ είναι σε χρονολογική σειρά (παλιότερη → νεότερη) και μπορεί να είναι είτε θετικές (κάτι δουλεύει καλά) είτε αρνητικές (πρόβλημα). Χρησιμοποίησέ τες σαν χρονικά σημεία αναφοράς: αν κάτι έχει σημειωθεί ότι δούλευε καλά σε μια ημερομηνία και αργότερα εμφανίζεται πρόβλημα για το ίδιο πράγμα (είτε σε παρατήρηση είτε στο ιστορικό ρουτίνας/service), ανάφερε ρητά ότι πρόκειται πιθανότατα για νέο ζήτημα και ανάφερε από πότε υπάρχει η τελευταία ένδειξη καλής λειτουργίας. Αν εντοπίζεις επαναλαμβανόμενο μοτίβο (το ίδιο πρόβλημα να ξαναγίνεται) στο ιστορικό ρουτίνας, επισήμανέ το ως πιθανό υποκείμενο ζήτημα.
@@ -4013,31 +4027,35 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, isMgr, pe
       </div>
       {aiAns && <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", background: COLORS.card, borderRadius: 8, padding: 8 }}>{aiAns}</div>}
 
-      <div style={{ fontWeight: 700, marginTop: 12, marginBottom: 4, fontSize: 13 }}>Παρατηρήσεις <span style={{ fontWeight: 400, color: COLORS.sub, fontSize: 12 }}>(θετικές ή αρνητικές — και τα δύο βοηθούν)</span></div>
-      {myNotes.length === 0 && <div style={{ color: COLORS.sub, fontSize: 13 }}>Καμία ακόμα.</div>}
-      {myNotes.map(n => (
-        <div key={n.id} style={{ fontSize: 13, padding: "4px 0", borderBottom: `1px dashed ${COLORS.line}` }}>
-          {n.text} <span style={{ color: COLORS.sub, fontSize: 12 }}>— {fmtDate(n.at)}</span>
-          {isMgr && <button data-compact onClick={() => onDeleteNote(n.id)} style={{ border: "none", background: "none", color: COLORS.red, marginLeft: 6, fontSize: 12 }}>🗑</button>}
-          {n.photos?.length > 0 && (
-            <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
-              {n.photos.map((url, pi) => <img key={pi} src={url} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8 }} onClick={() => window.open(url, "_blank")} />)}
+      {isOwner && (
+        <>
+          <div style={{ fontWeight: 700, marginTop: 12, marginBottom: 4, fontSize: 13 }}>Παρατηρήσεις <span style={{ fontWeight: 400, color: COLORS.sub, fontSize: 12 }}>(θετικές ή αρνητικές — και τα δύο βοηθούν — ορατές μόνο σε σένα)</span></div>
+          {myNotes.length === 0 && <div style={{ color: COLORS.sub, fontSize: 13 }}>Καμία ακόμα.</div>}
+          {myNotes.map(n => (
+            <div key={n.id} style={{ fontSize: 13, padding: "4px 0", borderBottom: `1px dashed ${COLORS.line}` }}>
+              {n.text} <span style={{ color: COLORS.sub, fontSize: 12 }}>— {fmtDate(n.at)}</span>
+              {isMgr && <button data-compact onClick={() => onDeleteNote(n.id)} style={{ border: "none", background: "none", color: COLORS.red, marginLeft: 6, fontSize: 12 }}>🗑</button>}
+              {n.photos?.length > 0 && (
+                <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+                  {n.photos.map((url, pi) => <img key={pi} src={url} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8 }} onClick={() => window.open(url, "_blank")} />)}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      ))}
-      <div style={{ marginTop: 8 }}>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="π.χ. Ο αυτόματος πιλότος δουλεύει τέλεια — ή: Στάζει λάδι στο μηχανοστάσιο" style={{ ...inputStyle, flex: 1 }} />
-          <Btn small color={COLORS.teal} onClick={() => { if (noteText.trim()) { onAddNote(boat.id, noteText.trim(), notePhotos); setNoteText(""); setNotePhotos([]); } }}>Προσθήκη</Btn>
-        </div>
-        <div style={{ marginTop: 4 }}>
-          <input ref={noteFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }}
-            onChange={e => setNotePhotos(prev => [...prev, ...Array.from(e.target.files || [])])} />
-          <Btn small color={COLORS.sub} outline onClick={() => noteFileRef.current?.click()}>Φωτογραφία (προαιρετικό)</Btn>
-          {notePhotos.length > 0 && <span style={{ fontSize: 12, color: COLORS.sub, marginLeft: 8 }}>{notePhotos.length} επιλεγμένες</span>}
-        </div>
-      </div>
+          ))}
+          <div style={{ marginTop: 8 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="π.χ. Ο αυτόματος πιλότος δουλεύει τέλεια — ή: Στάζει λάδι στο μηχανοστάσιο" style={{ ...inputStyle, flex: 1 }} />
+              <Btn small color={COLORS.teal} onClick={() => { if (noteText.trim()) { onAddNote(boat.id, noteText.trim(), notePhotos); setNoteText(""); setNotePhotos([]); } }}>Προσθήκη</Btn>
+            </div>
+            <div style={{ marginTop: 4 }}>
+              <input ref={noteFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }}
+                onChange={e => setNotePhotos(prev => [...prev, ...Array.from(e.target.files || [])])} />
+              <Btn small color={COLORS.sub} outline onClick={() => noteFileRef.current?.click()}>Φωτογραφία (προαιρετικό)</Btn>
+              {notePhotos.length > 0 && <span style={{ fontSize: 12, color: COLORS.sub, marginLeft: 8 }}>{notePhotos.length} επιλεγμένες</span>}
+            </div>
+          </div>
+        </>
+      )}
 
       {serviceHistory.length > 0 && (
         <>
@@ -4350,6 +4368,61 @@ function BoatTaskPrintSheet({ boat, tasks }) {
   );
 }
 
+// Ξεχωριστό έντυπο από τη λίστα εργασιών: προσωπικές παρατηρήσεις του καπετάνιου κατά την παραλαβή ενός
+// σκάφους (π.χ. από άντρες συνεργαζόμενης εταιρείας), με στοιχεία που αλλάζουν κάθε φορά (ημερομηνία ναύλου,
+// εταιρεία) — γι' αυτό ζητούνται στη στιγμή της εκτύπωσης αντί να αποθηκεύονται στο σκάφος. Σκόπιμα χωρίς το
+// υποσέλιδο «Sailways — Βάση Αλίμου» της λίστας εργασιών.
+function BoatObservationsPrintSheet({ boat, notes, captainName, charterDate, company }) {
+  if (!boat) return null;
+  const printedAt = new Date().toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return (
+    <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px", boxSizing: "border-box" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 20, borderBottom: "2px solid #111", paddingBottom: 18, marginBottom: 18 }}>
+        {boat.photoUrl && (
+          <img src={boat.photoUrl} alt="" style={{ width: 112, height: 112, objectFit: "cover", borderRadius: 10, border: "1px solid #ccc", flexShrink: 0 }} />
+        )}
+        <div>
+          <div style={{ fontSize: 27, fontWeight: 800, letterSpacing: 0.2 }}>{boat.name}</div>
+          {boat.type && <div style={{ fontSize: 14, color: "#555", marginTop: 2 }}>{boat.type}</div>}
+        </div>
+        <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 12, color: "#555" }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#111" }}>Παρατηρήσεις καπετάνιου</div>
+          <div>{printedAt}</div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", fontSize: 13, color: "#333", marginBottom: 22, paddingBottom: 14, borderBottom: "1px solid #ddd" }}>
+        <div><span style={{ color: "#888" }}>Καπετάνιος: </span><b>{captainName || "—"}</b></div>
+        <div><span style={{ color: "#888" }}>Ημερομηνία ναύλου: </span><b>{charterDate ? fmtDate(charterDate) : "—"}</b></div>
+        <div><span style={{ color: "#888" }}>Εταιρεία: </span><b>{company || "—"}</b></div>
+      </div>
+
+      {notes.length === 0 ? (
+        <div style={{ fontSize: 15, color: "#555" }}>Καμία παρατήρηση καταχωρημένη.</div>
+      ) : (
+        <ol style={{ margin: 0, padding: 0, listStyle: "none" }}>
+          {notes.map((n, i) => (
+            <li key={n.id} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: "1px solid #ddd", breakInside: "avoid" }}>
+              <div style={{ fontWeight: 800, fontSize: 15, width: 24, flexShrink: 0 }}>{i + 1}.</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, lineHeight: 1.5 }}>{n.text}</div>
+                <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>{fmtDate(n.at)}</div>
+                {n.photos?.length > 0 && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                    {n.photos.map((url, pi) => (
+                      <img key={pi} src={url} alt="" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc" }} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 // Φωτογραφία σκάφους αν υπάρχει, αλλιώς το αρχικό γράμμα του ονόματος σε ήρεμο φόντο — μικρό, σταθερό μέγεθος
 // σε όλα τα σημεία που εμφανίζεται, ώστε να προσθέτει ζεστασιά χωρίς να διαταράσσει τη λιτή λίστα.
 function BoatAvatar({ boat, size = 44 }) {
@@ -4365,7 +4438,7 @@ function BoatAvatar({ boat, size = 44 }) {
   );
 }
 
-function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, onStartInventory, showToast }) {
+function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDeleteBoatNote, isMgr, persistBoats, onStartInventory, showToast }) {
   const [detailFor, setDetailFor] = useState(null);
   const [schedFor, setSchedFor] = useState(null);
   const [newFrom, setNewFrom] = useState("");
@@ -4381,23 +4454,27 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
   useEffect(() => {
     if (!printBoat) return;
     let cancelled = false;
-    (async () => {
-      // Δίνουμε χρόνο στο React να αποδώσει το print-area, μετά περιμένουμε να κατέβουν όλες οι φωτογραφίες
-      // (φωτογραφία σκάφους + εργασιών) πριν καλέσουμε print — αλλιώς η εκτύπωση παίρνει «στιγμιότυπο» της
-      // σελίδας πριν προλάβουν να φορτώσουν από το δίκτυο και βγαίνουν κενές.
-      await new Promise(r => setTimeout(r, 50));
-      const imgs = Array.from(document.querySelectorAll(".print-area img"));
-      await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => {
-        img.addEventListener("load", res, { once: true });
-        img.addEventListener("error", res, { once: true });
-        setTimeout(res, 5000);
-      })));
-      if (!cancelled) window.print();
-    })();
+    printWhenImagesReady(() => cancelled);
     const reset = () => setPrintBoat(null);
     window.addEventListener("afterprint", reset);
     return () => { cancelled = true; window.removeEventListener("afterprint", reset); };
   }, [printBoat]);
+
+  // «Παρατηρήσεις καπετάνιου»: ξεχωριστό έντυπο από τη λίστα εργασιών, με στοιχεία (καπετάνιος/ημερομηνία
+  // ναύλου/εταιρεία) που δεν αποθηκεύονται στο σκάφος — τα ζητάμε στη στιγμή της εκτύπωσης γιατί αλλάζουν
+  // κάθε φορά. Ορατό/διαθέσιμο μόνο στον ιδιοκτήτη, όπως και οι ίδιες οι παρατηρήσεις.
+  const [obsPrintFor, setObsPrintFor] = useState(null);
+  const [obsDate, setObsDate] = useState("");
+  const [obsCompany, setObsCompany] = useState("");
+  const [printObs, setPrintObs] = useState(null);
+  useEffect(() => {
+    if (!printObs) return;
+    let cancelled = false;
+    printWhenImagesReady(() => cancelled);
+    const reset = () => setPrintObs(null);
+    window.addEventListener("afterprint", reset);
+    return () => { cancelled = true; window.removeEventListener("afterprint", reset); };
+  }, [printObs]);
 
   // Προτεραιότητα σε 4 επίπεδα, με απλή χρωματική σήμανση:
   // 1. Στη βάση + φεύγει σύντομα — ΠΡΑΣΙΝΟ
@@ -4500,8 +4577,22 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
                 <Btn small color={COLORS.sub} outline onClick={() => setDetailFor(detailFor === b.id ? null : b.id)}>Πληροφορίες</Btn>
                 {onStartInventory && <Btn small color={COLORS.sub} outline onClick={() => onStartInventory(b)}>Inventory</Btn>}
                 <Btn small color={COLORS.sub} outline onClick={() => setPrintBoat(b)}>📄 Εκτύπωση εργασιών</Btn>
+                {isOwner && (
+                  <Btn small color={COLORS.sub} outline onClick={() => { setObsPrintFor(obsPrintFor === b.id ? null : b.id); setObsDate(""); setObsCompany(""); }}>📝 Εκτύπωση παρατηρήσεων</Btn>
+                )}
               </div>
             </div>
+
+            {isOwner && obsPrintFor === b.id && (
+              <div style={{ marginTop: 8, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.sub, marginBottom: 4 }}>Στοιχεία εκτύπωσης παρατηρήσεων</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                  <input type="date" value={obsDate} onChange={e => setObsDate(e.target.value)} placeholder="Ημερομηνία ναύλου" style={{ ...inputStyle, width: "auto" }} />
+                  <input value={obsCompany} onChange={e => setObsCompany(e.target.value)} placeholder="Εταιρεία συνεργασίας" style={{ ...inputStyle, flex: 1, minWidth: 160 }} />
+                </div>
+                <Btn small color={COLORS.navy} onClick={() => { setPrintObs({ boat: b, charterDate: obsDate, company: obsCompany }); setObsPrintFor(null); }}>🖨 Εκτύπωση</Btn>
+              </div>
+            )}
 
             {schedFor === b.id && (
               <div style={{ marginTop: 8, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 8 }}>
@@ -4550,7 +4641,7 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
               </div>
             )}
             {detailFor === b.id && (
-              <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} persistBoats={persistBoats} showToast={showToast} onDeleteBoat={() => { persistBoats(cur => cur.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
+              <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} isMgr={isMgr} isOwner={isOwner} persistBoats={persistBoats} showToast={showToast} onDeleteBoat={() => { persistBoats(cur => cur.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
             )}
           </div>
         </React.Fragment>
@@ -4594,6 +4685,13 @@ function BoatsAdmin({ boats, isOwner, tasks, boatNotes, onAddBoatNote, onDeleteB
         )}
       </div>
       <BoatTaskPrintSheet boat={printBoat} tasks={printBoat ? tasks.filter(t => t.boatId === printBoat.id && t.status === "open") : []} />
+      <BoatObservationsPrintSheet
+        boat={printObs?.boat || null}
+        notes={printObs ? boatNotes.filter(n => n.boatId === printObs.boat.id).sort((a, c) => c.at.localeCompare(a.at)) : []}
+        captainName={me?.name}
+        charterDate={printObs?.charterDate}
+        company={printObs?.company}
+      />
     </div>
   );
 }
