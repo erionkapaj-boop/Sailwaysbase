@@ -10,6 +10,7 @@ import {
   departureLabel,
 } from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
+import RequestPanel from "../components/RequestPanel";
 import PendingReviewBanner from "../components/PendingReviewBanner";
 import Stars from "../components/Stars";
 import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
@@ -174,25 +175,7 @@ function ClientDashboardInner() {
         <>
           <h2 style={sectionLabel}>Εκκρεμή αιτήματα</h2>
           {openRequests.map((r) => (
-            <div key={r.id} style={card}>
-              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                <span style={{ fontWeight: 500 }}>
-                  {departureLabel(r)} · {r.boat_types?.name}
-                </span>
-                <span style={badge(REQ_STATUS[r.status]?.[1] || "neutral")}>{REQ_STATUS[r.status]?.[0] || r.status}</span>
-              </div>
-              <p style={{ ...muted, marginBottom: 0 }}>
-                <span style={money}>{formatDate(r.start_date)}</span> → <span style={money}>{formatDate(r.end_date)}</span>
-                {" · Fee "}
-                <span style={{ ...money, color: colors.ink }}>{r.fee_amount}€</span>
-                {" · "}
-                {r.fee_paid_at ? "Πληρώθηκε" : "Δεν πληρώθηκε"}
-              </p>
-              {/* Πότε ανέβηκε το ίδιο το αίτημα — διαφορετική στιγμή από το
-                  ναύλο που ζητάει, και η μόνη που λέει πόσο γρήγορα (ή αργά)
-                  κινήθηκε κάτι. */}
-              <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>Στάλθηκε {formatDateTime(r.created_at)}</p>
-            </div>
+            <RequestPanel key={r.id} request={r} onChanged={load} />
           ))}
         </>
       )}

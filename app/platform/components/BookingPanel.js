@@ -168,88 +168,102 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
     // of several doesn't let one entry dominate the screen. The status
     // badge alone signals state — no second, parallel colour stripe.
     <div ref={rootRef} style={{ ...card, padding: 0, overflow: "hidden" }}>
-      <button
-        type="button"
+      {/* The whole collapsed card — header row and the counterpart preview
+          below it — is one tap target, not just the header strip. Only the
+          counterpart's own photo (opens the lightbox) breaks out of that
+          with its own stopPropagation; everything else here toggles the
+          same as before. */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setExpanded((e) => !e)}
-        style={{
-          width: "100%",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 10,
-          padding: "14px 18px",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          textAlign: "left",
-          fontFamily: "inherit",
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded((v) => !v);
+          }
         }}
+        style={{ cursor: "pointer" }}
       >
-        <span style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 14, fontWeight: 500 }}>{departureLabel(booking)}</span>
-          <span style={{ ...money, fontSize: 13, color: colors.inkSoft }}>
-            {formatDate(booking.start_date)} → {formatDate(booking.end_date)}
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+            padding: "14px 18px",
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 14, fontWeight: 500 }}>{departureLabel(booking)}</span>
+            <span style={{ ...money, fontSize: 13, color: colors.inkSoft }}>
+              {formatDate(booking.start_date)} → {formatDate(booking.end_date)}
+            </span>
           </span>
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          {hasUnread && !expanded && (
-            <span
-              aria-label="Νέο μήνυμα"
-              style={{ width: 7, height: 7, borderRadius: "50%", background: colors.danger, flexShrink: 0 }}
-            />
-          )}
-          <span style={badge(statusTone)}>{statusLabel}</span>
-          <span
-            style={{
-              color: colors.inkSoft,
-              fontSize: 14,
-              transform: expanded ? "rotate(180deg)" : "none",
-              transition: "transform 0.15s ease",
-            }}
-            aria-hidden="true"
-          >
-            ⌄
-          </span>
-        </span>
-      </button>
-
-      {/* Always visible once revealed — not gated behind expanding the row.
-          A confirmed booking's whole point is that both sides can now
-          identify and reach each other; that shouldn't hide behind a click
-          nobody knows to make. */}
-      {revealed && counterpart && (
-        <div style={{ padding: "0 18px 14px", display: "flex", gap: 12, alignItems: "center" }}>
-          {counterpart.photo_url ? (
-            <button
-              type="button"
-              onClick={() => setPhotoExpanded(true)}
-              aria-label="Μεγέθυνση φωτογραφίας"
-              style={{ padding: 0, border: "none", background: "none", cursor: "pointer", flexShrink: 0, borderRadius: "50%" }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={counterpart.photo_url}
-                alt=""
-                style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover", display: "block" }}
+          <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            {hasUnread && !expanded && (
+              <span
+                aria-label="Νέο μήνυμα"
+                style={{ width: 7, height: 7, borderRadius: "50%", background: colors.danger, flexShrink: 0 }}
               />
-            </button>
-          ) : (
-            <span
-              aria-hidden="true"
-              style={{ width: 44, height: 44, borderRadius: "50%", background: "#EFEDE8", flexShrink: 0 }}
-            />
-          )}
-          <div>
-            <div style={{ ...muted, fontSize: 13 }}>
-              {viewerRole === "client" ? labelForRole(counterpart.crew_role) || "Επαγγελματίας" : "Πελάτης"}
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>{counterpart.full_name || "—"}</div>
-            {counterpart.phone_number && (
-              <div style={{ ...money, fontSize: 14, marginTop: 2 }}>{counterpart.phone_number}</div>
             )}
-          </div>
+            <span style={badge(statusTone)}>{statusLabel}</span>
+            <span
+              style={{
+                color: colors.inkSoft,
+                fontSize: 14,
+                transform: expanded ? "rotate(180deg)" : "none",
+                transition: "transform 0.15s ease",
+              }}
+              aria-hidden="true"
+            >
+              ⌄
+            </span>
+          </span>
         </div>
-      )}
+
+        {/* Always visible once revealed — not gated behind expanding the row.
+            A confirmed booking's whole point is that both sides can now
+            identify and reach each other; that shouldn't hide behind a click
+            nobody knows to make. */}
+        {revealed && counterpart && (
+          <div style={{ padding: "0 18px 14px", display: "flex", gap: 12, alignItems: "center" }}>
+            {counterpart.photo_url ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPhotoExpanded(true);
+                }}
+                aria-label="Μεγέθυνση φωτογραφίας"
+                style={{ padding: 0, border: "none", background: "none", cursor: "pointer", flexShrink: 0, borderRadius: "50%" }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={counterpart.photo_url}
+                  alt=""
+                  style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover", display: "block" }}
+                />
+              </button>
+            ) : (
+              <span
+                aria-hidden="true"
+                style={{ width: 44, height: 44, borderRadius: "50%", background: "#EFEDE8", flexShrink: 0 }}
+              />
+            )}
+            <div>
+              <div style={{ ...muted, fontSize: 13 }}>
+                {viewerRole === "client" ? labelForRole(counterpart.crew_role) || "Επαγγελματίας" : "Πελάτης"}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>{counterpart.full_name || "—"}</div>
+              {counterpart.phone_number && (
+                <div style={{ ...money, fontSize: 14, marginTop: 2 }}>{counterpart.phone_number}</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
       {/* Tap the small avatar to see it properly — a 44px circle is enough
           to recognise a face was uploaded, not enough to actually look at
           the person you're about to spend a day at sea with. */}
