@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { colors, radius, shadow, button, fontSans } from "../../../lib/platform/theme";
 
@@ -28,6 +28,17 @@ export function useConfirm() {
     resolveRef.current = null;
     setState(null);
   }
+
+  // Same escape hatch as the account drawer — a dialog with no keyboard way
+  // out doesn't feel like the rest of the app.
+  useEffect(() => {
+    if (!state) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") settle(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [state]);
 
   const dialog =
     state && typeof document !== "undefined"
