@@ -94,7 +94,7 @@ export default function ClientDashboard() {
 // useSearchParams() (for ?focus=<bookingId>, used by the header's message
 // icon) requires a Suspense boundary around it in the app router.
 function ClientDashboardInner() {
-  const { session, userRow, loading, refresh, loadError, notifications } = useAuth();
+  const { session, userRow, loading, refresh, loadError, notifications, role } = useAuth();
   const searchParams = useSearchParams();
   const focusBookingId = searchParams.get("focus");
   const [requests, setRequests] = useState([]);
@@ -137,6 +137,11 @@ function ClientDashboardInner() {
   return (
     <div style={container}>
       <h1 style={h1}>Ο λογαριασμός μου</h1>
+      {/* Only shown to an account that also has another hat (skipper, admin)
+          — the menu item that brought them here says "ως πελάτης", so the
+          page itself should say it too, instead of landing on a bare title
+          that reads as if it switched to someone else's account. */}
+      {role && role !== "client" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως πελάτης</p>}
       <PendingReviewBanner />
 
       {/* Same standing block a professional gets: clients are rated too, and

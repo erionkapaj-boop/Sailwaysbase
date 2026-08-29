@@ -97,14 +97,19 @@ const CLIENT_ITEMS = [
 // a professional profile and get offered jobs. Before this, admin fell
 // through to the plain marketing header below, which had none of that; the
 // bookings existed but nothing in the UI could ever reach them.
+// Same href, same label, in every menu that carries it — SKIPPER_ITEMS and
+// ADMIN_ITEMS used to word these three differently ("ως πελάτης" here,
+// nothing there; "ως επαγγελματίας" here, "(επαγγελματίας)" there), so an
+// account with more than one hat saw a different name for the exact same
+// page depending on which menu happened to list it.
 const ADMIN_ITEMS = [
   { href: "/platform", label: "Αρχική" },
   { href: "/platform/admin", label: "Πίνακας διαχείρισης", group: true },
   { href: "/platform/client", label: "Οι κρατήσεις μου ως πελάτης", group: true },
-  { href: "/platform/client/profile", label: "Η φωτογραφία μου" },
+  { href: "/platform/client/profile", label: "Η φωτογραφία μου ως πελάτης" },
   { href: "/platform/skipper", label: "Ο πίνακάς μου ως επαγγελματίας", group: true },
-  { href: "/platform/skipper/profile", label: "Το προφίλ μου (επαγγελματίας)" },
-  { href: "/platform/skipper/wallet", label: "Το πορτοφόλι μου (επαγγελματίας)" },
+  { href: "/platform/skipper/profile", label: "Το προφίλ μου ως επαγγελματίας" },
+  { href: "/platform/skipper/wallet", label: "Το πορτοφόλι μου ως επαγγελματίας" },
 ];
 
 function NavBar() {

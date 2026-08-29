@@ -22,6 +22,7 @@ export default function SkipperProfilePage() {
     <div style={container}>
       <BackButton href="/platform/skipper" />
       <h1 style={{ ...h1, marginTop: 14 }}>Το προφίλ μου</h1>
+      {userRow?.role !== "skipper" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως επαγγελματίας</p>}
       <ProfileForm profile={profile} onSaved={refresh} />
     </div>
   );

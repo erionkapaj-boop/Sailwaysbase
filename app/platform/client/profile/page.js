@@ -37,7 +37,7 @@ const chip = (active) => ({
 // results, and a professional now sees about a client before accepting their
 // request (see PingCard) — the reverse direction needs somewhere to set them.
 export default function MyPhotoPage() {
-  const { session, userRow, loading, refresh } = useAuth();
+  const { session, userRow, loading, refresh, role } = useAuth();
   const [lookups, setLookups] = useState({ nationalities: [], languages: [] });
   const [nationalityId, setNationalityId] = useState("");
   const [languageIds, setLanguageIds] = useState([]);
@@ -83,6 +83,7 @@ export default function MyPhotoPage() {
     <div style={container}>
       <BackButton href="/platform" />
       <h1 style={{ ...h1, marginTop: 14 }}>Το προφίλ μου</h1>
+      {role && role !== "client" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως πελάτης</p>}
 
       <div style={card}>
         <h2 style={{ ...h2, fontSize: 17 }}>Φωτογραφία</h2>

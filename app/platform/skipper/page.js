@@ -297,6 +297,7 @@ function SkipperDashboardInner() {
   return (
     <div style={container}>
       <h1 style={h1}>Ο πίνακάς μου</h1>
+      {userRow?.role !== "skipper" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως επαγγελματίας</p>}
       <PendingReviewBanner />
 
       {profile.approval_status === "pending" && (
