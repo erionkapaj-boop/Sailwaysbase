@@ -992,7 +992,8 @@ function SearchPageInner() {
 
   return (
     <div style={container}>
-      <h1 style={h1}>Αποτελέσματα</h1>
+      <BackButton onClick={() => setShowFullFilters(true)} />
+      <h1 style={{ ...h1, marginTop: 14 }}>Αποτελέσματα</h1>
       <p style={muted}>Δωρεάν, χωρίς δέσμευση. Πληρώνεις μόνο όταν στέλνεις αίτημα.</p>
 
       {unsupportedRoles.length > 0 && (
