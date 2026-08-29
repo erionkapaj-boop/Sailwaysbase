@@ -13,6 +13,7 @@ import BookingPanel from "../components/BookingPanel";
 import RequestPanel from "../components/RequestPanel";
 import PendingReviewBanner from "../components/PendingReviewBanner";
 import Stars from "../components/Stars";
+import Toast from "../components/Toast";
 import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
 import {
   container,
@@ -103,6 +104,7 @@ function ClientDashboardInner() {
   // person as a customer. Both exist for every account now.
   const [clientProfile, setClientProfile] = useState(null);
   const [busy, setBusy] = useState(true);
+  const [toast, setToast] = useState(null);
 
   async function load() {
     setBusy(true);
@@ -175,7 +177,7 @@ function ClientDashboardInner() {
         <>
           <h2 style={sectionLabel}>Εκκρεμή αιτήματα</h2>
           {openRequests.map((r) => (
-            <RequestPanel key={r.id} request={r} onChanged={load} />
+            <RequestPanel key={r.id} request={r} onChanged={load} onToastMessage={setToast} />
           ))}
         </>
       )}
@@ -213,6 +215,8 @@ function ClientDashboardInner() {
             ))}
         </>
       )}
+
+      <Toast message={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }

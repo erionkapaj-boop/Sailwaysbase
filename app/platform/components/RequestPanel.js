@@ -21,7 +21,12 @@ const PING_STATUS_LABEL = {
 // touch. This makes it a real screen — who got pinged, and two ways to
 // change your mind before anyone answers: drop one person, or pull the
 // whole thing back.
-export default function RequestPanel({ request, onChanged }) {
+// onToastMessage is owned by the parent page, not this component: cancelling
+// moves the request out of the open list and into history, which unmounts
+// this exact instance — a toast held in its own local state would vanish
+// with it before anyone saw it. The parent renders the toast at page level,
+// where it survives regardless of which list the request ends up in.
+export default function RequestPanel({ request, onChanged, onToastMessage }) {
   const [expanded, setExpanded] = useState(false);
   const [pings, setPings] = useState([]);
   const [loadingPings, setLoadingPings] = useState(false);
@@ -60,6 +65,9 @@ export default function RequestPanel({ request, onChanged }) {
     setError("");
     try {
       await cancelBookingRequest(request.id);
+      if (request.fee_paid_at && request.fee_amount > 0) {
+        onToastMessage?.(`Επιστράφηκαν ${request.fee_amount}€ στο πορτοφόλι σου.`);
+      }
       onChanged?.();
     } catch (err) {
       setError(err.message || String(err));

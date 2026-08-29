@@ -196,6 +196,7 @@ const globalStyles = `
 .platform-scope .sf-cta:active { background: ${colors.brandDark}; color: #fff; }
 @keyframes sf-drawer-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sf-drawer-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes sf-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 `;
 
 // Deliberately loud and always on screen. The whole point of this mode is
