@@ -194,6 +194,8 @@ const globalStyles = `
 .platform-scope input[type=date]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .platform-scope .sf-cta:hover { background: ${colors.ink}; color: #fff; }
 .platform-scope .sf-cta:active { background: ${colors.brandDark}; color: #fff; }
+@keyframes sf-drawer-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sf-drawer-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 `;
 
 // Deliberately loud and always on screen. The whole point of this mode is

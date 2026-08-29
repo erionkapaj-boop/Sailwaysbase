@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { colors, radius, shadow, button, fontSans } from "../../../lib/platform/theme";
 
 // Shared dropdown shell for the header's icon buttons.
@@ -61,56 +62,65 @@ export default function HeaderPanel({ icon, count = 0, ariaLabel, title, action,
         )}
       </button>
 
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 39 }} />
-          <div
-            style={{
-              position: "fixed",
-              top: 64,
-              right: 12,
-              left: "auto",
-              width: "min(340px, calc(100vw - 24px))",
-              maxHeight: "min(70vh, 520px)",
-              overflowY: "auto",
-              background: colors.card,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              boxShadow: shadow.raised,
-              zIndex: 40,
-              fontFamily: fontSans,
-            }}
-          >
+      {/* Portalled onto <body>: this button lives inside the nav bar, and the
+          nav bar's backdropFilter (the header's glass blur) makes it a
+          containing block for any `position: fixed` descendant per spec —
+          so a panel rendered in place here would end up pinned to the nav
+          bar's own strip instead of the viewport, and a tap anywhere on the
+          actual page below the header would never reach the backdrop. */}
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 39 }} />
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 8,
-                padding: "12px 14px",
-                borderBottom: `1px solid ${colors.border}`,
-                position: "sticky",
-                top: 0,
+                position: "fixed",
+                top: 64,
+                right: 12,
+                left: "auto",
+                width: "min(340px, calc(100vw - 24px))",
+                maxHeight: "min(70vh, 520px)",
+                overflowY: "auto",
                 background: colors.card,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.md,
+                boxShadow: shadow.raised,
+                zIndex: 40,
+                fontFamily: fontSans,
               }}
             >
-              <b style={{ fontSize: 14 }}>{title}</b>
-              {action && (
-                <button
-                  type="button"
-                  disabled={action.busy}
-                  onClick={action.onClick}
-                  style={{ ...button("secondary"), padding: "4px 10px", fontSize: 12 }}
-                >
-                  {action.label}
-                </button>
-              )}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "12px 14px",
+                  borderBottom: `1px solid ${colors.border}`,
+                  position: "sticky",
+                  top: 0,
+                  background: colors.card,
+                }}
+              >
+                <b style={{ fontSize: 14 }}>{title}</b>
+                {action && (
+                  <button
+                    type="button"
+                    disabled={action.busy}
+                    onClick={action.onClick}
+                    style={{ ...button("secondary"), padding: "4px 10px", fontSize: 12 }}
+                  >
+                    {action.label}
+                  </button>
+                )}
+              </div>
+              {/* Children get a closer so a tapped row can dismiss the panel. */}
+              {typeof children === "function" ? children(() => setOpen(false)) : children}
             </div>
-            {/* Children get a closer so a tapped row can dismiss the panel. */}
-            {typeof children === "function" ? children(() => setOpen(false)) : children}
-          </div>
-        </>
-      )}
+          </>,
+          document.body
+        )}
     </>
   );
 }
