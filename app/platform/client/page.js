@@ -1,38 +1,12 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
-import {
-  listMyBookingRequests,
-  listMyBookingsAsClient,
-  createMissingProfile,
-  getMyClientProfile,
-  departureLabel,
-} from "../../../lib/platform/db";
-import BookingPanel from "../components/BookingPanel";
+import { listMyBookingRequests, createMissingProfile, getMyClientProfile } from "../../../lib/platform/db";
 import RequestPanel from "../components/RequestPanel";
 import PendingReviewBanner from "../components/PendingReviewBanner";
 import Stars from "../components/Stars";
 import Toast from "../components/Toast";
-import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
-import {
-  container,
-  card,
-  h1,
-  sectionLabel,
-  muted,
-  badge,
-  button,
-  colors,
-  money,
-} from "../../../lib/platform/theme";
-
-const REQ_STATUS = {
-  open: ["Αναμονή διεκδίκησης", "brand"],
-  matched: ["Βρέθηκε skipper", "success"],
-  expired_unclaimed: ["Άκαρπο — έγινε credit", "warn"],
-  cancelled: ["Ακυρώθηκε", "danger"],
-};
+import { container, card, h1, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 
 function MissingProfile({ refresh, loadError }) {
   const [busy, setBusy] = useState(false);
@@ -83,25 +57,13 @@ function MissingProfile({ refresh, loadError }) {
   );
 }
 
+// The account's overview + whatever needs a decision right now (open
+// requests waiting on a reply). Everything settled — actual bookings, past
+// requests — moved to its own page (/platform/client/bookings): a dashboard
+// that never ends because it's also the archive stops being a dashboard.
 export default function ClientDashboard() {
-  return (
-    <Suspense fallback={<div style={container}>Φόρτωση...</div>}>
-      <ClientDashboardInner />
-    </Suspense>
-  );
-}
-
-// useSearchParams() (for ?focus=<bookingId>, used by the header's message
-// icon) requires a Suspense boundary around it in the app router.
-function ClientDashboardInner() {
-  const { session, userRow, loading, refresh, loadError, notifications, role } = useAuth();
-  const searchParams = useSearchParams();
-  const focusBookingId = searchParams.get("focus");
+  const { session, loading, refresh, loadError, role } = useAuth();
   const [requests, setRequests] = useState([]);
-  const [bookings, setBookings] = useState([]);
-  // Fetched here rather than taken from AuthContext: for a professional that
-  // context holds their *crew* profile, while this page is about the same
-  // person as a customer. Both exist for every account now.
   const [clientProfile, setClientProfile] = useState(null);
   const [busy, setBusy] = useState(true);
   const [toast, setToast] = useState(null);
@@ -109,13 +71,8 @@ function ClientDashboardInner() {
   async function load() {
     setBusy(true);
     try {
-      const [r, b, cp] = await Promise.all([
-        listMyBookingRequests(),
-        listMyBookingsAsClient(),
-        getMyClientProfile(),
-      ]);
+      const [r, cp] = await Promise.all([listMyBookingRequests(), getMyClientProfile()]);
       setRequests(r);
-      setBookings(b);
       setClientProfile(cp);
     } finally {
       setBusy(false);
@@ -123,8 +80,8 @@ function ClientDashboardInner() {
   }
 
   useEffect(() => {
-    if (session && userRow) load();
-  }, [session, userRow]);
+    if (session) load();
+  }, [session]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
@@ -132,7 +89,6 @@ function ClientDashboardInner() {
   if (!clientProfile) return <MissingProfile refresh={refresh} loadError={loadError} />;
 
   const openRequests = requests.filter((r) => r.status === "open");
-  const closedRequests = requests.filter((r) => r.status !== "open");
 
   return (
     <div style={container}>
@@ -142,7 +98,7 @@ function ClientDashboardInner() {
           page itself should say it too, instead of landing on a bare title
           that reads as if it switched to someone else's account. */}
       {role && role !== "client" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως πελάτης</p>}
-      <PendingReviewBanner />
+      <PendingReviewBanner bookingsHref="/platform/client/bookings" />
 
       {/* Same standing block a professional gets: clients are rated too, and
           a skipper deciding whether to claim their request reads exactly
@@ -178,48 +134,13 @@ function ClientDashboardInner() {
 
       {busy && <p style={muted}>Φόρτωση...</p>}
 
-      {openRequests.length > 0 && (
-        <>
-          <h2 style={sectionLabel}>Εκκρεμή αιτήματα</h2>
-          {openRequests.map((r) => (
-            <RequestPanel key={r.id} request={r} onChanged={load} onToastMessage={setToast} />
-          ))}
-        </>
-      )}
-
-      <h2 style={sectionLabel}>Κρατήσεις</h2>
-      {bookings.length === 0 && !busy && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
-      {bookings.map((b) => (
-        <BookingPanel
-          key={b.id}
-          booking={b}
-          viewerRole="client"
-          viewerUserId={userRow.id}
-          onChanged={load}
-          autoExpand={b.id === focusBookingId}
-          hasUnread={(notifications?.unreadBookingIds ?? []).includes(b.id)}
-        />
-      ))}
-
-      {closedRequests.length > 0 && (
-        <>
-          <h2 style={sectionLabel}>Ιστορικό αιτημάτων</h2>
-          {closedRequests
-            .filter((r) => r.status !== "matched")
-            .map((r) => (
-              <div key={r.id} style={{ ...card, opacity: 0.75 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                  <span>
-                    {departureLabel(r)} · <span style={money}>{formatDate(r.start_date)}</span> →{" "}
-                    <span style={money}>{formatDate(r.end_date)}</span>
-                  </span>
-                  <span style={badge(REQ_STATUS[r.status]?.[1] || "neutral")}>{REQ_STATUS[r.status]?.[0] || r.status}</span>
-                </div>
-                <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>Στάλθηκε {formatDateTime(r.created_at)}</p>
-              </div>
-            ))}
-        </>
-      )}
+      <div style={{ marginTop: 32 }}>
+        <h2 style={sectionLabel}>Εκκρεμή αιτήματα ({openRequests.length})</h2>
+        {openRequests.length === 0 && !busy && <p style={muted}>Δεν υπάρχουν εκκρεμή αιτήματα αυτή τη στιγμή.</p>}
+        {openRequests.map((r) => (
+          <RequestPanel key={r.id} request={r} onChanged={load} onToastMessage={setToast} />
+        ))}
+      </div>
 
       <Toast message={toast} onDismiss={() => setToast(null)} />
     </div>

@@ -1,22 +1,11 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
-import {
-  listMyPings,
-  claimBookingRequest,
-  declineBookingRequest,
-  listMyBookingsAsSkipper,
-  getMyStanding,
-  getPlatformSetting,
-  departureLabel,
-} from "../../../lib/platform/db";
-import AvailabilityCalendar from "./AvailabilityCalendar";
+import { listMyPings, claimBookingRequest, declineBookingRequest, getPlatformSetting, departureLabel } from "../../../lib/platform/db";
 import MissingProfile from "./MissingProfile";
-import BookingPanel from "../components/BookingPanel";
 import PendingReviewBanner from "../components/PendingReviewBanner";
 import Stars from "../components/Stars";
-import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
+import { container, card, h1, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 
@@ -32,9 +21,6 @@ const CLAIM_ERRORS = {
   already_covered: "Η δουλειά καλύφθηκε ήδη από κάποιον άλλον.",
 };
 
-// Κρατάει το ίδιο κατώφλι με το reliability_min_history στη βάση (0027).
-const MIN_RELIABILITY_HISTORY = 3;
-
 // Πρόταση από τη διαχείριση, όχι αίτημα πελάτη: ήρθε επειδή σε διάλεξαν
 // ονομαστικά, και αξίζει να διαβάζεται διαφορετικά από ένα ερώτημα που έφυγε
 // σε πολλούς.
@@ -43,7 +29,7 @@ const OFFER_LABEL = {
   admin_replacement: "Αντικατάσταση — ο πελάτης έμεινε χωρίς πλήρωμα",
 };
 
-function PingsInbox({ skipperId, onClaimed }) {
+function PingsInbox({ skipperId }) {
   const { refreshNotifications } = useAuth();
   const [pings, setPings] = useState([]);
   const [defaultFee, setDefaultFee] = useState(null);
@@ -65,7 +51,6 @@ function PingsInbox({ skipperId, onClaimed }) {
     try {
       await claimBookingRequest(requestId, skipperId);
       await load();
-      onClaimed?.();
       refreshNotifications();
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
@@ -255,31 +240,12 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
   );
 }
 
+// Whatever needs a decision right now — incoming requests waiting on a
+// claim/decline. Everything settled (bookings, availability, standing,
+// wallet) moved to its own page: a dashboard that never ends because it's
+// also the archive stops being a dashboard.
 export default function SkipperDashboard() {
-  return (
-    <Suspense fallback={<div style={container}>Φόρτωση...</div>}>
-      <SkipperDashboardInner />
-    </Suspense>
-  );
-}
-
-// useSearchParams() (for ?focus=<bookingId>, used by the header's
-// notification bell) requires a Suspense boundary around it in the app
-// router — split out so the boundary wraps only what needs it.
-function SkipperDashboardInner() {
-  const { session, profile, userRow, loading, refresh, loadError, notifications, isAdmin } = useAuth();
-  const searchParams = useSearchParams();
-  const focusBookingId = searchParams.get("focus");
-  const [bookings, setBookings] = useState([]);
-  const [standing, setStanding] = useState(null);
-
-  async function loadBookings() {
-    if (profile?.id) setBookings(await listMyBookingsAsSkipper(profile.id));
-  }
-  useEffect(() => {
-    loadBookings();
-    if (profile?.id) getMyStanding().then(setStanding).catch(() => {});
-  }, [profile?.id]);
+  const { session, profile, userRow, loading, refresh, loadError, isAdmin } = useAuth();
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
   if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
@@ -291,14 +257,11 @@ function SkipperDashboardInner() {
     return <div style={container}>Αυτή η σελίδα είναι μόνο για επαγγελματίες.</div>;
   if (!profile) return <MissingProfile userRow={userRow} isAdmin={isAdmin} refresh={refresh} loadError={loadError} />;
 
-  // Πόσα περιστατικά υπάρχουν συνολικά να μιλήσουν για κάποιον.
-  const history = (profile.completed_bookings_count || 0) + (profile.cancellation_flag_count || 0);
-
   return (
     <div style={container}>
       <h1 style={h1}>Ο πίνακάς μου</h1>
       {userRow?.role !== "skipper" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως επαγγελματίας</p>}
-      <PendingReviewBanner />
+      <PendingReviewBanner bookingsHref="/platform/skipper/bookings" />
 
       {profile.approval_status === "pending" && (
         <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
@@ -318,135 +281,11 @@ function SkipperDashboardInner() {
         </div>
       )}
 
-      {/* Uniform 32px gap before every section below, instead of each one
-          picking its own margin from whatever card/border it happens to
-          use — that's what made the page read as an ad hoc stack. */}
       {profile.approval_status === "approved" && (
         <div style={{ marginTop: 32 }}>
-          {/* Incoming work first — this is the time-critical thing. */}
-          <PingsInbox skipperId={profile.id} onClaimed={loadBookings} />
+          <PingsInbox skipperId={profile.id} />
         </div>
       )}
-
-      <div style={{ marginTop: 32 }}>
-        <h2 style={sectionLabel}>Κρατήσεις</h2>
-        {bookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
-        {bookings.map((b) => (
-          <BookingPanel
-            key={b.id}
-            booking={b}
-            viewerRole={profile.role || "skipper"}
-            viewerUserId={userRow.id}
-            onChanged={loadBookings}
-            autoExpand={b.id === focusBookingId}
-            hasUnread={notifications.unreadBookingIds.includes(b.id)}
-          />
-        ))}
-      </div>
-
-      {/* Standing: the star row belongs with reliability and tier, since all
-          three answer the same question — how do I look to a client right
-          now. Given its own line above them because it's the one a
-          professional actually cares about. */}
-      <div
-        style={{
-          marginTop: 32,
-          paddingBottom: 10,
-          borderTop: `1px solid ${colors.border}`,
-          paddingTop: 12,
-        }}
-      >
-        <Stars rating={profile.rating_avg} count={profile.rating_count} size={17} />
-
-        {/* Behaviour sits beside the stars, never inside them: each badge
-            says what it measures, so nothing is being passed off as an
-            average of reviews. These are what lift you in search results. */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
-          {profile.cancellation_flag_count === 0 && profile.completed_bookings_count > 0 && (
-            <span style={badge("success")}>Καμία ακύρωση</span>
-          )}
-          {/* Η έγκαιρη ειδοποίηση είναι το ζητούμενο, οπότε λέγεται φωναχτά.
-              Χωρίς αυτό, ο μόνος τρόπος να μη φαίνεσαι κακός ήταν να μην
-              ακυρώσεις ποτέ — που σημαίνει να το κρύψεις μέχρι την τελευταία
-              στιγμή, ακριβώς η συμπεριφορά που κοστίζει περισσότερο. */}
-          {standing?.cancellations > 0 && standing.cancellationLoad / standing.cancellations <= 0.3 && (
-            <span style={badge("success")}>Ειδοποιεί έγκαιρα</span>
-          )}
-          {standing && standing.responded + standing.ignored > 0 && (
-            <span style={badge(standing.ignored === 0 ? "success" : "neutral")}>
-              Απαντά σε {standing.responded} από {standing.responded + standing.ignored} αιτήματα
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Wallet/tier is background information, not something acted on daily —
-          a thin line, not a card competing with the sections above and
-          below it. A "·" separates the three instead of a wide gap, and
-          every label/value pair shares one explicit size so nothing
-          (notably the "—" placeholder) looks out of step with the rest. */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          flexWrap: "wrap",
-          padding: "10px 2px",
-          borderTop: `1px solid ${colors.border}`,
-          borderBottom: `1px solid ${colors.border}`,
-        }}
-      >
-        <span style={{ fontSize: 13, color: colors.inkSoft }}>Wallet</span>
-        <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
-          {profile.wallet_balance}€
-        </b>
-        <span style={{ fontSize: 13, color: colors.inkSoft, margin: "0 10px" }}>·</span>
-        <span style={{ fontSize: 13, color: colors.inkSoft }}>Βαθμίδα</span>
-        <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
-          {profile.tier === "high" ? "Υψηλή" : profile.tier === "low" ? "Χαμηλή" : "Μεσαία"}
-        </b>
-        <span style={{ fontSize: 13, color: colors.inkSoft, margin: "0 10px" }}>·</span>
-        <span style={{ fontSize: 13, color: colors.inkSoft }}>Αξιοπιστία</span>
-        {/* Κάτω από τρία περιστατικά δεν δείχνουμε ποσοστό. Μία ακύρωση στην
-            πρώτη δουλειά έβγαζε «0%» — νούμερο που δεν περιγράφει κανέναν,
-            μόνο το ότι δεν υπάρχει ακόμα ιστορικό να περιγραφεί. */}
-        <b
-          style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}
-          title={
-            history < MIN_RELIABILITY_HISTORY
-              ? "Χρειάζονται τουλάχιστον 3 ολοκληρωμένες ή ακυρωμένες κρατήσεις"
-              : undefined
-          }
-        >
-          {history >= MIN_RELIABILITY_HISTORY && profile.reliability_percentage != null
-            ? `${profile.reliability_percentage}%`
-            : "—"}
-        </b>
-      </div>
-
-      {/* Λέγεται μόνο όταν υπάρχει κάτι να ειπωθεί. Ο επαγγελματίας πρέπει να
-          ξέρει ότι οι ακυρώσεις τον κατεβάζουν στη σειρά — και κυρίως ότι το
-          πόσο εξαρτάται από το πότε ειδοποιεί, γιατί αυτό είναι το μόνο
-          κομμάτι που ελέγχει ο ίδιος. */}
-      {standing?.cancellations > 0 && standing.cancelStanding != null && (
-        <p style={{ ...muted, fontSize: 12.5, margin: "10px 2px 0", lineHeight: 1.5 }}>
-          {standing.cancellations === 1 ? "1 ακύρωση" : `${standing.cancellations} ακυρώσεις`} στο ιστορικό σου.
-          {standing.cancelStanding >= 99
-            ? " Επειδή ειδοποίησες έγκαιρα, σχεδόν δεν επηρεάζουν τη θέση σου στις αναζητήσεις."
-            : standing.cancelStanding >= 90
-            ? " Επηρεάζουν ελαφρά τη θέση σου στις αναζητήσεις."
-            : " Επηρεάζουν αισθητά τη θέση σου στις αναζητήσεις."}
-          {" Όσο πιο νωρίς ειδοποιείς, τόσο λιγότερο μετράει η κάθε μία."}
-        </p>
-      )}
-
-      {/* Available while pending too — no reason to wait for approval before
-          saying when you can work. */}
-      <div style={{ marginTop: 32 }}>
-        {/* No onChanged: the calendar reloads its own windows, and changing
-            availability doesn't change bookings — refetching them here was
-            just a wasted round trip. */}
-        <AvailabilityCalendar skipperId={profile.id} bookings={bookings} />
-      </div>
     </div>
   );
 }

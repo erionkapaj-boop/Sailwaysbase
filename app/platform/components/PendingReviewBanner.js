@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getMyPendingReviewCount } from "../../../lib/platform/db";
 import { colors, muted } from "../../../lib/platform/theme";
 
@@ -8,7 +9,12 @@ import { colors, muted } from "../../../lib/platform/theme";
 // of the dashboard, above everything else, for as long as any completed
 // booking is still waiting on your review. Re-fetched on every mount rather
 // than cached, since the count only ever changes.
-export default function PendingReviewBanner() {
+//
+// bookingsHref points at wherever "Κρατήσεις" actually lives for the caller
+// (it moved out of the dashboard onto its own page) — without it the banner
+// would tell someone to look "below" on a page that no longer has bookings
+// on it at all.
+export default function PendingReviewBanner({ bookingsHref }) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -33,7 +39,15 @@ export default function PendingReviewBanner() {
           : `${count} ναύλα ολοκληρώθηκαν και περιμένουν την αξιολόγησή σου.`}
       </b>
       <p style={{ ...muted, fontSize: 13, margin: "4px 0 0" }}>
-        Άνοιξε την κράτηση παρακάτω, στις «Κρατήσεις», για να την αφήσεις.
+        Άνοιξε την κράτηση στις{" "}
+        {bookingsHref ? (
+          <Link href={bookingsHref} style={{ color: colors.accent }}>
+            «Κρατήσεις»
+          </Link>
+        ) : (
+          "«Κρατήσεις»"
+        )}{" "}
+        για να την αφήσεις.
       </p>
     </div>
   );

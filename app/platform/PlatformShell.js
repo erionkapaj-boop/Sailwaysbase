@@ -79,15 +79,19 @@ function AccountNavBar({ name, photoUrl, loading, items, onSignOut, notification
 const SKIPPER_ITEMS = [
   { href: "/platform", label: "Αρχική" },
   { href: "/platform/skipper", label: "Ο πίνακάς μου", group: true },
+  { href: "/platform/skipper/bookings", label: "Οι κρατήσεις μου" },
+  { href: "/platform/skipper/availability", label: "Η διαθεσιμότητά μου" },
   { href: "/platform/skipper/profile", label: "Το προφίλ μου" },
   { href: "/platform/skipper/wallet", label: "Το πορτοφόλι μου" },
-  { href: "/platform/client", label: "Οι κρατήσεις μου ως πελάτης", group: true },
+  { href: "/platform/client", label: "Ο λογαριασμός μου ως πελάτης", group: true },
+  { href: "/platform/client/bookings", label: "Οι κρατήσεις μου ως πελάτης" },
   { href: "/platform/client/profile", label: "Η φωτογραφία μου ως πελάτης" },
 ];
 
 const CLIENT_ITEMS = [
   { href: "/platform", label: "Αρχική" },
   { href: "/platform/client", label: "Ο λογαριασμός μου", group: true },
+  { href: "/platform/client/bookings", label: "Οι κρατήσεις μου" },
   { href: "/platform/client/profile", label: "Το προφίλ μου" },
 ];
 
@@ -105,9 +109,12 @@ const CLIENT_ITEMS = [
 const ADMIN_ITEMS = [
   { href: "/platform", label: "Αρχική" },
   { href: "/platform/admin", label: "Πίνακας διαχείρισης", group: true },
-  { href: "/platform/client", label: "Οι κρατήσεις μου ως πελάτης", group: true },
+  { href: "/platform/client", label: "Ο λογαριασμός μου ως πελάτης", group: true },
+  { href: "/platform/client/bookings", label: "Οι κρατήσεις μου ως πελάτης" },
   { href: "/platform/client/profile", label: "Η φωτογραφία μου ως πελάτης" },
   { href: "/platform/skipper", label: "Ο πίνακάς μου ως επαγγελματίας", group: true },
+  { href: "/platform/skipper/bookings", label: "Οι κρατήσεις μου ως επαγγελματίας" },
+  { href: "/platform/skipper/availability", label: "Η διαθεσιμότητά μου ως επαγγελματίας" },
   { href: "/platform/skipper/profile", label: "Το προφίλ μου ως επαγγελματίας" },
   { href: "/platform/skipper/wallet", label: "Το πορτοφόλι μου ως επαγγελματίας" },
 ];

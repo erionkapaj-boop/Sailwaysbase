@@ -294,8 +294,6 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
 
   return (
     <div style={{ ...card, position: "relative" }}>
-      <h2 style={sectionLabel}>Διαθεσιμότητα</h2>
-
       <div
         role="group"
         aria-label="Λειτουργία ημερολογίου"
