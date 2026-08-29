@@ -16,6 +16,7 @@ import { card, muted, button, input, select, badge, colors, money, radius } from
 import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { labelForRole } from "../../../lib/platform/roles";
+import { useConfirm } from "./ConfirmDialog";
 
 const STATUS_LABEL = {
   confirmed: ["Επιβεβαιωμένη", "success"],
@@ -44,6 +45,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   const [cancelReason, setCancelReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [confirm, confirmDialog] = useConfirm();
 
   const isPastEnd = new Date(booking.end_date) < new Date(new Date().toDateString());
   const revealed = ["confirmed", "completed", "cancelled_by_client", "cancelled_by_skipper"].includes(booking.status);
@@ -95,7 +97,12 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
   }
 
   async function handleCancel() {
-    if (!confirm("Σίγουρα θέλεις να ακυρώσεις; Θα χάσεις το ποσό που έχεις ήδη πληρώσει και θα καταγραφεί flag στο ιστορικό σου.")) return;
+    if (
+      !(await confirm(
+        "Σίγουρα θέλεις να ακυρώσεις; Θα χάσεις το ποσό που έχεις ήδη πληρώσει και θα καταγραφεί flag στο ιστορικό σου."
+      ))
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -490,6 +497,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       {error && <p style={{ color: colors.danger, marginTop: 8 }}>{error}</p>}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

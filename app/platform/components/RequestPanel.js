@@ -4,6 +4,7 @@ import { listRequestPings, withdrawPing, cancelBookingRequest, departureLabel } 
 import { labelForRole } from "../../../lib/platform/roles";
 import { formatDate, formatDateTime } from "../../../lib/platform/notifications";
 import { card, muted, badge, button, colors, money } from "../../../lib/platform/theme";
+import { useConfirm } from "./ConfirmDialog";
 
 const REQ_STATUS = {
   open: ["Αναμονή διεκδίκησης", "brand"],
@@ -32,6 +33,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
   const [loadingPings, setLoadingPings] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
+  const [confirm, confirmDialog] = useConfirm();
 
   const isOpen = request.status === "open";
 
@@ -45,7 +47,11 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
   }, [expanded, request.id]);
 
   async function handleWithdraw(ping) {
-    if (!confirm(`Σίγουρα θέλεις να αφαιρέσεις τον/την ${ping.skipper_profiles?.full_name || "επαγγελματία"} από αυτό το αίτημα;`))
+    if (
+      !(await confirm(
+        `Σίγουρα θέλεις να αφαιρέσεις τον/την ${ping.skipper_profiles?.full_name || "επαγγελματία"} από αυτό το αίτημα;`
+      ))
+    )
       return;
     setBusyId(ping.id);
     setError("");
@@ -60,7 +66,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
   }
 
   async function handleCancelRequest() {
-    if (!confirm("Σίγουρα θέλεις να ακυρώσεις όλο το αίτημα;")) return;
+    if (!(await confirm("Σίγουρα θέλεις να ακυρώσεις όλο το αίτημα;"))) return;
     setBusyId("__all__");
     setError("");
     try {
@@ -195,6 +201,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
           {error && <p style={{ color: colors.danger, marginTop: 10, fontSize: 13 }}>{error}</p>}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

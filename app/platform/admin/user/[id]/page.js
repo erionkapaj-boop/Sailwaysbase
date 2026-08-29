@@ -16,6 +16,7 @@ import { computeCrewHighlights } from "../../../../../lib/platform/roles";
 import Stat from "../../../components/Stat";
 import Stars from "../../../components/Stars";
 import BackButton from "../../../components/BackButton";
+import { useConfirm } from "../../../components/ConfirmDialog";
 import {
   container,
   card,
@@ -64,6 +65,7 @@ export default function AdminUserViewPage() {
   const [error, setError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [confirm, confirmDialog] = useConfirm();
 
   async function load() {
     setBusy(true);
@@ -137,9 +139,10 @@ export default function AdminUserViewPage() {
 
   async function handleLoginAs() {
     if (
-      !confirm(
-        `Θα γίνει πραγματική σύνδεση ως ${target.full_name || target.phone_number} — ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`
-      )
+      !(await confirm(
+        `Θα γίνει πραγματική σύνδεση ως ${target.full_name || target.phone_number} — ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`,
+        { tone: "primary" }
+      ))
     )
       return;
     setActionBusy(true);
@@ -438,6 +441,7 @@ export default function AdminUserViewPage() {
           )}
         </>
       )}
+      {confirmDialog}
     </div>
   );
 }

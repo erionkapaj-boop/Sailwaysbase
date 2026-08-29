@@ -8,6 +8,7 @@ import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, butt
 import { CREW_ROLES, labelForRole } from "../../../../lib/platform/roles";
 import { adminListAccounts, adminSeedDemoUsers, loginAsTestAccount } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
+import { useConfirm } from "../../components/ConfirmDialog";
 
 const control = {
   padding: "7px 10px",
@@ -85,6 +86,7 @@ function UsersInner() {
   const [error, setError] = useState("");
   const [seeding, setSeeding] = useState(false);
   const [seedResult, setSeedResult] = useState(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -120,9 +122,10 @@ function UsersInner() {
 
   async function enterLoginAs(u) {
     if (
-      !confirm(
-        `Θα γίνει πραγματική σύνδεση ως ${u.full_name || u.phone_number} — ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`
-      )
+      !(await confirm(
+        `Θα γίνει πραγματική σύνδεση ως ${u.full_name || u.phone_number} — ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`,
+        { tone: "primary" }
+      ))
     )
       return;
     setBusy(true);
@@ -349,6 +352,7 @@ function UsersInner() {
           </div>
         )}
       </Panel>
+      {confirmDialog}
     </AdminShell>
   );
 }
