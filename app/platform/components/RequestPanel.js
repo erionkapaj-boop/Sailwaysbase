@@ -179,7 +179,16 @@ export default function RequestPanel({ request, onChanged }) {
             })}
 
           {isOpen && (
-            <div style={{ marginTop: 14 }}>
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${colors.border}` }}>
+              {/* Worded as a consequence of the button right below it, not a
+                  standalone statement — placed before the button so it reads
+                  as "if you press this, then X" rather than something that's
+                  already true or triggered by the per-person removal above. */}
+              {request.fee_paid_at && (
+                <p style={{ ...muted, fontSize: 12, margin: "0 0 8px" }}>
+                  Αν ακυρώσεις ολόκληρο το αίτημα, το τέλος ({request.fee_amount}€) θα επιστραφεί στο πορτοφόλι σου.
+                </p>
+              )}
               <button
                 type="button"
                 disabled={busyId === "__all__"}
@@ -188,11 +197,6 @@ export default function RequestPanel({ request, onChanged }) {
               >
                 {busyId === "__all__" ? "..." : "Ακύρωση ολόκληρου αιτήματος"}
               </button>
-              {request.fee_paid_at && (
-                <p style={{ ...muted, fontSize: 12, margin: "8px 0 0" }}>
-                  Το τέλος αιτήματος ({request.fee_amount}€) θα επιστραφεί στο πορτοφόλι σου.
-                </p>
-              )}
             </div>
           )}
 
