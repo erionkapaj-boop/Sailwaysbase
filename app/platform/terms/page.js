@@ -1,7 +1,11 @@
-import PlaceholderPage from "../components/PlaceholderPage";
+import TermsBody from "./TermsBody";
 
-export const metadata = { title: "Όροι χρήσης" };
+export const metadata = {
+  title: "Όροι χρήσης",
+  description:
+    "Οι όροι που διέπουν τη χρήση του SkipperFinder: τέλη, επιστροφές, ακυρώσεις, αξιολογήσεις, κατάταξη αποτελεσμάτων και ευθύνη.",
+};
 
 export default function TermsPage() {
-  return <PlaceholderPage title="Όροι χρήσης" note="Το κείμενο των όρων χρήσης ετοιμάζεται." />;
+  return <TermsBody />;
 }

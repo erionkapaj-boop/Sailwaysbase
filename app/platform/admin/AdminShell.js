@@ -23,6 +23,7 @@ export const SECTIONS = [
   { href: "/platform/admin/bookings", label: "Κρατήσεις", icon: "≡" },
   { href: "/platform/admin/finance", label: "Οικονομικά", icon: "€" },
   { href: "/platform/admin/disputes", label: "Διαφορές", icon: "!", badge: "open_disputes" },
+  { href: "/platform/admin/messages", label: "Μηνύματα", icon: "✉", badge: "contact_new" },
   { href: "/platform/admin/settings", label: "Ρυθμίσεις", icon: "⚙" },
 ];
 

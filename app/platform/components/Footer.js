@@ -1,15 +1,7 @@
 "use client";
 import Link from "next/link";
 import { colors, muted, money } from "../../../lib/platform/theme";
-
-// Deliberately no email and no phone — contact goes through the form on the
-// Επικοινωνία page. Company details are placeholders until the real ones land.
-const COMPANY = {
-  city: "Αθήνα",
-  country: "Ελλάδα",
-  vat: "EL000000000",
-  gemi: "000000000000",
-};
+import { company, field } from "../../../lib/platform/company";
 
 const footerLink = {
   fontSize: 13,
@@ -42,12 +34,34 @@ export default function Footer() {
           </Link>
         </div>
 
+        {/* Ο νόμος (ΠΔ 131/2003) θέλει τα στοιχεία του παρόχου ορατά και
+            ακριβή. Όσο κάποιο λείπει, δεν τυπώνεται τίποτα στη θέση του —
+            ένα εφευρημένο ΑΦΜ θα ήταν χειρότερο από ένα κενό. */}
         <p style={{ ...muted, fontSize: 12, margin: "0 0 4px" }}>
-          {COMPANY.city}, {COMPANY.country} · ΑΦΜ <span style={money}>{COMPANY.vat}</span> · ΓΕΜΗ{" "}
-          <span style={money}>{COMPANY.gemi}</span>
+          {[
+            field(company.legalName),
+            [field(company.address), company.city, company.country].filter(Boolean).join(", "),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
+        {(field(company.vat) || field(company.gemi)) && (
+          <p style={{ ...muted, fontSize: 12, margin: "0 0 4px" }}>
+            {field(company.vat) && (
+              <>
+                ΑΦΜ <span style={money}>{field(company.vat)}</span>
+              </>
+            )}
+            {field(company.vat) && field(company.gemi) ? " · " : ""}
+            {field(company.gemi) && (
+              <>
+                ΓΕΜΗ <span style={money}>{field(company.gemi)}</span>
+              </>
+            )}
+          </p>
+        )}
         <p style={{ ...muted, fontSize: 12, margin: 0 }}>
-          © <span style={money}>{new Date().getFullYear()}</span>
+          © <span style={money}>{new Date().getFullYear()}</span> {company.brandName}
         </p>
       </div>
     </footer>
@@ -81,10 +95,24 @@ export function AppFooter() {
           flexWrap: "wrap",
         }}
       >
-        <span style={{ ...muted, fontSize: 12 }}>SkipperFinder</span>
-        <Link href="/platform/about" style={footerLink}>
-          Σχετικά &amp; βοήθεια
-        </Link>
+        <span style={{ ...muted, fontSize: 12 }}>{company.brandName}</span>
+        {/* Όροι και απόρρητο πρέπει να παραμένουν προσβάσιμα και μέσα από την
+            εφαρμογή, όχι μόνο από τις δημόσιες σελίδες — είναι απαίτηση, όχι
+            διακοσμητικά link. Μπαίνουν διακριτικά, δίπλα στη βοήθεια. */}
+        <span style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          <Link href="/platform/about" style={footerLink}>
+            Σχετικά &amp; βοήθεια
+          </Link>
+          <Link href="/platform/contact" style={footerLink}>
+            Επικοινωνία
+          </Link>
+          <Link href="/platform/terms" style={footerLink}>
+            Όροι
+          </Link>
+          <Link href="/platform/privacy" style={footerLink}>
+            Απόρρητο
+          </Link>
+        </span>
       </div>
     </footer>
   );

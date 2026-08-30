@@ -1,12 +1,11 @@
-import PlaceholderPage from "../components/PlaceholderPage";
+import ContactBody from "./ContactBody";
 
-export const metadata = { title: "Επικοινωνία" };
+export const metadata = {
+  title: "Επικοινωνία",
+  description:
+    "Φόρμα επικοινωνίας του SkipperFinder. Το μήνυμα πηγαίνει απευθείας στη διαχείριση της πλατφόρμας.",
+};
 
 export default function ContactPage() {
-  return (
-    <PlaceholderPage
-      title="Επικοινωνία"
-      note="Η φόρμα επικοινωνίας ετοιμάζεται. Η επικοινωνία θα γίνεται αποκλειστικά μέσω αυτής."
-    />
-  );
+  return <ContactBody />;
 }
