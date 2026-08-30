@@ -44,19 +44,20 @@ function AccountNavBar({ name, photoUrl, loading, items, onSignOut, notification
           <img
             src={photoUrl}
             alt=""
-            style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+            style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
           />
         ) : (
           // Reserved from the first frame so the row doesn't shift sideways
           // once the profile finishes loading.
           <span
             aria-hidden="true"
-            style={{ width: 26, height: 26, borderRadius: "50%", background: colors.border, flexShrink: 0 }}
+            style={{ width: 34, height: 34, borderRadius: "50%", background: colors.border, flexShrink: 0 }}
           />
         )}
         <span
           style={{
-            fontSize: 14,
+            fontSize: 16,
+            fontWeight: 500,
             color: colors.ink,
             whiteSpace: "nowrap",
             overflow: "hidden",
@@ -68,7 +69,7 @@ function AccountNavBar({ name, photoUrl, loading, items, onSignOut, notification
         </span>
       </Link>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
         <NotificationPanel count={unreadNotifications} onRead={refreshNotifications} />
         <MessagesPanel count={unreadBookingIds.length} />
       </div>

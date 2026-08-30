@@ -143,7 +143,7 @@ export default function AccountMenu({ items = [], onSignOut }) {
         type="button"
         aria-label="Μενού"
         onClick={() => setOpen((o) => !o)}
-        style={{ background: "none", border: "none", cursor: "pointer", padding: "6px 6px", fontSize: 19, lineHeight: 1, color: colors.ink }}
+        style={{ background: "none", border: "none", cursor: "pointer", padding: 8, fontSize: 24, lineHeight: 1, color: colors.ink }}
       >
         ≡
       </button>

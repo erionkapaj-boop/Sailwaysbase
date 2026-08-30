@@ -7,7 +7,7 @@ import { describeNotification, timeAgo } from "../../../lib/platform/notificatio
 import { colors, muted } from "../../../lib/platform/theme";
 
 const BellIcon = (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M18 8a6 6 0 0 0-12 0c0 6.5-2.5 8.5-2.5 8.5h17S18 14.5 18 8Z" />
     <path d="M13.6 20.5a1.8 1.8 0 0 1-3.2 0" />
   </svg>
