@@ -764,7 +764,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
                   <p style={{ color: colors.accent, fontWeight: 600, margin: "0 0 14px" }}>
                     ✓ Το αίτημα στάλθηκε σε <span style={money}>{selected.size}</span> {roleLabel.toLowerCase()}
                   </p>
-                  <button style={button("primary")} onClick={() => router.push("/platform/client")}>
+                  <button style={button("primary")} onClick={() => router.push("/platform/requests")}>
                     Παρακολούθηση αιτήματος
                   </button>
                 </div>

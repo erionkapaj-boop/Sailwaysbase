@@ -50,7 +50,7 @@ export default function MessagesPanel({ count = 0 }) {
                 type="button"
                 onClick={() => {
                   close();
-                  router.push(`${c.as_client ? "/platform/client/bookings" : "/platform/skipper/bookings"}?focus=${c.booking_id}`);
+                  router.push(`/platform/bookings?focus=${c.booking_id}`);
                 }}
                 style={{
                   display: "block",

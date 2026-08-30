@@ -149,7 +149,7 @@ export default function AdminUserViewPage() {
     setActionError("");
     try {
       await loginAsTestAccount(id);
-      router.push(target.role === "skipper" ? "/platform/skipper" : target.role === "admin" ? "/platform/admin" : "/platform/client");
+      router.push(target.role === "admin" ? "/platform/admin" : "/platform/requests");
     } catch (err) {
       setActionError(err.message || String(err));
       setActionBusy(false);
@@ -179,7 +179,7 @@ export default function AdminUserViewPage() {
             style={{ ...button("secondary"), marginRight: 8 }}
             onClick={() => {
               startViewAs({ id: target.id, name: target.full_name, phone: target.phone_number, role: target.role });
-              router.push(target.role === "skipper" ? "/platform/skipper" : "/platform/client");
+              router.push("/platform/requests");
             }}
           >
             Προβολή ως {target.full_name || target.phone_number}

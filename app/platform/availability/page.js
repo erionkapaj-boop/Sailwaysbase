@@ -1,13 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useAuth } from "../../AuthContext";
-import { listMyBookingsAsSkipper } from "../../../../lib/platform/db";
-import MissingProfile from "../MissingProfile";
-import AvailabilityCalendar from "../AvailabilityCalendar";
-import BackButton from "../../components/BackButton";
-import { container, h1, muted } from "../../../../lib/platform/theme";
+import { useAuth } from "../AuthContext";
+import { listMyBookingsAsSkipper } from "../../../lib/platform/db";
+import MissingProfile from "../skipper/MissingProfile";
+import AvailabilityCalendar from "../skipper/AvailabilityCalendar";
+import { container, h1, muted } from "../../../lib/platform/theme";
 
-export default function SkipperAvailabilityPage() {
+export default function AvailabilityPage() {
   const { session, profile, userRow, loading, refresh, loadError, isAdmin } = useAuth();
   const [bookings, setBookings] = useState([]);
 
@@ -23,12 +22,8 @@ export default function SkipperAvailabilityPage() {
 
   return (
     <div style={container}>
-      <BackButton href="/platform/skipper" />
-      <h1 style={{ ...h1, marginTop: 14 }}>Η διαθεσιμότητά μου</h1>
+      <h1 style={h1}>Η διαθεσιμότητά μου</h1>
       {userRow?.role !== "skipper" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως επαγγελματίας</p>}
-
-      {/* Available while pending too — no reason to wait for approval before
-          saying when you can work. */}
       <div style={{ marginTop: 20 }}>
         <AvailabilityCalendar skipperId={profile.id} bookings={bookings} />
       </div>

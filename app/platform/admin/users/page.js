@@ -117,7 +117,7 @@ function UsersInner() {
 
   function enterViewAs(u) {
     startViewAs({ id: u.id, name: u.full_name, phone: u.phone_number, role: u.role });
-    router.push(u.role === "skipper" ? "/platform/skipper" : "/platform/client");
+    router.push("/platform/requests");
   }
 
   async function enterLoginAs(u) {
@@ -132,7 +132,7 @@ function UsersInner() {
     setError("");
     try {
       await loginAsTestAccount(u.id);
-      router.push(u.role === "skipper" ? "/platform/skipper" : u.role === "admin" ? "/platform/admin" : "/platform/client");
+      router.push(u.role === "admin" ? "/platform/admin" : "/platform/requests");
     } catch (err) {
       setError(err.message || String(err));
       setBusy(false);

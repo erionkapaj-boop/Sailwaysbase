@@ -214,7 +214,11 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         )}
         {!hasAvailability && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
-            Δήλωσε διαθεσιμότητα από το ημερολόγιο στον <Link href="/platform/skipper" style={{ color: colors.ink }}>πίνακά σου</Link>.
+            Δήλωσε{" "}
+            <Link href="/platform/availability" style={{ color: colors.ink }}>
+              διαθεσιμότητα
+            </Link>
+            .
           </p>
         )}
         {visible && !hasPhoto && (

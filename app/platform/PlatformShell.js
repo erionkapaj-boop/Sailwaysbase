@@ -76,93 +76,39 @@ function AccountNavBar({ name, photoUrl, loading, items, onSignOut, notification
   );
 }
 
-const SKIPPER_ITEMS = [
-  { href: "/platform", label: "Αρχική" },
-  { href: "/platform/skipper", label: "Ο πίνακάς μου", group: true },
-  { href: "/platform/skipper/bookings", label: "Οι κρατήσεις μου" },
-  { href: "/platform/skipper/availability", label: "Η διαθεσιμότητά μου" },
-  { href: "/platform/skipper/profile", label: "Το προφίλ μου" },
-  { href: "/platform/skipper/wallet", label: "Το πορτοφόλι μου" },
-  { href: "/platform/client", label: "Ο λογαριασμός μου ως πελάτης", group: true },
-  { href: "/platform/client/bookings", label: "Οι κρατήσεις μου ως πελάτης" },
-  { href: "/platform/client/profile", label: "Η φωτογραφία μου ως πελάτης" },
-];
-
-const CLIENT_ITEMS = [
-  { href: "/platform", label: "Αρχική" },
-  { href: "/platform/client", label: "Ο λογαριασμός μου", group: true },
-  { href: "/platform/client/bookings", label: "Οι κρατήσεις μου" },
-  { href: "/platform/client/profile", label: "Το προφίλ μου" },
-];
-
-// The account that owns the platform wears three hats at once: it runs the
-// whole console, it hires crew like any client (0026), and — since the
-// owner is themselves sometimes the one taking a charter — it can also hold
-// a professional profile and get offered jobs. Before this, admin fell
-// through to the plain marketing header below, which had none of that; the
-// bookings existed but nothing in the UI could ever reach them.
-// Same href, same label, in every menu that carries it — SKIPPER_ITEMS and
-// ADMIN_ITEMS used to word these three differently ("ως πελάτης" here,
-// nothing there; "ως επαγγελματίας" here, "(επαγγελματίας)" there), so an
-// account with more than one hat saw a different name for the exact same
-// page depending on which menu happened to list it.
-const ADMIN_ITEMS = [
-  { href: "/platform", label: "Αρχική" },
-  { href: "/platform/admin", label: "Πίνακας διαχείρισης", group: true },
-  { href: "/platform/client", label: "Ο λογαριασμός μου ως πελάτης", group: true },
-  { href: "/platform/client/bookings", label: "Οι κρατήσεις μου ως πελάτης" },
-  { href: "/platform/client/profile", label: "Η φωτογραφία μου ως πελάτης" },
-  { href: "/platform/skipper", label: "Ο πίνακάς μου ως επαγγελματίας", group: true },
-  { href: "/platform/skipper/bookings", label: "Οι κρατήσεις μου ως επαγγελματίας" },
-  { href: "/platform/skipper/availability", label: "Η διαθεσιμότητά μου ως επαγγελματίας" },
-  { href: "/platform/skipper/profile", label: "Το προφίλ μου ως επαγγελματίας" },
-  { href: "/platform/skipper/wallet", label: "Το πορτοφόλι μου ως επαγγελματίας" },
-];
+// Ένα μενού, ίδιο για κάθε λογαριασμό — πελάτη, επαγγελματία, admin — αντί
+// για τρία ξεχωριστά μενού που έλεγαν το ίδιο πράγμα με διαφορετικά λόγια.
+// Το "Αιτήματα" καλύπτει και τις δύο κατευθύνσεις (εισερχόμενα ως
+// επαγγελματίας, εξερχόμενα ως πελάτης) μέσα στην ίδια σελίδα, όχι σε δύο
+// διαφορετικά μενού· το ίδιο για "Κρατήσεις". Το "Η διαθεσιμότητά μου" έχει
+// νόημα μόνο για όποιον έχει (ή μπορεί να έχει) επαγγελματικό προφίλ. Ο
+// «Πίνακας διαχείρισης» μπαίνει στην ίδια λίστα για τον admin αντί να μένει
+// ξεχωριστό σύστημα μενού.
+function buildMenuItems({ role, isAdmin }) {
+  const items = [{ href: "/platform", label: "Αρχική" }];
+  if (isAdmin) {
+    items.push({ href: "/platform/admin", label: "Πίνακας διαχείρισης", group: true });
+  }
+  items.push({ href: "/platform/requests", label: "Αιτήματα", group: !isAdmin });
+  items.push({ href: "/platform/bookings", label: "Κρατήσεις" });
+  if (role === "skipper" || isAdmin) {
+    items.push({ href: "/platform/availability", label: "Η διαθεσιμότητά μου" });
+  }
+  items.push({ href: "/platform/profile", label: "Το προφίλ μου" });
+  items.push({ href: "/platform/wallet", label: "Το πορτοφόλι μου" });
+  return items;
+}
 
 function NavBar() {
   const { session, userRow, profile, loading, signOut, role, isAdmin, notifications, refreshNotifications } = useAuth();
 
-  // Checked before the per-role branches below: an account can carry
-  // is_staff_admin on top of its normal role (a skipper who is also an
-  // admin, one phone/PIN for both) and still needs a way back into
-  // /platform/admin from wherever it wandered off to. Falling through to
-  // the plain SKIPPER_ITEMS menu for such an account left no link back to
-  // the console at all once you left it.
-  if (session && isAdmin) {
+  if (session && (isAdmin || role === "skipper" || role === "client")) {
     return (
       <AccountNavBar
-        name={profile?.full_name || userRow?.full_name || "Διαχειριστής"}
+        name={profile?.full_name || userRow?.full_name || (isAdmin ? "Διαχειριστής" : undefined)}
         photoUrl={profile?.photo_url || userRow?.photo_url}
         loading={loading}
-        items={ADMIN_ITEMS}
-        onSignOut={signOut}
-        notifications={notifications}
-        refreshNotifications={refreshNotifications}
-      />
-    );
-  }
-
-  if (session && role === "skipper") {
-    return (
-      <AccountNavBar
-        name={profile?.full_name}
-        photoUrl={profile?.photo_url || userRow?.photo_url}
-        loading={loading}
-        items={SKIPPER_ITEMS}
-        onSignOut={signOut}
-        notifications={notifications}
-        refreshNotifications={refreshNotifications}
-      />
-    );
-  }
-
-  if (session && role === "client") {
-    return (
-      <AccountNavBar
-        name={userRow?.full_name}
-        photoUrl={userRow?.photo_url}
-        loading={loading}
-        items={CLIENT_ITEMS}
+        items={buildMenuItems({ role, isAdmin })}
         onSignOut={signOut}
         notifications={notifications}
         refreshNotifications={refreshNotifications}

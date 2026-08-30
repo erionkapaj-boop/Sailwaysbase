@@ -2,10 +2,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import { listMyPings, claimBookingRequest, declineBookingRequest, getPlatformSetting, departureLabel } from "../../../lib/platform/db";
-import MissingProfile from "./MissingProfile";
-import PendingReviewBanner from "../components/PendingReviewBanner";
-import Stars from "../components/Stars";
-import { container, card, h1, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
+import Stars from "./Stars";
+import { card, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 
@@ -29,7 +27,7 @@ const OFFER_LABEL = {
   admin_replacement: "Αντικατάσταση — ο πελάτης έμεινε χωρίς πλήρωμα",
 };
 
-function PingsInbox({ skipperId }) {
+export default function PingsInbox({ skipperId }) {
   const { refreshNotifications } = useAuth();
   const [pings, setPings] = useState([]);
   const [defaultFee, setDefaultFee] = useState(null);
@@ -236,56 +234,6 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// Whatever needs a decision right now — incoming requests waiting on a
-// claim/decline. Everything settled (bookings, availability, standing,
-// wallet) moved to its own page: a dashboard that never ends because it's
-// also the archive stops being a dashboard.
-export default function SkipperDashboard() {
-  const { session, profile, userRow, loading, refresh, loadError, isAdmin } = useAuth();
-
-  if (loading) return <div style={container}>Φόρτωση...</div>;
-  if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
-  // The account that runs the platform can also hold a professional profile
-  // — the owner both hires crew and sometimes takes charters personally,
-  // and reaches it through the same dashboard as anyone else rather than a
-  // special admin-only version of it.
-  if (userRow?.role !== "skipper" && !isAdmin)
-    return <div style={container}>Αυτή η σελίδα είναι μόνο για επαγγελματίες.</div>;
-  if (!profile) return <MissingProfile userRow={userRow} isAdmin={isAdmin} refresh={refresh} loadError={loadError} />;
-
-  return (
-    <div style={container}>
-      <h1 style={h1}>Ο πίνακάς μου</h1>
-      {userRow?.role !== "skipper" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως επαγγελματίας</p>}
-      <PendingReviewBanner bookingsHref="/platform/skipper/bookings" />
-
-      {profile.approval_status === "pending" && (
-        <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
-          <b style={{ fontWeight: 600 }}>Το προφίλ σου περιμένει έγκριση.</b>
-          <p style={{ ...muted, margin: "6px 0 0" }}>
-            Μέχρι τότε δεν εμφανίζεσαι σε αναζητήσεις, αλλά μπορείς να συμπληρώσεις το προφίλ και τη
-            διαθεσιμότητά σου από τώρα.
-          </p>
-        </div>
-      )}
-      {profile.approval_status === "rejected" && (
-        <div style={{ ...card, borderLeft: `3px solid ${colors.danger}` }}>
-          <b style={{ fontWeight: 600 }}>Το προφίλ σου απορρίφθηκε.</b>
-          <p style={{ ...muted, margin: "6px 0 0" }}>
-            Ενημέρωσε τα στοιχεία σου και επικοινώνησε με τον admin.
-          </p>
-        </div>
-      )}
-
-      {profile.approval_status === "approved" && (
-        <div style={{ marginTop: 32 }}>
-          <PingsInbox skipperId={profile.id} />
-        </div>
-      )}
     </div>
   );
 }

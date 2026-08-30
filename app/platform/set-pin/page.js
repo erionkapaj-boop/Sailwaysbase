@@ -1,6 +1,6 @@
 "use client";
-import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import { setPin } from "../../../lib/platform/db";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
@@ -9,9 +9,8 @@ import { container, card, h1, muted, button, input, label, colors } from "../../
 
 const MIN_LENGTH = 6;
 
-function SetPinInner() {
+export default function SetPinPage() {
   const router = useRouter();
-  const params = useSearchParams();
   const { session, refresh } = useAuth();
 
   const [pin, setPinValue] = useState("");
@@ -39,8 +38,7 @@ function SetPinInner() {
         router.push("/platform/search");
         return;
       }
-      const next = params.get("next");
-      router.push(next === "skipper" ? "/platform/skipper" : "/platform/client");
+      router.push("/platform/requests");
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -114,13 +112,5 @@ function SetPinInner() {
 
       {error && <p style={{ color: colors.danger, marginTop: 12 }}>{error}</p>}
     </div>
-  );
-}
-
-export default function SetPinPage() {
-  return (
-    <Suspense fallback={null}>
-      <SetPinInner />
-    </Suspense>
   );
 }
