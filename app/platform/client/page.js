@@ -8,6 +8,12 @@ import Stars from "../components/Stars";
 import Toast from "../components/Toast";
 import { container, card, h1, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 
+// Κρατάει το ίδιο κατώφλι με το reliability_min_history στη βάση (0027) και
+// με το wallet του επαγγελματία: κάτω από τρία περιστατικά δεν δείχνουμε
+// ποσοστό — μία ακύρωση στην πρώτη κράτηση έβγαζε «0%», νούμερο που δεν
+// περιγράφει κανέναν, μόνο το ότι δεν υπάρχει ακόμα ιστορικό να περιγραφεί.
+const MIN_RELIABILITY_HISTORY = 3;
+
 function MissingProfile({ refresh, loadError }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -89,6 +95,7 @@ export default function ClientDashboard() {
   if (!clientProfile) return <MissingProfile refresh={refresh} loadError={loadError} />;
 
   const openRequests = requests.filter((r) => r.status === "open");
+  const history = (clientProfile?.completed_bookings_count || 0) + (clientProfile?.cancellation_flag_count || 0);
 
   return (
     <div style={container}>
@@ -127,8 +134,17 @@ export default function ClientDashboard() {
         </b>
         <span style={{ fontSize: 13, color: colors.inkSoft, margin: "0 10px" }}>·</span>
         <span style={{ fontSize: 13, color: colors.inkSoft }}>Αξιοπιστία</span>
-        <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
-          {clientProfile?.reliability_percentage != null ? `${clientProfile.reliability_percentage}%` : "—"}
+        <b
+          style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}
+          title={
+            history < MIN_RELIABILITY_HISTORY
+              ? "Χρειάζονται τουλάχιστον 3 ολοκληρωμένες ή ακυρωμένες κρατήσεις"
+              : undefined
+          }
+        >
+          {history >= MIN_RELIABILITY_HISTORY && clientProfile?.reliability_percentage != null
+            ? `${clientProfile.reliability_percentage}%`
+            : "—"}
         </b>
       </div>
 
