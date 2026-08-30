@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import LegalPage, { Section, P, UL, LI, Callout } from "../components/LegalPage";
+import LegalPage, { Section, P, UL, LI, Note } from "../components/LegalPage";
 import { colors } from "../../../lib/platform/theme";
 import { company } from "../../../lib/platform/company";
 
@@ -32,11 +32,11 @@ export default function AboutBody() {
             συνεννοηθείτε μέσα από την εφαρμογή.
           </LI>
         </UL>
-        <Callout>
+        <Note>
           Αν δεν το δεχτεί κανείς μέσα σε 48 ώρες, ή αν το ακυρώσεις όσο είναι ανοιχτό,{" "}
           <strong>το τέλος επιστρέφεται ολόκληρο</strong> στο πορτοφόλι σου. Δεν πληρώνεις για αίτημα
           που δεν βρήκε πλήρωμα.
-        </Callout>
+        </Note>
       </Section>
 
       <Section id="how-pro" title="Αν είσαι επαγγελματίας">
@@ -83,13 +83,13 @@ export default function AboutBody() {
             κράτηση. Και οι δύο πλευρές αξιολογούνται — και ο πελάτης.
           </LI>
           <LI>
-            <strong>Οι ακυρώσεις μετράνε με τον χρόνο τους.</strong> Μια ακύρωση δύο εβδομάδες πριν
-            βαραίνει πολύ λιγότερο από μία την τελευταία στιγμή. Το κίνητρο είναι να ειδοποιείς νωρίς,
-            όχι να κρύβεις το πρόβλημα.
+            <strong>Οι ακυρώσεις μετράνε με τον χρόνο τους.</strong> Όσο νωρίτερα ειδοποιείς, τόσο
+            λιγότερο βαραίνει. Το κίνητρο είναι να το πεις έγκαιρα, όχι να κρύψεις το πρόβλημα μέχρι
+            την τελευταία στιγμή.
           </LI>
           <LI>
             <strong>Η κατάταξη δεν πουλιέται.</strong> Κανείς δεν μπορεί να πληρώσει για καλύτερη θέση.
-            Οι παράμετροι είναι δημοσιευμένες στην{" "}
+            Τι μετράει, στην{" "}
             <Link href="/platform/terms#ranking" style={link}>
               ενότητα 10 των όρων
             </Link>

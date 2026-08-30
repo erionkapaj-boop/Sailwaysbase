@@ -64,20 +64,17 @@ export function LI({ children }) {
   return <li style={{ margin: "0 0 6px" }}>{children}</li>;
 }
 
-// Για ό,τι πρέπει να ξεχωρίζει επειδή περιορίζει ευθύνη ή περιγράφει χρέωση —
-// ο νόμος θέλει οι όροι αυτοί να είναι ευδιάκριτοι, όχι θαμμένοι στη ροή.
-export function Callout({ children }) {
+// Για ό,τι πρέπει να ξεχωρίζει επειδή περιορίζει ευθύνη ή περιγράφει χρέωση.
+// Χωρίς πλαίσιο, χωρίς χρωματιστό φόντο: μόνο μια λεπτή γραμμή στο πλάι, στο
+// ίδιο ύφος με το υπόλοιπο κείμενο. Ένα «κουτί ανακοίνωσης» μέσα σε νομικό
+// κείμενο διαβάζεται ως διακόσμηση, όχι ως όρος.
+export function Note({ children }) {
   return (
     <div
       style={{
-        border: `1px solid ${colors.border}`,
-        borderLeft: `3px solid ${colors.accent}`,
-        borderRadius: 8,
-        background: colors.card,
-        padding: "12px 14px",
+        borderLeft: `2px solid ${colors.border}`,
+        padding: "2px 0 2px 14px",
         margin: "0 0 14px",
-        fontSize: 14,
-        lineHeight: 1.7,
       }}
     >
       {children}
