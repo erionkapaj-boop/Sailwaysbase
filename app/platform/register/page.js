@@ -115,7 +115,7 @@ function RegisterInner() {
       await refresh();
       // PIN comes next: the OTP proved identity, the PIN is what they'll use
       // from now on.
-      router.push(`/platform/set-pin?next=${isProfessional ? "skipper" : "client"}`);
+      router.push("/platform/set-pin");
     } catch (err) {
       setError(err.message || String(err));
     } finally {
