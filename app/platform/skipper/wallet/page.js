@@ -44,7 +44,7 @@ export default function SkipperWalletPage() {
 
       <div style={card}>
         <div style={muted}>Διαθέσιμο υπόλοιπο</div>
-        <div style={{ ...money, fontSize: 32, fontWeight: 600, marginTop: 6 }}>{profile.wallet_balance}€</div>
+        <div style={{ ...money, fontSize: 32, fontWeight: 600, marginTop: 6 }}>{userRow?.wallet_balance ?? 0}€</div>
         <p style={{ ...muted, fontSize: 13, margin: "10px 0 16px" }}>
           Για φόρτωση (τραπεζική κατάθεση ή κάρτα) επικοινώνησε με τον admin — πιστώνεται στο υπόλοιπό σου.
         </p>

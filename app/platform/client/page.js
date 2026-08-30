@@ -68,7 +68,7 @@ function MissingProfile({ refresh, loadError }) {
 // requests — moved to its own page (/platform/client/bookings): a dashboard
 // that never ends because it's also the archive stops being a dashboard.
 export default function ClientDashboard() {
-  const { session, loading, refresh, loadError, role } = useAuth();
+  const { session, userRow, loading, refresh, loadError, role } = useAuth();
   const [requests, setRequests] = useState([]);
   const [clientProfile, setClientProfile] = useState(null);
   const [busy, setBusy] = useState(true);
@@ -125,7 +125,7 @@ export default function ClientDashboard() {
       >
         <span style={{ fontSize: 13, color: colors.inkSoft }}>Wallet</span>
         <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
-          {clientProfile?.wallet_balance ?? 0}€
+          {userRow?.wallet_balance ?? 0}€
         </b>
         <span style={{ fontSize: 13, color: colors.inkSoft, margin: "0 10px" }}>·</span>
         <span style={{ fontSize: 13, color: colors.inkSoft }}>Ολοκληρωμένες</span>

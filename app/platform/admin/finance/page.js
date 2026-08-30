@@ -125,8 +125,6 @@ export default function FinancePage() {
 
   useEffect(() => setLive(counts), [counts]);
 
-  const held = (live.wallet_clients || 0) + (live.wallet_pros || 0);
-
   return (
     <AdminShell
       title="Οικονομικά"
@@ -140,9 +138,9 @@ export default function FinancePage() {
       <Panel title="Υπόλοιπα χρηστών — υποχρεώσεις, όχι έσοδα" padded={false}>
         <div style={{ padding: 16 }}>
           <MetricGrid min={160}>
-            <Metric label="Πελάτες" value={`${live.wallet_clients ?? 0}€`} hint="credit σε πορτοφόλια" />
-            <Metric label="Επαγγελματίες" value={`${live.wallet_pros ?? 0}€`} hint="credit σε πορτοφόλια" />
-            <Metric label="Σύνολο" value={`${held}€`} hint="χρήματα τρίτων" />
+            {/* Ένα πορτοφόλι ανά άνθρωπο πια, όχι ανά ρόλο — δεν έχει νόημα να
+                σπάει σε "πελάτες"/"επαγγελματίες". */}
+            <Metric label="Σύνολο" value={`${live.wallet_total ?? 0}€`} hint="credit σε πορτοφόλια — χρήματα τρίτων" />
           </MetricGrid>
         </div>
       </Panel>
