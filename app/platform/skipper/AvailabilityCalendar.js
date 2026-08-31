@@ -9,6 +9,7 @@ import {
   removeAvailabilityBlock,
   listLookups,
 } from "../../../lib/platform/db";
+import DateRangeCalendar from "../components/DateRangeCalendar";
 import {
   card,
   sectionLabel,
@@ -59,18 +60,30 @@ const chip = (active) => ({
   color: active ? "#fff" : colors.ink,
 });
 
+// ----------------------------------------------------------------------------
+// Ζητήθηκε ρητά: το ημερολόγιο να μοιάζει με ό,τι χρησιμοποιεί κανείς
+// καθημερινά για να κλείσει διακοπές/ξενοδοχείο, όχι με δικό του σύστημα
+// που χρειάζεται εξήγηση. Η λύση δεν είναι να εξηγηθεί καλύτερα το παλιό
+// σύστημα (δύο πατήματα πάνω στο πλέγμα, χωρίς ζωντανή προεπισκόπηση) —
+// είναι να ΞΑΝΑΧΡΗΣΙΜΟΠΟΙΗΘΕΙ το ήδη υπάρχον, γνώριμο DateRangeCalendar
+// (αυτό που βλέπει ο πελάτης όταν διαλέγει πότε θέλει πλήρωμα): πιάνεις
+// μια ημέρα, βλέπεις το διάστημα να γεμίζει ζωντανά καθώς κινείσαι προς τη
+// δεύτερη, ίδιο σε όλη την εφαρμογή.
+//
+// Το κύριο πλέγμα εδώ κάτω μένει ξεχωριστό ρόλο: δείχνει τι έχεις ήδη
+// δηλώσει (διαθέσιμο/κλειστό/κράτηση), όχι πώς δηλώνεις κάτι καινούργιο.
+// Η προσθήκη γίνεται πάντα μέσα από ένα από τα δύο ρητά κουμπιά από πάνω,
+// ποτέ πατώντας απευθείας πάνω στο πλέγμα — έτσι δεν υπάρχει "λειτουργία"
+// να θυμάται κανείς ότι είναι ενεργή.
+// ----------------------------------------------------------------------------
 export default function AvailabilityCalendar({ skipperId, bookings = [], onChanged }) {
   const [windows, setWindows] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [regions, setRegions] = useState([]);
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
-  // "open" declares availability, "close" carves days out of it. An explicit
-  // mode beats overloading the same tap, since the two produce opposite
-  // results on the very same day.
-  const [mode, setMode] = useState("open");
-  const [selStart, setSelStart] = useState(null);
-  const [detail, setDetail] = useState(null); // date string
-  const [sheet, setSheet] = useState(null); // { startDate, endDate, bulk }
+  const [detail, setDetail] = useState(null); // date string — προβολή ήδη δηλωμένης ημέρας
+  const [addSheet, setAddSheet] = useState(null); // "open" | "close" | null
+  const [range, setRange] = useState({ startDate: "", endDate: "" });
   const [sheetRegionIds, setSheetRegionIds] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -134,37 +147,8 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
     return names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
   }
 
-  // Past days are excluded here the same way a single tap on one is ignored —
-  // declaring you were free last week is meaningless, and the bulk shortcut
-  // used to happily backfill the start of the current month.
-  function monthDayKeys() {
-    const first = new Date(month.getFullYear(), month.getMonth(), 1);
-    const last = new Date(month.getFullYear(), month.getMonth() + 1, 0);
-    const keys = [];
-    for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
-      const key = fmt(d);
-      if (key >= today) keys.push(key);
-    }
-    return keys;
-  }
-  // Splits the visible month into contiguous non-booked runs, so a booked
-  // day in the middle of the month doesn't block bulk-marking the rest of it.
-  function bulkRanges() {
-    const keys = monthDayKeys();
-    const ranges = [];
-    let runStart = null;
-    for (let i = 0; i < keys.length; i++) {
-      const booked = isBooked(keys[i]);
-      if (!booked && runStart === null) runStart = keys[i];
-      if (booked && runStart !== null) {
-        ranges.push([runStart, keys[i - 1]]);
-        runStart = null;
-      }
-    }
-    if (runStart !== null) ranges.push([runStart, keys[keys.length - 1]]);
-    return ranges;
-  }
   function bookedInRange(a, b) {
+    if (!a || !b) return false;
     const [start, end] = a <= b ? [a, b] : [b, a];
     for (let d = parseISO(start); fmt(d) <= end; d.setDate(d.getDate() + 1)) {
       if (isBooked(fmt(d))) return true;
@@ -172,46 +156,56 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
     return false;
   }
 
-  function onDayClick(dateStr) {
-    if (dateStr < today) return;
+  function openAddSheet(kind, prefillStart) {
     setError("");
-    const state = cellState(dateStr);
-    if (state === "booked") return;
-
-    if (selStart) {
-      if (bookedInRange(selStart, dateStr)) {
-        setError("Το διάστημα περιλαμβάνει ημέρες με κράτηση — δοκίμασε γύρω τους.");
-        setSelStart(null);
-        return;
-      }
-      const [start, end] = selStart <= dateStr ? [selStart, dateStr] : [dateStr, selStart];
-      setSelStart(null);
-      if (mode === "close") {
-        closeRange(start, end);
-      } else {
-        setSheet({ startDate: start, endDate: end });
-      }
-      return;
-    }
-
-    // Tapping a day that's already closed reopens it, whichever mode you're
-    // in — otherwise undoing a holiday would need its own hidden gesture.
-    if (state === "blocked") {
-      setDetail(dateStr);
-      return;
-    }
-    if (mode === "open" && state === "available") {
-      setDetail(dateStr);
-      return;
-    }
-    setSelStart(dateStr);
+    setRange({ startDate: prefillStart || "", endDate: "" });
+    setSheetRegionIds([]);
+    setAddSheet(kind);
+    setDetail(null);
+  }
+  function closeAddSheet() {
+    setAddSheet(null);
+    setRange({ startDate: "", endDate: "" });
+    setSheetRegionIds([]);
   }
 
-  async function closeRange(startDate, endDate) {
+  async function confirmAdd() {
+    setError("");
+    if (!range.startDate || !range.endDate) {
+      setError("Διάλεξε αρχή και τέλος διαστήματος στο ημερολόγιο παραπάνω.");
+      return;
+    }
+    if (bookedInRange(range.startDate, range.endDate)) {
+      setError("Το διάστημα περιλαμβάνει ημέρες με κράτηση — δοκίμασε γύρω τους.");
+      return;
+    }
+    if (addSheet === "open" && sheetRegionIds.length === 0) {
+      setError("Διάλεξε τουλάχιστον μία περιοχή.");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (addSheet === "open") {
+        await addAvailabilityWindow(skipperId, { startDate: range.startDate, endDate: range.endDate, regionIds: sheetRegionIds });
+      } else {
+        await addAvailabilityBlock(skipperId, { startDate: range.startDate, endDate: range.endDate });
+      }
+      closeAddSheet();
+      await load();
+      onChanged?.();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function closeSingleDay(dateStr) {
     setBusy(true);
     setError("");
     try {
-      await addAvailabilityBlock(skipperId, { startDate, endDate });
+      await addAvailabilityBlock(skipperId, { startDate: dateStr, endDate: dateStr });
+      setDetail(null);
       await load();
       onChanged?.();
     } catch (err) {
@@ -235,41 +229,6 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
     }
   }
 
-  function openBulkSheet() {
-    setError("");
-    setSheet({ bulk: true });
-  }
-
-  async function confirmSheet() {
-    if (sheetRegionIds.length === 0) {
-      setError("Διάλεξε τουλάχιστον μία περιοχή.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      const ranges = sheet.bulk ? bulkRanges() : [[sheet.startDate, sheet.endDate]];
-      if (ranges.length === 0) {
-        setError("Δεν υπάρχουν μελλοντικές ελεύθερες ημέρες σε αυτόν τον μήνα.");
-        return;
-      }
-      for (const [startDate, endDate] of ranges) {
-        await addAvailabilityWindow(skipperId, { startDate, endDate, regionIds: sheetRegionIds });
-      }
-      closeSheet();
-      await load();
-      onChanged?.();
-    } catch (err) {
-      setError(err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-  function closeSheet() {
-    setSheet(null);
-    setSheetRegionIds([]);
-  }
-
   async function removeWindow(id) {
     setBusy(true);
     try {
@@ -284,6 +243,20 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
     }
   }
 
+  function onDayClick(dateStr) {
+    if (dateStr < today) return;
+    const state = cellState(dateStr);
+    if (state === "booked") return;
+    // Μια ήδη δηλωμένη ή κλειστή ημέρα ανοίγει την προβολή της (διαγραφή/
+    // ξανά-άνοιγμα) — μια ελεύθερη ημέρα ανοίγει κατευθείαν τη γνώριμη
+    // φόρμα προσθήκης, με αυτή την ημέρα ήδη προεπιλεγμένη ως αρχή.
+    if (state === "empty") {
+      openAddSheet("open", dateStr);
+    } else {
+      setDetail(dateStr);
+    }
+  }
+
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const last = new Date(month.getFullYear(), month.getMonth() + 1, 0);
   const offset = (first.getDay() + 6) % 7; // Monday-first
@@ -291,74 +264,20 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   for (let i = 0; i < offset; i++) gridDays.push(null);
   for (let d = 1; d <= last.getDate(); d++) gridDays.push(new Date(month.getFullYear(), month.getMonth(), d));
 
-
   return (
     <div style={{ ...card, position: "relative" }}>
-      <div
-        role="group"
-        aria-label="Λειτουργία ημερολογίου"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 4,
-          padding: 4,
-          background: colors.seaGlass,
-          borderRadius: radius.md,
-          marginBottom: 12,
-        }}
-      >
-        {[
-          ["open", "Άνοιγμα ημερών"],
-          ["close", "Κλείσιμο ημερών"],
-        ].map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={mode === value}
-            onClick={() => {
-              setMode(value);
-              setSelStart(null);
-              setError("");
-            }}
-            style={{
-              padding: "8px 10px",
-              borderRadius: radius.sm,
-              border: "none",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              fontSize: 13,
-              fontWeight: mode === value ? 600 : 400,
-              background: mode === value ? colors.card : "transparent",
-              color: mode === value ? colors.ink : colors.inkSoft,
-              boxShadow: mode === value ? shadow.card : "none",
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Μετά το πρώτο πάτημα το μόνο σημάδι ήταν ένα λεπτό περίγραμμα πάνω
-          στο κουτάκι της ημέρας — εύκολο να μη φανεί καθόλου σε κινητό,
-          οπότε κάποιος έμενε να μην ξέρει ότι χρειάζεται ΔΕΥΤΕΡΟ πάτημα πριν
-          εμφανιστεί το κουμπί αποθήκευσης. Όσο εκκρεμεί επιλογή, το μήνυμα
-          γίνεται έντονο και λέει ρητά το επόμενο βήμα. */}
-      <p
-        style={{
-          ...muted,
-          fontSize: 13,
-          margin: "0 0 16px",
-          ...(selStart
-            ? { color: colors.ink, fontWeight: 600, padding: "9px 12px", background: colors.seaGlass, borderRadius: radius.sm }
-            : {}),
-        }}
-      >
-        {selStart
-          ? `Επέλεξες ${formatDate(selStart)} ως αρχή διαστήματος — πάτα τώρα την τελευταία ημέρα του διαστήματος (ή «Άκυρο» παρακάτω για να ξεκινήσεις από την αρχή).`
-          : mode === "open"
-          ? "Πάτα μια ελεύθερη ημέρα για αρχή διαστήματος, μετά μια δεύτερη για τέλος, και διάλεξε από πού δουλεύεις."
-          : "Πάτα την πρώτη και την τελευταία ημέρα που θέλεις να κλείσεις — π.χ. διακοπές. Δεν θα δέχεσαι κρατήσεις γι' αυτές, και μπορείς να τις ξανανοίξεις όποτε θες."}
+      <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
+        Δήλωσε πότε είσαι διαθέσιμος για δουλειά, ή κλείσε μέρες που λείπεις (π.χ. διακοπές).
       </p>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+        <button type="button" style={{ ...button("primary"), flex: "1 1 200px" }} onClick={() => openAddSheet("open")}>
+          + Νέο διάστημα διαθεσιμότητας
+        </button>
+        <button type="button" style={{ ...button("secondary"), flex: "1 1 200px" }} onClick={() => openAddSheet("close")}>
+          Δήλωσε διακοπές / απουσία
+        </button>
+      </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <button
@@ -401,10 +320,6 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
             const key = fmt(d);
             const state = cellState(key);
             const isPast = key < today;
-            const isSelStart = selStart === key;
-            // A label repeats visual noise if shown on every day of the same
-            // block — only the first day of a contiguous same-coverage run
-            // gets it; the rest carry the fill colour alone.
             const sig = state === "available" ? daySignature(key) : null;
             const showLabel = state === "available" && sig !== prevSig;
             prevSig = sig;
@@ -428,15 +343,11 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                   minHeight: 50,
                   padding: 2,
                   borderRadius: radius.sm,
-                  border: `2px solid ${isSelStart ? colors.accent : "transparent"}`,
+                  border: "1px solid transparent",
                   fontFamily: "inherit",
-                  fontWeight: isSelStart ? 700 : 400,
                   cursor: state === "booked" || isPast ? "default" : "pointer",
-                  // Ένα λεπτό περίγραμμα ήταν εύκολο να μη φανεί καθόλου σε
-                  // μικρή οθόνη — η επιλεγμένη αρχή διαστήματος παίρνει τώρα
-                  // και δικό της χρώμα γεμίσματος, όχι μόνο περίγραμμα.
-                  background: isSelStart ? colors.seaGlass : tone?.bg ?? "transparent",
-                  color: isPast ? colors.inkSoft : isSelStart ? colors.ink : tone?.fg ?? colors.inkSoft,
+                  background: tone?.bg ?? "transparent",
+                  color: isPast ? colors.inkSoft : tone?.fg ?? colors.inkSoft,
                   opacity: isPast ? 0.35 : 1,
                 }}
               >
@@ -465,43 +376,29 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         })()}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, flexWrap: "wrap", gap: 10 }}>
-        <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
-            <i style={{ width: 10, height: 10, borderRadius: 3, background: calendarDay.available.bg, display: "inline-block" }} />
-            Διαθέσιμο
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
-            <i style={{ width: 10, height: 10, borderRadius: 3, background: calendarDay.blocked.bg, display: "inline-block" }} />
-            Κλειστό
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
-            <i style={{ width: 10, height: 10, borderRadius: 3, background: calendarDay.booked.bg, display: "inline-block" }} />
-            Κράτηση
-          </span>
-        </div>
-        {selStart ? (
-          <button type="button" style={{ ...button("secondary"), padding: "6px 12px", fontSize: 13 }} onClick={() => setSelStart(null)}>
-            Άκυρο ({selStart})
-          </button>
-        ) : (
-          mode === "open" && (
-            <button type="button" style={{ ...button("secondary"), padding: "6px 12px", fontSize: 13 }} onClick={openBulkSheet}>
-              Μαρκάρισε όλο τον μήνα
-            </button>
-          )
-        )}
+      <div style={{ display: "flex", gap: 14, fontSize: 12, marginTop: 16, flexWrap: "wrap" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
+          <i style={{ width: 10, height: 10, borderRadius: 3, background: calendarDay.available.bg, display: "inline-block" }} />
+          Διαθέσιμο
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
+          <i style={{ width: 10, height: 10, borderRadius: 3, background: calendarDay.blocked.bg, display: "inline-block" }} />
+          Κλειστό
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
+          <i style={{ width: 10, height: 10, borderRadius: 3, background: calendarDay.booked.bg, display: "inline-block" }} />
+          Κράτηση
+        </span>
       </div>
 
-      {error && <p style={{ color: colors.danger, fontSize: 13, marginTop: 12 }}>{error}</p>}
+      {error && !addSheet && <p style={{ color: colors.danger, fontSize: 13, marginTop: 12 }}>{error}</p>}
 
-      {/* Tap on an already-declared day: view what's covering it, delete it,
-          or start a fresh (possibly overlapping) range from that date — an
-          overlap is how a second port gets added over the same period. */}
+      {/* Πάτημα σε ημέρα που ήδη έχει κάτι δηλωμένο: τι την καλύπτει, με
+          δυνατότητα διαγραφής, ή ξεκίνα καινούργιο διάστημα από εδώ. */}
       {detail && (
-        <div style={sheetOverlayStyle}>
-          <div style={sheetStyle}>
-            <h3 style={{ ...sectionLabel, margin: "0 0 10px" }}>{detail}</h3>
+        <div style={sheetOverlayStyle} onClick={() => setDetail(null)}>
+          <div role="dialog" aria-modal="true" style={sheetStyle} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ ...sectionLabel, margin: "0 0 10px" }}>{formatDate(detail)}</h3>
 
             {blocksFor(detail).map((b) => (
               <div
@@ -541,29 +438,15 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
               <p style={{ ...muted, fontSize: 13 }}>Δεν έχεις δηλώσει τίποτα για αυτή την ημέρα.</p>
             )}
 
+            {error && <p style={{ color: colors.danger, fontSize: 13, margin: "10px 0 0" }}>{error}</p>}
+
             <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
               {cellState(detail) === "available" && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  style={{ ...button("secondary"), flex: 1 }}
-                  onClick={() => {
-                    setDetail(null);
-                    closeRange(detail, detail);
-                  }}
-                >
+                <button type="button" disabled={busy} style={{ ...button("secondary"), flex: 1 }} onClick={() => closeSingleDay(detail)}>
                   Κλείσε αυτή την ημέρα
                 </button>
               )}
-              <button
-                type="button"
-                style={{ ...button("secondary"), flex: 1 }}
-                onClick={() => {
-                  setMode("open");
-                  setSelStart(detail);
-                  setDetail(null);
-                }}
-              >
+              <button type="button" style={{ ...button("secondary"), flex: 1 }} onClick={() => openAddSheet("open", detail)}>
                 + Νέο διάστημα από εδώ
               </button>
               <button type="button" style={button("primary")} onClick={() => setDetail(null)}>
@@ -574,48 +457,65 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         </div>
       )}
 
-      {/* Confirm sheet — shared by manual range selection and the bulk
-          "mark month" shortcut. */}
-      {sheet && (
-        <div style={sheetOverlayStyle}>
-          <div style={sheetStyle}>
-            <h3 style={{ ...sectionLabel, margin: "0 0 10px" }}>
-              {sheet.bulk ? `Όλος ο ${MONTH_NAMES[month.getMonth()]}` : `${formatDate(sheet.startDate)} → ${formatDate(sheet.endDate)}`}
+      {/* Προσθήκη καινούργιου διαστήματος — ίδιο ημερολόγιο-με-ζωντανή-
+          προεπισκόπηση που βλέπει ο πελάτης όταν κλείνει πλήρωμα, αντί για
+          ξεχωριστό, άγνωστο σύστημα. */}
+      {addSheet && (
+        <div style={sheetOverlayStyle} onClick={closeAddSheet}>
+          <div role="dialog" aria-modal="true" style={{ ...sheetStyle, maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ ...sectionLabel, margin: "0 0 12px" }}>
+              {addSheet === "open" ? "Νέο διάστημα διαθεσιμότητας" : "Δήλωσε διακοπές / απουσία"}
             </h3>
-            <p style={{ ...muted, fontSize: 13, margin: "0 0 10px" }}>
-              Διάλεξε τις περιοχές όπου είσαι διαθέσιμος/η — όχι συγκεκριμένα λιμάνια. Ένας πελάτης που ζητά ένα
-              λιμάνι μέσα σε μια από αυτές τις περιοχές θα σε βρίσκει, ακόμα κι αν δεν έχεις δηλώσει ποτέ εκείνο το
-              λιμάνι.
-            </p>
-            <button
-              type="button"
-              style={{ ...chip(regions.length > 0 && sheetRegionIds.length === regions.length), marginBottom: 10 }}
-              onClick={() =>
-                setSheetRegionIds((ids) => (ids.length === regions.length ? [] : regions.map((r) => r.id)))
-              }
-            >
-              Όλες οι περιοχές
-            </button>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {regions.map((r) => (
+
+            <DateRangeCalendar
+              startDate={range.startDate}
+              endDate={range.endDate}
+              minDate={today}
+              onChange={({ startDate, endDate }) => {
+                setRange({ startDate, endDate });
+                setError("");
+              }}
+            />
+
+            {addSheet === "open" && (
+              <div style={{ marginTop: 16 }}>
+                <p style={{ ...muted, fontSize: 13, margin: "0 0 10px" }}>
+                  Σε ποιες περιοχές είσαι διαθέσιμος/η — όχι συγκεκριμένα λιμάνια. Ένας πελάτης που ζητά ένα λιμάνι
+                  μέσα σε μια από αυτές θα σε βρίσκει, ακόμα κι αν δεν έχεις δηλώσει ποτέ εκείνο το λιμάνι.
+                </p>
                 <button
-                  key={r.id}
                   type="button"
-                  style={chip(sheetRegionIds.includes(r.id))}
+                  style={{ ...chip(regions.length > 0 && sheetRegionIds.length === regions.length), marginBottom: 10 }}
                   onClick={() =>
-                    setSheetRegionIds((ids) => (ids.includes(r.id) ? ids.filter((x) => x !== r.id) : [...ids, r.id]))
+                    setSheetRegionIds((ids) => (ids.length === regions.length ? [] : regions.map((r) => r.id)))
                   }
                 >
-                  {r.name}
+                  Όλες οι περιοχές
                 </button>
-              ))}
-            </div>
-            {error && <p style={{ color: colors.danger, fontSize: 13, marginTop: 10 }}>{error}</p>}
-            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-              <button type="button" disabled={busy} style={{ ...button("primary"), flex: 1 }} onClick={confirmSheet}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {regions.map((r) => (
+                    <button
+                      type="button"
+                      key={r.id}
+                      style={chip(sheetRegionIds.includes(r.id))}
+                      onClick={() =>
+                        setSheetRegionIds((ids) => (ids.includes(r.id) ? ids.filter((x) => x !== r.id) : [...ids, r.id]))
+                      }
+                    >
+                      {r.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {error && <p style={{ color: colors.danger, fontSize: 13, marginTop: 12 }}>{error}</p>}
+
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <button type="button" disabled={busy} style={{ ...button("primary"), flex: 1 }} onClick={confirmAdd}>
                 {busy ? "Αποθήκευση…" : "Αποθήκευση"}
               </button>
-              <button type="button" style={button("secondary")} onClick={closeSheet}>
+              <button type="button" style={button("secondary")} onClick={closeAddSheet}>
                 Άκυρο
               </button>
             </div>
@@ -644,6 +544,6 @@ const sheetStyle = {
   width: "100%",
   maxWidth: 440,
   boxShadow: shadow.raised,
-  maxHeight: "80vh",
+  maxHeight: "85vh",
   overflowY: "auto",
 };
