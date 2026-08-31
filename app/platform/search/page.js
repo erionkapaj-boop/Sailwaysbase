@@ -444,54 +444,41 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
   );
 }
 
-// One section per requested, supported crew role — each runs its own search
-// and its own broadcast. A skipper and a hostess are two separate jobs with
-// two separate fees today (the "book both together" nudge is planned for
-// later, once hostess has been live a while), so keeping them as two
-// independent panels is honest about that rather than implying one checkout
-// covers both.
-function RoleSection({ role, sharedFilters, lookups, fee, session, router, initial, validateShared, showFullFilters }) {
+// One section per requested, supported crew role — each runs its own search,
+// but picking is shared: everyone selected across every open role feeds one
+// combined checkout at the bottom of the page (see Checkout below), so a
+// client putting together a full crew — a skipper, a hostess, two cooks —
+// reviews and sends it all as one action instead of once per role.
+function RoleSection({
+  role,
+  sharedFilters,
+  lookups,
+  session,
+  initial,
+  validateShared,
+  showFullFilters,
+  selected,
+  onToggle,
+  onSetSelection,
+  onBoatTypeChange,
+}) {
   const [boatTypeId, setBoatTypeId] = useState("");
   const [boatTypeError, setBoatTypeError] = useState(false);
   const [results, setResults] = useState(null);
-  const [selected, setSelected] = useState(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [broadcastDone, setBroadcastDone] = useState(false);
-  // "select" = browsing/picking candidates, one "Επιλογή" at a time.
-  // "confirm" = a distinct second screen — what got picked, what it costs,
-  // one deliberate button to actually send it. Splitting these two apart is
-  // the whole point: the fee and the send button used to sit right under
-  // every "Επιλογή" tap, which read as pressuring someone into a payment
-  // decision they hadn't actually chosen to make yet.
-  const [phase, setPhase] = useState("select");
-  const [termsOpen, setTermsOpen] = useState(false);
 
-  // Same reasoning as the professional detail sheet and the wizard: without
-  // a real history entry, the phone's own back gesture skips straight past
-  // "confirm" and leaves the search page entirely — exactly wrong for the
-  // one screen someone is most likely to reach for "back" on second
-  // thoughts about a payment. Scoped by role (sfConfirmRole) since a page
-  // can hold more than one RoleSection at once.
+  // The checkout at the bottom of the page needs to know which boat type
+  // this section currently has selected (skipper only) at the moment it
+  // actually sends — reported on every change rather than read once, since
+  // "Αλλαγή" can reopen this field after the initial search already ran.
   useEffect(() => {
-    function onPopState(e) {
-      if (e.state?.sfConfirmRole !== role) setPhase("select");
-    }
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [role]);
+    onBoatTypeChange(boatTypeId);
+  }, [boatTypeId, onBoatTypeChange]);
 
-  function goToConfirm() {
-    window.history.pushState({ sfConfirmRole: role }, "");
-    setPhase("confirm");
-  }
-
-  function goToSelect() {
-    window.history.back();
-  }
   // Consumed once, the first time a search actually loads results — a plain
   // prop can't survive that long since runSearch() below unconditionally
-  // clears `selected` at the start of every call, restore or not.
+  // clears the selection at the start of every call, restore or not.
   const pendingSelectedRef = useRef(null);
   const [restoredNotice, setRestoredNotice] = useState(false);
 
@@ -503,11 +490,8 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   useEffect(() => {
     if (!initial) return;
     pendingSelectedRef.current = initial.selected?.length ? initial.selected : null;
-    setRestoredNotice(true);
-    // Whoever comes back from the login wall already went through the
-    // picking step once — landing them back on the list instead of where
-    // they left off would just make them redo the same taps.
-    if (initial.selected?.length) setPhase("confirm");
+    if (initial.boatTypeId) setBoatTypeId(initial.boatTypeId);
+    if (initial.selected?.length) setRestoredNotice(true);
   }, [initial]);
 
   const needsBoatType = role === "skipper";
@@ -523,9 +507,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
   // the moment a search arrived already answered from the wizard.
   const runSearch = useCallback(async (boatTypeIdOverride) => {
     setError("");
-    setBroadcastDone(false);
-    setSelected(new Set());
-    setPhase("select");
+    onSetSelection([]);
     setBusy(true);
     try {
       const data = await searchSkippers({
@@ -538,7 +520,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
       });
       setResults(data);
       if (pendingSelectedRef.current) {
-        setSelected(new Set(pendingSelectedRef.current));
+        onSetSelection(pendingSelectedRef.current);
         pendingSelectedRef.current = null;
       }
     } catch (err) {
@@ -554,6 +536,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
     needsBoatType,
     boatTypeId,
     role,
+    onSetSelection,
   ]);
 
   const hasCompleteIncoming = Boolean(
@@ -566,14 +549,6 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasCompleteIncoming]);
-
-  function toggle(id) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
 
   async function handleSearch(e) {
     e.preventDefault();
@@ -589,60 +564,6 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
     await runSearch();
   }
 
-  async function handleBroadcast() {
-    if (!session) {
-      // Checked before the party-size/cabin validation below on purpose: an
-      // anonymous visitor who hasn't filled those two yet (they live on this
-      // results page, not in the wizard that got them here) must still reach
-      // login when they hit "send" — a validation error here would dead-end
-      // them on this page instead, and the whole point of pendingBroadcast is
-      // that nothing below this line has run yet, so there's nothing to lose
-      // by sending them to log in first and letting them finish the details
-      // after they're back.
-      savePendingBroadcast({
-        role,
-        filters: {
-          startDate: sharedFilters.startDate,
-          endDate: sharedFilters.endDate,
-          regionId: sharedFilters.regionId,
-          departurePoint: sharedFilters.departurePoint || "",
-          boatTypeId: needsBoatType ? boatTypeId : "",
-          languageId: sharedFilters.languageId || "",
-          partySize: sharedFilters.partySize,
-          privateCabin: sharedFilters.privateCabin,
-        },
-        selected: Array.from(selected),
-      });
-      router.push("/platform/login?next=/platform/search");
-      return;
-    }
-    if (!sharedFilters.partySize || sharedFilters.privateCabin === undefined) {
-      setError("Συμπλήρωσε αριθμό ατόμων και ιδιωτική καμπίνα πριν στείλεις το αίτημα.");
-      return;
-    }
-    setError("");
-    setBusy(true);
-    try {
-      const request = await createBookingRequest({
-        startDate: sharedFilters.startDate,
-        endDate: sharedFilters.endDate,
-        regionId: sharedFilters.regionId,
-        departurePoint: sharedFilters.departurePoint,
-        boatTypeId: needsBoatType ? boatTypeId : null,
-        maxPriceFilter: null,
-        crewRole: role,
-        partySize: Number(sharedFilters.partySize),
-        privateCabin: sharedFilters.privateCabin,
-      });
-      await payAndBroadcast(request.id, Array.from(selected));
-      setBroadcastDone(true);
-    } catch (err) {
-      setError(BROADCAST_ERRORS[err.message] || err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const roleLabel = labelForRole(role);
 
   return (
@@ -650,7 +571,7 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
       <h2 style={h2}>{roleLabel}</h2>
       {restoredNotice && (
         <p style={{ ...muted, fontSize: 13, margin: "-6px 0 12px", color: colors.accent }}>
-          Οι επιλογές σου διατηρήθηκαν — πάτα ξανά «Αποστολή αιτήματος» για να ολοκληρώσεις.
+          Οι επιλογές σου διατηρήθηκαν — θα τις βρεις παρακάτω, στο σύνολο της παραγγελίας.
         </p>
       )}
       {/* Same rule as the shared block above: a boat type that arrived
@@ -693,188 +614,212 @@ function RoleSection({ role, sharedFilters, lookups, fee, session, router, initi
         </form>
       )}
 
-      {/* Broadcast errors get their own, contextual spot next to the confirm
-          button below instead — showing the same error here too would just
-          repeat it. */}
-      {error && phase === "select" && <p style={{ color: colors.danger }}>{error}</p>}
+      {error && <p style={{ color: colors.danger }}>{error}</p>}
 
       {results && (
         <div style={{ marginTop: 14 }}>
-          {/* Only relevant while still browsing — once someone's on the
-              confirm step, they've already made their pick and how many
-              others were available has nothing to do with sending the
-              request anymore. */}
-          {phase === "select" && (
-            <p style={muted}>
-              {results.length} διαθέσιμ{results.length === 1 ? "ος" : "οι"} {roleLabel.toLowerCase()}
-            </p>
-          )}
+          <p style={muted}>
+            {results.length} διαθέσιμ{results.length === 1 ? "ος" : "οι"} {roleLabel.toLowerCase()}
+          </p>
 
           {/* Χωρίς αυτό, τίποτα στη σελίδα δεν λέει στον πελάτη ότι το
-              "Επιλογή" είναι πολλαπλής επιλογής ή τι σημαίνει να διαλέξει
-              παραπάνω από έναν — η καθοδήγηση πρέπει να έρχεται πριν αρχίσει
-              να επιλέγει, όχι μόνο κάτω στο κουμπί αποστολής. */}
-          {results.length > 0 && phase === "select" && (
+              "Επιλογή" είναι πολλαπλής επιλογής, ούτε ότι μπορεί να κάνει το
+              ίδιο και σε άλλους ρόλους παρακάτω πριν στείλει οτιδήποτε — η
+              καθοδήγηση πρέπει να έρχεται πριν αρχίσει να επιλέγει. */}
+          {results.length > 0 && (
             <div style={{ ...card, background: colors.bgSoft || "#F7F5F0", marginBottom: 14 }}>
               <p style={{ margin: 0, fontSize: 13.5 }}>
-                Μπορείς να επιλέξεις όσους {roleLabel.toLowerCase()} θέλεις πατώντας «Επιλογή» σε καθέναν. Στο επόμενο
-                βήμα θα δεις τι κοστίζει και θα επιβεβαιώσεις πριν σταλεί οτιδήποτε.
+                Μπορείς να επιλέξεις όσους {roleLabel.toLowerCase()} θέλεις πατώντας «Επιλογή» σε καθέναν — και να
+                κάνεις το ίδιο σε κάθε άλλο ρόλο πιο κάτω, αν έψαχνες παραπάνω από έναν. Στο τέλος της σελίδας θα δεις
+                τι κοστίζει συνολικά και θα επιβεβαιώσεις πριν σταλεί οτιδήποτε.
               </p>
             </div>
           )}
 
-          {/* Picking and paying are two separate decisions — the fee and the
-              send button used to sit directly under every "Επιλογή" tap,
-              which read as pressuring someone into a payment they hadn't
-              actually agreed to yet. "select" is just browsing/choosing;
-              "confirm" is its own screen for the one deliberate commitment. */}
-          {phase === "select" ? (
-            <>
-              {results.map((s) => (
-                <ProfessionalCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={toggle} days={days} />
-              ))}
+          {results.map((s) => (
+            <ProfessionalCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={onToggle} days={days} />
+          ))}
 
-              {/* Not sticky: a page can show more than one role's results at
-                  once (the wizard allows picking several), and two sticky
-                  "Συνέχεια" panels sharing the same scroll context land on
-                  top of each other and whatever card is still visible below
-                  them — found by walking a real skipper+hostess search. */}
-              {results.length > 0 && (
-                <div style={{ ...card, boxShadow: shadow.raised }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 12 }}>
-                    <span style={{ fontSize: 14 }}>
-                      Επιλεγμέν{selected.size === 1 ? "ος/η" : "οι"} {roleLabel.toLowerCase()}
-                    </span>
-                    <span style={{ ...money, fontSize: 17, fontWeight: 600 }}>{selected.size}</span>
-                  </div>
-                  <button
-                    style={{ ...button("primary"), width: "100%" }}
-                    disabled={selected.size === 0}
-                    onClick={goToConfirm}
-                  >
-                    Συνέχεια
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <div style={card}>
-              {broadcastDone ? (
-                <div>
-                  <p style={{ color: colors.accent, fontWeight: 600, margin: "0 0 14px" }}>
-                    ✓ Το αίτημα στάλθηκε σε <span style={money}>{selected.size}</span> {roleLabel.toLowerCase()}
-                  </p>
-                  <button style={button("primary")} onClick={() => router.push("/platform/requests")}>
-                    Παρακολούθηση αιτήματος
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <BackButton onClick={goToSelect} label="Πίσω στην επιλογή" style={{ marginBottom: 14 }} />
-
-                  <h3 style={{ ...h2, fontSize: 16, margin: "0 0 12px" }}>Επιβεβαίωση αιτήματος</h3>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                    <div style={{ display: "flex" }}>
-                      {results
-                        .filter((s) => selected.has(s.id))
-                        .slice(0, 6)
-                        .map((s, i) =>
-                          s.photo_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              key={s.id}
-                              src={s.photo_url}
-                              alt=""
-                              style={{
-                                width: 34,
-                                height: 34,
-                                borderRadius: "50%",
-                                objectFit: "cover",
-                                border: `2px solid ${colors.card}`,
-                                marginLeft: i > 0 ? -10 : 0,
-                                flexShrink: 0,
-                              }}
-                            />
-                          ) : (
-                            <div
-                              key={s.id}
-                              style={{
-                                width: 34,
-                                height: 34,
-                                borderRadius: "50%",
-                                background: "#EFEFF1",
-                                border: `2px solid ${colors.card}`,
-                                marginLeft: i > 0 ? -10 : 0,
-                                flexShrink: 0,
-                              }}
-                            />
-                          )
-                        )}
-                    </div>
-                    <span style={{ fontSize: 14 }}>
-                      Επέλεξες <span style={money}>{selected.size}</span> {roleLabel.toLowerCase()}
-                    </span>
-                  </div>
-
-                  <div style={{ padding: "12px 14px", background: colors.seaGlass, borderRadius: radius.md, marginBottom: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                      <span style={{ fontSize: 14 }}>Τέλος πλατφόρμας</span>
-                      <span style={{ ...money, fontSize: 18, fontWeight: 700 }}>{fee != null ? `${fee}€` : "—"}</span>
-                    </div>
-                    <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
-                      Αφαιρείται μία φορά από το πορτοφόλι σου, ανεξάρτητα από το πλήθος των επιλεγμένων {roleLabel.toLowerCase()}.
-                      Το αίτημά σου θα σταλεί σε όλους μαζί· ο πρώτος που θα το αποδεχτεί αναλαμβάνει το ταξίδι σου.
-                    </p>
-                  </div>
-
-                  {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}
-
-                  <button
-                    style={{ ...button("primary"), width: "100%" }}
-                    disabled={busy}
-                    onClick={handleBroadcast}
-                  >
-                    {busy ? "..." : session ? "Αποστολή αιτήματος" : "Σύνδεση για αποστολή"}
-                  </button>
-                  <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
-                    Πατώντας «Αποστολή αιτήματος» αποδέχεσαι την παραπάνω χρέωση και τους{" "}
-                    {/* Άνοιγμα εδώ, όχι πλοήγηση σε άλλη σελίδα — μέσα σε
-                        εφαρμογή (όχι απλός browser) ένα target="_blank" δεν
-                        είναι σίγουρο ότι θα δουλέψει καθόλου, και πλοήγηση
-                        μακριά από εδώ χάνει την επιλογή χωρίς τρόπο επιστροφής
-                        σε αυτό το ίδιο σημείο. */}
-                    <button
-                      type="button"
-                      onClick={() => setTermsOpen(true)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        font: "inherit",
-                        color: colors.inkSoft,
-                        textDecoration: "underline",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Όρους Χρήσης
-                    </button>
-                    .
-                  </p>
-                </>
-              )}
+          {results.length > 0 && (
+            <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+              <span style={{ fontSize: 14 }}>
+                Επιλεγμέν{selected.size === 1 ? "ος/η" : "οι"} {roleLabel.toLowerCase()}
+              </span>
+              <span style={{ ...money, fontSize: 17, fontWeight: 600 }}>{selected.size}</span>
             </div>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// One combined checkout for the whole page, however many roles are open —
+// a client browsing skipper and hostess results together picks people in
+// both, sees one running total here, and sends everything with a single
+// action instead of a separate confirm-and-pay per role. Renders nothing
+// until at least one role has a pick (or the send has actually gone
+// through), so an empty page never carries a checkout bar with nothing in
+// it.
+function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, filters, fee, session, router }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [sentRoles, setSentRoles] = useState(new Set());
+  const [done, setDone] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
+
+  const activeRoles = supportedRoles.filter((r) => (selectionsByRole[r]?.size || 0) > 0);
+  const totalSelected = activeRoles.reduce((n, r) => n + selectionsByRole[r].size, 0);
+  const totalFee = fee != null ? activeRoles.length * fee : null;
+
+  if (activeRoles.length === 0 && !done) return null;
+
+  async function handleCheckout() {
+    if (!session) {
+      // Nothing below this line has run yet (no request created, nothing
+      // charged) — there's nothing to lose by sending whoever isn't signed
+      // in to log in first and letting them finish from where they left
+      // off. Every role on the page is saved, not just the ones with a
+      // pick yet, so a role still being browsed re-renders after login too.
+      const selections = {};
+      for (const role of supportedRoles) {
+        const set = selectionsByRole[role];
+        if (!set || set.size === 0) continue;
+        selections[role] = { boatTypeId: boatTypesByRole[role] || "", selected: Array.from(set) };
+      }
+      savePendingBroadcast({
+        roles: supportedRoles,
+        filters: {
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          regionId: filters.regionId,
+          departurePoint: filters.departurePoint || "",
+          // Shared page-level value the skipper section's own auto-search
+          // reads (see RoleSection's hasCompleteIncoming) — only skipper
+          // ever cares, but it has to survive the round trip regardless of
+          // whether skipper itself has a pick yet.
+          boatTypeId: boatTypesByRole.skipper || "",
+          languageId: filters.languageId || "",
+          partySize: filters.partySize,
+          privateCabin: filters.privateCabin,
+        },
+        selections,
+      });
+      router.push("/platform/login?next=/platform/search");
+      return;
+    }
+    if (!filters.partySize || filters.privateCabin === undefined) {
+      setError("Συμπλήρωσε αριθμό ατόμων και ιδιωτική καμπίνα πριν στείλεις το αίτημα.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    // Already-sent roles are skipped so a retry after a partial failure
+    // (say hostess went through, cook then failed) only resends what
+    // actually failed — never a second charge for a role that already
+    // went out.
+    const nowSent = new Set(sentRoles);
+    try {
+      for (const role of activeRoles) {
+        if (nowSent.has(role)) continue;
+        const request = await createBookingRequest({
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          regionId: filters.regionId,
+          departurePoint: filters.departurePoint,
+          boatTypeId: role === "skipper" ? boatTypesByRole[role] || null : null,
+          maxPriceFilter: null,
+          crewRole: role,
+          partySize: Number(filters.partySize),
+          privateCabin: filters.privateCabin,
+        });
+        await payAndBroadcast(request.id, Array.from(selectionsByRole[role]));
+        nowSent.add(role);
+        setSentRoles(new Set(nowSent));
+      }
+      setDone(true);
+    } catch (err) {
+      setError(BROADCAST_ERRORS[err.message] || err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ ...card, boxShadow: shadow.raised }}>
+        {done ? (
+          <div>
+            <p style={{ color: colors.accent, fontWeight: 600, margin: "0 0 14px" }}>
+              ✓ Το αίτημα στάλθηκε σε <span style={money}>{totalSelected}</span>{" "}
+              {totalSelected === 1 ? "επαγγελματία" : "επαγγελματίες"}
+              {activeRoles.length > 1
+                ? ` (${activeRoles.map((r) => `${selectionsByRole[r].size} ${labelForRole(r).toLowerCase()}`).join(", ")})`
+                : ""}
+            </p>
+            <button style={button("primary")} onClick={() => router.push("/platform/requests")}>
+              Παρακολούθηση αιτήματος
+            </button>
+          </div>
+        ) : (
+          <>
+            <h3 style={{ ...h2, fontSize: 16, margin: "0 0 12px" }}>Η παραγγελία σου</h3>
+
+            {activeRoles.map((role) => (
+              <div
+                key={role}
+                style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0" }}
+              >
+                <span>{labelForRole(role)}</span>
+                <span style={money}>{selectionsByRole[role].size}</span>
+              </div>
+            ))}
+
+            <div style={{ padding: "12px 14px", background: colors.seaGlass, borderRadius: radius.md, margin: "10px 0 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+                <span style={{ fontSize: 14 }}>Τέλος πλατφόρμας</span>
+                <span style={{ ...money, fontSize: 18, fontWeight: 700 }}>{totalFee != null ? `${totalFee}€` : "—"}</span>
+              </div>
+              <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
+                {fee != null ? `${fee}€` : "—"} για κάθε ρόλο που επιλέγεις, ανεξάρτητα από πόσους υποψήφιους διάλεξες
+                μέσα σε αυτόν. Κάθε αίτημα στέλνεται σε όλους τους επιλεγμένους μαζί, ανά ρόλο· ο πρώτος που θα το
+                αποδεχτεί αναλαμβάνει εκείνο το κομμάτι.
+              </p>
+            </div>
+
+            {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}
+
+            <button style={{ ...button("primary"), width: "100%" }} disabled={busy} onClick={handleCheckout}>
+              {busy ? "..." : session ? "Αποστολή αιτημάτων" : "Σύνδεση για αποστολή"}
+            </button>
+            <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
+              Πατώντας «Αποστολή αιτημάτων» αποδέχεσαι την παραπάνω χρέωση και τους{" "}
+              <button
+                type="button"
+                onClick={() => setTermsOpen(true)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  font: "inherit",
+                  color: colors.inkSoft,
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                }}
+              >
+                Όρους Χρήσης
+              </button>
+              .
+            </p>
+          </>
+        )}
+      </div>
 
       {termsOpen && (
         <div style={sheetOverlayStyle} onClick={() => setTermsOpen(false)}>
           <div style={{ ...sheetStyle, maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ ...h2, fontSize: 16, margin: "0 0 10px" }}>Όροι χρήσης</h3>
-            <p style={{ ...muted, lineHeight: 1.6, marginBottom: 20 }}>
-              Το κείμενο των όρων χρήσης ετοιμάζεται.
-            </p>
+            <p style={{ ...muted, lineHeight: 1.6, marginBottom: 20 }}>Το κείμενο των όρων χρήσης ετοιμάζεται.</p>
             <button style={{ ...button("secondary"), width: "100%" }} onClick={() => setTermsOpen(false)}>
               Κλείσιμο
             </button>
@@ -910,6 +855,29 @@ function SearchPageInner() {
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], languages: [], regions: [] });
   const [filters, setFilters] = useState(incoming);
   const [fee, setFee] = useState(null);
+  // Who's picked, per role — lifted up from each RoleSection rather than
+  // owned there, so a single checkout at the bottom of the page can see
+  // (and send) everyone selected across every open role at once, instead of
+  // each section only knowing about its own picks.
+  const [selectionsByRole, setSelectionsByRole] = useState({});
+  const [boatTypesByRole, setBoatTypesByRole] = useState({});
+
+  function getRoleSelection(role) {
+    return selectionsByRole[role] || new Set();
+  }
+  function setRoleSelection(role, ids) {
+    setSelectionsByRole((prev) => ({ ...prev, [role]: new Set(ids) }));
+  }
+  function toggleRoleSelection(role, id) {
+    setSelectionsByRole((prev) => {
+      const next = new Set(prev[role] || []);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return { ...prev, [role]: next };
+    });
+  }
+  function setRoleBoatType(role, boatTypeId) {
+    setBoatTypesByRole((prev) => (prev[role] === boatTypeId ? prev : { ...prev, [role]: boatTypeId }));
+  }
   // Which shared fields are missing the moment "Αναζήτηση" is pressed — not
   // updated live as the user types elsewhere, only cleared field-by-field as
   // each one gets filled in (see clearFieldError), so fixing one doesn't
@@ -973,7 +941,7 @@ function SearchPageInner() {
 
   const requestedRoles = (
     params.get("roles") ||
-    pending?.role ||
+    (pending?.roles || []).join(",") ||
     "skipper"
   ).split(",").filter(Boolean);
   const supportedRoles = requestedRoles.filter((r) => SUPPORTED_ROLES.includes(r));
@@ -1177,14 +1145,30 @@ function SearchPageInner() {
           role={role}
           sharedFilters={filters}
           lookups={lookups}
-          fee={fee}
           session={session}
-          router={router}
-          initial={pending && pending.role === role ? pending : null}
+          initial={
+            pending?.selections?.[role]
+              ? { selected: pending.selections[role].selected, boatTypeId: pending.selections[role].boatTypeId }
+              : null
+          }
           validateShared={validateShared}
           showFullFilters={showFullFilters}
+          selected={getRoleSelection(role)}
+          onToggle={(id) => toggleRoleSelection(role, id)}
+          onSetSelection={(ids) => setRoleSelection(role, ids)}
+          onBoatTypeChange={(boatTypeId) => setRoleBoatType(role, boatTypeId)}
         />
       ))}
+
+      <Checkout
+        supportedRoles={supportedRoles}
+        selectionsByRole={selectionsByRole}
+        boatTypesByRole={boatTypesByRole}
+        filters={filters}
+        fee={fee}
+        session={session}
+        router={router}
+      />
     </div>
   );
 }
