@@ -15,9 +15,12 @@ import {
   addSecondaryRole,
   updateSecondaryRole,
   removeSecondaryRole,
-  updateDeliveryAvailability,
+  getMyDeliveryAvailabilityWindows,
+  addDeliveryAvailabilityWindow,
+  removeDeliveryAvailabilityWindow,
 } from "../../../lib/platform/db";
 import { CREW_ROLES, labelForRole } from "../../../lib/platform/roles";
+import { formatDate } from "../../../lib/platform/notifications";
 import { container, card, h1, h2, muted, colors, radius, select, label, button, input } from "../../../lib/platform/theme";
 
 const MIN_PRICE = 210;
@@ -224,65 +227,152 @@ function SecondaryRoles({ profile }) {
 // Μόνο skipper/ναύτης συμμετέχουν σε μεταφορές σκάφους (0067) — η επιλογή
 // είναι ανεξάρτητη από τη συνήθη διαθεσιμότητα πληρώματος και ανά ρόλο, αφού
 // κάποιος μπορεί να θέλει μεταφορές μόνο ως skipper αλλά όχι ως ναύτης.
+//
+// Διαστήματα ημερομηνιών, όχι ένα on/off flag (0068) — έτσι κάποιος που
+// κάνει ναύλα το καλοκαίρι δηλώνει διαθεσιμότητα μόνο για τον χειμώνα μία
+// φορά, αντί να πρέπει να θυμάται να ανοίγει/κλείνει διακόπτη κάθε σεζόν.
 const DELIVERY_ROLES = new Set(["skipper", "deckhand"]);
 
 function DeliveryAvailability({ profile }) {
   const [secondary, setSecondary] = useState([]);
-  const [busyRole, setBusyRole] = useState(null);
+  const [windows, setWindows] = useState([]);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [newRole, setNewRole] = useState("");
+  const [newStart, setNewStart] = useState("");
+  const [newEnd, setNewEnd] = useState("");
 
+  async function load() {
+    try {
+      const [sec, w] = await Promise.all([
+        getMySecondaryRoles(profile.id),
+        getMyDeliveryAvailabilityWindows(profile.id),
+      ]);
+      setSecondary(sec);
+      setWindows(w);
+    } catch (err) {
+      setError(err.message || String(err));
+    }
+  }
   useEffect(() => {
-    if (profile?.id) getMySecondaryRoles(profile.id).then(setSecondary).catch(() => {});
+    if (profile?.id) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
 
   const roles = [
-    { role: profile.role, delivery_available: profile.delivery_available, approval_status: profile.approval_status },
-    ...secondary.map((r) => ({ role: r.role, delivery_available: r.delivery_available, approval_status: r.approval_status })),
+    { role: profile.role, approval_status: profile.approval_status },
+    ...secondary.map((r) => ({ role: r.role, approval_status: r.approval_status })),
   ].filter((r) => DELIVERY_ROLES.has(r.role) && r.approval_status === "approved");
 
-  async function toggle(role, current) {
+  if (roles.length === 0) return null;
+
+  async function handleAdd() {
     setError("");
-    setBusyRole(role);
+    if (!newRole) {
+      setError("Επίλεξε ρόλο.");
+      return;
+    }
+    if (!newStart || !newEnd || newEnd < newStart) {
+      setError("Συμπλήρωσε έγκυρο διάστημα ημερομηνιών.");
+      return;
+    }
+    setBusy(true);
     try {
-      await updateDeliveryAvailability(!current, role);
-      if (role === profile.role) {
-        profile.delivery_available = !current; // αισιόδοξη ενημέρωση, γίνεται σωστά με το επόμενο refresh
-      } else {
-        setSecondary((rs) => rs.map((r) => (r.role === role ? { ...r, delivery_available: !current } : r)));
-      }
+      await addDeliveryAvailabilityWindow(profile.id, newRole, newStart, newEnd);
+      setAdding(false);
+      setNewRole("");
+      setNewStart("");
+      setNewEnd("");
+      await load();
     } catch (err) {
       setError(err.message || String(err));
     } finally {
-      setBusyRole(null);
+      setBusy(false);
     }
   }
 
-  if (roles.length === 0) return null;
+  async function handleRemove(id) {
+    setBusy(true);
+    try {
+      await removeDeliveryAvailabilityWindow(id);
+      await load();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div style={card}>
       <h2 style={{ ...h2, fontSize: 17 }}>Μεταφορές σκάφους</h2>
       <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-        Δήλωσε διαθεσιμότητα για μεταφορές σκάφους (αφετηρία → προορισμός, ανεξάρτητα από τη συνήθη διαθεσιμότητά σου) —
-        θα εμφανίζεσαι στους πελάτες που αναζητούν κάποιον να αναλάβει μια μεταφορά.
+        Δήλωσε τα διαστήματα που είσαι διαθέσιμος για μεταφορές σκάφους (αφετηρία → προορισμός) — ανεξάρτητα από τη
+        συνήθη διαθεσιμότητά σου για πλήρωμα. Θα προτείνεσαι σε πελάτες μόνο για αιτήματα που πέφτουν μέσα σε αυτά τα
+        διαστήματα.
       </p>
       {error && <p style={{ color: colors.danger, fontSize: 13, marginBottom: 12 }}>{error}</p>}
-      {roles.map((r) => (
+
+      {windows.length === 0 && !adding && (
+        <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>Δεν έχεις δηλώσει κανένα διάστημα ακόμα.</p>
+      )}
+
+      {windows.map((w) => (
         <div
-          key={r.role}
-          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 0", borderTop: `1px solid ${colors.border}` }}
+          key={w.id}
+          style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "10px 0", borderTop: `1px solid ${colors.border}` }}
         >
-          <span style={{ fontWeight: 500 }}>{labelForRole(r.role)}</span>
+          <span style={{ minWidth: 80, fontWeight: 600 }}>{labelForRole(w.crew_role)}</span>
+          <span style={{ fontSize: 13.5 }}>
+            {formatDate(w.start_date)} → {formatDate(w.end_date)}
+          </span>
           <button
             type="button"
-            disabled={busyRole === r.role}
-            onClick={() => toggle(r.role, r.delivery_available)}
-            style={{ ...chip(!!r.delivery_available), padding: "6px 14px", fontSize: 13 }}
+            style={{ ...button("secondary"), marginLeft: "auto", padding: "6px 12px", fontSize: 13 }}
+            disabled={busy}
+            onClick={() => handleRemove(w.id)}
           >
-            {busyRole === r.role ? "…" : r.delivery_available ? "Διαθέσιμος ✓" : "Μη διαθέσιμος"}
+            Αφαίρεση
           </button>
         </div>
       ))}
+
+      {adding ? (
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${colors.border}` }}>
+          <label style={label}>Ρόλος</label>
+          <select style={{ ...select, marginBottom: 12 }} value={newRole} onChange={(e) => setNewRole(e.target.value)}>
+            <option value="">Επιλογή...</option>
+            {roles.map((r) => (
+              <option key={r.role} value={r.role}>
+                {labelForRole(r.role)}
+              </option>
+            ))}
+          </select>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+            <div>
+              <label style={label}>Από</label>
+              <input type="date" style={input} value={newStart} onChange={(e) => setNewStart(e.target.value)} />
+            </div>
+            <div>
+              <label style={label}>Έως</label>
+              <input type="date" style={input} value={newEnd} onChange={(e) => setNewEnd(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" style={button("primary")} disabled={busy} onClick={handleAdd}>
+              {busy ? "Αποθήκευση…" : "Προσθήκη διαστήματος"}
+            </button>
+            <button type="button" style={button("secondary")} onClick={() => setAdding(false)}>
+              Άκυρο
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" style={{ ...button("secondary"), marginTop: windows.length > 0 ? 14 : 0 }} onClick={() => setAdding(true)}>
+          + Προσθήκη διαστήματος
+        </button>
+      )}
     </div>
   );
 }

@@ -67,6 +67,18 @@ function round2(n) {
   return Math.round(n * 100) / 100;
 }
 
+// Το εκτιμώμενο εύρος ημερομηνιών ενός αιτήματος — departure_date ± flexible_days
+// — με το οποίο ταιριάζει η αναζήτηση υποψηφίων (search_delivery_candidates).
+// Καθαρή αριθμητική string ημερομηνιών (χωρίς Date/timezone) — ίδιο σκεπτικό
+// με το formatDate στο notifications.js.
+function addDays(isoDate, days) {
+  if (!isoDate) return isoDate;
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
 function CandidateCard({ s, selected, onToggle }) {
   return (
     <div
@@ -115,7 +127,7 @@ function CandidateCard({ s, selected, onToggle }) {
 // τιμή, δικοί του υποψήφιοι, δικό του αίτημα/χρέωση. Μόλις σταλεί, "κλειδώνει"
 // (δεν ξαναστέλνεται από εδώ — η αναθεώρηση τιμής γίνεται στη σελίδα
 // "Τα αιτήματά μου").
-function RoleBlock({ deliveryRequestId, role, miles, settings, onSent, onRemove, removable }) {
+function RoleBlock({ deliveryRequestId, role, miles, startDate, endDate, settings, onSent, onRemove, removable }) {
   const [price, setPrice] = useState("");
   const [candidates, setCandidates] = useState(null);
   const [selected, setSelected] = useState(new Set());
@@ -124,8 +136,8 @@ function RoleBlock({ deliveryRequestId, role, miles, settings, onSent, onRemove,
   const [sent, setSent] = useState(null);
 
   useEffect(() => {
-    searchDeliveryCandidates(role).then(setCandidates).catch(() => setCandidates([]));
-  }, [role]);
+    searchDeliveryCandidates(role, startDate, endDate).then(setCandidates).catch(() => setCandidates([]));
+  }, [role, startDate, endDate]);
 
   function toggle(id) {
     setSelected((prev) => {
@@ -393,6 +405,8 @@ function RolesStep({ deliveryRequest }) {
   const [settings, setSettings] = useState(null);
   const [skipperSent, setSkipperSent] = useState(false);
   const [deckhandBlocks, setDeckhandBlocks] = useState([0]);
+  const rangeStart = addDays(deliveryRequest.departure_date, -(deliveryRequest.flexible_days || 0));
+  const rangeEnd = addDays(deliveryRequest.departure_date, deliveryRequest.flexible_days || 0);
 
   useEffect(() => {
     Promise.all([
@@ -417,6 +431,8 @@ function RolesStep({ deliveryRequest }) {
         deliveryRequestId={deliveryRequest.id}
         role="skipper"
         miles={deliveryRequest.distance_miles}
+        startDate={rangeStart}
+        endDate={rangeEnd}
         settings={settings}
         onSent={() => setSkipperSent(true)}
       />
@@ -430,6 +446,8 @@ function RolesStep({ deliveryRequest }) {
               deliveryRequestId={deliveryRequest.id}
               role="deckhand"
               miles={deliveryRequest.distance_miles}
+              startDate={rangeStart}
+              endDate={rangeEnd}
               settings={settings}
               removable={deckhandBlocks.length > 1}
               onRemove={() => setDeckhandBlocks((bs) => bs.filter((b) => b !== key))}

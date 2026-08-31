@@ -26,7 +26,17 @@ const RELIST_ERRORS = {
   invalid_candidate_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος για μεταφορές.",
 };
 
-function RelistForm({ roleRequest, onDone }) {
+// Ίδιο σκεπτικό με το delivery/page.js — αριθμητική σε strings ημερομηνιών,
+// χωρίς Date/timezone εκπλήξεις.
+function addDays(isoDate, days) {
+  if (!isoDate) return isoDate;
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+function RelistForm({ roleRequest, request, onDone }) {
   const [price, setPrice] = useState(String(roleRequest.offered_price));
   const [candidates, setCandidates] = useState(null);
   const [selected, setSelected] = useState(
@@ -36,8 +46,10 @@ function RelistForm({ roleRequest, onDone }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    searchDeliveryCandidates(roleRequest.crew_role).then(setCandidates).catch(() => setCandidates([]));
-  }, [roleRequest.crew_role]);
+    const start = addDays(request.departure_date, -(request.flexible_days || 0));
+    const end = addDays(request.departure_date, request.flexible_days || 0);
+    searchDeliveryCandidates(roleRequest.crew_role, start, end).then(setCandidates).catch(() => setCandidates([]));
+  }, [roleRequest.crew_role, request.departure_date, request.flexible_days]);
 
   function toggle(id) {
     setSelected((prev) => {
@@ -98,7 +110,7 @@ function RelistForm({ roleRequest, onDone }) {
   );
 }
 
-function RoleRequestRow({ roleRequest, onChanged }) {
+function RoleRequestRow({ roleRequest, request, onChanged }) {
   const [relisting, setRelisting] = useState(false);
   const canRelist = roleRequest.status === "open";
 
@@ -132,7 +144,7 @@ function RoleRequestRow({ roleRequest, onChanged }) {
       {canRelist && (
         <div style={{ marginTop: 8 }}>
           {relisting ? (
-            <RelistForm roleRequest={roleRequest} onDone={() => { setRelisting(false); onChanged(); }} />
+            <RelistForm roleRequest={roleRequest} request={request} onDone={() => { setRelisting(false); onChanged(); }} />
           ) : (
             <button
               type="button"
@@ -184,7 +196,7 @@ export default function MyDeliveryRequestsPage() {
             {request.flexible_days > 0 ? ` (±${request.flexible_days} μέρες)` : ""}
           </p>
           {(role_requests || []).map((rr) => (
-            <RoleRequestRow key={rr.id} roleRequest={rr} onChanged={load} />
+            <RoleRequestRow key={rr.id} roleRequest={rr} request={request} onChanged={load} />
           ))}
         </div>
       ))}
