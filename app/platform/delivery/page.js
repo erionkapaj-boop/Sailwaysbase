@@ -132,11 +132,11 @@ function CandidateCard({ s, selected, onToggle }) {
 // "Τα αιτήματά μου").
 //
 // Η φόρμα και η επιλογή υποψηφίων δουλεύουν χωρίς σύνδεση (browsing μόνο,
-// καμία χρέωση) — μόνο η πραγματική αποστολή σε skipper απαιτεί λογαριασμό,
-// γιατί εκεί δημιουργείται το αίτημα στη βάση και χρεώνεται το τέλος.
-// deliveryRequestId είναι null μέχρι να σταλεί επιτυχώς η πρώτη φορά (πάντα
-// το skipper block, καθώς είναι υποχρεωτικό και πρώτο) — το block ναυτών
-// τον παίρνει έτοιμο, αφού μέχρι τότε ο χρήστης είναι ήδη συνδεδεμένος.
+// καμία χρέωση) — μόνο η πραγματική αποστολή απαιτεί λογαριασμό, γιατί εκεί
+// δημιουργείται το αίτημα στη βάση και χρεώνεται το τέλος. deliveryRequestId
+// είναι null μέχρι να σταλεί επιτυχώς το πρώτο μπλοκ — όποιου ρόλου κι αν
+// είναι, αφού όλοι οι επιλεγμένοι ρόλοι είναι πλέον ορατοί μαζί από την
+// αρχή — κάθε επόμενο block το παίρνει έτοιμο.
 function RoleBlock({
   deliveryRequestId,
   role,
@@ -434,31 +434,96 @@ function DeliveryForm({ onCreated }) {
 
       {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}
       <button style={{ ...button("primary"), width: "100%" }} type="submit">
-        Συνέχεια — επιλογή skipper
+        Συνέχεια — επιλογή πληρώματος
       </button>
     </form>
   );
 }
 
-// Ρόλοι που μπορούν να προστεθούν μετά τον skipper — κάθε ρόλος πληρώματος
+// Ρόλοι που μπορούν να προστεθούν στον skipper — κάθε ρόλος πληρώματος
 // εκτός από skipper, με όποια σειρά τα ορίζει το roles.js. Πριν το 0070
 // επιτρεπόταν μόνο ναύτης· ζητήθηκε ρητά να μην αποκλείει η πλατφόρμα
 // συνδυασμούς όπως "δύο ναύτες, ένας captain, μία μαγείρισσα" — ο πελάτης
 // αποφασίζει ο ίδιος ποιο πλήρωμα χρειάζεται για τη μεταφορά.
 const EXTRA_ROLES = SUPPORTED_ROLES.filter((r) => r !== "skipper");
 
+// Πρώτο βήμα, πριν καν τη φόρμα διαδρομής — ίδιο σκεπτικό με το "Ποιον
+// ψάχνεις;" της κανονικής αναζήτησης πληρώματος (CrewSearchFlow): λες πρώτα
+// ΠΟΙΟΝ χρειάζεσαι, μετά συμπληρώνεις τα υπόλοιπα. Ο skipper είναι πάντα
+// μέσα — μία μεταφορά χωρίς αυτόν δεν βγάζει νόημα — τα υπόλοιπα είναι
+// checkbox-style επιλογές. Η ΠΟΣΟΤΗΤΑ (π.χ. δύο ναύτες) δεν αποφασίζεται
+// εδώ· λύνεται στο επόμενο βήμα με τα κουμπιά "+ ρόλος" που μπορούν να
+// πατηθούν όσες φορές χρειάζεται.
+function RolePickerStep({ onContinue }) {
+  const [picked, setPicked] = useState(new Set());
+
+  function toggle(role) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      next.has(role) ? next.delete(role) : next.add(role);
+      return next;
+    });
+  }
+
+  return (
+    <div style={card}>
+      <p style={{ ...muted, margin: "0 0 16px" }}>
+        Ο skipper χρειάζεται πάντα. Πρόσθεσε ό,τι άλλο πλήρωμα θέλεις για τη μεταφορά — μπορείς να προσθέσεις
+        κι άλλους αργότερα.
+      </p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
+        <span
+          style={{
+            padding: "9px 16px",
+            borderRadius: radius.pill,
+            fontSize: 14,
+            border: `1px solid ${colors.ink}`,
+            background: colors.ink,
+            color: "#fff",
+          }}
+        >
+          Skipper (υποχρεωτικό)
+        </span>
+        {EXTRA_ROLES.map((role) => (
+          <button
+            key={role}
+            type="button"
+            onClick={() => toggle(role)}
+            style={{
+              padding: "9px 16px",
+              borderRadius: radius.pill,
+              fontSize: 14,
+              fontFamily: "inherit",
+              cursor: "pointer",
+              border: `1px solid ${picked.has(role) ? colors.ink : colors.border}`,
+              background: picked.has(role) ? colors.seaGlass : "transparent",
+              color: colors.ink,
+            }}
+          >
+            {picked.has(role) ? "✓ " : ""}
+            {labelForRole(role)}
+          </button>
+        ))}
+      </div>
+      <button style={{ ...button("primary"), width: "100%" }} onClick={() => onContinue(Array.from(picked))}>
+        Συνέχεια
+      </button>
+    </div>
+  );
+}
+
 // formValues: ό,τι συμπλήρωσε στη φόρμα, τοπικά — δεν υπάρχει ακόμα καμία
 // γραμμή στη βάση. deliveryRequest γίνεται μη-null τη στιγμή που η πρώτη
-// αποστολή (πάντα skipper, υποχρεωτικός) πετύχει πραγματικά· από εκεί και
-// πέρα κάθε επόμενο block (υπόλοιπο πλήρωμα) το χρησιμοποιεί έτοιμο.
-function RolesStep({ formValues, deliveryRequest, onRequestCreated, restoredSkipper }) {
+// αποστολή — όποιου ρόλου κι αν είναι, όχι πάντα ο skipper πια — πετύχει
+// πραγματικά· από εκεί και πέρα κάθε επόμενο block το χρησιμοποιεί έτοιμο.
+function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated, restoredBlock }) {
   const router = useRouter();
   const { session } = useAuth();
   const [settings, setSettings] = useState(null);
-  const [skipperSent, setSkipperSent] = useState(false);
-  // Κάθε μπλοκ είναι { key, role } — επιτρέπει πολλά μπλοκ του ίδιου ρόλου
-  // (π.χ. δύο ναύτες), όχι μόνο έναν ανά ρόλο.
-  const [extraBlocks, setExtraBlocks] = useState([]);
+  // Κάθε μπλοκ είναι { key, role } — ένα ανά ρόλο επιλεγμένο στο βήμα
+  // επιλογής πληρώματος, plus ό,τι προστεθεί μετά με τα κουμπιά "+ ρόλος".
+  // Επιτρέπει πολλά μπλοκ του ίδιου ρόλου (π.χ. δύο ναύτες).
+  const [extraBlocks, setExtraBlocks] = useState(() => pickedRoles.map((role, i) => ({ key: `init${i}`, role })));
   const nextKey = useRef(0);
   const rangeStart = addDays(formValues.departureDate, -(formValues.flexibleDays || 0));
   const rangeEnd = addDays(formValues.departureDate, formValues.flexibleDays || 0);
@@ -475,13 +540,17 @@ function RolesStep({ formValues, deliveryRequest, onRequestCreated, restoredSkip
     }).catch(() => {});
   }, []);
 
-  function handleAuthRequired(price, selectedIds) {
-    savePendingDelivery({ formValues, skipper: { price, selected: selectedIds } });
+  // Ό,τι ρόλος χτυπήσει το login wall πρώτος — δεν είναι πάντα ο skipper
+  // πια, αφού όλα τα μπλοκ είναι ορατά από την αρχή. Τα υπόλοιπα μπλοκ
+  // (φόρμα, επιλεγμένοι ρόλοι) διατηρούνται ούτως ή άλλως· μόνο το
+  // συγκεκριμένο μπλοκ που ήταν σε εξέλιξη χρειάζεται να θυμηθεί τιμή/επιλογή.
+  function handleAuthRequired(role, price, selectedIds) {
+    savePendingDelivery({ formValues, pickedRoles, pendingBlock: { role, price, selected: selectedIds } });
     router.push("/platform/login?next=/platform/delivery");
   }
 
   function addExtraBlock(role) {
-    const key = nextKey.current++;
+    const key = `extra${nextKey.current++}`;
     setExtraBlocks((bs) => [...bs, { key, role }]);
   }
 
@@ -502,54 +571,53 @@ function RolesStep({ formValues, deliveryRequest, onRequestCreated, restoredSkip
         settings={settings}
         session={session}
         formValues={formValues}
-        onAuthRequired={handleAuthRequired}
+        onAuthRequired={(price, sel) => handleAuthRequired("skipper", price, sel)}
         onRequestCreated={onRequestCreated}
-        onSent={() => setSkipperSent(true)}
-        initialPrice={restoredSkipper?.price}
-        initialSelected={restoredSkipper?.selected}
+        initialPrice={restoredBlock?.role === "skipper" ? restoredBlock.price : undefined}
+        initialSelected={restoredBlock?.role === "skipper" ? restoredBlock.selected : undefined}
       />
 
-      {skipperSent && (
-        <>
-          <h3 style={{ ...sectionLabel, margin: "22px 0 12px" }}>Υπόλοιπο πλήρωμα (προαιρετικό)</h3>
-          {extraBlocks.map(({ key, role }) => (
-            <RoleBlock
-              key={key}
-              deliveryRequestId={deliveryRequest.id}
-              role={role}
-              miles={formValues.distanceMiles}
-              startDate={rangeStart}
-              endDate={rangeEnd}
-              settings={settings}
-              session={session}
-              formValues={formValues}
-              onAuthRequired={handleAuthRequired}
-              onRequestCreated={onRequestCreated}
-              removable
-              onRemove={() => setExtraBlocks((bs) => bs.filter((b) => b.key !== key))}
-            />
-          ))}
+      {extraBlocks.map(({ key, role }) => (
+        <RoleBlock
+          key={key}
+          deliveryRequestId={deliveryRequest?.id || null}
+          role={role}
+          miles={formValues.distanceMiles}
+          startDate={rangeStart}
+          endDate={rangeEnd}
+          settings={settings}
+          session={session}
+          formValues={formValues}
+          onAuthRequired={(price, sel) => handleAuthRequired(role, price, sel)}
+          onRequestCreated={onRequestCreated}
+          removable
+          onRemove={() => setExtraBlocks((bs) => bs.filter((b) => b.key !== key))}
+          initialPrice={restoredBlock?.role === role ? restoredBlock.price : undefined}
+          initialSelected={restoredBlock?.role === role ? restoredBlock.selected : undefined}
+        />
+      ))}
 
-          {/* Ένα κουμπί ανά ρόλο, καθένα προσθέτει ένα νέο μπλοκ κάθε φορά
-              που πατιέται — έτσι "δύο ναύτες" είναι απλώς δύο πατήματα στο
-              ίδιο κουμπί, όχι δύο διαφορετικά βήματα. */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-            {EXTRA_ROLES.map((role) => (
-              <button
-                key={role}
-                type="button"
-                style={{ ...button("secondary"), fontSize: 13.5 }}
-                onClick={() => addExtraBlock(role)}
-              >
-                + {labelForRole(role)}
-              </button>
-            ))}
-          </div>
-
-          <button style={{ ...button("primary"), width: "100%" }} onClick={() => router.push("/platform/delivery/requests")}>
-            Ολοκλήρωση — προβολή αιτημάτων μου
+      {/* Ένα κουμπί ανά ρόλο, καθένα προσθέτει ένα νέο μπλοκ κάθε φορά που
+          πατιέται — έτσι "δύο ναύτες" είναι απλώς δύο πατήματα στο ίδιο
+          κουμπί, όχι δύο διαφορετικά βήματα. Πάντα ορατά, όχι μόνο μετά την
+          αποστολή του skipper. */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+        {EXTRA_ROLES.map((role) => (
+          <button
+            key={role}
+            type="button"
+            style={{ ...button("secondary"), fontSize: 13.5 }}
+            onClick={() => addExtraBlock(role)}
+          >
+            + {labelForRole(role)}
           </button>
-        </>
+        ))}
+      </div>
+
+      {deliveryRequest && (
+        <button style={{ ...button("primary"), width: "100%" }} onClick={() => router.push("/platform/delivery/requests")}>
+          Ολοκλήρωση — προβολή αιτημάτων μου
+        </button>
       )}
     </div>
   );
@@ -557,55 +625,66 @@ function RolesStep({ formValues, deliveryRequest, onRequestCreated, restoredSkip
 
 export default function DeliveryPage() {
   const { loading } = useAuth();
+  const [pickedRoles, setPickedRoles] = useState(null);
   const [formValues, setFormValues] = useState(null);
   const [deliveryRequest, setDeliveryRequest] = useState(null);
-  const [restoredSkipper, setRestoredSkipper] = useState(null);
+  const [restoredBlock, setRestoredBlock] = useState(null);
 
   // Αν γύρισε από login/εγγραφή με ημιτελές αίτημα μεταφοράς περιμένοντας
   // στο sessionStorage (βλ. handleAuthRequired στο RolesStep), το ξαναφέρνει
-  // εδώ — φόρμα και επιλογή skipper έτοιμα, μένει μόνο ένα ξανά-πάτημα στο
-  // «Αποστολή» για να ολοκληρωθεί (καμία αυτόματη χρέωση χωρίς τελευταία
-  // ρητή ενέργεια).
+  // εδώ — ρόλοι, φόρμα και ό,τι μπλοκ ήταν σε εξέλιξη έτοιμα, μένει μόνο ένα
+  // ξανά-πάτημα στο «Αποστολή» για να ολοκληρωθεί (καμία αυτόματη χρέωση
+  // χωρίς τελευταία ρητή ενέργεια).
   useEffect(() => {
     const pending = takePendingDelivery();
     if (pending?.formValues) {
+      setPickedRoles(pending.pickedRoles || []);
       setFormValues(pending.formValues);
-      setRestoredSkipper(pending.skipper || null);
+      setRestoredBlock(pending.pendingBlock || null);
     }
   }, []);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
 
-  // Γυρίζοντας πίσω στη φόρμα ξεκινάει καθαρά — αν είχε ήδη σταλεί skipper
-  // (deliveryRequest πια όχι null) και το ξαναπατήσει με άλλα στοιχεία, δεν
-  // πρέπει να ξαναχρησιμοποιηθεί το παλιό αίτημα με νέα δεδομένα φόρμας.
+  // Γυρίζοντας πίσω ξεκινάει καθαρά ένα βήμα τη φορά — αν είχε ήδη σταλεί
+  // κάτι (deliveryRequest πια όχι null) και ξαναπατήσει με άλλα στοιχεία,
+  // δεν πρέπει να ξαναχρησιμοποιηθεί το παλιό αίτημα με νέα δεδομένα φόρμας.
+  function backToPicker() {
+    setPickedRoles(null);
+    setFormValues(null);
+    setDeliveryRequest(null);
+    setRestoredBlock(null);
+  }
   function backToForm() {
     setFormValues(null);
     setDeliveryRequest(null);
-    setRestoredSkipper(null);
+    setRestoredBlock(null);
   }
 
   return (
     <div style={container}>
-      {formValues && <BackButton onClick={backToForm} />}
+      {(pickedRoles != null || formValues) && <BackButton onClick={formValues ? backToForm : backToPicker} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-        <h1 style={{ ...h1, marginTop: formValues ? 14 : 0 }}>Μεταφορά σκάφους</h1>
+        <h1 style={{ ...h1, marginTop: pickedRoles != null ? 14 : 0 }}>Μεταφορά σκάφους</h1>
         <Link href="/platform/delivery/requests" style={{ fontSize: 13.5, color: colors.accent, textDecoration: "none" }}>
           Τα αιτήματά μου →
         </Link>
       </div>
       <p style={muted}>
         Βρες κάποιον να αναλάβει τη μεταφορά του σκάφους σου από ένα σημείο σε άλλο — πλήρωμα ειδικά για το ταξίδι,
-        όχι για διαμονή. Η δημιουργία αιτήματος και η επιλογή skipper δεν απαιτούν λογαριασμό — μόνο η αποστολή.
+        όχι για διαμονή. Η δημιουργία αιτήματος και η επιλογή πληρώματος δεν απαιτούν λογαριασμό — μόνο η αποστολή.
       </p>
-      {!formValues ? (
+      {pickedRoles == null ? (
+        <RolePickerStep onContinue={setPickedRoles} />
+      ) : !formValues ? (
         <DeliveryForm onCreated={setFormValues} />
       ) : (
         <RolesStep
           formValues={formValues}
+          pickedRoles={pickedRoles}
           deliveryRequest={deliveryRequest}
           onRequestCreated={setDeliveryRequest}
-          restoredSkipper={restoredSkipper}
+          restoredBlock={restoredBlock}
         />
       )}
     </div>

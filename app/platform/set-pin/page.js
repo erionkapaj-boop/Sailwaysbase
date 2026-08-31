@@ -41,7 +41,7 @@ export default function SetPinPage() {
       }
       if (hasPendingDelivery()) {
         // Same idea for a boat delivery request started before signing up —
-        // the form and skipper pick are waiting on /platform/delivery.
+        // the picked crew and form are waiting on /platform/delivery.
         router.push("/platform/delivery");
         return;
       }
