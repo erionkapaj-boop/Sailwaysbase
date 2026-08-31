@@ -13,6 +13,7 @@ import {
   createDeliveryRoleRequest,
   searchDeliveryCandidates,
 } from "../../../lib/platform/db";
+import { savePendingDelivery, takePendingDelivery } from "../../../lib/platform/pendingDelivery";
 import {
   container,
   card,
@@ -128,13 +129,37 @@ function CandidateCard({ s, selected, onToggle }) {
 // τιμή, δικοί του υποψήφιοι, δικό του αίτημα/χρέωση. Μόλις σταλεί, "κλειδώνει"
 // (δεν ξαναστέλνεται από εδώ — η αναθεώρηση τιμής γίνεται στη σελίδα
 // "Τα αιτήματά μου").
-function RoleBlock({ deliveryRequestId, role, miles, startDate, endDate, settings, onSent, onRemove, removable }) {
-  const [price, setPrice] = useState("");
+//
+// Η φόρμα και η επιλογή υποψηφίων δουλεύουν χωρίς σύνδεση (browsing μόνο,
+// καμία χρέωση) — μόνο η πραγματική αποστολή σε skipper απαιτεί λογαριασμό,
+// γιατί εκεί δημιουργείται το αίτημα στη βάση και χρεώνεται το τέλος.
+// deliveryRequestId είναι null μέχρι να σταλεί επιτυχώς η πρώτη φορά (πάντα
+// το skipper block, καθώς είναι υποχρεωτικό και πρώτο) — το block ναυτών
+// τον παίρνει έτοιμο, αφού μέχρι τότε ο χρήστης είναι ήδη συνδεδεμένος.
+function RoleBlock({
+  deliveryRequestId,
+  role,
+  miles,
+  startDate,
+  endDate,
+  settings,
+  session,
+  formValues,
+  onAuthRequired,
+  onRequestCreated,
+  onSent,
+  onRemove,
+  removable,
+  initialPrice,
+  initialSelected,
+}) {
+  const [price, setPrice] = useState(initialPrice != null ? String(initialPrice) : "");
   const [candidates, setCandidates] = useState(null);
-  const [selected, setSelected] = useState(new Set());
+  const [selected, setSelected] = useState(new Set(initialSelected || []));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(null);
+  const [restoredNotice] = useState(Boolean(initialPrice));
 
   useEffect(() => {
     searchDeliveryCandidates(role, startDate, endDate).then(setCandidates).catch(() => setCandidates([]));
@@ -160,13 +185,25 @@ function RoleBlock({ deliveryRequestId, role, miles, startDate, endDate, setting
       setError("Επίλεξε τουλάχιστον έναν υποψήφιο.");
       return;
     }
+    // Τίποτα δεν έχει χρεωθεί ακόμα — δεν χάνεται τίποτα στέλνοντας στο
+    // login τώρα, με τα ίδια δεδομένα έτοιμα να ξαναφανούν μόλις γυρίσει.
+    if (!deliveryRequestId && !session) {
+      onAuthRequired(Number(price), Array.from(selected));
+      return;
+    }
     setBusy(true);
     try {
-      const row = await createDeliveryRoleRequest(deliveryRequestId, role, Number(price), Array.from(selected));
+      let requestId = deliveryRequestId;
+      if (!requestId) {
+        const dr = await createDeliveryRequest(formValues);
+        onRequestCreated(dr);
+        requestId = dr.id;
+      }
+      const row = await createDeliveryRoleRequest(requestId, role, Number(price), Array.from(selected));
       setSent(row);
       onSent?.(row);
     } catch (err) {
-      setError(ROLE_ERRORS[err.message] || err.message || String(err));
+      setError(REQUEST_ERRORS[err.message] || ROLE_ERRORS[err.message] || err.message || String(err));
     } finally {
       setBusy(false);
     }
@@ -203,6 +240,12 @@ function RoleBlock({ deliveryRequestId, role, miles, startDate, endDate, setting
           </button>
         )}
       </div>
+
+      {restoredNotice && (
+        <p style={{ ...muted, fontSize: 13, margin: "-4px 0 12px", color: colors.accent }}>
+          Οι επιλογές σου διατηρήθηκαν — πάτησε ξανά «Αποστολή» για να ολοκληρωθεί.
+        </p>
+      )}
 
       <label style={label}>Προσφερόμενη τιμή (€)</label>
       <input
@@ -247,6 +290,11 @@ function RoleBlock({ deliveryRequestId, role, miles, startDate, endDate, setting
   );
 }
 
+// Καθαρά τοπική φόρμα — καμία κλήση στη βάση. Το αίτημα δημιουργείται
+// πραγματικά μόνο τη στιγμή που στέλνεται σε skipper (RoleBlock παρακάτω),
+// γιατί μόνο τότε έχει νόημα να απαιτηθεί λογαριασμός: μέχρι εκεί ο
+// επισκέπτης απλώς φτιάχνει το αίτημα και βλέπει υποψηφίους, χωρίς καμία
+// χρέωση.
 function DeliveryForm({ onCreated }) {
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
@@ -258,10 +306,9 @@ function DeliveryForm({ onCreated }) {
   const [coversFuel, setCoversFuel] = useState(false);
   const [coversFood, setCoversFood] = useState(false);
   const [notes, setNotes] = useState("");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
     setError("");
     if (!origin.trim() || !destination.trim()) {
@@ -276,26 +323,18 @@ function DeliveryForm({ onCreated }) {
       setError("Επίλεξε ημερομηνία.");
       return;
     }
-    setBusy(true);
-    try {
-      const row = await createDeliveryRequest({
-        origin,
-        destination,
-        distanceMiles: Number(distanceMiles),
-        dateMode,
-        departureDate,
-        flexibleDays: dateMode === "flexible" ? Number(flexibleDays) || 0 : 0,
-        coversTravel,
-        coversFuel,
-        coversFood,
-        notes: notes.trim() || null,
-      });
-      onCreated(row);
-    } catch (err) {
-      setError(REQUEST_ERRORS[err.message] || err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
+    onCreated({
+      origin,
+      destination,
+      distanceMiles: Number(distanceMiles),
+      dateMode,
+      departureDate,
+      flexibleDays: dateMode === "flexible" ? Number(flexibleDays) || 0 : 0,
+      coversTravel,
+      coversFuel,
+      coversFood,
+      notes: notes.trim() || null,
+    });
   }
 
   return (
@@ -394,20 +433,25 @@ function DeliveryForm({ onCreated }) {
       />
 
       {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}
-      <button style={{ ...button("primary"), width: "100%" }} disabled={busy} type="submit">
-        {busy ? "..." : "Συνέχεια — επιλογή skipper"}
+      <button style={{ ...button("primary"), width: "100%" }} type="submit">
+        Συνέχεια — επιλογή skipper
       </button>
     </form>
   );
 }
 
-function RolesStep({ deliveryRequest }) {
+// formValues: ό,τι συμπλήρωσε στη φόρμα, τοπικά — δεν υπάρχει ακόμα καμία
+// γραμμή στη βάση. deliveryRequest γίνεται μη-null τη στιγμή που η πρώτη
+// αποστολή (πάντα skipper, υποχρεωτικός) πετύχει πραγματικά· από εκεί και
+// πέρα κάθε επόμενο block (ναύτες) το χρησιμοποιεί έτοιμο.
+function RolesStep({ formValues, deliveryRequest, onRequestCreated, restoredSkipper }) {
   const router = useRouter();
+  const { session } = useAuth();
   const [settings, setSettings] = useState(null);
   const [skipperSent, setSkipperSent] = useState(false);
   const [deckhandBlocks, setDeckhandBlocks] = useState([0]);
-  const rangeStart = addDays(deliveryRequest.departure_date, -(deliveryRequest.flexible_days || 0));
-  const rangeEnd = addDays(deliveryRequest.departure_date, deliveryRequest.flexible_days || 0);
+  const rangeStart = addDays(formValues.departureDate, -(formValues.flexibleDays || 0));
+  const rangeEnd = addDays(formValues.departureDate, formValues.flexibleDays || 0);
 
   useEffect(() => {
     Promise.all([
@@ -420,22 +464,33 @@ function RolesStep({ deliveryRequest }) {
     }).catch(() => {});
   }, []);
 
+  function handleAuthRequired(price, selectedIds) {
+    savePendingDelivery({ formValues, skipper: { price, selected: selectedIds } });
+    router.push("/platform/login?next=/platform/delivery");
+  }
+
   return (
     <div>
       <div style={{ ...card, background: colors.bgSoft || "#F7F5F0", marginBottom: 14 }}>
         <p style={{ margin: 0, fontSize: 13.5 }}>
-          {deliveryRequest.origin_point} → {deliveryRequest.destination_point} · {deliveryRequest.distance_miles} μίλια
+          {formValues.origin} → {formValues.destination} · {formValues.distanceMiles} μίλια
         </p>
       </div>
 
       <RoleBlock
-        deliveryRequestId={deliveryRequest.id}
+        deliveryRequestId={deliveryRequest?.id || null}
         role="skipper"
-        miles={deliveryRequest.distance_miles}
+        miles={formValues.distanceMiles}
         startDate={rangeStart}
         endDate={rangeEnd}
         settings={settings}
+        session={session}
+        formValues={formValues}
+        onAuthRequired={handleAuthRequired}
+        onRequestCreated={onRequestCreated}
         onSent={() => setSkipperSent(true)}
+        initialPrice={restoredSkipper?.price}
+        initialSelected={restoredSkipper?.selected}
       />
 
       {skipperSent && (
@@ -446,10 +501,14 @@ function RolesStep({ deliveryRequest }) {
               key={key}
               deliveryRequestId={deliveryRequest.id}
               role="deckhand"
-              miles={deliveryRequest.distance_miles}
+              miles={formValues.distanceMiles}
               startDate={rangeStart}
               endDate={rangeEnd}
               settings={settings}
+              session={session}
+              formValues={formValues}
+              onAuthRequired={handleAuthRequired}
+              onRequestCreated={onRequestCreated}
               removable={deckhandBlocks.length > 1}
               onRemove={() => setDeckhandBlocks((bs) => bs.filter((b) => b !== key))}
             />
@@ -472,36 +531,57 @@ function RolesStep({ deliveryRequest }) {
 }
 
 export default function DeliveryPage() {
-  const { session, loading } = useAuth();
+  const { loading } = useAuth();
+  const [formValues, setFormValues] = useState(null);
   const [deliveryRequest, setDeliveryRequest] = useState(null);
+  const [restoredSkipper, setRestoredSkipper] = useState(null);
+
+  // Αν γύρισε από login/εγγραφή με ημιτελές αίτημα μεταφοράς περιμένοντας
+  // στο sessionStorage (βλ. handleAuthRequired στο RolesStep), το ξαναφέρνει
+  // εδώ — φόρμα και επιλογή skipper έτοιμα, μένει μόνο ένα ξανά-πάτημα στο
+  // «Αποστολή» για να ολοκληρωθεί (καμία αυτόματη χρέωση χωρίς τελευταία
+  // ρητή ενέργεια).
+  useEffect(() => {
+    const pending = takePendingDelivery();
+    if (pending?.formValues) {
+      setFormValues(pending.formValues);
+      setRestoredSkipper(pending.skipper || null);
+    }
+  }, []);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
-  if (!session) {
-    return (
-      <div style={container}>
-        <h1 style={h1}>Μεταφορά σκάφους</h1>
-        <p style={muted}>Χρειάζεται σύνδεση για να δημιουργήσεις αίτημα μεταφοράς.</p>
-      </div>
-    );
+
+  // Γυρίζοντας πίσω στη φόρμα ξεκινάει καθαρά — αν είχε ήδη σταλεί skipper
+  // (deliveryRequest πια όχι null) και το ξαναπατήσει με άλλα στοιχεία, δεν
+  // πρέπει να ξαναχρησιμοποιηθεί το παλιό αίτημα με νέα δεδομένα φόρμας.
+  function backToForm() {
+    setFormValues(null);
+    setDeliveryRequest(null);
+    setRestoredSkipper(null);
   }
 
   return (
     <div style={container}>
-      {deliveryRequest && <BackButton onClick={() => setDeliveryRequest(null)} />}
+      {formValues && <BackButton onClick={backToForm} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-        <h1 style={{ ...h1, marginTop: deliveryRequest ? 14 : 0 }}>Μεταφορά σκάφους</h1>
+        <h1 style={{ ...h1, marginTop: formValues ? 14 : 0 }}>Μεταφορά σκάφους</h1>
         <Link href="/platform/delivery/requests" style={{ fontSize: 13.5, color: colors.accent, textDecoration: "none" }}>
           Τα αιτήματά μου →
         </Link>
       </div>
       <p style={muted}>
         Βρες κάποιον να αναλάβει τη μεταφορά του σκάφους σου από ένα σημείο σε άλλο — πλήρωμα ειδικά για το ταξίδι,
-        όχι για διαμονή.
+        όχι για διαμονή. Η δημιουργία αιτήματος και η επιλογή skipper δεν απαιτούν λογαριασμό — μόνο η αποστολή.
       </p>
-      {!deliveryRequest ? (
-        <DeliveryForm onCreated={setDeliveryRequest} />
+      {!formValues ? (
+        <DeliveryForm onCreated={setFormValues} />
       ) : (
-        <RolesStep deliveryRequest={deliveryRequest} />
+        <RolesStep
+          formValues={formValues}
+          deliveryRequest={deliveryRequest}
+          onRequestCreated={setDeliveryRequest}
+          restoredSkipper={restoredSkipper}
+        />
       )}
     </div>
   );

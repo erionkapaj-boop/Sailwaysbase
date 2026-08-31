@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import { setPin } from "../../../lib/platform/db";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
+import { hasPendingDelivery } from "../../../lib/platform/pendingDelivery";
 import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, colors } from "../../../lib/platform/theme";
 
@@ -36,6 +37,12 @@ export default function SetPinPage() {
         // /platform/search — that takes priority over the usual
         // role-based landing page.
         router.push("/platform/search");
+        return;
+      }
+      if (hasPendingDelivery()) {
+        // Same idea for a boat delivery request started before signing up —
+        // the form and skipper pick are waiting on /platform/delivery.
+        router.push("/platform/delivery");
         return;
       }
       router.push("/platform/requests");
