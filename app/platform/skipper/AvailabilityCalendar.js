@@ -338,8 +338,24 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         ))}
       </div>
 
-      <p style={{ ...muted, fontSize: 13, margin: "0 0 16px" }}>
-        {mode === "open"
+      {/* Μετά το πρώτο πάτημα το μόνο σημάδι ήταν ένα λεπτό περίγραμμα πάνω
+          στο κουτάκι της ημέρας — εύκολο να μη φανεί καθόλου σε κινητό,
+          οπότε κάποιος έμενε να μην ξέρει ότι χρειάζεται ΔΕΥΤΕΡΟ πάτημα πριν
+          εμφανιστεί το κουμπί αποθήκευσης. Όσο εκκρεμεί επιλογή, το μήνυμα
+          γίνεται έντονο και λέει ρητά το επόμενο βήμα. */}
+      <p
+        style={{
+          ...muted,
+          fontSize: 13,
+          margin: "0 0 16px",
+          ...(selStart
+            ? { color: colors.ink, fontWeight: 600, padding: "9px 12px", background: colors.seaGlass, borderRadius: radius.sm }
+            : {}),
+        }}
+      >
+        {selStart
+          ? `Επέλεξες ${formatDate(selStart)} ως αρχή διαστήματος — πάτα τώρα την τελευταία ημέρα του διαστήματος (ή «Άκυρο» παρακάτω για να ξεκινήσεις από την αρχή).`
+          : mode === "open"
           ? "Πάτα μια ελεύθερη ημέρα για αρχή διαστήματος, μετά μια δεύτερη για τέλος, και διάλεξε από πού δουλεύεις."
           : "Πάτα την πρώτη και την τελευταία ημέρα που θέλεις να κλείσεις — π.χ. διακοπές. Δεν θα δέχεσαι κρατήσεις γι' αυτές, και μπορείς να τις ξανανοίξεις όποτε θες."}
       </p>
@@ -412,11 +428,15 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                   minHeight: 50,
                   padding: 2,
                   borderRadius: radius.sm,
-                  border: `1px solid ${isSelStart ? colors.accent : "transparent"}`,
+                  border: `2px solid ${isSelStart ? colors.accent : "transparent"}`,
                   fontFamily: "inherit",
+                  fontWeight: isSelStart ? 700 : 400,
                   cursor: state === "booked" || isPast ? "default" : "pointer",
-                  background: tone?.bg ?? "transparent",
-                  color: isPast ? colors.inkSoft : tone?.fg ?? colors.inkSoft,
+                  // Ένα λεπτό περίγραμμα ήταν εύκολο να μη φανεί καθόλου σε
+                  // μικρή οθόνη — η επιλεγμένη αρχή διαστήματος παίρνει τώρα
+                  // και δικό της χρώμα γεμίσματος, όχι μόνο περίγραμμα.
+                  background: isSelStart ? colors.seaGlass : tone?.bg ?? "transparent",
+                  color: isPast ? colors.inkSoft : isSelStart ? colors.ink : tone?.fg ?? colors.inkSoft,
                   opacity: isPast ? 0.35 : 1,
                 }}
               >
