@@ -19,7 +19,7 @@ import {
   addDeliveryAvailabilityWindow,
   removeDeliveryAvailabilityWindow,
 } from "../../../lib/platform/db";
-import { CREW_ROLES, labelForRole } from "../../../lib/platform/roles";
+import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { formatDate } from "../../../lib/platform/notifications";
 import { container, card, h1, h2, muted, colors, radius, select, label, button, input } from "../../../lib/platform/theme";
 
@@ -231,7 +231,10 @@ function SecondaryRoles({ profile }) {
 // Διαστήματα ημερομηνιών, όχι ένα on/off flag (0068) — έτσι κάποιος που
 // κάνει ναύλα το καλοκαίρι δηλώνει διαθεσιμότητα μόνο για τον χειμώνα μία
 // φορά, αντί να πρέπει να θυμάται να ανοίγει/κλείνει διακόπτη κάθε σεζόν.
-const DELIVERY_ROLES = new Set(["skipper", "deckhand"]);
+//
+// Όλοι οι υποστηριζόμενοι ρόλοι (0070) — ο πελάτης αποφασίζει ο ίδιος ποιο
+// πλήρωμα θέλει για μια μεταφορά, όχι η πλατφόρμα για λογαριασμό του.
+const DELIVERY_ROLES = new Set(SUPPORTED_ROLES);
 
 function DeliveryAvailability({ profile }) {
   const [secondary, setSecondary] = useState([]);

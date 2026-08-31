@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
 import BackButton from "../components/BackButton";
-import { labelForRole } from "../../../lib/platform/roles";
+import { SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { formatMoney } from "../../../lib/platform/notifications";
 import {
   getPlatformSetting,
@@ -55,15 +55,16 @@ function identityLine(s) {
 // Η φόρμουλα της πλατφόρμας — ίδια με το create_delivery_role_request στη
 // βάση — υπολογισμένη κι εδώ, μόνο για προεπισκόπηση πριν τη χρέωση. Η
 // πραγματική χρέωση γίνεται πάντα server-side, ποτέ με βάση αυτόν τον
-// υπολογισμό.
+// υπολογισμό. Το τι πληρώνει ο επαγγελματίας δεν αφορά τον πελάτη — δεν
+// υπολογίζεται καν εδώ.
 function estimateFee(settings, role, miles) {
   if (!settings || !miles) return null;
-  const rate = role === "skipper" ? settings.skipperRate : settings.deckhandRate;
+  const rate = settings.rates?.[role];
   if (rate == null || settings.pct == null || settings.minFee == null) return null;
   const base = miles * rate;
   const commission = base * (settings.pct / 100);
   const clientFee = Math.max(settings.minFee, commission - settings.minFee);
-  return { clientFee: round2(clientFee), professionalFee: settings.minFee };
+  return round2(clientFee);
 }
 function round2(n) {
   return Math.round(n * 100) / 100;
@@ -261,11 +262,10 @@ function RoleBlock({
         πλατφόρμας.
       </p>
 
-      {estimate && (
+      {estimate != null && (
         <div style={{ padding: "10px 12px", background: colors.seaGlass, borderRadius: radius.md, marginBottom: 14, fontSize: 13 }}>
-          Τέλος πλατφόρμας: εσύ πληρώνεις <span style={{ ...money, color: colors.ink }}>{estimate.clientFee}€</span>, ο{" "}
-          {role === "skipper" ? "skipper" : "ναύτης"} πληρώνει <span style={{ ...money, color: colors.ink }}>{estimate.professionalFee}€</span>{" "}
-          όταν αναλάβει — υπολογισμένο από τα μίλια, ανεξάρτητα από την τιμή που όρισες παραπάνω.
+          Τέλος πλατφόρμας: <span style={{ ...money, color: colors.ink }}>{estimate}€</span> — υπολογισμένο από τα
+          μίλια, ανεξάρτητα από την τιμή που όρισες παραπάνω.
         </div>
       )}
 
@@ -440,33 +440,49 @@ function DeliveryForm({ onCreated }) {
   );
 }
 
+// Ρόλοι που μπορούν να προστεθούν μετά τον skipper — κάθε ρόλος πληρώματος
+// εκτός από skipper, με όποια σειρά τα ορίζει το roles.js. Πριν το 0070
+// επιτρεπόταν μόνο ναύτης· ζητήθηκε ρητά να μην αποκλείει η πλατφόρμα
+// συνδυασμούς όπως "δύο ναύτες, ένας captain, μία μαγείρισσα" — ο πελάτης
+// αποφασίζει ο ίδιος ποιο πλήρωμα χρειάζεται για τη μεταφορά.
+const EXTRA_ROLES = SUPPORTED_ROLES.filter((r) => r !== "skipper");
+
 // formValues: ό,τι συμπλήρωσε στη φόρμα, τοπικά — δεν υπάρχει ακόμα καμία
 // γραμμή στη βάση. deliveryRequest γίνεται μη-null τη στιγμή που η πρώτη
 // αποστολή (πάντα skipper, υποχρεωτικός) πετύχει πραγματικά· από εκεί και
-// πέρα κάθε επόμενο block (ναύτες) το χρησιμοποιεί έτοιμο.
+// πέρα κάθε επόμενο block (υπόλοιπο πλήρωμα) το χρησιμοποιεί έτοιμο.
 function RolesStep({ formValues, deliveryRequest, onRequestCreated, restoredSkipper }) {
   const router = useRouter();
   const { session } = useAuth();
   const [settings, setSettings] = useState(null);
   const [skipperSent, setSkipperSent] = useState(false);
-  const [deckhandBlocks, setDeckhandBlocks] = useState([0]);
+  // Κάθε μπλοκ είναι { key, role } — επιτρέπει πολλά μπλοκ του ίδιου ρόλου
+  // (π.χ. δύο ναύτες), όχι μόνο έναν ανά ρόλο.
+  const [extraBlocks, setExtraBlocks] = useState([]);
+  const nextKey = useRef(0);
   const rangeStart = addDays(formValues.departureDate, -(formValues.flexibleDays || 0));
   const rangeEnd = addDays(formValues.departureDate, formValues.flexibleDays || 0);
 
   useEffect(() => {
     Promise.all([
-      getPlatformSetting("delivery_skipper_rate_per_mile"),
-      getPlatformSetting("delivery_deckhand_rate_per_mile"),
+      ...SUPPORTED_ROLES.map((r) => getPlatformSetting(`delivery_${r}_rate_per_mile`)),
       getPlatformSetting("delivery_platform_fee_pct"),
       getPlatformSetting("delivery_min_fee"),
-    ]).then(([skipperRate, deckhandRate, pct, minFee]) => {
-      setSettings({ skipperRate, deckhandRate, pct, minFee });
+    ]).then((values) => {
+      const rates = Object.fromEntries(SUPPORTED_ROLES.map((r, i) => [r, values[i]]));
+      const [pct, minFee] = values.slice(SUPPORTED_ROLES.length);
+      setSettings({ rates, pct, minFee });
     }).catch(() => {});
   }, []);
 
   function handleAuthRequired(price, selectedIds) {
     savePendingDelivery({ formValues, skipper: { price, selected: selectedIds } });
     router.push("/platform/login?next=/platform/delivery");
+  }
+
+  function addExtraBlock(role) {
+    const key = nextKey.current++;
+    setExtraBlocks((bs) => [...bs, { key, role }]);
   }
 
   return (
@@ -495,12 +511,12 @@ function RolesStep({ formValues, deliveryRequest, onRequestCreated, restoredSkip
 
       {skipperSent && (
         <>
-          <h3 style={{ ...sectionLabel, margin: "22px 0 12px" }}>Ναύτες (προαιρετικό)</h3>
-          {deckhandBlocks.map((key) => (
+          <h3 style={{ ...sectionLabel, margin: "22px 0 12px" }}>Υπόλοιπο πλήρωμα (προαιρετικό)</h3>
+          {extraBlocks.map(({ key, role }) => (
             <RoleBlock
               key={key}
               deliveryRequestId={deliveryRequest.id}
-              role="deckhand"
+              role={role}
               miles={formValues.distanceMiles}
               startDate={rangeStart}
               endDate={rangeEnd}
@@ -509,17 +525,26 @@ function RolesStep({ formValues, deliveryRequest, onRequestCreated, restoredSkip
               formValues={formValues}
               onAuthRequired={handleAuthRequired}
               onRequestCreated={onRequestCreated}
-              removable={deckhandBlocks.length > 1}
-              onRemove={() => setDeckhandBlocks((bs) => bs.filter((b) => b !== key))}
+              removable
+              onRemove={() => setExtraBlocks((bs) => bs.filter((b) => b.key !== key))}
             />
           ))}
-          <button
-            type="button"
-            style={{ ...button("secondary"), marginBottom: 20 }}
-            onClick={() => setDeckhandBlocks((bs) => [...bs, Math.max(...bs) + 1])}
-          >
-            + Προσθήκη ναύτη
-          </button>
+
+          {/* Ένα κουμπί ανά ρόλο, καθένα προσθέτει ένα νέο μπλοκ κάθε φορά
+              που πατιέται — έτσι "δύο ναύτες" είναι απλώς δύο πατήματα στο
+              ίδιο κουμπί, όχι δύο διαφορετικά βήματα. */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+            {EXTRA_ROLES.map((role) => (
+              <button
+                key={role}
+                type="button"
+                style={{ ...button("secondary"), fontSize: 13.5 }}
+                onClick={() => addExtraBlock(role)}
+              >
+                + {labelForRole(role)}
+              </button>
+            ))}
+          </div>
 
           <button style={{ ...button("primary"), width: "100%" }} onClick={() => router.push("/platform/delivery/requests")}>
             Ολοκλήρωση — προβολή αιτημάτων μου
