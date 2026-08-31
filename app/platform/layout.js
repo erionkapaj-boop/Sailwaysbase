@@ -1,4 +1,6 @@
 import { Inter, Noto_Sans_Mono, EB_Garamond } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import PlatformShell from "./PlatformShell";
 import { page, colors } from "../../lib/platform/theme";
 
@@ -46,11 +48,20 @@ export const viewport = {
   themeColor: colors.bg,
 };
 
-export default function PlatformLayout({ children }) {
+export default async function PlatformLayout({ children }) {
+  // Reads the sf_locale cookie (i18n/request.js) and hands the resolved
+  // language down to every client component in the tree via the provider
+  // below — no [locale] URL segment, so this is the only place that needs
+  // to know where the language comes from.
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
     // These .variable classes define the CSS custom properties theme.js reads.
     <div className={`${sans.variable} ${mono.variable} ${serif.variable}`} style={page}>
-      <PlatformShell>{children}</PlatformShell>
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <PlatformShell>{children}</PlatformShell>
+      </NextIntlClientProvider>
     </div>
   );
 }

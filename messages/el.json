@@ -1,0 +1,21 @@
+{
+  "Footer": {
+    "about": "Σχετικά",
+    "aboutHelp": "Σχετικά & βοήθεια",
+    "contact": "Επικοινωνία",
+    "terms": "Όροι χρήσης",
+    "termsShort": "Όροι",
+    "privacy": "Απόρρητο",
+    "vat": "ΑΦΜ",
+    "gemi": "ΓΕΜΗ"
+  },
+  "Nav": {
+    "login": "Login",
+    "homeAriaLabel": "SkipperFinder — αρχική"
+  },
+  "LanguageSwitcher": {
+    "greek": "Ελληνικά",
+    "english": "Αγγλικά",
+    "switchTo": "Αλλαγή γλώσσας σε {language}"
+  }
+}

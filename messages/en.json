@@ -1,0 +1,21 @@
+{
+  "Footer": {
+    "about": "About",
+    "aboutHelp": "About & help",
+    "contact": "Contact",
+    "terms": "Terms of use",
+    "termsShort": "Terms",
+    "privacy": "Privacy",
+    "vat": "VAT",
+    "gemi": "Reg. no."
+  },
+  "Nav": {
+    "login": "Login",
+    "homeAriaLabel": "SkipperFinder — home"
+  },
+  "LanguageSwitcher": {
+    "greek": "Greek",
+    "english": "English",
+    "switchTo": "Switch language to {language}"
+  }
+}

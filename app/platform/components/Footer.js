@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { colors, muted, money } from "../../../lib/platform/theme";
 import { company, field } from "../../../lib/platform/company";
 
@@ -10,6 +11,7 @@ const footerLink = {
 };
 
 export default function Footer() {
+  const t = useTranslations("Footer");
   return (
     <footer
       style={{
@@ -21,16 +23,16 @@ export default function Footer() {
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
         <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 14 }}>
           <Link href="/platform/about" style={footerLink}>
-            Σχετικά
+            {t("about")}
           </Link>
           <Link href="/platform/contact" style={footerLink}>
-            Επικοινωνία
+            {t("contact")}
           </Link>
           <Link href="/platform/terms" style={footerLink}>
-            Όροι χρήσης
+            {t("terms")}
           </Link>
           <Link href="/platform/privacy" style={footerLink}>
-            Απόρρητο
+            {t("privacy")}
           </Link>
         </div>
 
@@ -49,13 +51,13 @@ export default function Footer() {
           <p style={{ ...muted, fontSize: 12, margin: "0 0 4px" }}>
             {field(company.vat) && (
               <>
-                ΑΦΜ <span style={money}>{field(company.vat)}</span>
+                {t("vat")} <span style={money}>{field(company.vat)}</span>
               </>
             )}
             {field(company.vat) && field(company.gemi) ? " · " : ""}
             {field(company.gemi) && (
               <>
-                ΓΕΜΗ <span style={money}>{field(company.gemi)}</span>
+                {t("gemi")} <span style={money}>{field(company.gemi)}</span>
               </>
             )}
           </p>
@@ -76,6 +78,7 @@ export default function Footer() {
 // still get there from the public pages; this just points at "Σχετικά" as
 // the one way back out.
 export function AppFooter() {
+  const t = useTranslations("Footer");
   return (
     <footer
       style={{
@@ -101,16 +104,16 @@ export function AppFooter() {
             διακοσμητικά link. Μπαίνουν διακριτικά, δίπλα στη βοήθεια. */}
         <span style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
           <Link href="/platform/about" style={footerLink}>
-            Σχετικά &amp; βοήθεια
+            {t("aboutHelp")}
           </Link>
           <Link href="/platform/contact" style={footerLink}>
-            Επικοινωνία
+            {t("contact")}
           </Link>
           <Link href="/platform/terms" style={footerLink}>
-            Όροι
+            {t("termsShort")}
           </Link>
           <Link href="/platform/privacy" style={footerLink}>
-            Απόρρητο
+            {t("privacy")}
           </Link>
         </span>
       </div>
