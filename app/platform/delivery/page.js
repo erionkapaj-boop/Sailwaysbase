@@ -6,6 +6,7 @@ import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
 import BackButton from "../components/BackButton";
 import { labelForRole } from "../../../lib/platform/roles";
+import { formatMoney } from "../../../lib/platform/notifications";
 import {
   getPlatformSetting,
   createDeliveryRequest,
@@ -179,8 +180,8 @@ function RoleBlock({ deliveryRequestId, role, miles, startDate, endDate, setting
           {selected.size === 1 ? "ος/α" : "οι/ες"}
         </p>
         <p style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>
-          Προσφερόμενη τιμή: <span style={{ ...money, color: colors.ink }}>{sent.offered_price}€</span> · Χρεώθηκες{" "}
-          <span style={{ ...money, color: colors.ink }}>{sent.client_fee}€</span> τέλος πλατφόρμας.
+          Προσφερόμενη τιμή: <span style={{ ...money, color: colors.ink }}>{formatMoney(sent.offered_price)}€</span> · Χρεώθηκες{" "}
+          <span style={{ ...money, color: colors.ink }}>{formatMoney(sent.client_fee)}€</span> τέλος πλατφόρμας.
         </p>
       </div>
     );

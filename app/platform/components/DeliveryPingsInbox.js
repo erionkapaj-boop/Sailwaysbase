@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import { listMyDeliveryPings, acceptDeliveryRoleRequest, declineDeliveryRoleRequest } from "../../../lib/platform/db";
 import { labelForRole } from "../../../lib/platform/roles";
-import { formatDate, formatDateTime } from "../../../lib/platform/notifications";
+import { formatDate, formatDateTime, formatMoney } from "../../../lib/platform/notifications";
 import { card, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 
 const ACCEPT_ERRORS = {
@@ -92,10 +92,10 @@ export default function DeliveryPingsInbox({ skipperId }) {
             {request.notes && <p style={{ ...muted, margin: "6px 0 0" }}>«{request.notes}»</p>}
 
             <p style={{ margin: "10px 0 0", fontSize: 14 }}>
-              Προσφερόμενη τιμή: <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{role_request.offered_price}€</span>
+              Προσφερόμενη τιμή: <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{formatMoney(role_request.offered_price)}€</span>
             </p>
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              Με την ανάληψη χρεώνεσαι <span style={{ ...money, color: colors.ink }}>{role_request.professional_fee}€</span> τέλος πλατφόρμας.
+              Με την ανάληψη χρεώνεσαι <span style={{ ...money, color: colors.ink }}>{formatMoney(role_request.professional_fee)}€</span> τέλος πλατφόρμας.
             </p>
 
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>

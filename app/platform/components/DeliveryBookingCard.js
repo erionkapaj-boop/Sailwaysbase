@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { getDeliveryBookingCounterpart } from "../../../lib/platform/db";
 import { labelForRole } from "../../../lib/platform/roles";
-import { formatDate } from "../../../lib/platform/notifications";
+import { formatDate, formatMoney } from "../../../lib/platform/notifications";
 import { card, muted, colors, money, badge } from "../../../lib/platform/theme";
 
 const STATUS_LABEL = { confirmed: "Επιβεβαιωμένη", completed: "Ολοκληρώθηκε", cancelled: "Ακυρώθηκε" };
@@ -40,7 +40,7 @@ export default function DeliveryBookingCard({ booking }) {
         <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>Καλύπτεται: {covers.map((k) => COVER_LABEL[k]).join(", ")}</p>
       )}
       <p style={{ margin: "8px 0 0", fontSize: 14 }}>
-        Συμφωνημένη τιμή: <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{booking.offered_price}€</span>
+        Συμφωνημένη τιμή: <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{formatMoney(booking.offered_price)}€</span>
       </p>
       {counterpart && (
         <p style={{ ...muted, fontSize: 13.5, margin: "8px 0 0" }}>

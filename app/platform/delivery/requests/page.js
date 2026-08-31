@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../AuthContext";
 import BackButton from "../../components/BackButton";
 import { labelForRole } from "../../../../lib/platform/roles";
-import { formatDate } from "../../../../lib/platform/notifications";
+import { formatDate, formatMoney } from "../../../../lib/platform/notifications";
 import { listMyDeliveryRequests, relistDeliveryRoleRequest, searchDeliveryCandidates } from "../../../../lib/platform/db";
 import { container, card, h1, h2, muted, button, input, colors, money, badge, sectionLabel } from "../../../../lib/platform/theme";
 
@@ -37,7 +37,7 @@ function addDays(isoDate, days) {
 }
 
 function RelistForm({ roleRequest, request, onDone }) {
-  const [price, setPrice] = useState(String(roleRequest.offered_price));
+  const [price, setPrice] = useState(String(formatMoney(roleRequest.offered_price)));
   const [candidates, setCandidates] = useState(null);
   const [selected, setSelected] = useState(
     new Set((roleRequest.pings || []).filter((p) => p.status !== "accepted").map((p) => p.skipper_id))
@@ -118,7 +118,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
     <div style={{ padding: "12px 0", borderTop: `1px solid ${colors.border}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
         <span style={{ fontWeight: 600 }}>
-          {labelForRole(roleRequest.crew_role)} · <span style={money}>{roleRequest.offered_price}€</span>
+          {labelForRole(roleRequest.crew_role)} · <span style={money}>{formatMoney(roleRequest.offered_price)}€</span>
         </span>
         <span style={badge(roleRequest.status === "filled" ? "success" : roleRequest.status === "cancelled" ? "danger" : "neutral")}>
           {ROLE_REQUEST_LABEL[roleRequest.status] || roleRequest.status}
