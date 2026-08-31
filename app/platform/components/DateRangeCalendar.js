@@ -9,6 +9,23 @@ const MONTH_NAMES = [
   "Ιούλιος", "Αύγουστος", "Σεπτέμβριος", "Οκτώβριος", "Νοέμβριος", "Δεκέμβριος",
 ];
 
+const navArrow = {
+  width: 32,
+  height: 32,
+  borderRadius: "50%",
+  border: `1px solid ${colors.border}`,
+  background: colors.card,
+  color: colors.ink,
+  fontSize: 15,
+  lineHeight: 1,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  flexShrink: 0,
+};
+
 const pad = (n) => String(n).padStart(2, "0");
 // Local formatting — toISOString() shifts to UTC and can land on the wrong
 // day near midnight, which is precisely wrong for picking dates.
@@ -70,36 +87,28 @@ export default function DateRangeCalendar({ startDate, endDate, onChange, minDat
 
   return (
     <div style={{ ...card, padding: 16, marginBottom: 0 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <button
-          type="button"
-          onClick={() => setMonth((m) => addMonths(m, -1))}
-          style={{ ...button("secondary"), padding: "6px 12px" }}
-        >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <button type="button" onClick={() => setMonth((m) => addMonths(m, -1))} style={navArrow}>
           ‹
         </button>
-        <span style={{ fontFamily: fontSans, fontSize: 15, fontWeight: 600 }}>
+        <span style={{ fontFamily: fontSans, fontSize: 16, fontWeight: 600 }}>
           {MONTH_NAMES[month.getMonth()]} {month.getFullYear()}
         </span>
-        <button
-          type="button"
-          onClick={() => setMonth((m) => addMonths(m, 1))}
-          style={{ ...button("secondary"), padding: "6px 12px" }}
-        >
+        <button type="button" onClick={() => setMonth((m) => addMonths(m, 1))} style={navArrow}>
           ›
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 6, width: "100%" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5, marginBottom: 8, width: "100%" }}>
         {WEEKDAYS.map((w) => (
-          <div key={w} style={{ ...muted, fontSize: 11, textAlign: "center" }}>
+          <div key={w} style={{ ...muted, fontSize: 11, textAlign: "center", letterSpacing: "0.03em" }}>
             {w}
           </div>
         ))}
       </div>
 
       <div
-        style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, width: "100%", boxSizing: "border-box" }}
+        style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5, width: "100%", boxSizing: "border-box" }}
         onMouseLeave={() => setHovered(null)}
       >
         {cells.map((d, i) => {
@@ -108,6 +117,7 @@ export default function DateRangeCalendar({ startDate, endDate, onChange, minDat
           const disabled = key < floor;
           const selected = inSpan(key);
           const edge = selected && isEdge(key);
+          const isToday = key === today;
 
           return (
             <button
@@ -117,23 +127,37 @@ export default function DateRangeCalendar({ startDate, endDate, onChange, minDat
               onClick={() => handleDay(key)}
               onMouseEnter={() => pendingStart && setHovered(key)}
               style={{
-                minHeight: 38,
+                position: "relative",
+                minHeight: 42,
                 minWidth: 0,
                 boxSizing: "border-box",
                 padding: 0,
                 borderRadius: radius.sm,
-                border: "1px solid transparent",
+                // Κάθε επιλέξιμη μέρα έχει πραγματικό περίγραμμα από την αρχή —
+                // χωρίς αυτό οι κενές μέρες επιπλέουν σαν αριθμοί στο κενό
+                // αντί να διαβάζονται σαν πλέγμα ημερολογίου.
+                border: `1px solid ${edge ? colors.ink : disabled ? "transparent" : colors.border}`,
                 cursor: disabled ? "default" : "pointer",
                 fontFamily: fontMono,
-                fontSize: 12,
+                fontSize: 13,
+                fontWeight: edge ? 600 : 400,
                 // Edges solid, the days between them tinted — the shape of
                 // the stay reads at a glance instead of two isolated dots.
-                background: edge ? colors.ink : selected ? calendarDay.available.bg : "transparent",
+                background: edge ? colors.ink : selected ? calendarDay.available.bg : disabled ? "transparent" : colors.card,
                 color: edge ? "#fff" : disabled ? colors.inkSoft : colors.ink,
-                opacity: disabled ? 0.3 : 1,
+                opacity: disabled ? 0.35 : 1,
               }}
             >
               {d.getDate()}
+              {isToday && !edge && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute", bottom: 5, left: "50%", transform: "translateX(-50%)",
+                    width: 4, height: 4, borderRadius: "50%", background: colors.accent,
+                  }}
+                />
+              )}
             </button>
           );
         })}

@@ -60,6 +60,23 @@ const chip = (active) => ({
   color: active ? "#fff" : colors.ink,
 });
 
+const navArrow = {
+  width: 32,
+  height: 32,
+  borderRadius: "50%",
+  border: `1px solid ${colors.border}`,
+  background: colors.card,
+  color: colors.ink,
+  fontSize: 15,
+  lineHeight: 1,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  flexShrink: 0,
+};
+
 // ----------------------------------------------------------------------------
 // Ζητήθηκε ρητά: το ημερολόγιο να μοιάζει με ό,τι χρησιμοποιεί κανείς
 // καθημερινά για να κλείσει διακοπές/ξενοδοχείο, όχι με δικό του σύστημα
@@ -280,28 +297,18 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <button
-          type="button"
-          aria-label="Προηγούμενος μήνας"
-          onClick={() => setMonth((m) => addMonths(m, -1))}
-          style={{ ...button("secondary"), padding: "6px 12px" }}
-        >
+        <button type="button" aria-label="Προηγούμενος μήνας" onClick={() => setMonth((m) => addMonths(m, -1))} style={navArrow}>
           ‹
         </button>
         <span style={{ fontFamily: fontSans, fontSize: 16, fontWeight: 600 }}>
           {MONTH_NAMES[month.getMonth()]} {month.getFullYear()}
         </span>
-        <button
-          type="button"
-          aria-label="Επόμενος μήνας"
-          onClick={() => setMonth((m) => addMonths(m, 1))}
-          style={{ ...button("secondary"), padding: "6px 12px" }}
-        >
+        <button type="button" aria-label="Επόμενος μήνας" onClick={() => setMonth((m) => addMonths(m, 1))} style={navArrow}>
           ›
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 8, width: "100%", boxSizing: "border-box" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5, marginBottom: 8, width: "100%", boxSizing: "border-box" }}>
         {WEEKDAYS.map((w) => (
           <div key={w} style={{ ...muted, fontSize: 11, textAlign: "center", letterSpacing: "0.04em" }}>
             {w}
@@ -309,7 +316,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, width: "100%", boxSizing: "border-box" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5, width: "100%", boxSizing: "border-box" }}>
         {(() => {
           let prevSig = null;
           return gridDays.map((d, i) => {
@@ -320,6 +327,8 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
             const key = fmt(d);
             const state = cellState(key);
             const isPast = key < today;
+            const isToday = key === today;
+            const disabled = state === "booked" || isPast;
             const sig = state === "available" ? daySignature(key) : null;
             const showLabel = state === "available" && sig !== prevSig;
             prevSig = sig;
@@ -330,9 +339,10 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
               <button
                 key={key}
                 type="button"
-                disabled={state === "booked" || isPast}
+                disabled={disabled}
                 onClick={() => onDayClick(key)}
                 style={{
+                  position: "relative",
                   display: "flex",
                   flexDirection: "column",
                   minWidth: 0,
@@ -340,17 +350,29 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 1,
-                  minHeight: 50,
+                  minHeight: 52,
                   padding: 2,
                   borderRadius: radius.sm,
-                  border: "1px solid transparent",
+                  // Κάθε επιλέξιμη μέρα έχει πραγματικό περίγραμμα από την
+                  // αρχή — χωρίς αυτό οι κενές μέρες επιπλέουν σαν αριθμοί
+                  // στο κενό αντί να διαβάζονται σαν πλέγμα ημερολογίου.
+                  border: `1px solid ${disabled ? "transparent" : tone ? "transparent" : colors.border}`,
                   fontFamily: "inherit",
-                  cursor: state === "booked" || isPast ? "default" : "pointer",
-                  background: tone?.bg ?? "transparent",
+                  cursor: disabled ? "default" : "pointer",
+                  background: tone?.bg ?? (disabled ? "transparent" : colors.card),
                   color: isPast ? colors.inkSoft : tone?.fg ?? colors.inkSoft,
                   opacity: isPast ? 0.35 : 1,
                 }}
               >
+                {isToday && state === "empty" && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute", top: 4, right: 4,
+                      width: 4, height: 4, borderRadius: "50%", background: colors.accent,
+                    }}
+                  />
+                )}
                 <span
                   style={{
                     fontFamily: fontMono,
@@ -378,15 +400,15 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
 
       <div style={{ display: "flex", gap: 14, fontSize: 12, marginTop: 16, flexWrap: "wrap" }}>
         <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
-          <i style={{ width: 10, height: 10, borderRadius: 3, background: calendarDay.available.bg, display: "inline-block" }} />
+          <i style={{ width: 10, height: 10, borderRadius: "50%", background: calendarDay.available.bg, display: "inline-block" }} />
           Διαθέσιμο
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
-          <i style={{ width: 10, height: 10, borderRadius: 3, background: calendarDay.blocked.bg, display: "inline-block" }} />
+          <i style={{ width: 10, height: 10, borderRadius: "50%", background: calendarDay.blocked.bg, display: "inline-block" }} />
           Κλειστό
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
-          <i style={{ width: 10, height: 10, borderRadius: 3, background: calendarDay.booked.bg, display: "inline-block" }} />
+          <i style={{ width: 10, height: 10, borderRadius: "50%", background: calendarDay.booked.bg, display: "inline-block" }} />
           Κράτηση
         </span>
       </div>
