@@ -461,6 +461,8 @@ function RoleSection({
   onToggle,
   onSetSelection,
   onBoatTypeChange,
+  positions,
+  onPositionsChange,
 }) {
   const [boatTypeId, setBoatTypeId] = useState("");
   const [boatTypeError, setBoatTypeError] = useState(false);
@@ -574,6 +576,50 @@ function RoleSection({
           Οι επιλογές σου διατηρήθηκαν — θα τις βρεις παρακάτω, στο σύνολο της παραγγελίας.
         </p>
       )}
+
+      {/* Ένα μεγάλο σκάφος μπορεί να χρειάζεται π.χ. δύο skipper — δύο
+          πραγματικές θέσεις, όχι έναν από δύο υποψήφιους. Κάθε θέση γίνεται
+          δικό της αίτημα στο checkout παρακάτω, ώστε να μην κλειδώνει μόνο
+          η μία. */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, margin: "0 0 14px" }}>
+        <span style={{ fontSize: 13.5, color: colors.inkSoft }}>
+          Πόσες θέσεις χρειάζεσαι για {roleLabel.toLowerCase()};
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            type="button"
+            onClick={() => onPositionsChange(Math.max(1, positions - 1))}
+            disabled={positions <= 1}
+            aria-label={`Λιγότερες θέσεις ${roleLabel.toLowerCase()}`}
+            style={{
+              width: 30, height: 30, borderRadius: "50%", border: `1px solid ${colors.border}`,
+              background: colors.card, cursor: positions <= 1 ? "default" : "pointer", fontSize: 16, lineHeight: 1,
+              color: positions <= 1 ? colors.border : colors.ink,
+            }}
+          >
+            −
+          </button>
+          <span style={{ ...money, minWidth: 18, textAlign: "center" }}>{positions}</span>
+          <button
+            type="button"
+            onClick={() => onPositionsChange(positions + 1)}
+            aria-label={`Περισσότερες θέσεις ${roleLabel.toLowerCase()}`}
+            style={{
+              width: 30, height: 30, borderRadius: "50%", border: `1px solid ${colors.border}`,
+              background: colors.card, cursor: "pointer", fontSize: 16, lineHeight: 1, color: colors.ink,
+            }}
+          >
+            +
+          </button>
+        </div>
+      </div>
+      {positions > 1 && (
+        <p style={{ ...muted, fontSize: 12.5, margin: "-8px 0 14px" }}>
+          Θα σταλούν {positions} ξεχωριστά αιτήματα σε όσους επιλέξεις παρακάτω — ο καθένας μπορεί να πάρει μόνο μία
+          θέση.
+        </p>
+      )}
+
       {/* Same rule as the shared block above: a boat type that arrived
           already chosen (the wizard's own "Τι σκάφος;" step) has no reason
           to be re-asked here too — the whole per-role form only reappears
@@ -661,16 +707,21 @@ function RoleSection({
 // until at least one role has a pick (or the send has actually gone
 // through), so an empty page never carries a checkout bar with nothing in
 // it.
-function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, filters, fee, session, router }) {
+function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positionsByRole, filters, fee, session, router }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [sentRoles, setSentRoles] = useState(new Set());
+  const [sentSlots, setSentSlots] = useState(new Set());
   const [done, setDone] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
 
   const activeRoles = supportedRoles.filter((r) => (selectionsByRole[r]?.size || 0) > 0);
-  const totalSelected = activeRoles.reduce((n, r) => n + selectionsByRole[r].size, 0);
-  const totalFee = fee != null ? activeRoles.length * fee : null;
+  const positionsFor = (role) => positionsByRole[role] || 1;
+  const totalSlots = activeRoles.reduce((n, r) => n + positionsFor(r), 0);
+  const totalFee = fee != null ? totalSlots * fee : null;
+  // A position can't be filled by fewer candidates than there are positions
+  // to fill — someone would end up guaranteed empty-handed. Caught here
+  // rather than left to the backend, so it reads as guidance, not an error.
+  const shortRoles = activeRoles.filter((r) => positionsFor(r) > selectionsByRole[r].size);
 
   if (activeRoles.length === 0 && !done) return null;
 
@@ -685,7 +736,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, filters, 
       for (const role of supportedRoles) {
         const set = selectionsByRole[role];
         if (!set || set.size === 0) continue;
-        selections[role] = { boatTypeId: boatTypesByRole[role] || "", selected: Array.from(set) };
+        selections[role] = { boatTypeId: boatTypesByRole[role] || "", positions: positionsFor(role), selected: Array.from(set) };
       }
       savePendingBroadcast({
         roles: supportedRoles,
@@ -712,30 +763,47 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, filters, 
       setError("Συμπλήρωσε αριθμό ατόμων και ιδιωτική καμπίνα πριν στείλεις το αίτημα.");
       return;
     }
+    if (shortRoles.length > 0) {
+      setError(
+        `Χρειάζεσαι τουλάχιστον όσους επιλεγμένους όσες και οι θέσεις: ${shortRoles
+          .map((r) => `${labelForRole(r)} (${positionsFor(r)} θέσεις, ${selectionsByRole[r].size} επιλεγμένοι)`)
+          .join(", ")}.`
+      );
+      return;
+    }
     setError("");
     setBusy(true);
-    // Already-sent roles are skipped so a retry after a partial failure
-    // (say hostess went through, cook then failed) only resends what
-    // actually failed — never a second charge for a role that already
-    // went out.
-    const nowSent = new Set(sentRoles);
+    // Each role that needs more than one position becomes that many
+    // independent requests, all broadcast to the same picked candidates —
+    // whoever claims one can't also claim another for the same dates (the
+    // backend's own overlap check), so the positions fill with different
+    // people instead of one person racing themselves. Already-sent slots
+    // are skipped so a retry after a partial failure (say the first
+    // skipper slot went through, the second then failed) only resends what
+    // actually failed — never a second charge for a slot that already went
+    // out.
+    const nowSent = new Set(sentSlots);
     try {
       for (const role of activeRoles) {
-        if (nowSent.has(role)) continue;
-        const request = await createBookingRequest({
-          startDate: filters.startDate,
-          endDate: filters.endDate,
-          regionId: filters.regionId,
-          departurePoint: filters.departurePoint,
-          boatTypeId: role === "skipper" ? boatTypesByRole[role] || null : null,
-          maxPriceFilter: null,
-          crewRole: role,
-          partySize: Number(filters.partySize),
-          privateCabin: filters.privateCabin,
-        });
-        await payAndBroadcast(request.id, Array.from(selectionsByRole[role]));
-        nowSent.add(role);
-        setSentRoles(new Set(nowSent));
+        const positions = positionsFor(role);
+        for (let i = 0; i < positions; i++) {
+          const slotKey = `${role}#${i}`;
+          if (nowSent.has(slotKey)) continue;
+          const request = await createBookingRequest({
+            startDate: filters.startDate,
+            endDate: filters.endDate,
+            regionId: filters.regionId,
+            departurePoint: filters.departurePoint,
+            boatTypeId: role === "skipper" ? boatTypesByRole[role] || null : null,
+            maxPriceFilter: null,
+            crewRole: role,
+            partySize: Number(filters.partySize),
+            privateCabin: filters.privateCabin,
+          });
+          await payAndBroadcast(request.id, Array.from(selectionsByRole[role]));
+          nowSent.add(slotKey);
+          setSentSlots(new Set(nowSent));
+        }
       }
       setDone(true);
     } catch (err) {
@@ -751,10 +819,11 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, filters, 
         {done ? (
           <div>
             <p style={{ color: colors.accent, fontWeight: 600, margin: "0 0 14px" }}>
-              ✓ Το αίτημα στάλθηκε σε <span style={money}>{totalSelected}</span>{" "}
-              {totalSelected === 1 ? "επαγγελματία" : "επαγγελματίες"}
-              {activeRoles.length > 1
-                ? ` (${activeRoles.map((r) => `${selectionsByRole[r].size} ${labelForRole(r).toLowerCase()}`).join(", ")})`
+              ✓ Στάλθηκαν <span style={money}>{totalSlots}</span> {totalSlots === 1 ? "αίτημα" : "αιτήματα"}
+              {activeRoles.length > 0
+                ? ` (${activeRoles
+                    .map((r) => `${positionsFor(r)} ${positionsFor(r) === 1 ? "θέση" : "θέσεις"} ${labelForRole(r).toLowerCase()}`)
+                    .join(", ")})`
                 : ""}
             </p>
             <button style={button("primary")} onClick={() => router.push("/platform/requests")}>
@@ -770,20 +839,26 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, filters, 
                 key={role}
                 style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "6px 0" }}
               >
-                <span>{labelForRole(role)}</span>
-                <span style={money}>{selectionsByRole[role].size}</span>
+                <span>
+                  {labelForRole(role)}
+                  {positionsFor(role) > 1 ? ` · ${positionsFor(role)} θέσεις` : ""}
+                </span>
+                <span style={{ ...muted, fontSize: 13 }}>
+                  <span style={{ ...money, color: colors.ink }}>{selectionsByRole[role].size}</span> επιλεγμέν
+                  {selectionsByRole[role].size === 1 ? "ος/η" : "οι"}
+                </span>
               </div>
             ))}
 
             <div style={{ padding: "12px 14px", background: colors.seaGlass, borderRadius: radius.md, margin: "10px 0 14px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                <span style={{ fontSize: 14 }}>Τέλος πλατφόρμας</span>
+                <span style={{ fontSize: 14 }}>Τέλος πλατφόρμας ({totalSlots} {totalSlots === 1 ? "θέση" : "θέσεις"})</span>
                 <span style={{ ...money, fontSize: 18, fontWeight: 700 }}>{totalFee != null ? `${totalFee}€` : "—"}</span>
               </div>
               <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
-                {fee != null ? `${fee}€` : "—"} για κάθε ρόλο που επιλέγεις, ανεξάρτητα από πόσους υποψήφιους διάλεξες
-                μέσα σε αυτόν. Κάθε αίτημα στέλνεται σε όλους τους επιλεγμένους μαζί, ανά ρόλο· ο πρώτος που θα το
-                αποδεχτεί αναλαμβάνει εκείνο το κομμάτι.
+                {fee != null ? `${fee}€` : "—"} για κάθε θέση που χρειάζεσαι, ανεξάρτητα από πόσους υποψήφιους διάλεξες
+                για αυτήν. Όσοι επιλεγμένοι μοιράζονται μία θέση τη βλέπουν όλοι μαζί· ο πρώτος που θα την αποδεχτεί
+                την αναλαμβάνει, χωρίς να μπορεί να πάρει και δεύτερη θέση στο ίδιο ταξίδι.
               </p>
             </div>
 
@@ -861,6 +936,10 @@ function SearchPageInner() {
   // each section only knowing about its own picks.
   const [selectionsByRole, setSelectionsByRole] = useState({});
   const [boatTypesByRole, setBoatTypesByRole] = useState({});
+  // How many separate positions each role needs (a big boat wanting two
+  // skippers, say) — defaults to one, also lifted up here so the checkout
+  // can turn it into that many independent requests per role.
+  const [positionsByRole, setPositionsByRole] = useState({});
 
   function getRoleSelection(role) {
     return selectionsByRole[role] || new Set();
@@ -877,6 +956,12 @@ function SearchPageInner() {
   }
   function setRoleBoatType(role, boatTypeId) {
     setBoatTypesByRole((prev) => (prev[role] === boatTypeId ? prev : { ...prev, [role]: boatTypeId }));
+  }
+  function getRolePositions(role) {
+    return positionsByRole[role] || 1;
+  }
+  function setRolePositions(role, n) {
+    setPositionsByRole((prev) => ({ ...prev, [role]: Math.max(1, n) }));
   }
   // Which shared fields are missing the moment "Αναζήτηση" is pressed — not
   // updated live as the user types elsewhere, only cleared field-by-field as
@@ -932,6 +1017,16 @@ function SearchPageInner() {
       if (isComplete(p.filters || {})) {
         setShowFullFilters(false);
       }
+      // Boat type round-trips through each RoleSection's own restore (see
+      // its `initial` prop), which reports it back up once mounted. How
+      // many positions were wanted per role has nowhere else to come from
+      // though — it's a plain controlled prop, not local state — so it has
+      // to be seeded here directly.
+      const positions = {};
+      for (const [role, sel] of Object.entries(p.selections || {})) {
+        if (sel.positions) positions[role] = sel.positions;
+      }
+      if (Object.keys(positions).length > 0) setPositionsByRole(positions);
     }
     // Runs once, right after mount — deliberately not re-checked on every
     // params change, since the marker is single-use by design (see
@@ -1157,6 +1252,8 @@ function SearchPageInner() {
           onToggle={(id) => toggleRoleSelection(role, id)}
           onSetSelection={(ids) => setRoleSelection(role, ids)}
           onBoatTypeChange={(boatTypeId) => setRoleBoatType(role, boatTypeId)}
+          positions={getRolePositions(role)}
+          onPositionsChange={(n) => setRolePositions(role, n)}
         />
       ))}
 
@@ -1164,6 +1261,7 @@ function SearchPageInner() {
         supportedRoles={supportedRoles}
         selectionsByRole={selectionsByRole}
         boatTypesByRole={boatTypesByRole}
+        positionsByRole={positionsByRole}
         filters={filters}
         fee={fee}
         session={session}
