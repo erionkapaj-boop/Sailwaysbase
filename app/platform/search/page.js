@@ -716,11 +716,15 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
 
   const activeRoles = supportedRoles.filter((r) => (selectionsByRole[r]?.size || 0) > 0);
   const positionsFor = (role) => positionsByRole[role] || 1;
-  const totalSlots = activeRoles.reduce((n, r) => n + positionsFor(r), 0);
+  // What actually gets sent for a role is capped at how many candidates got
+  // picked for it — asking for two skippers but only finding one available
+  // is exactly the ordinary case, not an error state: send the one, don't
+  // block the whole request waiting for a second person who may not exist.
+  // A position with genuinely nobody behind it just never goes out, rather
+  // than going out to nobody and quietly expiring.
+  const slotsFor = (role) => Math.min(positionsFor(role), selectionsByRole[role].size);
+  const totalSlots = activeRoles.reduce((n, r) => n + slotsFor(r), 0);
   const totalFee = fee != null ? totalSlots * fee : null;
-  // A position can't be filled by fewer candidates than there are positions
-  // to fill — someone would end up guaranteed empty-handed. Caught here
-  // rather than left to the backend, so it reads as guidance, not an error.
   const shortRoles = activeRoles.filter((r) => positionsFor(r) > selectionsByRole[r].size);
 
   if (activeRoles.length === 0 && !done) return null;
@@ -763,29 +767,23 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
       setError("Συμπλήρωσε αριθμό ατόμων και ιδιωτική καμπίνα πριν στείλεις το αίτημα.");
       return;
     }
-    if (shortRoles.length > 0) {
-      setError(
-        `Χρειάζεσαι τουλάχιστον όσους επιλεγμένους όσες και οι θέσεις: ${shortRoles
-          .map((r) => `${labelForRole(r)} (${positionsFor(r)} θέσεις, ${selectionsByRole[r].size} επιλεγμένοι)`)
-          .join(", ")}.`
-      );
-      return;
-    }
     setError("");
     setBusy(true);
-    // Each role that needs more than one position becomes that many
-    // independent requests, all broadcast to the same picked candidates —
-    // whoever claims one can't also claim another for the same dates (the
-    // backend's own overlap check), so the positions fill with different
-    // people instead of one person racing themselves. Already-sent slots
-    // are skipped so a retry after a partial failure (say the first
-    // skipper slot went through, the second then failed) only resends what
-    // actually failed — never a second charge for a slot that already went
-    // out.
+    // Each position becomes its own independent request, all broadcast to
+    // the same picked candidates — whoever claims one can't also claim
+    // another for the same dates (the backend's own overlap check), so the
+    // positions fill with different people instead of one person racing
+    // themselves. Wanting more positions than there are picked candidates
+    // for isn't blocked — it's the ordinary case of not finding everyone
+    // you'd hoped for — it just sends as many as there are people for.
+    // Already-sent slots are skipped so a retry after a partial failure
+    // (say the first skipper slot went through, the second then failed)
+    // only resends what actually failed — never a second charge for a slot
+    // that already went out.
     const nowSent = new Set(sentSlots);
     try {
       for (const role of activeRoles) {
-        const positions = positionsFor(role);
+        const positions = slotsFor(role);
         for (let i = 0; i < positions; i++) {
           const slotKey = `${role}#${i}`;
           if (nowSent.has(slotKey)) continue;
@@ -822,7 +820,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
               ✓ Στάλθηκαν <span style={money}>{totalSlots}</span> {totalSlots === 1 ? "αίτημα" : "αιτήματα"}
               {activeRoles.length > 0
                 ? ` (${activeRoles
-                    .map((r) => `${positionsFor(r)} ${positionsFor(r) === 1 ? "θέση" : "θέσεις"} ${labelForRole(r).toLowerCase()}`)
+                    .map((r) => `${slotsFor(r)} ${slotsFor(r) === 1 ? "θέση" : "θέσεις"} ${labelForRole(r).toLowerCase()}`)
                     .join(", ")})`
                 : ""}
             </p>
@@ -849,6 +847,23 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
                 </span>
               </div>
             ))}
+
+            {/* Not a blocker — wanting two skippers and finding one
+                available is the ordinary case, not an error. This just says
+                plainly what will actually go out, so it's never a surprise
+                after the fact. */}
+            {shortRoles.length > 0 && (
+              <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px" }}>
+                {shortRoles
+                  .map(
+                    (r) =>
+                      `Για ${labelForRole(r).toLowerCase()} ζήτησες ${positionsFor(r)} θέσεις αλλά επέλεξες ${selectionsByRole[r].size} — θα σταλ${
+                        slotsFor(r) === 1 ? "εί μόνο 1 αίτημα" : `ούν ${slotsFor(r)} αιτήματα`
+                      }, όσα βρήκες.`
+                  )
+                  .join(" ")}
+              </p>
+            )}
 
             <div style={{ padding: "12px 14px", background: colors.seaGlass, borderRadius: radius.md, margin: "10px 0 14px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
