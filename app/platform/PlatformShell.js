@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer, { AppFooter } from "./components/Footer";
 import Logo from "./components/Logo";
@@ -102,6 +103,7 @@ function buildMenuItems({ role, isAdmin }) {
 
 function NavBar() {
   const { session, userRow, profile, loading, signOut, role, isAdmin, notifications, refreshNotifications } = useAuth();
+  const t = useTranslations("Nav");
 
   if (session && (isAdmin || role === "skipper" || role === "client")) {
     return (
@@ -120,7 +122,7 @@ function NavBar() {
   // Signed out: the plain marketing header.
   return (
     <div style={{ ...nav, flexWrap: "wrap", rowGap: 8, columnGap: 12 }}>
-      <Link href="/platform" style={{ textDecoration: "none" }} aria-label="SkipperFinder — αρχική">
+      <Link href="/platform" style={{ textDecoration: "none" }} aria-label={t("homeAriaLabel")}>
         <Logo />
       </Link>
       {/* Header carries Login only — no search link (the home page is the
@@ -128,7 +130,7 @@ function NavBar() {
           step inside the flow, at the SMS OTP moment, not a separate door. */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", rowGap: 8 }}>
         <Link href="/platform/login" style={{ ...navLink, color: colors.ink }}>
-          Login
+          {t("login")}
         </Link>
       </div>
     </div>

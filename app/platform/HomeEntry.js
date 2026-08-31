@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
 import { button, colors, muted } from "../../lib/platform/theme";
@@ -9,6 +10,7 @@ import { button, colors, muted } from "../../lib/platform/theme";
 // no form, no dropdowns, no tagline. The form appears only after the CTA is
 // pressed, and then one step at a time.
 export default function HomeEntry() {
+  const t = useTranslations("Home");
   const [started, setStarted] = useState(false);
 
   // Opening the wizard used to be pure component state — nothing on this
@@ -56,7 +58,7 @@ export default function HomeEntry() {
           borderColor: colors.ink,
         }}
       >
-        Αναζήτηση Πληρώματος
+        {t("searchCrew")}
       </button>
 
       <div style={{ marginTop: 22 }}>
@@ -64,7 +66,7 @@ export default function HomeEntry() {
           href="/platform/delivery"
           style={{ ...muted, fontSize: 14, color: colors.inkSoft, textDecoration: "none" }}
         >
-          Μεταφορά Σκάφους →
+          {t("boatDelivery")}
         </Link>
       </div>
 
@@ -77,7 +79,7 @@ export default function HomeEntry() {
           href="/platform/professionals"
           style={{ fontSize: 13, color: colors.inkSoft, textDecoration: "none", opacity: 0.85 }}
         >
-          Είσαι skipper, hostess, cook ή ναύτης; Κάνε εγγραφή →
+          {t("professionalSignup")}
         </Link>
       </div>
     </div>

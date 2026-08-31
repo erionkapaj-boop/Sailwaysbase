@@ -13,6 +13,11 @@
     "login": "Login",
     "homeAriaLabel": "SkipperFinder — αρχική"
   },
+  "Home": {
+    "searchCrew": "Αναζήτηση Πληρώματος",
+    "boatDelivery": "Μεταφορά Σκάφους →",
+    "professionalSignup": "Είσαι skipper, hostess, cook ή ναύτης; Κάνε εγγραφή →"
+  },
   "LanguageSwitcher": {
     "greek": "Ελληνικά",
     "english": "Αγγλικά",

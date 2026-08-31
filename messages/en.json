@@ -13,6 +13,11 @@
     "login": "Login",
     "homeAriaLabel": "SkipperFinder — home"
   },
+  "Home": {
+    "searchCrew": "Find Crew",
+    "boatDelivery": "Boat Delivery →",
+    "professionalSignup": "Are you a skipper, hostess, cook, or deckhand? Sign up →"
+  },
   "LanguageSwitcher": {
     "greek": "Greek",
     "english": "English",
