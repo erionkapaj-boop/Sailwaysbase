@@ -89,7 +89,10 @@ export default function DeliveryPingsInbox({ skipperId }) {
               </p>
             )}
             <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>Στάλθηκε {formatDateTime(ping.sent_at)}</p>
-            {request.notes && <p style={{ ...muted, margin: "6px 0 0" }}>«{request.notes}»</p>}
+            {/* Οι σημειώσεις του πελάτη ΔΕΝ εμφανίζονται εδώ, σκόπιμα: είναι
+                ελεύθερο κείμενο και θα μπορούσε να περιέχει στοιχεία
+                επικοινωνίας, που αποκαλύπτονται μόνο μετά την επιβεβαίωση
+                κράτησης — 0071 τις μηδενίζει ήδη στο ίδιο το RPC. */}
 
             <p style={{ margin: "10px 0 0", fontSize: 14 }}>
               Προσφερόμενη τιμή: <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{formatMoney(role_request.offered_price)}€</span>
