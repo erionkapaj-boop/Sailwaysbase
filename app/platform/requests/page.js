@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import { listMyBookingRequests, getMyClientProfile, createMissingProfile, departureLabel } from "../../../lib/platform/db";
 import PingsInbox from "../components/PingsInbox";
+import DeliveryPingsInbox from "../components/DeliveryPingsInbox";
 import RequestPanel from "../components/RequestPanel";
 import Toast from "../components/Toast";
 import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
@@ -86,7 +87,12 @@ export default function RequestsPage() {
               <p style={{ ...muted, margin: "6px 0 0" }}>Ενημέρωσε τα στοιχεία σου και επικοινώνησε με τον admin.</p>
             </div>
           )}
-          {profile?.approval_status === "approved" && <PingsInbox skipperId={profile.id} />}
+          {profile?.approval_status === "approved" && (
+            <>
+              <PingsInbox skipperId={profile.id} />
+              <DeliveryPingsInbox skipperId={profile.id} />
+            </>
+          )}
         </div>
       )}
 

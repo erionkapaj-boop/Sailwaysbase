@@ -15,6 +15,7 @@ import {
   addSecondaryRole,
   updateSecondaryRole,
   removeSecondaryRole,
+  updateDeliveryAvailability,
 } from "../../../lib/platform/db";
 import { CREW_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { container, card, h1, h2, muted, colors, radius, select, label, button, input } from "../../../lib/platform/theme";
@@ -220,6 +221,72 @@ function SecondaryRoles({ profile }) {
   );
 }
 
+// Μόνο skipper/ναύτης συμμετέχουν σε μεταφορές σκάφους (0067) — η επιλογή
+// είναι ανεξάρτητη από τη συνήθη διαθεσιμότητα πληρώματος και ανά ρόλο, αφού
+// κάποιος μπορεί να θέλει μεταφορές μόνο ως skipper αλλά όχι ως ναύτης.
+const DELIVERY_ROLES = new Set(["skipper", "deckhand"]);
+
+function DeliveryAvailability({ profile }) {
+  const [secondary, setSecondary] = useState([]);
+  const [busyRole, setBusyRole] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (profile?.id) getMySecondaryRoles(profile.id).then(setSecondary).catch(() => {});
+  }, [profile?.id]);
+
+  const roles = [
+    { role: profile.role, delivery_available: profile.delivery_available, approval_status: profile.approval_status },
+    ...secondary.map((r) => ({ role: r.role, delivery_available: r.delivery_available, approval_status: r.approval_status })),
+  ].filter((r) => DELIVERY_ROLES.has(r.role) && r.approval_status === "approved");
+
+  async function toggle(role, current) {
+    setError("");
+    setBusyRole(role);
+    try {
+      await updateDeliveryAvailability(!current, role);
+      if (role === profile.role) {
+        profile.delivery_available = !current; // αισιόδοξη ενημέρωση, γίνεται σωστά με το επόμενο refresh
+      } else {
+        setSecondary((rs) => rs.map((r) => (r.role === role ? { ...r, delivery_available: !current } : r)));
+      }
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusyRole(null);
+    }
+  }
+
+  if (roles.length === 0) return null;
+
+  return (
+    <div style={card}>
+      <h2 style={{ ...h2, fontSize: 17 }}>Μεταφορές σκάφους</h2>
+      <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
+        Δήλωσε διαθεσιμότητα για μεταφορές σκάφους (αφετηρία → προορισμός, ανεξάρτητα από τη συνήθη διαθεσιμότητά σου) —
+        θα εμφανίζεσαι στους πελάτες που αναζητούν κάποιον να αναλάβει μια μεταφορά.
+      </p>
+      {error && <p style={{ color: colors.danger, fontSize: 13, marginBottom: 12 }}>{error}</p>}
+      {roles.map((r) => (
+        <div
+          key={r.role}
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 0", borderTop: `1px solid ${colors.border}` }}
+        >
+          <span style={{ fontWeight: 500 }}>{labelForRole(r.role)}</span>
+          <button
+            type="button"
+            disabled={busyRole === r.role}
+            onClick={() => toggle(r.role, r.delivery_available)}
+            style={{ ...chip(!!r.delivery_available), padding: "6px 14px", fontSize: 13 }}
+          >
+            {busyRole === r.role ? "…" : r.delivery_available ? "Διαθέσιμος ✓" : "Μη διαθέσιμος"}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const chip = (active) => ({
   padding: "9px 16px",
   borderRadius: radius.pill,
@@ -359,6 +426,7 @@ export default function ProfilePage() {
       <h1 style={h1}>Το προφίλ μου</h1>
       {userRow?.role !== "skipper" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως επαγγελματίας</p>}
       <ProfileForm profile={profile} onSaved={refresh} />
+      <DeliveryAvailability profile={profile} />
       <SecondaryRoles profile={profile} />
     </div>
   );

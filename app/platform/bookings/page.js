@@ -2,8 +2,9 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
-import { listMyBookingsAsClient, listMyBookingsAsSkipper } from "../../../lib/platform/db";
+import { listMyBookingsAsClient, listMyBookingsAsSkipper, listMyDeliveryBookings } from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
+import DeliveryBookingCard from "../components/DeliveryBookingCard";
 import PendingReviewBanner from "../components/PendingReviewBanner";
 import { container, h1, sectionLabel, muted } from "../../../lib/platform/theme";
 
@@ -23,6 +24,7 @@ function BookingsInner() {
   const focusBookingId = searchParams.get("focus");
   const [clientBookings, setClientBookings] = useState([]);
   const [proBookings, setProBookings] = useState([]);
+  const [deliveryBookings, setDeliveryBookings] = useState([]);
   const [busy, setBusy] = useState(true);
 
   const isProfessional = userRow?.role === "skipper" || isAdmin;
@@ -30,12 +32,14 @@ function BookingsInner() {
   async function load() {
     setBusy(true);
     try {
-      const [cb, pb] = await Promise.all([
+      const [cb, pb, db] = await Promise.all([
         listMyBookingsAsClient(),
         isProfessional && profile?.id ? listMyBookingsAsSkipper(profile.id) : Promise.resolve([]),
+        listMyDeliveryBookings().catch(() => []),
       ]);
       setClientBookings(cb);
       setProBookings(pb);
+      setDeliveryBookings(db);
     } finally {
       setBusy(false);
     }
@@ -54,6 +58,15 @@ function BookingsInner() {
     <div style={container}>
       <h1 style={h1}>Κρατήσεις</h1>
       <PendingReviewBanner bookingsHref="/platform/bookings" />
+
+      {deliveryBookings.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <h2 style={sectionLabel}>Μεταφορές σκάφους ({deliveryBookings.length})</h2>
+          {deliveryBookings.map((b) => (
+            <DeliveryBookingCard key={b.id} booking={b} />
+          ))}
+        </div>
+      )}
 
       {isProfessional && (
         <div style={{ marginTop: 8 }}>
