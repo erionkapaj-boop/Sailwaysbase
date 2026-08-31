@@ -6,7 +6,11 @@ import {
   adminListPendingSkippers,
   adminApproveSkipper,
   adminRejectSkipper,
+  adminListPendingSecondaryRoles,
+  adminApproveSecondaryRole,
+  adminRejectSecondaryRole,
 } from "../../../../lib/platform/db";
+import { labelForRole } from "../../../../lib/platform/roles";
 
 export default function ApprovalsPage() {
   const counts = useAdminCounts();
@@ -15,6 +19,9 @@ export default function ApprovalsPage() {
   const [error, setError] = useState("");
   const [notes, setNotes] = useState({});
   const [merged, setMerged] = useState(null);
+  const [secondaryList, setSecondaryList] = useState([]);
+  const [secondaryBusyId, setSecondaryBusyId] = useState(null);
+  const [secondaryNotes, setSecondaryNotes] = useState({});
 
   async function load() {
     try {
@@ -22,10 +29,41 @@ export default function ApprovalsPage() {
     } catch (err) {
       setError(err.message || String(err));
     }
+    try {
+      setSecondaryList(await adminListPendingSecondaryRoles());
+    } catch (err) {
+      setError(err.message || String(err));
+    }
   }
   useEffect(() => {
     load();
   }, []);
+
+  async function approveSecondary(id) {
+    setSecondaryBusyId(id);
+    setError("");
+    try {
+      await adminApproveSecondaryRole(id);
+      await load();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSecondaryBusyId(null);
+    }
+  }
+
+  async function rejectSecondary(id) {
+    setSecondaryBusyId(id);
+    setError("");
+    try {
+      await adminRejectSecondaryRole(id, secondaryNotes[id] || null);
+      await load();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSecondaryBusyId(null);
+    }
+  }
 
   async function approve(userId) {
     setBusyId(userId);
@@ -118,6 +156,57 @@ export default function ApprovalsPage() {
               placeholder="Λόγος απόρριψης (προαιρετικό, καταγράφεται)"
               value={notes[s.user_id] || ""}
               onChange={(e) => setNotes((n) => ({ ...n, [s.user_id]: e.target.value }))}
+              style={{
+                width: "100%",
+                marginTop: 10,
+                padding: "8px 10px",
+                fontSize: 13,
+                fontFamily: "inherit",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                boxSizing: "border-box",
+                color: colors.ink,
+                background: colors.bg,
+              }}
+            />
+          </div>
+        ))}
+      </Panel>
+
+      <Panel title={`Επιπλέον ρόλοι σε αναμονή (${secondaryList.length})`} padded={false}>
+        {secondaryList.length === 0 && <Empty>Καμία εκκρεμής έγκριση.</Empty>}
+        {secondaryList.map((r) => (
+          <div key={r.id} style={{ borderBottom: `1px solid ${colors.border}`, padding: "14px 16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <RowMain
+                title={`${r.full_name || "(χωρίς όνομα)"} — ${labelForRole(r.role)}`}
+                meta={
+                  <>
+                    <span style={money}>{r.phone_number}</span>
+                    {" · "}
+                    <span style={money}>{r.price_per_day}€</span>/ημέρα
+                    {r.license_number ? (
+                      <>
+                        {" · άδεια "}
+                        <span style={money}>{r.license_number}</span>
+                      </>
+                    ) : null}
+                  </>
+                }
+              />
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <button style={button("primary")} disabled={secondaryBusyId === r.id} onClick={() => approveSecondary(r.id)}>
+                  {secondaryBusyId === r.id ? "…" : "Έγκριση"}
+                </button>
+                <button style={button("secondary")} disabled={secondaryBusyId === r.id} onClick={() => rejectSecondary(r.id)}>
+                  Απόρριψη
+                </button>
+              </div>
+            </div>
+            <input
+              placeholder="Λόγος απόρριψης (προαιρετικό, καταγράφεται)"
+              value={secondaryNotes[r.id] || ""}
+              onChange={(e) => setSecondaryNotes((n) => ({ ...n, [r.id]: e.target.value }))}
               style={{
                 width: "100%",
                 marginTop: 10,

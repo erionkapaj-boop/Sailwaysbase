@@ -11,8 +11,214 @@ import {
   updateClientProfile,
   getClientLanguages,
   setClientLanguages,
+  getMySecondaryRoles,
+  addSecondaryRole,
+  updateSecondaryRole,
+  removeSecondaryRole,
 } from "../../../lib/platform/db";
-import { container, card, h1, h2, muted, colors, radius, select, label, button } from "../../../lib/platform/theme";
+import { CREW_ROLES, labelForRole } from "../../../lib/platform/roles";
+import { container, card, h1, h2, muted, colors, radius, select, label, button, input } from "../../../lib/platform/theme";
+
+const MIN_PRICE = 210;
+
+// "Έγκριση σε εκκρεμότητα" vs "Εγκρίθηκε" vs "Δεν εγκρίθηκε" — a secondary
+// role goes through the same admin review as the main profile (0065), so it
+// needs the same three-state story, just compressed into one line per role
+// instead of its own page.
+function statusLabel(role) {
+  if (role.deleted_at) return { text: "Δεν εγκρίθηκε", color: colors.danger };
+  if (role.approval_status === "approved") return { text: "Εγκρίθηκε", color: colors.success || colors.accent };
+  return { text: "Σε αναμονή έγκρισης", color: colors.warn || colors.inkSoft };
+}
+
+// A second (third...) specialty on the same account — its own price and,
+// for skipper, its own license, but everything else (photo, languages,
+// nationality) stays the one already on the main profile above; no reason
+// to ask for it twice. Ratings are kept separate per role on the database
+// side (0065) — working as cook doesn't touch the skipper rating and vice
+// versa.
+function SecondaryRoles({ profile }) {
+  const [roles, setRoles] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [newRole, setNewRole] = useState("");
+  const [newPrice, setNewPrice] = useState(String(MIN_PRICE));
+  const [newLicenseNumber, setNewLicenseNumber] = useState("");
+  const [newLicenseType, setNewLicenseType] = useState("");
+
+  async function load() {
+    try {
+      setRoles(await getMySecondaryRoles(profile.id));
+    } catch (err) {
+      setError(err.message || String(err));
+    }
+  }
+  useEffect(() => {
+    if (profile?.id) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
+
+  const takenRoles = new Set([profile.role, ...roles.map((r) => r.role)]);
+  const availableRoles = CREW_ROLES.filter((r) => r.supported && !takenRoles.has(r.key));
+
+  async function handleAdd() {
+    setError("");
+    if (!newRole) return;
+    if (Number(newPrice) < MIN_PRICE) {
+      setError(`Η τιμή πρέπει να είναι τουλάχιστον ${MIN_PRICE}€.`);
+      return;
+    }
+    setBusy(true);
+    try {
+      await addSecondaryRole(profile.id, {
+        role: newRole,
+        pricePerDay: Number(newPrice),
+        licenseNumber: newRole === "skipper" ? newLicenseNumber.trim() : "",
+        licenseType: newRole === "skipper" ? newLicenseType.trim() : "",
+      });
+      setAdding(false);
+      setNewRole("");
+      setNewPrice(String(MIN_PRICE));
+      setNewLicenseNumber("");
+      setNewLicenseType("");
+      await load();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePriceChange(id, value) {
+    setRoles((rs) => rs.map((r) => (r.id === id ? { ...r, price_per_day: value } : r)));
+  }
+
+  async function handlePriceSave(id, value) {
+    if (Number(value) < MIN_PRICE) {
+      setError(`Η τιμή πρέπει να είναι τουλάχιστον ${MIN_PRICE}€.`);
+      return;
+    }
+    try {
+      await updateSecondaryRole(id, { pricePerDay: Number(value) });
+    } catch (err) {
+      setError(err.message || String(err));
+      await load();
+    }
+  }
+
+  async function handleRemove(id) {
+    setBusy(true);
+    try {
+      await removeSecondaryRole(id);
+      await load();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    // ProfileForm's own save bar is fixed to the bottom of the viewport
+    // (see its 88px paddingBottom) — this section renders after that form
+    // closes, so it needs the same clearance or its own buttons end up
+    // hidden behind that bar once someone scrolls this far down.
+    <div style={{ ...card, marginBottom: 88 }}>
+      <h2 style={{ ...h2, fontSize: 17 }}>Επιπλέον ρόλοι</h2>
+      <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
+        Δούλεψε και σε άλλη ειδικότητα με τον ίδιο λογαριασμό — π.χ. skipper ΚΑΙ μάγειρας. Κάθε ρόλος έχει δική του
+        τιμή και δική του αξιολόγηση· ποτέ δεν μπορείς να αναλάβεις δύο ρόλους στο ίδιο ταξίδι, αλλά τίποτα δεν σε
+        εμποδίζει να δουλέψεις διαφορετικό ρόλο άλλη βδομάδα.
+      </p>
+
+      {error && <p style={{ color: colors.danger, fontSize: 13, marginBottom: 12 }}>{error}</p>}
+
+      {roles.map((r) => {
+        const st = statusLabel(r);
+        return (
+          <div
+            key={r.id}
+            style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 0", borderTop: `1px solid ${colors.border}` }}
+          >
+            <div style={{ minWidth: 100, fontWeight: 600 }}>{labelForRole(r.role)}</div>
+            <input
+              type="number"
+              min={MIN_PRICE}
+              style={{ ...input, width: 90 }}
+              value={r.price_per_day}
+              onChange={(e) => handlePriceChange(r.id, e.target.value)}
+              onBlur={(e) => handlePriceSave(r.id, e.target.value)}
+              disabled={busy}
+            />
+            <span style={{ ...muted, fontSize: 13 }}>€/ημέρα</span>
+            <span style={{ fontSize: 12.5, color: st.color, marginLeft: "auto" }}>{st.text}</span>
+            <button type="button" style={{ ...button("secondary"), padding: "6px 12px", fontSize: 13 }} disabled={busy} onClick={() => handleRemove(r.id)}>
+              Αφαίρεση
+            </button>
+          </div>
+        );
+      })}
+
+      {adding ? (
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${colors.border}` }}>
+          <label style={label}>Ρόλος</label>
+          <select style={{ ...select, marginBottom: 12 }} value={newRole} onChange={(e) => setNewRole(e.target.value)}>
+            <option value="">Επιλογή...</option>
+            {availableRoles.map((r) => (
+              <option key={r.key} value={r.key}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+
+          <label style={label}>Τιμή ανά ημέρα (€)</label>
+          <input
+            type="number"
+            min={MIN_PRICE}
+            style={{ ...input, marginBottom: 12, maxWidth: 160 }}
+            value={newPrice}
+            onChange={(e) => setNewPrice(e.target.value)}
+          />
+
+          {newRole === "skipper" && (
+            <>
+              <label style={label}>Αριθμός άδειας</label>
+              <input
+                type="text"
+                style={{ ...input, marginBottom: 12 }}
+                value={newLicenseNumber}
+                onChange={(e) => setNewLicenseNumber(e.target.value)}
+              />
+              <label style={label}>Τύπος άδειας</label>
+              <input
+                type="text"
+                style={{ ...input, marginBottom: 12 }}
+                value={newLicenseType}
+                onChange={(e) => setNewLicenseType(e.target.value)}
+              />
+            </>
+          )}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" style={button("primary")} disabled={busy || !newRole} onClick={handleAdd}>
+              {busy ? "Αποθήκευση…" : "Προσθήκη ρόλου"}
+            </button>
+            <button type="button" style={button("secondary")} onClick={() => setAdding(false)}>
+              Άκυρο
+            </button>
+          </div>
+        </div>
+      ) : availableRoles.length > 0 ? (
+        <button type="button" style={{ ...button("secondary"), marginTop: roles.length > 0 ? 14 : 0 }} onClick={() => setAdding(true)}>
+          + Προσθήκη ρόλου
+        </button>
+      ) : (
+        roles.length === 0 && <p style={{ ...muted, fontSize: 13 }}>Καλύπτεις ήδη όλους τους διαθέσιμους ρόλους.</p>
+      )}
+    </div>
+  );
+}
 
 const chip = (active) => ({
   padding: "9px 16px",
@@ -153,6 +359,7 @@ export default function ProfilePage() {
       <h1 style={h1}>Το προφίλ μου</h1>
       {userRow?.role !== "skipper" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως επαγγελματίας</p>}
       <ProfileForm profile={profile} onSaved={refresh} />
+      <SecondaryRoles profile={profile} />
     </div>
   );
 }
