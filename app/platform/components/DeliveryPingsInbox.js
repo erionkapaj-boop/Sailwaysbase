@@ -15,7 +15,13 @@ const ACCEPT_ERRORS = {
   skipper_not_eligible: "Το προφίλ σου δεν είναι εγκεκριμένο.",
 };
 
-const COVER_LABEL = { covers_travel: "Μεταφορικά", covers_fuel: "Καύσιμα", covers_food: "Φαγητό" };
+const COVER_LABEL = {
+  covers_tickets: "Εισιτήρια μέχρι την αφετηρία",
+  covers_travel: "Έξοδα ταξιδιού μέχρι την αφετηρία",
+  covers_food: "Διατροφή",
+  covers_fuel: "Καύσιμα",
+  covers_port_expenses: "Λοιπά έξοδα μεταφοράς",
+};
 
 // Ίδιο σχήμα κάρτας με το PingsInbox για τα κανονικά αιτήματα, αλλά για
 // προτάσεις μεταφοράς σκάφους — δικά τους πεδία (διαδρομή, μίλια, τιμή),
@@ -73,7 +79,9 @@ export default function DeliveryPingsInbox({ skipperId }) {
       <h2 style={sectionLabel}>Προτάσεις μεταφοράς σκάφους ({pending.length})</h2>
       {error && <p style={{ color: colors.danger }}>{error}</p>}
       {pending.map(({ ping, role_request, request }) => {
-        const covers = ["covers_travel", "covers_fuel", "covers_food"].filter((k) => request[k]);
+        const covers = ["covers_tickets", "covers_travel", "covers_food", "covers_fuel", "covers_port_expenses"].filter(
+          (k) => request[k]
+        );
         return (
           <div key={role_request.id} style={card}>
             <div style={{ fontWeight: 500, fontSize: 15 }}>
@@ -85,7 +93,14 @@ export default function DeliveryPingsInbox({ skipperId }) {
             </p>
             {covers.length > 0 && (
               <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-                Καλύπτεται: {covers.map((k) => COVER_LABEL[k]).join(", ")}
+                Καλύπτεται:{" "}
+                {covers
+                  .map((k) =>
+                    k === "covers_food" && request.food_allowance_amount != null
+                      ? `${COVER_LABEL[k]} (${formatMoney(request.food_allowance_amount)}€)`
+                      : COVER_LABEL[k]
+                  )
+                  .join(", ")}
               </p>
             )}
             <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>Στάλθηκε {formatDateTime(ping.sent_at)}</p>

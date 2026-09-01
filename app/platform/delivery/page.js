@@ -302,9 +302,12 @@ function DeliveryForm({ onCreated }) {
   const [dateMode, setDateMode] = useState("fixed");
   const [departureDate, setDepartureDate] = useState("");
   const [flexibleDays, setFlexibleDays] = useState("10");
+  const [coversTickets, setCoversTickets] = useState(false);
   const [coversTravel, setCoversTravel] = useState(false);
-  const [coversFuel, setCoversFuel] = useState(false);
   const [coversFood, setCoversFood] = useState(false);
+  const [foodAllowanceAmount, setFoodAllowanceAmount] = useState("");
+  const [coversFuel, setCoversFuel] = useState(false);
+  const [coversPortExpenses, setCoversPortExpenses] = useState(false);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
@@ -323,6 +326,10 @@ function DeliveryForm({ onCreated }) {
       setError("Επίλεξε ημερομηνία.");
       return;
     }
+    if (coversFood && foodAllowanceAmount && Number(foodAllowanceAmount) < 0) {
+      setError("Το ποσό διατροφής δεν μπορεί να είναι αρνητικό.");
+      return;
+    }
     onCreated({
       origin,
       destination,
@@ -330,9 +337,12 @@ function DeliveryForm({ onCreated }) {
       dateMode,
       departureDate,
       flexibleDays: dateMode === "flexible" ? Number(flexibleDays) || 0 : 0,
+      coversTickets,
       coversTravel,
-      coversFuel,
       coversFood,
+      foodAllowanceAmount: coversFood ? foodAllowanceAmount : "",
+      coversFuel,
+      coversPortExpenses,
       notes: notes.trim() || null,
     });
   }
@@ -409,28 +419,58 @@ function DeliveryForm({ onCreated }) {
 
       <div style={{ margin: "18px 0" }}>
         <label style={label}>Τι καλύπτεται</label>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 6 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
-            <input type="checkbox" checked={coversTravel} onChange={(e) => setCoversTravel(e.target.checked)} />
-            Μεταφορικά έως την αφετηρία
+        <p style={{ ...muted, fontSize: 12.5, margin: "2px 0 10px" }}>
+          Τι από τα έξοδα του υποψηφίου αναλαμβάνεις εσύ — δεν περνάει από την πλατφόρμα, το βλέπει μόνο ο
+          υποψήφιος πριν αποφασίσει.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+            <input type="checkbox" checked={coversTickets} onChange={(e) => setCoversTickets(e.target.checked)} />
+            Εισιτήρια μέχρι την αφετηρία
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+            <input type="checkbox" checked={coversTravel} onChange={(e) => setCoversTravel(e.target.checked)} />
+            Έξοδα ταξιδιού μέχρι την αφετηρία
+          </label>
+          <div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+              <input type="checkbox" checked={coversFood} onChange={(e) => setCoversFood(e.target.checked)} />
+              Έξοδα διατροφής κατά το ταξίδι
+            </label>
+            {coversFood && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0 0 26px" }}>
+                <input
+                  type="number"
+                  min={0}
+                  style={{ ...input, width: 110 }}
+                  value={foodAllowanceAmount}
+                  onChange={(e) => setFoodAllowanceAmount(e.target.value)}
+                  placeholder="π.χ. 30"
+                />
+                <span style={{ ...muted, fontSize: 13 }}>€ — το ποσό που καλύπτεις</span>
+              </div>
+            )}
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
             <input type="checkbox" checked={coversFuel} onChange={(e) => setCoversFuel(e.target.checked)} />
             Καύσιμα
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
-            <input type="checkbox" checked={coversFood} onChange={(e) => setCoversFood(e.target.checked)} />
-            Φαγητό
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+            <input type="checkbox" checked={coversPortExpenses} onChange={(e) => setCoversPortExpenses(e.target.checked)} />
+            Λοιπά έξοδα μεταφοράς — λιμάνια, ανεφοδιασμός, νερό κ.λπ.
           </label>
         </div>
       </div>
 
       <label style={label}>Σημειώσεις (προαιρετικό)</label>
       <textarea
-        style={{ ...input, minHeight: 70, resize: "vertical", marginBottom: 14 }}
+        style={{ ...input, minHeight: 70, resize: "vertical", marginBottom: 6 }}
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
       />
+      <p style={{ ...muted, fontSize: 12, margin: "0 0 14px" }}>
+        Μην γράφεις τηλέφωνο ή email εδώ — δεν φτάνει στον υποψήφιο πριν επιβεβαιωθεί η κράτηση.
+      </p>
 
       {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}
       <button style={{ ...button("primary"), width: "100%" }} type="submit">

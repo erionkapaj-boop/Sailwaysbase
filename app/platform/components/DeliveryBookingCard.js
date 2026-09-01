@@ -6,7 +6,13 @@ import { formatDate, formatMoney } from "../../../lib/platform/notifications";
 import { card, muted, colors, money, badge } from "../../../lib/platform/theme";
 
 const STATUS_LABEL = { confirmed: "Επιβεβαιωμένη", completed: "Ολοκληρώθηκε", cancelled: "Ακυρώθηκε" };
-const COVER_LABEL = { covers_travel: "Μεταφορικά", covers_fuel: "Καύσιμα", covers_food: "Φαγητό" };
+const COVER_LABEL = {
+  covers_tickets: "Εισιτήρια μέχρι την αφετηρία",
+  covers_travel: "Έξοδα ταξιδιού μέχρι την αφετηρία",
+  covers_food: "Διατροφή",
+  covers_fuel: "Καύσιμα",
+  covers_port_expenses: "Λοιπά έξοδα μεταφοράς",
+};
 
 // Ελαφριά κάρτα, ξεχωριστή από το BookingPanel των κρατήσεων πληρώματος —
 // η μεταφορά σκάφους έχει διαφορετικό σχήμα (διαδρομή/μίλια αντί για
@@ -20,7 +26,9 @@ export default function DeliveryBookingCard({ booking }) {
     getDeliveryBookingCounterpart(booking.id).then(setCounterpart).catch(() => {});
   }, [booking.id]);
 
-  const covers = ["covers_travel", "covers_fuel", "covers_food"].filter((k) => booking[k]);
+  const covers = ["covers_tickets", "covers_travel", "covers_food", "covers_fuel", "covers_port_expenses"].filter(
+    (k) => booking[k]
+  );
 
   return (
     <div style={card}>
@@ -37,7 +45,16 @@ export default function DeliveryBookingCard({ booking }) {
         {booking.flexible_days > 0 ? ` (±${booking.flexible_days} μέρες)` : ""} · {booking.distance_miles} μίλια
       </p>
       {covers.length > 0 && (
-        <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>Καλύπτεται: {covers.map((k) => COVER_LABEL[k]).join(", ")}</p>
+        <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
+          Καλύπτεται:{" "}
+          {covers
+            .map((k) =>
+              k === "covers_food" && booking.food_allowance_amount != null
+                ? `${COVER_LABEL[k]} (${formatMoney(booking.food_allowance_amount)}€)`
+                : COVER_LABEL[k]
+            )
+            .join(", ")}
+        </p>
       )}
       <p style={{ margin: "8px 0 0", fontSize: 14 }}>
         Συμφωνημένη τιμή: <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{formatMoney(booking.offered_price)}€</span>
