@@ -19,6 +19,16 @@ const ROLE_REQUEST_LABEL = {
   cancelled: "Ακυρώθηκε",
 };
 
+const BOOKING_STATUS_LABEL = { confirmed: "Επιβεβαιωμένη", completed: "Ολοκληρώθηκε", cancelled: "Ακυρώθηκε" };
+
+const COVER_LABEL = {
+  covers_tickets: "Εισιτήρια μέχρι την αφετηρία",
+  covers_travel: "Έξοδα ταξιδιού μέχρι την αφετηρία",
+  covers_food: "Διατροφή",
+  covers_fuel: "Καύσιμα",
+  covers_port_expenses: "Λοιπά έξοδα μεταφοράς",
+};
+
 const RELIST_ERRORS = {
   not_open: "Αυτή η θέση δεν είναι πια ανοιχτή.",
   invalid_price: "Μη έγκυρη τιμή.",
@@ -137,7 +147,10 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
 
       {roleRequest.booking && (
         <p style={{ ...muted, fontSize: 13, margin: "8px 0 0" }}>
-          Ανέλαβε: <span style={{ ...money, color: colors.ink }}>{roleRequest.booking.status}</span>
+          Ανέλαβε:{" "}
+          <span style={{ ...money, color: colors.ink }}>
+            {BOOKING_STATUS_LABEL[roleRequest.booking.status] || roleRequest.booking.status}
+          </span>
         </p>
       )}
 
@@ -195,6 +208,22 @@ export default function MyDeliveryRequestsPage() {
             {request.distance_miles} μίλια · {formatDate(request.departure_date)}
             {request.flexible_days > 0 ? ` (±${request.flexible_days} μέρες)` : ""}
           </p>
+          {(() => {
+            const covers = Object.keys(COVER_LABEL).filter((k) => request[k]);
+            if (covers.length === 0) return null;
+            return (
+              <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
+                Καλύπτεται:{" "}
+                {covers
+                  .map((k) =>
+                    k === "covers_food" && request.food_allowance_amount != null
+                      ? `${COVER_LABEL[k]} (${formatMoney(request.food_allowance_amount)}€)`
+                      : COVER_LABEL[k]
+                  )
+                  .join(", ")}
+              </p>
+            );
+          })()}
           {(role_requests || []).map((rr) => (
             <RoleRequestRow key={rr.id} roleRequest={rr} request={request} onChanged={load} />
           ))}
