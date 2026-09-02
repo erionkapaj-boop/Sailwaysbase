@@ -257,6 +257,7 @@ export const STATUS_TONE = {
   active: "success",
   draft: "warn",
   suspended: "danger",
+  deleted: "neutral",
 };
 
 export const STATUS_LABEL = {
@@ -277,6 +278,7 @@ export const STATUS_LABEL = {
   client: "Πελάτης",
   skipper: "Επαγγελματίας",
   admin: "Admin",
+  deleted: "Διαγραμμένος",
 };
 
 export function Status({ value }) {

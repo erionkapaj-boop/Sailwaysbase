@@ -6,7 +6,7 @@ import AdminShell, { useAdminCounts } from "../AdminShell";
 import { useAuth } from "../../AuthContext";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { CREW_ROLES, labelForRole } from "../../../../lib/platform/roles";
-import { adminListAccounts, adminSeedDemoUsers, loginAsTestAccount } from "../../../../lib/platform/db";
+import { adminListAccounts, loginAsTestAccount } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
 import { useConfirm } from "../../components/ConfirmDialog";
 
@@ -90,8 +90,6 @@ function UsersInner() {
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
-  const [seeding, setSeeding] = useState(false);
-  const [seedResult, setSeedResult] = useState(null);
   const [confirm, confirmDialog] = useConfirm();
 
   const load = useCallback(async () => {
@@ -143,18 +141,6 @@ function UsersInner() {
     } catch (err) {
       setError(err.message || String(err));
       setBusy(false);
-    }
-  }
-
-  async function seed() {
-    setSeeding(true);
-    try {
-      setSeedResult(await adminSeedDemoUsers());
-      await load();
-    } catch (err) {
-      setError(err.message || String(err));
-    } finally {
-      setSeeding(false);
     }
   }
 
@@ -339,29 +325,10 @@ function UsersInner() {
         })}
       </Panel>
 
-      <Panel
-        title="Δοκιμαστικά δεδομένα"
-        subtitle="7 ψεύτικοι λογαριασμοί (5 επαγγελματίες, 2 πελάτες), όλοι με κωδικό 123456. Αν ξανατρέξει δεν διπλασιάζει τίποτα."
-      >
-        <button style={button("secondary")} disabled={seeding} onClick={seed}>
-          {seeding ? "Δημιουργία…" : "Δημιουργία δοκιμαστικών λογαριασμών"}
-        </button>
-        {seedResult && (
-          <div style={{ ...muted, fontSize: 13, marginTop: 12 }}>
-            {seedResult.created?.length > 0 && (
-              <>
-                <div style={{ color: colors.success }}>Δημιουργήθηκαν {seedResult.created.length}:</div>
-                {seedResult.created.map((c) => (
-                  <div key={c} style={money}>
-                    {c}
-                  </div>
-                ))}
-              </>
-            )}
-            {seedResult.skipped?.length > 0 && <div style={{ marginTop: 6 }}>Υπήρχαν ήδη: {seedResult.skipped.length}</div>}
-          </div>
-        )}
-      </Panel>
+      {/* Το "Δοκιμαστικά δεδομένα" (δημιουργία ψεύτικων λογαριασμών) μετακόμισε
+          στο Ghost Mode — είναι εργαλείο δοκιμών, όχι διαχείριση πραγματικών
+          χρηστών, και τώρα που υπάρχει δικό του hub γι' αυτό δεν έχει λόγο
+          να ζει κολλημένο κάτω από αυτή τη λίστα. */}
       {confirmDialog}
     </AdminShell>
   );

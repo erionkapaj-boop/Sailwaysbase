@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import { Panel, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
-import { adminListAccounts } from "../../../../lib/platform/db";
+import { adminListAccounts, adminSeedDemoUsers } from "../../../../lib/platform/db";
 
 // Ghost Mode: αυτό το panel δεν φτιάχνει καινούρια μηχανισμό — μαζεύει σε ένα
 // σημείο τα δύο ήδη υπάρχοντα, πραγματικά εργαλεία (Σύνδεση ως / Προβολή ως,
@@ -38,20 +38,39 @@ function GhostInner() {
   const counts = useAdminCounts();
   const [used, setUsed] = useState(null);
   const [error, setError] = useState("");
+  const [seeding, setSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState(null);
 
+  async function loadUsed() {
+    try {
+      const [active, deleted] = await Promise.all([
+        adminListAccounts({ search: "+306980000", limit: 200 }),
+        adminListAccounts({ search: "+306980000", limit: 200, deletedOnly: true }),
+      ]);
+      setUsed([...active, ...deleted].sort((a, b) => a.phone_number.localeCompare(b.phone_number)));
+    } catch (err) {
+      setError(err.message || String(err));
+    }
+  }
   useEffect(() => {
-    (async () => {
-      try {
-        const [active, deleted] = await Promise.all([
-          adminListAccounts({ search: "+306980000", limit: 200 }),
-          adminListAccounts({ search: "+306980000", limit: 200, deletedOnly: true }),
-        ]);
-        setUsed([...active, ...deleted].sort((a, b) => a.phone_number.localeCompare(b.phone_number)));
-      } catch (err) {
-        setError(err.message || String(err));
-      }
-    })();
+    loadUsed();
   }, []);
+
+  // Μετακόμισε εδώ από τη λίστα Χρήστες — εργαλείο δοκιμών, δεν είναι
+  // διαχείριση πραγματικού λογαριασμού. Οι 7 λογαριασμοί που φτιάχνει είναι
+  // ΜΕΣΑ στη δεσμευμένη σειρά τηλεφώνων (+306980000004 έως 010), οπότε
+  // ξαναφορτώνει και τη λίστα από κάτω μετά την επιτυχία.
+  async function seed() {
+    setSeeding(true);
+    try {
+      setSeedResult(await adminSeedDemoUsers());
+      await loadUsed();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSeeding(false);
+    }
+  }
 
   return (
     <AdminShell
@@ -100,6 +119,30 @@ function GhostInner() {
             <span style={button("secondary")}>Απευθείας εγγραφή επαγγελματία →</span>
           </Link>
         </div>
+      </Panel>
+
+      <Panel
+        title="3. Δοκιμαστικά δεδομένα"
+        subtitle="7 ψεύτικοι λογαριασμοί (5 επαγγελματίες, 2 πελάτες), όλοι με κωδικό 123456. Αν ξανατρέξει δεν διπλασιάζει τίποτα."
+      >
+        <button style={button("secondary")} disabled={seeding} onClick={seed}>
+          {seeding ? "Δημιουργία…" : "Δημιουργία δοκιμαστικών λογαριασμών"}
+        </button>
+        {seedResult && (
+          <div style={{ ...muted, fontSize: 13, marginTop: 12 }}>
+            {seedResult.created?.length > 0 && (
+              <>
+                <div style={{ color: colors.success }}>Δημιουργήθηκαν {seedResult.created.length}:</div>
+                {seedResult.created.map((c) => (
+                  <div key={c} style={money}>
+                    {c}
+                  </div>
+                ))}
+              </>
+            )}
+            {seedResult.skipped?.length > 0 && <div style={{ marginTop: 6 }}>Υπήρχαν ήδη: {seedResult.skipped.length}</div>}
+          </div>
+        )}
       </Panel>
 
       <Panel title={`Ποια νούμερα της σειράς έχουν ήδη χρησιμοποιηθεί${used ? ` (${used.length})` : ""}`}>

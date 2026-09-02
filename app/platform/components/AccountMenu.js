@@ -18,7 +18,15 @@ const itemStyle = {
 // A slide-in drawer, not a dropdown box floating next to the icon — the
 // familiar shape people already know from every other app's hamburger menu,
 // instead of a small rectangle appearing at an arbitrary point on the page.
-export default function AccountMenu({ items = [], onSignOut }) {
+//
+// `activeHref` (optional) highlights the item matching the current page —
+// exact match unless the item sets `prefix: true`, in which case anything
+// starting with its href counts (an admin section's own sub-pages, e.g.
+// /platform/admin/user/[id] under "Χρήστες"). `items` can mix plain entries
+// with `group: true` (a bare divider above it) and `heading: "text"` (a
+// small section label above it, implies the same divider) — one flat drawer
+// can then read as several labelled groups instead of one long list.
+export default function AccountMenu({ items = [], onSignOut, activeHref }) {
   const [open, setOpen] = useState(false);
 
   // Closeable the same way any drawer is: tap the dimmed backdrop, tap the
@@ -96,21 +104,45 @@ export default function AccountMenu({ items = [], onSignOut }) {
               </button>
             </div>
             <nav style={{ display: "flex", flexDirection: "column", padding: "4px 10px", overflowY: "auto", flex: 1 }}>
-              {items.map((it, i) => (
-                <Link
-                  key={it.href}
-                  href={it.href}
-                  onClick={() => setOpen(false)}
-                  style={{
-                    ...itemStyle,
-                    borderRadius: radius.sm,
-                    marginTop: i > 0 && it.group ? 10 : 0,
-                    borderTop: i > 0 && it.group ? `1px solid ${colors.border}` : undefined,
-                  }}
-                >
-                  {it.label}
-                </Link>
-              ))}
+              {items.map((it, i) => {
+                const active = activeHref && (it.prefix ? activeHref.startsWith(it.href) : activeHref === it.href);
+                const divider = i > 0 && (it.group || it.heading);
+                return (
+                <div key={it.href}>
+                  {it.heading && (
+                    <div
+                      style={{
+                        marginTop: i > 0 ? 14 : 4,
+                        paddingTop: i > 0 ? 12 : 0,
+                        borderTop: i > 0 ? `1px solid ${colors.border}` : undefined,
+                        padding: "0 18px 4px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        letterSpacing: "0.04em",
+                        textTransform: "uppercase",
+                        color: colors.inkSoft,
+                      }}
+                    >
+                      {it.heading}
+                    </div>
+                  )}
+                  <Link
+                    href={it.href}
+                    onClick={() => setOpen(false)}
+                    style={{
+                      ...itemStyle,
+                      borderRadius: radius.sm,
+                      marginTop: !it.heading && divider ? 10 : 0,
+                      borderTop: !it.heading && divider ? `1px solid ${colors.border}` : undefined,
+                      background: active ? colors.seaGlass : undefined,
+                      fontWeight: active ? 600 : 400,
+                    }}
+                  >
+                    {it.label}
+                  </Link>
+                </div>
+                );
+              })}
             </nav>
             <button
               type="button"

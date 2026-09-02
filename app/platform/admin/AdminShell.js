@@ -1,10 +1,8 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import { adminOverview } from "../../../lib/platform/db";
-import { colors, radius, muted, fontSans } from "../../../lib/platform/theme";
+import { colors, muted, fontSans } from "../../../lib/platform/theme";
 
 // Sections are routes, not tabs held in a single component's state.
 //
@@ -14,19 +12,29 @@ import { colors, radius, muted, fontSans } from "../../../lib/platform/theme";
 // console grows into banking and scheduling, one file would have become
 // unworkable; separate routes keep each section's data fetching and state to
 // itself.
+//
+// Navigation itself used to be a second, horizontal strip of these rendered
+// below the site's own hamburger menu — two nav systems stacked on one
+// screen, the strip forced into its own horizontal scroll on a phone. It's
+// gone; PlatformShell.js reads this same list (imported, not duplicated) to
+// populate the site's one hamburger drawer with a grouped admin section,
+// heading text taken from `heading` below. `label` unchanged either way —
+// it's what's shown, on a full nav row here or in a drawer link there.
+// `badge` still names the live count key from useAdminCounts() for the
+// pages that show their own "X need attention" callouts.
 export const SECTIONS = [
-  { href: "/platform/admin", label: "Επισκόπηση", icon: "▦", exact: true },
-  { href: "/platform/admin/coverage", label: "Κάλυψη", icon: "⚑", badge: "coverage_needed" },
-  { href: "/platform/admin/offers", label: "Αναθέσεις", icon: "→" },
-  { href: "/platform/admin/approvals", label: "Εγκρίσεις", icon: "✓", badge: "pending_approvals" },
-  { href: "/platform/admin/users", label: "Χρήστες", icon: "◍" },
-  { href: "/platform/admin/ghost", label: "Ghost Mode", icon: "👻" },
-  { href: "/platform/admin/bookings", label: "Κρατήσεις", icon: "≡" },
-  { href: "/platform/admin/deliveries", label: "Μεταφορές", icon: "⛵" },
-  { href: "/platform/admin/finance", label: "Οικονομικά", icon: "€" },
-  { href: "/platform/admin/disputes", label: "Διαφορές", icon: "!", badge: "open_disputes" },
-  { href: "/platform/admin/messages", label: "Μηνύματα", icon: "✉", badge: "contact_new" },
-  { href: "/platform/admin/settings", label: "Ρυθμίσεις", icon: "⚙" },
+  { href: "/platform/admin", label: "Επισκόπηση", exact: true, heading: "Διαχείριση" },
+  { href: "/platform/admin/coverage", label: "Κάλυψη", badge: "coverage_needed", heading: "Ανάθεση πληρώματος" },
+  { href: "/platform/admin/offers", label: "Αναθέσεις" },
+  { href: "/platform/admin/approvals", label: "Εγκρίσεις", badge: "pending_approvals", heading: "Χρήστες" },
+  { href: "/platform/admin/users", label: "Χρήστες" },
+  { href: "/platform/admin/ghost", label: "Ghost Mode" },
+  { href: "/platform/admin/bookings", label: "Όλες οι κρατήσεις", heading: "Καταγραφές" },
+  { href: "/platform/admin/deliveries", label: "Μεταφορές" },
+  { href: "/platform/admin/finance", label: "Οικονομικά", heading: "Οικονομικά & διαφορές" },
+  { href: "/platform/admin/disputes", label: "Διαφορές", badge: "open_disputes" },
+  { href: "/platform/admin/messages", label: "Μηνύματα", badge: "contact_new", heading: "Λοιπά" },
+  { href: "/platform/admin/settings", label: "Ρυθμίσεις" },
 ];
 
 // Fetched once, in the layout that wraps every admin route, and shared from
@@ -47,78 +55,10 @@ export function useAdminCounts() {
   return useContext(AdminCountsContext);
 }
 
-function NavItem({ section, active, count }) {
-  return (
-    <Link
-      href={section.href}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "9px 12px",
-        borderRadius: radius.sm,
-        textDecoration: "none",
-        fontSize: 14,
-        fontFamily: fontSans,
-        whiteSpace: "nowrap",
-        color: active ? colors.ink : colors.inkSoft,
-        background: active ? colors.seaGlass : "transparent",
-        fontWeight: active ? 600 : 400,
-      }}
-    >
-      <span aria-hidden="true" style={{ width: 16, textAlign: "center", opacity: 0.7, flexShrink: 0 }}>
-        {section.icon}
-      </span>
-      <span style={{ flex: 1 }}>{section.label}</span>
-      {count > 0 && (
-        <span
-          style={{
-            minWidth: 18,
-            height: 18,
-            padding: "0 5px",
-            borderRadius: 9,
-            background: colors.warn,
-            color: "#fff",
-            fontSize: 11,
-            fontWeight: 600,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          {count}
-        </span>
-      )}
-    </Link>
-  );
-}
-
-// Lives in the layout now, not in each page, so it's one DOM node that
-// persists across navigation instead of a fresh one per route. Rebuilding it
-// on every click was what reset its horizontal scroll position on a phone —
-// tapping a tab further right in the strip snapped the whole strip back to
-// the start, so the screen you landed on looked like it had jumped back to
-// the first section even though the content underneath was correct.
-export function AdminNav() {
-  const pathname = usePathname();
-  const counts = useAdminCounts();
-  const isActive = (s) => (s.exact ? pathname === s.href : pathname.startsWith(s.href));
-
-  return (
-    <nav className="sf-admin-nav">
-      <div className="sf-admin-nav-inner">
-        {SECTIONS.map((s) => (
-          <NavItem key={s.href} section={s} active={isActive(s)} count={counts[s.badge] || 0} />
-        ))}
-      </div>
-    </nav>
-  );
-}
-
-// Per-page header only. Navigation and the counts fetch live one level up,
-// in app/platform/admin/layout.js, so they survive from one section to the
-// next instead of being torn down and rebuilt with every route.
+// Per-page header only. Navigation lives in the site's one hamburger drawer
+// (PlatformShell.js); the counts fetch lives one level up, in
+// app/platform/admin/layout.js, so it survives from one section to the next
+// instead of being re-fetched on every route.
 export default function AdminShell({ title, subtitle, actions, children }) {
   const { session, userRow, loading } = useAuth();
 

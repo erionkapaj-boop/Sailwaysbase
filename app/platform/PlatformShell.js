@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { AuthProvider, useAuth } from "./AuthContext";
@@ -9,6 +9,7 @@ import Logo from "./components/Logo";
 import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
 import AccountMenu from "./components/AccountMenu";
+import { SECTIONS as ADMIN_SECTIONS } from "./admin/AdminShell";
 import { hasStashedAdminSession, returnToAdminSession } from "../../lib/platform/db";
 import { nav, colors, fontSans } from "../../lib/platform/theme";
 
@@ -28,13 +29,13 @@ const navLink = {
 // header shape — the parts they do have should sit where they sit everywhere
 // else. Roles beyond skipper (hostess, cook, deckhand) come through here
 // unchanged, since nothing in it is specific to what someone does on a boat.
-function AccountNavBar({ name, photoUrl, loading, items, onSignOut, notifications, refreshNotifications }) {
+function AccountNavBar({ name, photoUrl, loading, items, activeHref, onSignOut, notifications, refreshNotifications }) {
   const unreadNotifications = notifications?.pendingRequests ?? 0;
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
   return (
     <div style={{ ...nav, display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "center", columnGap: 10 }}>
-      <AccountMenu items={items} onSignOut={onSignOut} />
+      <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} />
 
       <Link
         href="/platform"
@@ -83,27 +84,38 @@ function AccountNavBar({ name, photoUrl, loading, items, onSignOut, notification
 // Το "Αιτήματα" καλύπτει και τις δύο κατευθύνσεις (εισερχόμενα ως
 // επαγγελματίας, εξερχόμενα ως πελάτης) μέσα στην ίδια σελίδα, όχι σε δύο
 // διαφορετικά μενού· το ίδιο για "Κρατήσεις". Το "Η διαθεσιμότητά μου" έχει
-// νόημα μόνο για όποιον έχει (ή μπορεί να έχει) επαγγελματικό προφίλ. Ο
-// «Πίνακας διαχείρισης» μπαίνει στην ίδια λίστα για τον admin αντί να μένει
-// ξεχωριστό σύστημα μενού.
+// νόημα μόνο για όποιον έχει (ή μπορεί να έχει) επαγγελματικό προφίλ.
+//
+// Πριν εδώ έμπαινε μόνο ένας σύνδεσμος «Πίνακας διαχείρισης», και όλες οι
+// επιμέρους ενότητες του admin ζούσαν σε μια δεύτερη, οριζόντια λωρίδα
+// κάτω από αυτό το ίδιο μενού (AdminNav) — δύο συστήματα πλοήγησης στην ίδια
+// οθόνη, το ένα από τα δύο πάντα οριζόντιο scroll σε κινητό. Τώρα όλες οι
+// ενότητες μπαίνουν εδώ, σε ομάδες με επικεφαλίδα — ένα μόνο μενού, παντού.
+// Το admin_SECTIONS ζει στο AdminShell.js (χρειάζεται και εκεί, για το ποια
+// σελίδα είναι «ενεργή»), οπότε εισάγεται αντί να ξαναγραφτεί.
 function buildMenuItems({ role, isAdmin }) {
   const items = [{ href: "/platform", label: "Αρχική" }];
-  if (isAdmin) {
-    items.push({ href: "/platform/admin", label: "Πίνακας διαχείρισης", group: true });
-  }
-  items.push({ href: "/platform/requests", label: "Αιτήματα", group: !isAdmin });
-  items.push({ href: "/platform/bookings", label: "Κρατήσεις" });
+  items.push({ href: "/platform/requests", label: "Αιτήματα", group: true });
+  // Πάντα ξεκάθαρο ότι είναι ΤΟ ΔΙΚΟ ΣΟΥ, ξεχωριστό από το «Όλες οι
+  // κρατήσεις» του admin παρακάτω — πριν δεν συνυπήρχαν στο ίδιο μενού,
+  // οπότε δεν χρειαζόταν διάκριση.
+  items.push({ href: "/platform/bookings", label: isAdmin ? "Οι κρατήσεις μου" : "Κρατήσεις" });
   if (role === "skipper" || isAdmin) {
     items.push({ href: "/platform/availability", label: "Η διαθεσιμότητά μου" });
   }
   items.push({ href: "/platform/profile", label: "Το προφίλ μου" });
   items.push({ href: "/platform/wallet", label: "Το πορτοφόλι μου" });
+
+  if (isAdmin) {
+    for (const s of ADMIN_SECTIONS) items.push({ href: s.href, label: s.label, heading: s.heading, prefix: !s.exact });
+  }
   return items;
 }
 
 function NavBar() {
   const { session, userRow, profile, loading, signOut, role, isAdmin, notifications, refreshNotifications } = useAuth();
   const t = useTranslations("Nav");
+  const pathname = usePathname();
 
   if (session && (isAdmin || role === "skipper" || role === "client")) {
     return (
@@ -112,6 +124,7 @@ function NavBar() {
         photoUrl={profile?.photo_url || userRow?.photo_url}
         loading={loading}
         items={buildMenuItems({ role, isAdmin })}
+        activeHref={pathname}
         onSignOut={signOut}
         notifications={notifications}
         refreshNotifications={refreshNotifications}
