@@ -700,20 +700,10 @@ function RoleSection({
   );
 }
 
-// One combined checkout for the whole page, however many roles are open —
-// a client browsing skipper and hostess results together picks people in
-// both, sees one running total here, and sends everything with a single
-// action instead of a separate confirm-and-pay per role. Renders nothing
-// until at least one role has a pick (or the send has actually gone
-// through), so an empty page never carries a checkout bar with nothing in
-// it.
-function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positionsByRole, filters, fee, session, router }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [sentSlots, setSentSlots] = useState(new Set());
-  const [done, setDone] = useState(false);
-  const [termsOpen, setTermsOpen] = useState(false);
-
+// Shared by Checkout and the sticky summary bar so the two never disagree
+// about how many slots or how much it costs — the position-capping rule in
+// particular (see slotsFor below) is easy to get subtly wrong twice.
+function computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, fee) {
   const activeRoles = supportedRoles.filter((r) => (selectionsByRole[r]?.size || 0) > 0);
   const positionsFor = (role) => positionsByRole[role] || 1;
   // What actually gets sent for a role is capped at how many candidates got
@@ -726,6 +716,30 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
   const totalSlots = activeRoles.reduce((n, r) => n + slotsFor(r), 0);
   const totalFee = fee != null ? totalSlots * fee : null;
   const shortRoles = activeRoles.filter((r) => positionsFor(r) > selectionsByRole[r].size);
+  return { activeRoles, positionsFor, slotsFor, totalSlots, totalFee, shortRoles };
+}
+
+// One combined checkout for the whole page, however many roles are open —
+// a client browsing skipper and hostess results together picks people in
+// both, sees one running total here, and sends everything with a single
+// action instead of a separate confirm-and-pay per role. Renders nothing
+// until at least one role has a pick (or the send has actually gone
+// through), so an empty page never carries a checkout bar with nothing in
+// it. `done` is lifted to the parent (not local state) so the sticky
+// summary bar knows to stop showing itself once the request has actually
+// gone out.
+function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positionsByRole, filters, fee, session, router, done, setDone }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [sentSlots, setSentSlots] = useState(new Set());
+  const [termsOpen, setTermsOpen] = useState(false);
+
+  const { activeRoles, positionsFor, slotsFor, totalSlots, totalFee, shortRoles } = computeOrderTotals(
+    supportedRoles,
+    selectionsByRole,
+    positionsByRole,
+    fee
+  );
 
   if (activeRoles.length === 0 && !done) return null;
 
@@ -920,6 +934,65 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
   );
 }
 
+// The real checkout (above) only ever sat once, at the very bottom of the
+// whole page, after every open role's results — someone who picks a
+// professional in the first role section had no way to know that, and had
+// to guess/scroll all the way down to find the send button. This mirrors
+// the same running total in a bar fixed to the bottom of the viewport the
+// moment a first pick happens, with a button that jumps down to the real
+// checkout (still the actual completion step — cost breakdown, terms,
+// short-role warnings all still live there, this bar just stops it from
+// being undiscoverable). Hides itself once the real checkout panel is
+// already on screen, so there's never two of the same button visible at
+// once, and disappears entirely once the request has actually gone out.
+function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, fee, onGoToCheckout }) {
+  const { totalSlots, totalFee } = computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, fee);
+  if (totalSlots === 0) return null;
+  return (
+    <div
+      style={{
+        position: "fixed",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 40,
+        background: colors.bg || "#fff",
+        borderTop: `1px solid ${colors.border}`,
+        boxShadow: shadow.raised,
+        padding: "10px 16px calc(10px + env(safe-area-inset-bottom, 0px))",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 640,
+          margin: "0 auto",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 14,
+        }}
+      >
+        <span style={{ fontSize: 13.5 }}>
+          <b style={money}>{totalSlots}</b> {totalSlots === 1 ? "επιλεγμένος" : "επιλεγμένοι"}
+          {totalFee != null && (
+            <>
+              {" · "}
+              <span style={money}>{totalFee}€</span>
+            </>
+          )}
+        </span>
+        <button
+          type="button"
+          onClick={onGoToCheckout}
+          style={{ ...button("primary"), padding: "10px 18px", whiteSpace: "nowrap" }}
+        >
+          Ολοκλήρωση αιτήματος ↓
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SearchPageInner() {
   const router = useRouter();
   const params = useSearchParams();
@@ -955,6 +1028,24 @@ function SearchPageInner() {
   // skippers, say) — defaults to one, also lifted up here so the checkout
   // can turn it into that many independent requests per role.
   const [positionsByRole, setPositionsByRole] = useState({});
+  // Lifted out of Checkout (see there) so the sticky summary bar knows when
+  // to stop showing itself — once the request's actually gone out, there's
+  // nothing left to jump down to.
+  const [checkoutDone, setCheckoutDone] = useState(false);
+  // Tracks whether the real checkout panel is currently on screen, so the
+  // sticky bar can hide itself rather than show the same button twice at
+  // once — it only needs to exist while that panel is out of view.
+  const checkoutRef = useRef(null);
+  const [checkoutVisible, setCheckoutVisible] = useState(false);
+  useEffect(() => {
+    const el = checkoutRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setCheckoutVisible(entry.isIntersecting), {
+      rootMargin: "0px 0px -10% 0px",
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   function getRoleSelection(role) {
     return selectionsByRole[role] || new Set();
@@ -1068,8 +1159,11 @@ function SearchPageInner() {
   const regionName = lookups.regions.find((r) => r.id === filters.regionId)?.name;
   const boatTypeName = lookups.boatTypes.find((b) => b.id === filters.boatTypeId)?.name;
 
+  const totalSelected = Object.values(selectionsByRole).reduce((n, set) => n + (set?.size || 0), 0);
+  const showStickyBar = totalSelected > 0 && !checkoutVisible && !checkoutDone;
+
   return (
-    <div style={container}>
+    <div style={showStickyBar ? { ...container, paddingBottom: 76 } : container}>
       <BackButton onClick={() => setShowFullFilters(true)} />
       <h1 style={{ ...h1, marginTop: 14 }}>Αποτελέσματα</h1>
       <p style={muted}>Δωρεάν, χωρίς δέσμευση. Πληρώνεις μόνο όταν στέλνεις αίτημα.</p>
@@ -1272,16 +1366,30 @@ function SearchPageInner() {
         />
       ))}
 
-      <Checkout
-        supportedRoles={supportedRoles}
-        selectionsByRole={selectionsByRole}
-        boatTypesByRole={boatTypesByRole}
-        positionsByRole={positionsByRole}
-        filters={filters}
-        fee={fee}
-        session={session}
-        router={router}
-      />
+      <div ref={checkoutRef}>
+        <Checkout
+          supportedRoles={supportedRoles}
+          selectionsByRole={selectionsByRole}
+          boatTypesByRole={boatTypesByRole}
+          positionsByRole={positionsByRole}
+          filters={filters}
+          fee={fee}
+          session={session}
+          router={router}
+          done={checkoutDone}
+          setDone={setCheckoutDone}
+        />
+      </div>
+
+      {showStickyBar && (
+        <StickySummaryBar
+          supportedRoles={supportedRoles}
+          selectionsByRole={selectionsByRole}
+          positionsByRole={positionsByRole}
+          fee={fee}
+          onGoToCheckout={() => checkoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        />
+      )}
     </div>
   );
 }
