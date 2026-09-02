@@ -37,6 +37,7 @@ const DELETE_ERRORS = {
   user_not_found: "Δεν βρέθηκε ο λογαριασμός.",
   cannot_delete_admin: "Λογαριασμός admin δεν μπορεί να διαγραφεί από εδώ.",
   cannot_impersonate_admin: "Δεν γίνεται «Σύνδεση ως» πάνω σε λογαριασμό admin.",
+  cannot_remove_last_admin: "Δεν μπορείς να αφαιρέσεις τα δικαιώματα admin — είναι ο μόνος admin που έχει απομείνει.",
 };
 
 function Row({ left, right, tone = "neutral" }) {
@@ -140,7 +141,7 @@ export default function AdminUserViewPage() {
       await adminSetStaffAdmin(id, !target.is_staff_admin);
       await load();
     } catch (err) {
-      setActionError(err.message || String(err));
+      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
     } finally {
       setActionBusy(false);
     }
@@ -473,7 +474,7 @@ export default function AdminUserViewPage() {
               <span style={badge("neutral")}>Διαγραμμένος λογαριασμός</span>
             </div>
           ) : (
-            target.role !== "admin" && (
+            target.role !== "admin" && !target.is_staff_admin && (
               <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.danger}` }}>
                 <b style={{ fontWeight: 600 }}>Διαγραφή λογαριασμού</b>
                 <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
