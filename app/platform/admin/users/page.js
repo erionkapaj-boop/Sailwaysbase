@@ -43,6 +43,12 @@ const TABS = [
   { key: "client", label: "Πελάτες", role: "client" },
   { key: "pro", label: "Επαγγελματίες", role: "skipper" },
   { key: "all", label: "Όλοι", role: null },
+  // Ξεχωριστό κουτί, όχι ανακατεμένο με τους ενεργούς (βρέθηκε πραγματικό
+  // bug: admin_list_accounts δεν φιλτράριζε καθόλου status, οπότε ένας
+  // διαγραμμένος λογαριασμός έμενε ορατός στη λίστα "Πελάτες" σαν να ήταν
+  // ενεργός). Ο ίδιος λογαριασμός θα ξαναφανεί εδώ αυτόματα αν διαγραφεί —
+  // δεν χρειάζεται δικό του state, μόνο ξεχωριστό φίλτρο.
+  { key: "deleted", label: "Διαγραμμένοι", role: null, deletedOnly: true },
 ];
 
 const SORTS = [
@@ -100,6 +106,7 @@ function UsersInner() {
           search,
           sort,
           invisibleOnly,
+          deletedOnly: Boolean(active?.deletedOnly),
         })
       );
     } catch (err) {
@@ -301,7 +308,10 @@ function UsersInner() {
               >
                 {u.approval_status && u.approval_status !== "approved" && <Status value={u.approval_status} />}
                 {u.status !== "active" && <Status value={u.status} />}
-                {u.role !== "admin" && (
+                {/* Ούτε "Προβολή ως" ούτε "Σύνδεση ως" βγάζουν νόημα πάνω σε
+                    έναν κρυμμένο λογαριασμό — η σύνδεση θα μπλοκαριστεί
+                    ούτως ή άλλως (signInWithPin αρνείται status='deleted'). */}
+                {u.role !== "admin" && u.status !== "deleted" && (
                   <button
                     style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}
                     onClick={() => enterViewAs(u)}
@@ -311,7 +321,7 @@ function UsersInner() {
                 )}
                 {/* Πραγματική σύνδεση, όχι μόνο ανάγνωση — μόνο για
                     λογαριασμούς που σημειώθηκαν ρητά ως τεστ (βλ. Στοιχεία). */}
-                {u.is_test_account && (
+                {u.is_test_account && u.status !== "deleted" && (
                   <button
                     style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
                     disabled={busy}

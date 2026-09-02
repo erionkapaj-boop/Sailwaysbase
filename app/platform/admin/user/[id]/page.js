@@ -35,6 +35,7 @@ const DELETE_ERRORS = {
   has_pending_activity: "Έχει ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση. Πρέπει να τακτοποιηθούν πρώτα.",
   already_deleted: "Ο λογαριασμός έχει ήδη διαγραφεί.",
   user_not_found: "Δεν βρέθηκε ο λογαριασμός.",
+  cannot_delete_admin: "Λογαριασμός admin δεν μπορεί να διαγραφεί από εδώ.",
 };
 
 function Row({ left, right, tone = "neutral" }) {
@@ -475,8 +476,9 @@ export default function AdminUserViewPage() {
               <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.danger}` }}>
                 <b style={{ fontWeight: 600 }}>Διαγραφή λογαριασμού</b>
                 <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
-                  Ανωνυμοποίηση — το ιστορικό κρατήσεων/αξιολογήσεων/οικονομικών παραμένει, το τηλέφωνο
-                  ελευθερώνεται για νέα εγγραφή. Δεν αναστρέφεται.
+                  Ο λογαριασμός κρύβεται από την πλατφόρμα — όνομα, email, τηλέφωνο και ιστορικό (κρατήσεις,
+                  αξιολογήσεις, οικονομικά) παραμένουν ως έχουν. Αν ξαναγραφτεί με το ίδιο τηλέφωνο, παίρνει πίσω
+                  τον ίδιο λογαριασμό με την ίδια αξιολόγηση — δεν ξεκινάει καθαρός.
                 </p>
                 <button
                   style={{ ...button("primary"), background: colors.danger, borderColor: colors.danger }}
