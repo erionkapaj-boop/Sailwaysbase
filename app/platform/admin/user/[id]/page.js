@@ -36,6 +36,7 @@ const DELETE_ERRORS = {
   already_deleted: "Ο λογαριασμός έχει ήδη διαγραφεί.",
   user_not_found: "Δεν βρέθηκε ο λογαριασμός.",
   cannot_delete_admin: "Λογαριασμός admin δεν μπορεί να διαγραφεί από εδώ.",
+  cannot_impersonate_admin: "Δεν γίνεται «Σύνδεση ως» πάνω σε λογαριασμό admin.",
 };
 
 function Row({ left, right, tone = "neutral" }) {
@@ -159,7 +160,7 @@ export default function AdminUserViewPage() {
       await loginAsTestAccount(id);
       router.push(target.role === "admin" ? "/platform/admin" : "/platform/requests");
     } catch (err) {
-      setActionError(err.message || String(err));
+      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
       setActionBusy(false);
     }
   }
@@ -212,7 +213,7 @@ export default function AdminUserViewPage() {
             Προβολή ως {target.full_name || target.phone_number}
           </button>
         )}
-        {target?.is_test_account && (
+        {target?.is_test_account && target.role !== "admin" && (
           <button style={{ ...button("primary"), marginRight: 8 }} disabled={actionBusy} onClick={handleLoginAs}>
             Σύνδεση ως {target.full_name || target.phone_number}
           </button>

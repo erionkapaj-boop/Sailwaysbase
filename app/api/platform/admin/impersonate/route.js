@@ -35,11 +35,16 @@ export async function POST(req) {
 
   const { data: target } = await db
     .from("users")
-    .select("id, phone_number, is_test_account")
+    .select("id, role, phone_number, is_test_account")
     .eq("id", userId)
     .maybeSingle();
   if (!target) return Response.json({ error: "not_found" }, { status: 404 });
   if (!target.is_test_account) return Response.json({ error: "not_a_test_account" }, { status: 403 });
+  // Never on an admin row, regardless of is_test_account: this resets the
+  // target's PIN without asking them, and doing that to a real admin is a
+  // much bigger deal than to a client/skipper test row — the client-side
+  // buttons already hide for role === "admin", this is the actual boundary.
+  if (target.role === "admin") return Response.json({ error: "cannot_impersonate_admin" }, { status: 403 });
 
   const pin = randomPin();
   const { error: updErr } = await db.auth.admin.updateUserById(userId, { password: pin });
