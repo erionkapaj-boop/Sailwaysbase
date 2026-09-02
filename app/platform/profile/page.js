@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import MissingProfile from "../skipper/MissingProfile";
 import ProfileForm from "../skipper/ProfileForm";
@@ -18,6 +19,8 @@ import {
   getMyDeliveryAvailabilityWindows,
   addDeliveryAvailabilityWindow,
   removeDeliveryAvailabilityWindow,
+  deleteMyAccount,
+  signOut,
 } from "../../../lib/platform/db";
 import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { formatDate } from "../../../lib/platform/notifications";
@@ -398,6 +401,83 @@ const chip = (active) => ({
 // updateSkipperProfile/setSkipperLookups). Μόνο ένας απλός λογαριασμός
 // πελάτη — χωρίς κανένα επαγγελματικό προφίλ να αντλήσει — συμπληρώνει αυτά
 // τα στοιχεία εδώ ο ίδιος.
+const DELETE_ERRORS = {
+  has_pending_activity: "Έχεις ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση. Τακτοποίησέ τα πρώτα — ολοκλήρωσε ή ακύρωσέ τα — και ξαναδοκίμασε.",
+  already_deleted: "Ο λογαριασμός έχει ήδη διαγραφεί.",
+  user_not_found: "Δεν βρέθηκε ο λογαριασμός.",
+};
+
+// Αυτοεξυπηρέτηση διαγραφής — δικαίωμα που ήδη αναφέρει η πολιτική
+// απορρήτου ("Μπορείς οποτεδήποτε να ζητήσεις διαγραφή"), εδώ πραγματικό
+// κουμπί αντί για αίτημα μέσω φόρμας επικοινωνίας. Το "γράψε ΔΙΑΓΡΑΦΗ" είναι
+// σκόπιμα η πιο απλή δυνατή επιβεβαίωση — αρκεί να μην είναι ένα ακόμα
+// misclick, όχι να είναι δυσανάλογα δύσκολο για κάτι που ο ίδιος ζήτησε.
+function DeleteAccount() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleDelete() {
+    setError("");
+    setBusy(true);
+    try {
+      await deleteMyAccount();
+      await signOut();
+      router.push("/platform");
+    } catch (err) {
+      setError(DELETE_ERRORS[err.message] || err.message || String(err));
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <div style={{ marginTop: 28, textAlign: "center" }}>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 13, textDecoration: "underline" }}
+        >
+          Διαγραφή λογαριασμού
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ ...card, borderLeft: `3px solid ${colors.danger}`, marginTop: 28 }}>
+      <h2 style={{ ...h2, fontSize: 16 }}>Διαγραφή λογαριασμού</h2>
+      <p style={{ ...muted, fontSize: 13.5, margin: "0 0 14px" }}>
+        Οριστικό. Το προφίλ σου φεύγει αμέσως από την πλατφόρμα και το τηλέφωνό σου ελευθερώνεται — μπορεί να
+        χρησιμοποιηθεί ξανά για νέα εγγραφή. Χρειάζεται πρώτα να μην έχεις ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση.
+      </p>
+      <label style={label}>Γράψε «ΔΙΑΓΡΑΦΗ» για να επιβεβαιώσεις</label>
+      <input
+        type="text"
+        style={{ ...input, maxWidth: 200, marginBottom: 12 }}
+        value={confirmText}
+        onChange={(e) => setConfirmText(e.target.value)}
+      />
+      {error && <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 12px" }}>{error}</p>}
+      <div style={{ display: "flex", gap: 10 }}>
+        <button
+          type="button"
+          disabled={busy || confirmText.trim() !== "ΔΙΑΓΡΑΦΗ"}
+          onClick={handleDelete}
+          style={{ ...button("primary"), background: colors.danger, borderColor: colors.danger }}
+        >
+          {busy ? "…" : "Οριστική διαγραφή"}
+        </button>
+        <button type="button" disabled={busy} onClick={() => setOpen(false)} style={button("secondary")}>
+          Άκυρο
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ClientIdentityProfile({ role }) {
   const { session, userRow, refresh } = useAuth();
   const [lookups, setLookups] = useState({ nationalities: [], languages: [] });
@@ -500,6 +580,8 @@ function ClientIdentityProfile({ role }) {
       <p style={{ ...muted, fontSize: 12.5, marginTop: 4, color: colors.inkSoft }}>
         Ονοματεπώνυμο και τηλέφωνο έρχονται από την εγγραφή σου και δεν αλλάζουν εδώ.
       </p>
+
+      <DeleteAccount />
     </div>
   );
 }
@@ -521,6 +603,7 @@ export default function ProfilePage() {
       <ProfileForm profile={profile} onSaved={refresh} />
       <DeliveryAvailability profile={profile} />
       <SecondaryRoles profile={profile} />
+      <DeleteAccount />
     </div>
   );
 }

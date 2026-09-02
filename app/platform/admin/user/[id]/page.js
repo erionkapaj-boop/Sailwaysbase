@@ -9,6 +9,7 @@ import {
   adminRejectSkipper,
   adminSetTestAccount,
   adminSetStaffAdmin,
+  adminDeleteAccount,
   loginAsTestAccount,
   departureLabel,
 } from "../../../../../lib/platform/db";
@@ -29,6 +30,12 @@ import {
   money,
 } from "../../../../../lib/platform/theme";
 import { formatDate } from "../../../../../lib/platform/notifications";
+
+const DELETE_ERRORS = {
+  has_pending_activity: "Έχει ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση. Πρέπει να τακτοποιηθούν πρώτα.",
+  already_deleted: "Ο λογαριασμός έχει ήδη διαγραφεί.",
+  user_not_found: "Δεν βρέθηκε ο λογαριασμός.",
+};
 
 function Row({ left, right, tone = "neutral" }) {
   return (
@@ -152,6 +159,25 @@ export default function AdminUserViewPage() {
       router.push(target.role === "admin" ? "/platform/admin" : "/platform/requests");
     } catch (err) {
       setActionError(err.message || String(err));
+      setActionBusy(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (
+      !(await confirm(
+        `Οριστική διαγραφή του λογαριασμού ${target.full_name || target.phone_number}; Ανωνυμοποιείται (το ιστορικό κρατήσεων/αξιολογήσεων/οικονομικών παραμένει για τη διατήρηση που ορίζει η πολιτική απορρήτου) και το τηλέφωνο ελευθερώνεται για νέα εγγραφή. Δεν αναστρέφεται.`
+      ))
+    )
+      return;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await adminDeleteAccount(id);
+      await load();
+    } catch (err) {
+      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
+    } finally {
       setActionBusy(false);
     }
   }
@@ -438,6 +464,30 @@ export default function AdminUserViewPage() {
                 />
               ))}
             </>
+          )}
+
+          {target.status === "deleted" ? (
+            <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.border}` }}>
+              <span style={badge("neutral")}>Διαγραμμένος λογαριασμός</span>
+            </div>
+          ) : (
+            target.role !== "admin" && (
+              <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.danger}` }}>
+                <b style={{ fontWeight: 600 }}>Διαγραφή λογαριασμού</b>
+                <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
+                  Ανωνυμοποίηση — το ιστορικό κρατήσεων/αξιολογήσεων/οικονομικών παραμένει, το τηλέφωνο
+                  ελευθερώνεται για νέα εγγραφή. Δεν αναστρέφεται.
+                </p>
+                <button
+                  style={{ ...button("primary"), background: colors.danger, borderColor: colors.danger }}
+                  disabled={actionBusy}
+                  onClick={handleDeleteAccount}
+                >
+                  {actionBusy ? "…" : "Οριστική διαγραφή"}
+                </button>
+                {actionError && <p style={{ color: colors.danger, marginTop: 10, fontSize: 13 }}>{actionError}</p>}
+              </div>
+            )
           )}
         </>
       )}
