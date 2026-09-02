@@ -2,7 +2,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
-import { sendOtp, verifyOtp, createUserDraft } from "../../../lib/platform/db";
+import { sendOtp, verifyOtp, createUserDraft, isReservedTestPhone, testPhoneSignIn } from "../../../lib/platform/db";
 import { CREW_ROLES } from "../../../lib/platform/roles";
 import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, select, colors, radius } from "../../../lib/platform/theme";
@@ -85,6 +85,10 @@ function RegisterInner() {
   // country code for professionals; a plain client registration is
   // untouched, still handled entirely by normalizePhone() as before.
   const fullPhone = isProfessional ? countryCode + form.phone.replace(/^0+/, "") : form.phone;
+  // Ghost Mode (βλ. db.js): μια δεσμευμένη σειρά τηλεφώνων δοκιμής
+  // (+306980000001-099) παρακάμπτει το πραγματικό SMS — ΟΡΑΤΑ, όχι κρυφά,
+  // βλ. το βήμα "otp" παρακάτω.
+  const isTestPhone = isReservedTestPhone(fullPhone);
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState("details"); // details | otp
   const [busy, setBusy] = useState(false);
@@ -95,7 +99,8 @@ function RegisterInner() {
     setError("");
     setBusy(true);
     try {
-      await sendOtp(fullPhone);
+      if (isTestPhone) await testPhoneSignIn(fullPhone);
+      else await sendOtp(fullPhone);
       setStep("otp");
     } catch (err) {
       setError(err.message || String(err));
@@ -109,7 +114,9 @@ function RegisterInner() {
     setError("");
     setBusy(true);
     try {
-      await verifyOtp(fullPhone, otp);
+      // A test phone already has a real, signed-in session from
+      // testPhoneSignIn() above — no SMS code to check.
+      if (!isTestPhone) await verifyOtp(fullPhone, otp);
       await createUserDraft({ ...form, phone: fullPhone, crewRole: isProfessional ? crewRole : null });
       await refresh();
       // PIN comes next: the OTP proved identity, the PIN is what they'll use
@@ -231,20 +238,41 @@ function RegisterInner() {
 
       {step === "otp" && (
         <form onSubmit={submitOtp} style={{ ...card, marginTop: 20 }}>
-          <label style={label} htmlFor="reg-otp">
-            Κωδικός SMS
-          </label>
-          <input
-            id="reg-otp"
-            required
-            inputMode="numeric"
-            placeholder="123456"
-            style={{ ...input, marginBottom: 20 }}
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-          />
+          {isTestPhone ? (
+            <div
+              style={{
+                background: "#F7F0E2",
+                border: `1px solid ${colors.warn}`,
+                borderRadius: radius.md,
+                padding: 14,
+                marginBottom: 20,
+              }}
+            >
+              <b style={{ display: "block", marginBottom: 4 }}>🧪 ΠΡΟΣΟΜΟΙΩΣΗ — δεν στάλθηκε SMS</b>
+              <span style={{ fontSize: 13.5 }}>
+                Το {fullPhone} είναι δεσμευμένο τηλέφωνο δοκιμής (Ghost Mode). Δεν χρειάζεται κωδικός — πάτα
+                «Συνέχεια» για να προχωρήσεις ακριβώς όπως θα προχωρούσε ένας πραγματικός χρήστης μετά την
+                επαλήθευση SMS.
+              </span>
+            </div>
+          ) : (
+            <>
+              <label style={label} htmlFor="reg-otp">
+                Κωδικός SMS
+              </label>
+              <input
+                id="reg-otp"
+                required
+                inputMode="numeric"
+                placeholder="123456"
+                style={{ ...input, marginBottom: 20 }}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+              />
+            </>
+          )}
           <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%" }}>
-            {busy ? "Επαλήθευση…" : "Επαλήθευση"}
+            {busy ? "…" : isTestPhone ? "Συνέχεια (προσομοίωση)" : "Επαλήθευση"}
           </button>
         </form>
       )}

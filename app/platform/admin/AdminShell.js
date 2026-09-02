@@ -20,6 +20,7 @@ export const SECTIONS = [
   { href: "/platform/admin/offers", label: "Αναθέσεις", icon: "→" },
   { href: "/platform/admin/approvals", label: "Εγκρίσεις", icon: "✓", badge: "pending_approvals" },
   { href: "/platform/admin/users", label: "Χρήστες", icon: "◍" },
+  { href: "/platform/admin/ghost", label: "Ghost Mode", icon: "👻" },
   { href: "/platform/admin/bookings", label: "Κρατήσεις", icon: "≡" },
   { href: "/platform/admin/deliveries", label: "Μεταφορές", icon: "⛵" },
   { href: "/platform/admin/finance", label: "Οικονομικά", icon: "€" },
