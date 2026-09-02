@@ -1,8 +1,16 @@
 "use client";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
-import { sendOtp, verifyOtp, createUserDraft, isReservedTestPhone, testPhoneSignIn } from "../../../lib/platform/db";
+import {
+  sendOtp,
+  verifyOtp,
+  createUserDraft,
+  isReservedTestPhone,
+  testPhoneSignIn,
+  pendingSignIn,
+  getOtpEnabled,
+} from "../../../lib/platform/db";
 import { CREW_ROLES } from "../../../lib/platform/roles";
 import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, select, colors, radius } from "../../../lib/platform/theme";
@@ -53,6 +61,13 @@ const COUNTRY_CODES = [
   { code: "+91", label: "🇮🇳 Ινδία (+91)" },
 ];
 
+// "not_a_test_phone"/"use_test_signin_instead" never reach a real user (the
+// UI itself picks the right path by isTestPhone) — only listed here in case
+// a stale tab races the two.
+const REGISTER_ERRORS = {
+  phone_already_registered: "Υπάρχει ήδη λογαριασμός με αυτό το τηλέφωνο. Δοκίμασε να συνδεθείς αντί να ξαναγραφτείς.",
+};
+
 const chip = (active) => ({
   padding: "9px 16px",
   borderRadius: radius.pill,
@@ -93,17 +108,45 @@ function RegisterInner() {
   const [step, setStep] = useState("details"); // details | otp
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // 0075: while no SMS provider is configured this stays false and every
+  // real (non-test) phone goes through admin verification instead of a
+  // code step — see submitDetails. Defaults to false (today's real value)
+  // rather than leaving it undefined, so the helper text under the button
+  // never flashes the wrong promise while this is still loading.
+  const [otpEnabled, setOtpEnabled] = useState(false);
+  useEffect(() => {
+    getOtpEnabled().then(setOtpEnabled).catch(() => {});
+  }, []);
 
   async function submitDetails(e) {
     e.preventDefault();
     setError("");
     setBusy(true);
     try {
-      if (isTestPhone) await testPhoneSignIn(fullPhone);
-      else await sendOtp(fullPhone);
-      setStep("otp");
+      if (isTestPhone) {
+        await testPhoneSignIn(fullPhone);
+        setStep("otp");
+      } else if (otpEnabled) {
+        await sendOtp(fullPhone);
+        setStep("otp");
+      } else {
+        // No SMS provider yet: mint the account directly and send it
+        // straight to set-pin. It lands unverified — an admin has to
+        // confirm it from /platform/admin/users before it's a live account
+        // (PlatformShell.js's VerificationGate blocks everything else
+        // until then).
+        await pendingSignIn(fullPhone);
+        await createUserDraft({
+          ...form,
+          phone: fullPhone,
+          crewRole: isProfessional ? crewRole : null,
+          phoneVerified: false,
+        });
+        await refresh();
+        router.push("/platform/set-pin");
+      }
     } catch (err) {
-      setError(err.message || String(err));
+      setError(REGISTER_ERRORS[err.message] || err.message || String(err));
     } finally {
       setBusy(false);
     }
@@ -123,7 +166,7 @@ function RegisterInner() {
       // from now on.
       router.push("/platform/set-pin");
     } catch (err) {
-      setError(err.message || String(err));
+      setError(REGISTER_ERRORS[err.message] || err.message || String(err));
     } finally {
       setBusy(false);
     }
@@ -231,7 +274,11 @@ function RegisterInner() {
             {busy ? "Αποστολή…" : "Συνέχεια"}
           </button>
           <p style={{ ...muted, fontSize: 13, marginTop: 12, marginBottom: 0 }}>
-            Θα σου στείλουμε κωδικό SMS για να επιβεβαιώσουμε το τηλέφωνό σου.
+            {isReservedTestPhone(fullPhone)
+              ? "Δεσμευμένο τηλέφωνο δοκιμής — δεν χρειάζεται SMS."
+              : otpEnabled
+              ? "Θα σου στείλουμε κωδικό SMS για να επιβεβαιώσουμε το τηλέφωνό σου."
+              : "Δεν στέλνουμε κωδικό SMS αυτή τη στιγμή — η εγγραφή σου θα ελεγχθεί χειροκίνητα πριν ενεργοποιηθεί ο λογαριασμός σου."}
           </p>
         </form>
       )}

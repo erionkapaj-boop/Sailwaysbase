@@ -136,9 +136,33 @@ export default function AccountMenu({ items = [], onSignOut, activeHref }) {
                       borderTop: !it.heading && divider ? `1px solid ${colors.border}` : undefined,
                       background: active ? colors.seaGlass : undefined,
                       fontWeight: active ? 600 : 400,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
                     }}
                   >
-                    {it.label}
+                    <span>{it.label}</span>
+                    {it.badge > 0 && (
+                      <span
+                        style={{
+                          minWidth: 20,
+                          height: 20,
+                          padding: "0 6px",
+                          borderRadius: 10,
+                          background: colors.warn,
+                          color: "#fff",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {it.badge}
+                      </span>
+                    )}
                   </Link>
                 </div>
                 );

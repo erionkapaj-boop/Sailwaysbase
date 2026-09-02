@@ -29,6 +29,7 @@ export default function AdminOverview() {
   }, []);
 
   const needsAttention =
+    (counts.pending_verification || 0) +
     (counts.coverage_needed || 0) +
     (counts.pending_approvals || 0) +
     (counts.open_disputes || 0) +
@@ -52,6 +53,19 @@ export default function AdminOverview() {
           <Empty>Όλα τακτοποιημένα.</Empty>
         ) : (
           <>
+            {/* Πρώτο από όλα: κάποιος έκανε εγγραφή και περιμένει —
+                όσο πιο γρήγορα ελεγχθεί, τόσο πιο γρήγορα μπαίνει κανονικά. */}
+            {counts.pending_verification > 0 && (
+              <Link href="/platform/admin/users?tab=pending" style={{ textDecoration: "none" }}>
+                <Row tone="attention">
+                  <RowMain
+                    title={`${counts.pending_verification} εγγραφές περιμένουν επαλήθευση`}
+                    meta="Δεν στέλνουμε SMS ακόμα — ελέγχονται χειροκίνητα πριν ενεργοποιηθούν."
+                  />
+                  <span style={{ ...muted, fontSize: 18 }}>›</span>
+                </Row>
+              </Link>
+            )}
             {/* Coverage first: a client is sitting without a professional
                 for a date that is coming, which nothing else on this list
                 is. */}

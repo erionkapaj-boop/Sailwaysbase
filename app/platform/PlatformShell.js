@@ -10,8 +10,8 @@ import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
 import AccountMenu from "./components/AccountMenu";
 import { SECTIONS as ADMIN_SECTIONS } from "./admin/AdminShell";
-import { hasStashedAdminSession, returnToAdminSession } from "../../lib/platform/db";
-import { nav, colors, fontSans } from "../../lib/platform/theme";
+import { hasStashedAdminSession, returnToAdminSession, adminOverview } from "../../lib/platform/db";
+import { nav, colors, fontSans, container, card, h1, muted, button } from "../../lib/platform/theme";
 
 const navLink = {
   fontSize: 14,
@@ -93,7 +93,7 @@ function AccountNavBar({ name, photoUrl, loading, items, activeHref, onSignOut, 
 // ενότητες μπαίνουν εδώ, σε ομάδες με επικεφαλίδα — ένα μόνο μενού, παντού.
 // Το admin_SECTIONS ζει στο AdminShell.js (χρειάζεται και εκεί, για το ποια
 // σελίδα είναι «ενεργή»), οπότε εισάγεται αντί να ξαναγραφτεί.
-function buildMenuItems({ role, isAdmin }) {
+function buildMenuItems({ role, isAdmin, adminCounts }) {
   const items = [{ href: "/platform", label: "Αρχική" }];
   items.push({ href: "/platform/requests", label: "Αιτήματα", group: true });
   // Πάντα ξεκάθαρο ότι είναι ΤΟ ΔΙΚΟ ΣΟΥ, ξεχωριστό από το «Όλες οι
@@ -107,7 +107,14 @@ function buildMenuItems({ role, isAdmin }) {
   items.push({ href: "/platform/wallet", label: "Το πορτοφόλι μου" });
 
   if (isAdmin) {
-    for (const s of ADMIN_SECTIONS) items.push({ href: s.href, label: s.label, heading: s.heading, prefix: !s.exact });
+    for (const s of ADMIN_SECTIONS)
+      items.push({
+        href: s.href,
+        label: s.label,
+        heading: s.heading,
+        prefix: !s.exact,
+        badge: s.badge ? adminCounts?.[s.badge] || 0 : 0,
+      });
   }
   return items;
 }
@@ -116,6 +123,16 @@ function NavBar() {
   const { session, userRow, profile, loading, signOut, role, isAdmin, notifications, refreshNotifications } = useAuth();
   const t = useTranslations("Nav");
   const pathname = usePathname();
+  // Δεν διαβάζεται από το AdminCountsContext: αυτό το provider ζει μέσα στο
+  // app/platform/admin/layout.js, πιο βαθιά στο δέντρο από εδώ (το μενού
+  // είναι πλέον site-wide, όχι μόνο admin), οπότε το context δεν θα έφτανε
+  // ποτέ ως εδώ. Ίδιο RPC, δικό του μικρό fetch — ασήμαντο κόστος για ένα
+  // κλικ στο μενού, κι έτσι το κόκκινο badge δουλεύει σε ΚΑΘΕ σελίδα, όχι
+  // μόνο μέσα στο admin console.
+  const [adminCounts, setAdminCounts] = useState({});
+  useEffect(() => {
+    if (isAdmin) adminOverview().then(setAdminCounts).catch(() => {});
+  }, [isAdmin]);
 
   if (session && (isAdmin || role === "skipper" || role === "client")) {
     return (
@@ -123,7 +140,7 @@ function NavBar() {
         name={profile?.full_name || userRow?.full_name || (isAdmin ? "Διαχειριστής" : undefined)}
         photoUrl={profile?.photo_url || userRow?.photo_url}
         loading={loading}
-        items={buildMenuItems({ role, isAdmin })}
+        items={buildMenuItems({ role, isAdmin, adminCounts })}
         activeHref={pathname}
         onSignOut={signOut}
         notifications={notifications}
@@ -294,6 +311,45 @@ function ReturnToAdminBanner() {
   );
 }
 
+// 0075: an account created without real SMS OTP (no provider configured
+// yet) starts with users.phone_verified_at = null and has to wait for an
+// admin to confirm it's a real person (Χρήστες → «Επαλήθευση») before it
+// can do anything account-specific. Blocks only the "act as a member"
+// pages — home, search, and the auth/legal pages a not-yet-verified (or
+// signed-out) visitor still needs to reach stay open, same as before.
+const VERIFICATION_GATED_PREFIXES = [
+  "/platform/requests",
+  "/platform/bookings",
+  "/platform/wallet",
+  "/platform/availability",
+  "/platform/delivery",
+  "/platform/profile",
+];
+
+function VerificationGate({ children }) {
+  const { userRow, isAdmin, signOut } = useAuth();
+  const pathname = usePathname();
+
+  const pending = userRow && !userRow.phone_verified_at && !isAdmin;
+  const onGatedPage = VERIFICATION_GATED_PREFIXES.some((p) => pathname.startsWith(p));
+  if (!pending || !onGatedPage) return children;
+
+  return (
+    <div style={{ ...container, maxWidth: 460 }}>
+      <div style={{ ...card, marginTop: 20, textAlign: "center" }}>
+        <h1 style={{ ...h1, fontSize: 20 }}>Ο λογαριασμός σου περιμένει επαλήθευση</h1>
+        <p style={{ ...muted, margin: "10px 0 0" }}>
+          Δεν στέλνουμε κωδικό SMS αυτή τη στιγμή, οπότε ένας από εμάς ελέγχει χειροκίνητα κάθε νέα εγγραφή. Μόλις
+          επιβεβαιωθεί, ο λογαριασμός σου ενεργοποιείται κανονικά — δεν χρειάζεται να κάνεις τίποτα άλλο.
+        </p>
+        <button type="button" onClick={signOut} style={{ ...button("secondary"), marginTop: 18 }}>
+          Αποσύνδεση
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Signed in gets the slim app-footer everywhere (client, professional, and
 // admin dashboards alike); signed out — the marketing pages — keeps the full
 // legal footer.
@@ -310,7 +366,9 @@ export default function PlatformShell({ children }) {
         <ReturnToAdminBanner />
         <ViewAsBanner />
         <NavBar />
-        <div style={{ flex: 1 }}>{children}</div>
+        <div style={{ flex: 1 }}>
+          <VerificationGate>{children}</VerificationGate>
+        </div>
         <SiteFooter />
       </div>
     </AuthProvider>

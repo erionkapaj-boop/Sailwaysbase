@@ -6,7 +6,7 @@ import AdminShell, { useAdminCounts } from "../AdminShell";
 import { useAuth } from "../../AuthContext";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { CREW_ROLES, labelForRole } from "../../../../lib/platform/roles";
-import { adminListAccounts, loginAsTestAccount } from "../../../../lib/platform/db";
+import { adminListAccounts, adminVerifyUser, loginAsTestAccount } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
 import { useConfirm } from "../../components/ConfirmDialog";
 
@@ -49,6 +49,10 @@ const TABS = [
   // ενεργός). Ο ίδιος λογαριασμός θα ξαναφανεί εδώ αυτόματα αν διαγραφεί —
   // δεν χρειάζεται δικό του state, μόνο ξεχωριστό φίλτρο.
   { key: "deleted", label: "Διαγραμμένοι", role: null, deletedOnly: true },
+  // 0075: εγγραφές χωρίς SMS OTP (δεν είναι ακόμα ενεργό) — περιμένουν το
+  // «Επαλήθευση» παρακάτω πριν μπορέσουν να κάνουν οτιδήποτε (VerificationGate
+  // στο PlatformShell.js).
+  { key: "pending", label: "Αναμονή επαλήθευσης", role: null, pendingVerificationOnly: true },
 ];
 
 const SORTS = [
@@ -105,6 +109,7 @@ function UsersInner() {
           sort,
           invisibleOnly,
           deletedOnly: Boolean(active?.deletedOnly),
+          pendingVerificationOnly: Boolean(active?.pendingVerificationOnly),
         })
       );
     } catch (err) {
@@ -123,6 +128,18 @@ function UsersInner() {
   function enterViewAs(u) {
     startViewAs({ id: u.id, name: u.full_name, phone: u.phone_number, role: u.role });
     router.push("/platform/requests");
+  }
+
+  async function handleVerify(u) {
+    setBusy(true);
+    setError("");
+    try {
+      await adminVerifyUser(u.id);
+      await load();
+    } catch (err) {
+      setError(err.message || String(err));
+      setBusy(false);
+    }
   }
 
   async function enterLoginAs(u) {
@@ -294,6 +311,18 @@ function UsersInner() {
               >
                 {u.approval_status && u.approval_status !== "approved" && <Status value={u.approval_status} />}
                 {u.status !== "active" && <Status value={u.status} />}
+                {/* 0075: εγγραφή χωρίς SMS OTP (ή χωρίς επαλήθευση admin
+                    ακόμα) — VerificationGate στο PlatformShell.js τον
+                    μπλοκάρει παντού μέχρι να πατηθεί αυτό. */}
+                {!u.phone_verified_at && u.role !== "admin" && u.status !== "deleted" && (
+                  <button
+                    style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
+                    disabled={busy}
+                    onClick={() => handleVerify(u)}
+                  >
+                    ✓ Επαλήθευση
+                  </button>
+                )}
                 {/* Ούτε "Προβολή ως" ούτε "Σύνδεση ως" βγάζουν νόημα πάνω σε
                     έναν κρυμμένο λογαριασμό — η σύνδεση θα μπλοκαριστεί
                     ούτως ή άλλως (signInWithPin αρνείται status='deleted'). */}

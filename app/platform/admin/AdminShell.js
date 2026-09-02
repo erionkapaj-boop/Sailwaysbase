@@ -27,7 +27,7 @@ export const SECTIONS = [
   { href: "/platform/admin/coverage", label: "Κάλυψη", badge: "coverage_needed", heading: "Ανάθεση πληρώματος" },
   { href: "/platform/admin/offers", label: "Αναθέσεις" },
   { href: "/platform/admin/approvals", label: "Εγκρίσεις", badge: "pending_approvals", heading: "Χρήστες" },
-  { href: "/platform/admin/users", label: "Χρήστες" },
+  { href: "/platform/admin/users", label: "Χρήστες", badge: "pending_verification" },
   { href: "/platform/admin/ghost", label: "Ghost Mode" },
   { href: "/platform/admin/bookings", label: "Όλες οι κρατήσεις", heading: "Καταγραφές" },
   { href: "/platform/admin/deliveries", label: "Μεταφορές" },
