@@ -160,7 +160,21 @@ function RegisterInner() {
       // A test phone already has a real, signed-in session from
       // testPhoneSignIn() above — no SMS code to check.
       if (!isTestPhone) await verifyOtp(fullPhone, otp);
-      await createUserDraft({ ...form, phone: fullPhone, crewRole: isProfessional ? crewRole : null });
+      // Ghost Mode only bypasses the SMS *send* — it must not also skip
+      // ahead of what a real client experiences right now. A real OTP
+      // verify (the branch above) always proves identity on the spot, so
+      // that path is verified true either way. A test phone is a stand-in
+      // for a real client, so it should land exactly where a real one
+      // would today: verified instantly only if otpEnabled is actually on;
+      // otherwise pending, same as every other registration, so testing
+      // this as admin means walking the real Χρήστες → «Αναμονή
+      // επαλήθευσης» flow, not a shortcut around it.
+      await createUserDraft({
+        ...form,
+        phone: fullPhone,
+        crewRole: isProfessional ? crewRole : null,
+        phoneVerified: isTestPhone ? otpEnabled : true,
+      });
       await refresh();
       // PIN comes next: the OTP proved identity, the PIN is what they'll use
       // from now on.
@@ -297,9 +311,12 @@ function RegisterInner() {
             >
               <b style={{ display: "block", marginBottom: 4 }}>🧪 ΠΡΟΣΟΜΟΙΩΣΗ — δεν στάλθηκε SMS</b>
               <span style={{ fontSize: 13.5 }}>
-                Το {fullPhone} είναι δεσμευμένο τηλέφωνο δοκιμής (Ghost Mode). Δεν χρειάζεται κωδικός — πάτα
-                «Συνέχεια» για να προχωρήσεις ακριβώς όπως θα προχωρούσε ένας πραγματικός χρήστης μετά την
-                επαλήθευση SMS.
+                Το {fullPhone} είναι δεσμευμένο τηλέφωνο δοκιμής (Ghost Mode). Παρακάμπτεται μόνο η αποστολή SMS —
+                πάτα «Συνέχεια» και ο λογαριασμός θα καταλήξει ακριβώς εκεί που θα κατέληγε σήμερα ένας πραγματικός
+                πελάτης:{" "}
+                {otpEnabled
+                  ? "αμέσως επιβεβαιωμένος, γιατί το SMS OTP είναι ενεργό."
+                  : "σε αναμονή επαλήθευσης, γιατί το SMS δεν είναι ακόμα ενεργό — θα χρειαστεί να τον επιβεβαιώσεις εσύ από το Χρήστες → «Αναμονή επαλήθευσης», όπως ακριβώς και έναν πραγματικό πελάτη."}
               </span>
             </div>
           ) : (
