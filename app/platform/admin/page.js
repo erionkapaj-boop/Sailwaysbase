@@ -33,7 +33,8 @@ export default function AdminOverview() {
     (counts.coverage_needed || 0) +
     (counts.pending_approvals || 0) +
     (counts.open_disputes || 0) +
-    (counts.profiles_invisible || 0);
+    (counts.profiles_invisible || 0) +
+    (counts.suspended_count || 0);
 
   return (
     <AdminShell
@@ -108,6 +109,19 @@ export default function AdminOverview() {
                   <RowMain
                     title={`${counts.profiles_invisible} εγκεκριμένοι χωρίς διαθεσιμότητα`}
                     meta="Εγκρίθηκαν αλλά δεν βγαίνουν σε αναζητήσεις — μάλλον δεν το ξέρουν."
+                  />
+                  <span style={{ ...muted, fontSize: 18 }}>›</span>
+                </Row>
+              </Link>
+            )}
+            {/* 0078: ζητήθηκε ρητά — μια υπενθύμιση να μην ξεχνιούνται όσοι
+                είναι σε αναστολή επ' αόριστο. */}
+            {counts.suspended_count > 0 && (
+              <Link href="/platform/admin/users?tab=suspended" style={{ textDecoration: "none" }}>
+                <Row tone="attention">
+                  <RowMain
+                    title={`${counts.suspended_count} λογαριασμοί σε αναστολή`}
+                    meta="Σταματημένοι επ' αόριστο — δες αν ήρθε η ώρα να επαναφερθούν."
                   />
                   <span style={{ ...muted, fontSize: 18 }}>›</span>
                 </Row>

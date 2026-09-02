@@ -31,6 +31,8 @@ function LoginInner() {
         setLockedOut(true);
       } else if (err.message === "account_deleted") {
         setError("Αυτός ο λογαριασμός έχει διαγραφεί. Κάνε ξανά εγγραφή με το ίδιο τηλέφωνο για να τον ενεργοποιήσεις ξανά.");
+      } else if (err.message === "account_suspended") {
+        setError("Ο λογαριασμός αυτός είναι σε αναστολή. Επικοινώνησε μαζί μας αν νομίζεις ότι πρόκειται για λάθος.");
       } else {
         // Don't say whether the phone or the PIN was wrong — that would tell
         // an attacker which numbers have accounts.

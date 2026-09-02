@@ -10,6 +10,8 @@ import {
   adminSetTestAccount,
   adminSetStaffAdmin,
   adminDeleteAccount,
+  adminSuspendAccount,
+  adminReactivateAccount,
   loginAsTestAccount,
   departureLabel,
 } from "../../../../../lib/platform/db";
@@ -38,6 +40,10 @@ const DELETE_ERRORS = {
   cannot_delete_admin: "Λογαριασμός admin δεν μπορεί να διαγραφεί από εδώ.",
   cannot_impersonate_admin: "Δεν γίνεται «Σύνδεση ως» πάνω σε λογαριασμό admin.",
   cannot_remove_last_admin: "Δεν μπορείς να αφαιρέσεις τα δικαιώματα admin — είναι ο μόνος admin που έχει απομείνει.",
+  cannot_suspend_admin: "Λογαριασμός admin δεν μπορεί να τεθεί σε αναστολή.",
+  already_suspended: "Ο λογαριασμός είναι ήδη σε αναστολή.",
+  reason_required: "Χρειάζεται λόγος για την αναστολή.",
+  not_suspended: "Ο λογαριασμός δεν είναι σε αναστολή.",
 };
 
 function Row({ left, right, tone = "neutral" }) {
@@ -76,6 +82,8 @@ export default function AdminUserViewPage() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState("");
   const [confirm, confirmDialog] = useConfirm();
+  const [suspendReason, setSuspendReason] = useState("");
+  const [showSuspendForm, setShowSuspendForm] = useState(false);
 
   async function load() {
     setBusy(true);
@@ -147,6 +155,39 @@ export default function AdminUserViewPage() {
     }
   }
 
+  async function handleSuspend(e) {
+    e.preventDefault();
+    if (!suspendReason.trim()) {
+      setActionError("Χρειάζεται λόγος για την αναστολή.");
+      return;
+    }
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await adminSuspendAccount(id, suspendReason);
+      setSuspendReason("");
+      setShowSuspendForm(false);
+      await load();
+    } catch (err) {
+      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleReactivate() {
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await adminReactivateAccount(id);
+      await load();
+    } catch (err) {
+      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
   async function handleLoginAs() {
     if (
       !(await confirm(
@@ -203,7 +244,9 @@ export default function AdminUserViewPage() {
           Ό,τι είναι αποθηκευμένο για αυτόν τον χρήστη. Για να δεις τις σελίδες όπως τις βλέπει ο
           ίδιος, χρησιμοποίησε την προβολή.
         </p>
-        {target && target.role !== "admin" && (
+        {/* Ούτε "Προβολή ως" ούτε "Σύνδεση ως" βγάζουν νόημα πάνω σε έναν
+            κρυμμένο/σταματημένο λογαριασμό — ίδιο όριο με τη λίστα Χρήστες. */}
+        {target && target.role !== "admin" && target.status !== "deleted" && target.status !== "suspended" && (
           <button
             style={{ ...button("secondary"), marginRight: 8 }}
             onClick={() => {
@@ -214,11 +257,14 @@ export default function AdminUserViewPage() {
             Προβολή ως {target.full_name || target.phone_number}
           </button>
         )}
-        {target?.is_test_account && target.role !== "admin" && (
-          <button style={{ ...button("primary"), marginRight: 8 }} disabled={actionBusy} onClick={handleLoginAs}>
-            Σύνδεση ως {target.full_name || target.phone_number}
-          </button>
-        )}
+        {target?.is_test_account &&
+          target.role !== "admin" &&
+          target.status !== "deleted" &&
+          target.status !== "suspended" && (
+            <button style={{ ...button("primary"), marginRight: 8 }} disabled={actionBusy} onClick={handleLoginAs}>
+              Σύνδεση ως {target.full_name || target.phone_number}
+            </button>
+          )}
         {target && (
           <div style={{ marginTop: 12 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
@@ -473,24 +519,89 @@ export default function AdminUserViewPage() {
             <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.border}` }}>
               <span style={badge("neutral")}>Διαγραμμένος λογαριασμός</span>
             </div>
+          ) : target.status === "suspended" ? (
+            <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
+              <b style={{ fontWeight: 600 }}>Σε αναστολή</b>
+              <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
+                {target.suspension_reason || "(χωρίς καταγεγραμμένο λόγο)"}
+              </p>
+              <button style={{ ...button("primary") }} disabled={actionBusy} onClick={handleReactivate}>
+                {actionBusy ? "…" : "Επαναφορά"}
+              </button>
+              {actionError && <p style={{ color: colors.danger, marginTop: 10, fontSize: 13 }}>{actionError}</p>}
+            </div>
           ) : (
-            target.role !== "admin" && !target.is_staff_admin && (
-              <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.danger}` }}>
-                <b style={{ fontWeight: 600 }}>Διαγραφή λογαριασμού</b>
-                <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
-                  Ο λογαριασμός κρύβεται από την πλατφόρμα — όνομα, email, τηλέφωνο και ιστορικό (κρατήσεις,
-                  αξιολογήσεις, οικονομικά) παραμένουν ως έχουν. Αν ξαναγραφτεί με το ίδιο τηλέφωνο, παίρνει πίσω
-                  τον ίδιο λογαριασμό με την ίδια αξιολόγηση — δεν ξεκινάει καθαρός.
-                </p>
-                <button
-                  style={{ ...button("primary"), background: colors.danger, borderColor: colors.danger }}
-                  disabled={actionBusy}
-                  onClick={handleDeleteAccount}
-                >
-                  {actionBusy ? "…" : "Οριστική διαγραφή"}
-                </button>
+            target.role !== "admin" &&
+            !target.is_staff_admin && (
+              <>
+                <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
+                  <b style={{ fontWeight: 600 }}>Αναστολή λογαριασμού</b>
+                  <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
+                    Ο λογαριασμός σταματά να λειτουργεί επ' αόριστον (μπλοκάρεται η σύνδεση, κρύβεται από την
+                    αναζήτηση αν είναι επαγγελματίας) — τίποτα δεν χάνεται, και επαναφέρεται με ένα κλικ όποτε
+                    θελήσεις, χωρίς νέα εγγραφή.
+                  </p>
+                  {showSuspendForm ? (
+                    <form onSubmit={handleSuspend}>
+                      <textarea
+                        required
+                        rows={2}
+                        placeholder="Λόγος αναστολής — θα τον βλέπεις εδώ όταν το ξανακοιτάξεις."
+                        value={suspendReason}
+                        onChange={(e) => setSuspendReason(e.target.value)}
+                        style={{
+                          width: "100%",
+                          fontFamily: "inherit",
+                          fontSize: 13.5,
+                          padding: 8,
+                          borderRadius: 8,
+                          border: `1px solid ${colors.border}`,
+                          marginBottom: 8,
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button type="submit" style={{ ...button("primary") }} disabled={actionBusy}>
+                          {actionBusy ? "…" : "Επιβεβαίωση αναστολής"}
+                        </button>
+                        <button
+                          type="button"
+                          style={{ ...button("secondary") }}
+                          onClick={() => {
+                            setShowSuspendForm(false);
+                            setSuspendReason("");
+                            setActionError("");
+                          }}
+                        >
+                          Άκυρο
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <button style={{ ...button("secondary") }} onClick={() => setShowSuspendForm(true)}>
+                      Αναστολή
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ ...card, marginTop: 12, borderLeft: `3px solid ${colors.danger}` }}>
+                  <b style={{ fontWeight: 600 }}>Διαγραφή λογαριασμού</b>
+                  <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
+                    Ο λογαριασμός κρύβεται από την πλατφόρμα — όνομα, email, τηλέφωνο και ιστορικό (κρατήσεις,
+                    αξιολογήσεις, οικονομικά) παραμένουν ως έχουν. Αν ξαναγραφτεί με το ίδιο τηλέφωνο, παίρνει πίσω
+                    τον ίδιο λογαριασμό με την ίδια αξιολόγηση — δεν ξεκινάει καθαρός.
+                  </p>
+                  <button
+                    style={{ ...button("primary"), background: colors.danger, borderColor: colors.danger }}
+                    disabled={actionBusy}
+                    onClick={handleDeleteAccount}
+                  >
+                    {actionBusy ? "…" : "Οριστική διαγραφή"}
+                  </button>
+                </div>
+
                 {actionError && <p style={{ color: colors.danger, marginTop: 10, fontSize: 13 }}>{actionError}</p>}
-              </div>
+              </>
             )
           )}
         </>

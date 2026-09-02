@@ -6,7 +6,7 @@ import AdminShell, { useAdminCounts } from "../AdminShell";
 import { useAuth } from "../../AuthContext";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { CREW_ROLES, labelForRole } from "../../../../lib/platform/roles";
-import { adminListAccounts, adminVerifyUser, loginAsTestAccount } from "../../../../lib/platform/db";
+import { adminListAccounts, adminVerifyUser, adminReactivateAccount, loginAsTestAccount } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
 import { useConfirm } from "../../components/ConfirmDialog";
 
@@ -53,6 +53,10 @@ const TABS = [
   // «Επαλήθευση» παρακάτω πριν μπορέσουν να κάνουν οτιδήποτε (VerificationGate
   // στο PlatformShell.js).
   { key: "pending", label: "Αναμονή επαλήθευσης", role: null, pendingVerificationOnly: true },
+  // 0078: επ' αόριστο σταματημένοι — σκόπιμα ξεχωριστό κουτί από τους
+  // "Διαγραμμένοι", ώστε ο admin να μην ξεχνάει ότι υπάρχουν και να μπορεί
+  // να τους επαναφέρει με ένα κλικ.
+  { key: "suspended", label: "Σε αναστολή", role: null, suspendedOnly: true },
 ];
 
 const SORTS = [
@@ -110,6 +114,7 @@ function UsersInner() {
           invisibleOnly,
           deletedOnly: Boolean(active?.deletedOnly),
           pendingVerificationOnly: Boolean(active?.pendingVerificationOnly),
+          suspendedOnly: Boolean(active?.suspendedOnly),
         })
       );
     } catch (err) {
@@ -135,6 +140,18 @@ function UsersInner() {
     setError("");
     try {
       await adminVerifyUser(u.id);
+      await load();
+    } catch (err) {
+      setError(err.message || String(err));
+      setBusy(false);
+    }
+  }
+
+  async function handleReactivate(u) {
+    setBusy(true);
+    setError("");
+    try {
+      await adminReactivateAccount(u.id);
       await load();
     } catch (err) {
       setError(err.message || String(err));
@@ -286,6 +303,15 @@ function UsersInner() {
                     <span style={{ color: u.last_seen_at ? colors.inkSoft : colors.warn }}>
                       {u.last_seen_at ? `Ενεργός ${timeAgo(u.last_seen_at)}` : "Δεν έχει μπει ποτέ"}
                     </span>
+                    {/* Ο λόγος αναστολής φαίνεται εδώ κατευθείαν — αυτό
+                        ζητήθηκε ρητά: να μη χρειάζεται ο admin να ανοίξει το
+                        Στοιχεία για να θυμηθεί γιατί τον σταμάτησε. */}
+                    {u.status === "suspended" && u.suspension_reason && (
+                      <>
+                        <br />
+                        <span style={{ color: colors.warn }}>Αναστολή: {u.suspension_reason}</span>
+                      </>
+                    )}
                   </>
                 }
               />
@@ -324,9 +350,10 @@ function UsersInner() {
                   </button>
                 )}
                 {/* Ούτε "Προβολή ως" ούτε "Σύνδεση ως" βγάζουν νόημα πάνω σε
-                    έναν κρυμμένο λογαριασμό — η σύνδεση θα μπλοκαριστεί
-                    ούτως ή άλλως (signInWithPin αρνείται status='deleted'). */}
-                {u.role !== "admin" && u.status !== "deleted" && (
+                    έναν κρυμμένο/σταματημένο λογαριασμό — η σύνδεση θα
+                    μπλοκαριστεί ούτως ή άλλως (signInWithPin αρνείται
+                    status='deleted'/'suspended'). */}
+                {u.role !== "admin" && u.status !== "deleted" && u.status !== "suspended" && (
                   <button
                     style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}
                     onClick={() => enterViewAs(u)}
@@ -341,13 +368,24 @@ function UsersInner() {
                     αποτέλεσμα («Σύνδεση ως» σε admin) δείχνει ξανά ολόκληρο
                     το μενού admin — ακριβώς το αντίθετο του σκοπού του
                     εργαλείου. */}
-                {u.is_test_account && u.role !== "admin" && u.status !== "deleted" && (
+                {u.is_test_account && u.role !== "admin" && u.status !== "deleted" && u.status !== "suspended" && (
                   <button
                     style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
                     disabled={busy}
                     onClick={() => enterLoginAs(u)}
                   >
                     Σύνδεση ως
+                  </button>
+                )}
+                {/* 0078: επαναφορά με ένα κλικ, χωρίς λόγο (μόνο η αναστολή
+                    χρειάζεται λόγο) — ίδιο μοτίβο με το «✓ Επαλήθευση». */}
+                {u.status === "suspended" && (
+                  <button
+                    style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
+                    disabled={busy}
+                    onClick={() => handleReactivate(u)}
+                  >
+                    Επαναφορά
                   </button>
                 )}
                 <Link href={`/platform/admin/user/${u.id}`} style={{ textDecoration: "none" }}>
