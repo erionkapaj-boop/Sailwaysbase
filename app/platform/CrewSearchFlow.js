@@ -78,6 +78,8 @@ export default function CrewSearchFlow() {
   const [dates, setDates] = useState({ start: "", end: "" });
   const [regionId, setRegionId] = useState("");
   const [departurePoint, setDeparturePoint] = useState("");
+  const [arrivalPoint, setArrivalPoint] = useState("");
+  const [sameDestination, setSameDestination] = useState(true);
   const [boatTypeId, setBoatTypeId] = useState("");
   const [languageId, setLanguageId] = useState("");
   const [partySize, setPartySize] = useState("");
@@ -151,6 +153,7 @@ export default function CrewSearchFlow() {
       end: dates.end,
       region: regionId,
       point: departurePoint.trim(),
+      arrival: sameDestination ? departurePoint.trim() : arrivalPoint.trim(),
       boat: boatTypeId || "",
       lang: languageId || "",
       party: partySize || "",
@@ -265,6 +268,8 @@ export default function CrewSearchFlow() {
                 onClick={() => {
                   setRegionId(r.id);
                   setDeparturePoint("");
+                  setArrivalPoint("");
+                  setSameDestination(true);
                   next();
                 }}
               >
@@ -309,14 +314,41 @@ export default function CrewSearchFlow() {
           </p>
           <input
             type="text"
-            style={{ ...input, marginBottom: 20 }}
+            style={{ ...input, marginBottom: 16 }}
             placeholder="π.χ. Καλλιθέα"
             value={departurePoint}
             onChange={(e) => setDeparturePoint(e.target.value)}
           />
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, margin: "0 0 16px", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={!sameDestination}
+              onChange={(e) => {
+                const different = e.target.checked;
+                setSameDestination(!different);
+                if (!different) setArrivalPoint("");
+              }}
+            />
+            Ο ναύλος τελειώνει σε διαφορετικό σημείο
+          </label>
+
+          {!sameDestination && (
+            <>
+              <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>Πού τελειώνει ο ναύλος;</p>
+              <input
+                type="text"
+                style={{ ...input, marginBottom: 20 }}
+                placeholder="π.χ. Ρόδος"
+                value={arrivalPoint}
+                onChange={(e) => setArrivalPoint(e.target.value)}
+              />
+            </>
+          )}
+
           <button
             type="button"
-            disabled={!departurePoint.trim()}
+            disabled={!departurePoint.trim() || (!sameDestination && !arrivalPoint.trim())}
             onClick={next}
             style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15 }}
           >

@@ -763,6 +763,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
           endDate: filters.endDate,
           regionId: filters.regionId,
           departurePoint: filters.departurePoint || "",
+          arrivalPoint: filters.arrivalPoint || "",
           // Shared page-level value the skipper section's own auto-search
           // reads (see RoleSection's hasCompleteIncoming) — only skipper
           // ever cares, but it has to survive the round trip regardless of
@@ -806,6 +807,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
             endDate: filters.endDate,
             regionId: filters.regionId,
             departurePoint: filters.departurePoint,
+            arrivalPoint: filters.arrivalPoint,
             boatTypeId: role === "skipper" ? boatTypesByRole[role] || null : null,
             maxPriceFilter: null,
             crewRole: role,
@@ -1004,6 +1006,7 @@ function SearchPageInner() {
     endDate: params.get("end") || "",
     regionId: params.get("region") || "",
     departurePoint: params.get("point") || "",
+    arrivalPoint: params.get("arrival") || "",
     boatTypeId: params.get("boat") || "",
     languageId: params.get("lang") || "",
     partySize: params.get("party") || "",
@@ -1017,6 +1020,14 @@ function SearchPageInner() {
   const [pending, setPending] = useState(null);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], languages: [], regions: [] });
   const [filters, setFilters] = useState(incoming);
+  // Whether the destination is being kept in sync with the departure point —
+  // true for the common same-place ναύλο, false once someone declares a
+  // different one. Not itself part of `filters` (there's nothing to restore
+  // it from that isn't already implied by comparing the two points), just
+  // local UI state re-derived whenever filters are replaced wholesale below.
+  const [sameDestination, setSameDestination] = useState(
+    !incoming.arrivalPoint || incoming.arrivalPoint === incoming.departurePoint
+  );
   const [fee, setFee] = useState(null);
   // Who's picked, per role — lifted up from each RoleSection rather than
   // owned there, so a single checkout at the bottom of the page can see
@@ -1093,6 +1104,7 @@ function SearchPageInner() {
     if (!filters.startDate || !filters.endDate) errors.dates = true;
     if (!filters.regionId) errors.regionId = true;
     if (!filters.departurePoint || !filters.departurePoint.trim()) errors.departurePoint = true;
+    if (!filters.arrivalPoint || !filters.arrivalPoint.trim()) errors.arrivalPoint = true;
     if (!filters.partySize) errors.partySize = true;
     if (filters.privateCabin === undefined) errors.privateCabin = true;
     setFieldErrors(errors);
@@ -1106,7 +1118,7 @@ function SearchPageInner() {
   // place for anyone who does want to change something.
   function isComplete(f) {
     return Boolean(
-      f.startDate && f.endDate && f.regionId && f.departurePoint && f.partySize && f.privateCabin !== undefined
+      f.startDate && f.endDate && f.regionId && f.departurePoint && f.arrivalPoint && f.partySize && f.privateCabin !== undefined
     );
   }
   const [showFullFilters, setShowFullFilters] = useState(!isComplete(incoming));
@@ -1116,6 +1128,9 @@ function SearchPageInner() {
     if (p) {
       setPending(p);
       setFilters(p.filters);
+      setSameDestination(
+        !p.filters?.arrivalPoint || p.filters.arrivalPoint === p.filters.departurePoint
+      );
       // The pending-restore path lands back on a bare /platform/search (no
       // query string), so the collapse decision above — made from `incoming`
       // — couldn't see these values yet. Same rule, just applied once the
@@ -1152,6 +1167,15 @@ function SearchPageInner() {
     listLookups().then(setLookups).catch(() => {});
     getPlatformSetting("client_request_fee").then(setFee).catch(() => {});
   }, []);
+
+  // Keeps the destination mirrored to the departure point for as long as
+  // "same place" is checked — so departurePoint alone can drive both fields
+  // for the common case, and validateShared/isComplete never need to know
+  // about the toggle itself, only the two point values it keeps in sync.
+  useEffect(() => {
+    if (!sameDestination) return;
+    setFilters((f) => (f.arrivalPoint === f.departurePoint ? f : { ...f, arrivalPoint: f.departurePoint }));
+  }, [sameDestination, filters.departurePoint]);
 
   // The chosen region's curated ports, offered as quick picks above the
   // free-text field — same pattern as the wizard's own port step.
@@ -1258,6 +1282,38 @@ function SearchPageInner() {
             {fieldErrors.departurePoint && (
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
             )}
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, margin: "10px 0 0", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={!sameDestination}
+                onChange={(e) => {
+                  const different = e.target.checked;
+                  setSameDestination(!different);
+                  if (different) {
+                    setFilters((f) => ({ ...f, arrivalPoint: "" }));
+                  }
+                }}
+              />
+              Ο ναύλος τελειώνει σε διαφορετικό σημείο
+            </label>
+            {!sameDestination && (
+              <div style={{ marginTop: 10 }}>
+                <label style={label}>Λιμάνι τερματισμού</label>
+                <input
+                  type="text"
+                  style={fieldErrors.arrivalPoint ? { ...input, border: `1px solid ${colors.danger}` } : input}
+                  placeholder="π.χ. Ρόδος"
+                  value={filters.arrivalPoint || ""}
+                  onChange={(e) => {
+                    setFilters((f) => ({ ...f, arrivalPoint: e.target.value }));
+                    clearFieldError("arrivalPoint");
+                  }}
+                />
+                {fieldErrors.arrivalPoint && (
+                  <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <label style={label}>Γλώσσα (προαιρετικό)</label>
@@ -1325,7 +1381,13 @@ function SearchPageInner() {
             <span style={muted}>
               {" · "}
               {regionName}
-              {filters.departurePoint ? ` · ${filters.departurePoint}` : ""}
+              {filters.departurePoint
+                ? ` · ${filters.departurePoint}${
+                    filters.arrivalPoint && filters.arrivalPoint !== filters.departurePoint
+                      ? ` → ${filters.arrivalPoint}`
+                      : ""
+                  }`
+                : ""}
               {" · "}
               {filters.partySize} άτομα
               {" · "}
