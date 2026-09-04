@@ -21,6 +21,7 @@ import {
   removeDeliveryAvailabilityWindow,
   deleteMyAccount,
   signOut,
+  becomeProfessional,
 } from "../../../lib/platform/db";
 import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { formatDate } from "../../../lib/platform/notifications";
@@ -479,6 +480,145 @@ function DeleteAccount() {
   );
 }
 
+const BECOME_PROFESSIONAL_ERRORS = {
+  already_professional: "Έχεις ήδη επαγγελματικό προφίλ.",
+  account_not_active: "Ο λογαριασμός σου δεν είναι ενεργός αυτή τη στιγμή.",
+  license_number_required: "Συμπλήρωσε αριθμό άδειας.",
+  license_type_required: "Συμπλήρωσε τύπο άδειας.",
+  license_already_registered: "Αυτός ο αριθμός άδειας χρησιμοποιείται ήδη από άλλο λογαριασμό.",
+  profile_already_exists: "Υπάρχει ήδη επαγγελματικό προφίλ συνδεδεμένο με τον λογαριασμό σου.",
+};
+
+// Ένας ήδη ζωντανός πελάτης δεν ξαναγράφεται από την αρχή για να αποκτήσει
+// επαγγελματικό προφίλ — απλό, ρητό κουμπί εδώ αντί γι' αυτό (βλ. σχόλιο στο
+// migration 0082: το complete_registration αρνείται σκόπιμα να αλλάξει ρόλο
+// σε ζωντανό λογαριασμό). Φωτογραφία/εθνικότητα/γλώσσες δεν ξαναζητούνται —
+// ζουν πλέον στο users (0081), έρχονται αυτόματα· μόνο τα καθαρά
+// επαγγελματικά στοιχεία λείπουν. approval_status ξεκινάει πάντα 'pending',
+// ίδια πορεία έγκρισης με κάθε νέο επαγγελματία.
+function BecomeProfessional() {
+  const router = useRouter();
+  const { refresh } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [crewRole, setCrewRole] = useState("skipper");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [licenseType, setLicenseType] = useState("");
+  const [yearsExperience, setYearsExperience] = useState("");
+  const [pricePerDay, setPricePerDay] = useState(String(MIN_PRICE));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    if (!licenseNumber.trim()) return setError("Συμπλήρωσε αριθμό άδειας.");
+    if (!licenseType.trim()) return setError("Συμπλήρωσε τύπο άδειας.");
+    if (Number(pricePerDay) < MIN_PRICE) {
+      return setError(`Η τιμή ανά ημέρα δεν μπορεί να είναι κάτω από ${MIN_PRICE}€.`);
+    }
+    setBusy(true);
+    try {
+      await becomeProfessional({
+        crewRole,
+        licenseNumber: licenseNumber.trim(),
+        licenseType: licenseType.trim(),
+        yearsExperience: Number(yearsExperience) || 0,
+        pricePerDay: Number(pricePerDay),
+      });
+      await refresh();
+      router.push("/platform/profile");
+    } catch (err) {
+      setError(BECOME_PROFESSIONAL_ERRORS[err.message] || err.message || String(err));
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <div style={{ ...card, textAlign: "center" }}>
+        <p style={{ margin: "0 0 12px", fontSize: 14.5 }}>Θέλεις να γίνεις επαγγελματίας;</p>
+        <button type="button" style={button("secondary")} onClick={() => setOpen(true)}>
+          Ξεκίνα
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={card}>
+      <h2 style={{ ...h2, fontSize: 17 }}>Γίνε επαγγελματίας</h2>
+      <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
+        Η φωτογραφία, η εθνικότητα και οι γλώσσες σου έρχονται αυτόματα από το προφίλ σου — χρειάζεται μόνο ό,τι
+        είναι καινούριο. Το προφίλ σου θα περάσει από έγκριση, όπως κάθε νέος επαγγελματίας.
+      </p>
+      <form onSubmit={handleSubmit}>
+        <label style={label}>Ιδιότητα</label>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+          {CREW_ROLES.map((r) => (
+            <button key={r.key} type="button" style={chip(crewRole === r.key)} onClick={() => setCrewRole(r.key)}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+
+        <label style={label} htmlFor="bp-license-number">
+          Αριθμός άδειας
+        </label>
+        <input
+          id="bp-license-number"
+          style={{ ...input, marginBottom: 16 }}
+          value={licenseNumber}
+          onChange={(e) => setLicenseNumber(e.target.value)}
+        />
+
+        <label style={label} htmlFor="bp-license-type">
+          Τύπος άδειας
+        </label>
+        <input
+          id="bp-license-type"
+          style={{ ...input, marginBottom: 16 }}
+          value={licenseType}
+          onChange={(e) => setLicenseType(e.target.value)}
+        />
+
+        <label style={label} htmlFor="bp-years">
+          Χρόνια εμπειρίας
+        </label>
+        <input
+          id="bp-years"
+          type="number"
+          min={0}
+          style={{ ...input, marginBottom: 16 }}
+          value={yearsExperience}
+          onChange={(e) => setYearsExperience(e.target.value)}
+        />
+
+        <label style={label} htmlFor="bp-price">
+          Τιμή ανά ημέρα (€)
+        </label>
+        <input
+          id="bp-price"
+          type="number"
+          min={MIN_PRICE}
+          style={{ ...input, marginBottom: 20 }}
+          value={pricePerDay}
+          onChange={(e) => setPricePerDay(e.target.value)}
+        />
+
+        {error && <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 12px" }}>{error}</p>}
+        <div style={{ display: "flex", gap: 10 }}>
+          <button type="submit" disabled={busy} style={button("primary")}>
+            {busy ? "…" : "Υποβολή"}
+          </button>
+          <button type="button" disabled={busy} style={button("secondary")} onClick={() => setOpen(false)}>
+            Άκυρο
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function ClientIdentityProfile({ role }) {
   const { session, userRow, refresh } = useAuth();
   const [lookups, setLookups] = useState({ nationalities: [], languages: [] });
@@ -581,6 +721,8 @@ function ClientIdentityProfile({ role }) {
       <p style={{ ...muted, fontSize: 12.5, marginTop: 4, color: colors.inkSoft }}>
         Ονοματεπώνυμο και τηλέφωνο έρχονται από την εγγραφή σου και δεν αλλάζουν εδώ.
       </p>
+
+      <BecomeProfessional />
 
       <DeleteAccount />
     </div>
