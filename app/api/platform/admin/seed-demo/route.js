@@ -233,7 +233,7 @@ export async function POST(req) {
         if (boats?.length)
           await db.from("skipper_boat_types").insert(boats.map((b) => ({ skipper_id: sp.id, boat_type_id: b.id })));
         if (langs?.length)
-          await db.from("skipper_languages").insert(langs.map((l) => ({ skipper_id: sp.id, language_id: l.id })));
+          await db.from("user_languages").insert(langs.map((l) => ({ user_id: id, language_id: l.id })));
       }
     }
 
