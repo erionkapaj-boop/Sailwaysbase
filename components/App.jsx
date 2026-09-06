@@ -1923,8 +1923,19 @@ function FindingsFlow({ t, onLogFinding, onComplete, isMgr, me, setCompleteAsId,
 // Inventory List: 7 αναδιπλούμενες κατηγορίες, κλειστές εξ ορισμού. Ο υπάλληλος πατάει «Όλα OK» ή «Παράλειψη»
 // ανά κατηγορία και ανοίγει μόνο εκείνη όπου βρήκε κάτι — έτσι ~80 αντικείμενα τελειώνουν σε δευτερόλεπτα
 // όταν όλα είναι εντάξει, αλλά υπάρχει πλήρες ίχνος εκεί που χρειάζεται.
+const INVENTORY_CAT_LABEL = Object.fromEntries(INVENTORY_CATS);
 function InventoryItems({ t, onInventoryItem, onBulkCategory, onFinish, onConfirm, isMgr, users }) {
-  const [openCat, setOpenCat] = useState(null);
+  // Κάθε κατηγορία ανοίγει/κλείνει ανεξάρτητα (Set αντί για ένα «τρέχον ανοιχτό») — με ένα μόνο openCat, το
+  // άνοιγμα νέας κατηγορίας έκλεινε αναγκαστικά την προηγούμενη, και το ξαφνικό «μάζεμα» του περιεχομένου από
+  // πάνω έσπρωχνε ολόκληρη την οθόνη προς τα πάνω κάτω από το δάχτυλο — αυτό ήταν το «φεύγει προς τα πάνω,
+  // χάνω τον προσανατολισμό». Χωρίς αμοιβαίο κλείσιμο, το άνοιγμα μιας κατηγορίας πια δεν μετακινεί τίποτα.
+  const [openCats, setOpenCats] = useState(() => new Set());
+  const toggleCat = (cat) => setOpenCats(prev => {
+    const next = new Set(prev);
+    next.has(cat) ? next.delete(cat) : next.add(cat);
+    return next;
+  });
+  const [huntMode, setHuntMode] = useState(false);
   const [probFor, setProbFor] = useState(null);
   const [note, setNote] = useState("");
   const items = Array.isArray(t.inventoryItems) ? t.inventoryItems : [];
@@ -1933,25 +1944,72 @@ function InventoryItems({ t, onInventoryItem, onBulkCategory, onFinish, onConfir
   const problems = items.filter(it => it.status === "problem");
   const un = (id) => users?.find(u => u.id === id)?.name || "";
 
+  // Ίδια γραμμή αντικειμένου και στην ανά-κατηγορία λίστα και στη λειτουργία «Μόνο όσα λείπουν» — μία φορά
+  // γραμμένη, ώστε το ✔ toggle και η φόρμα προβλήματος να δουλεύουν παντού με τον ίδιο τρόπο.
+  const renderItemRow = (it, showCatLabel) => (
+    <div key={it.id} style={{ borderTop: `1px dashed ${COLORS.line}`, padding: "8px 0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: T.small, flex: 1, color: it.status === "skipped" ? COLORS.sub : COLORS.text }}>
+          {showCatLabel && <span style={{ color: COLORS.sub, fontWeight: 600 }}>{INVENTORY_CAT_LABEL[it.cat]}: </span>}
+          {it.status === "problem" && "⚠ "}{it.text}
+        </span>
+        <span style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+          <Btn small color={COLORS.green} outline={it.status !== "ok"} onClick={() => onInventoryItem(t, it.id, it.status === "ok" ? "pending" : "ok")}>✔</Btn>
+          <Btn small color={COLORS.red} outline={it.status !== "problem"} onClick={() => { setProbFor(it.id); setNote(it.note || ""); }}>⚠</Btn>
+        </span>
+      </div>
+      {it.status === "problem" && it.note && <div style={{ fontSize: T.caption, color: COLORS.red, marginTop: 2 }}>{it.note}</div>}
+      {probFor === it.id && (
+        <div style={{ marginTop: 8 }}>
+          <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder="Τι λείπει ή τι πρόβλημα έχει;" style={inputStyle} />
+          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+            <Btn small color={COLORS.red} onClick={() => { if (!note.trim()) return; onInventoryItem(t, it.id, "problem", note.trim()); setProbFor(null); }}>Καταχώρηση</Btn>
+            <Btn small color={COLORS.sub} outline onClick={() => setProbFor(null)}>Άκυρο</Btn>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontSize: T.small, color: COLORS.sub, marginBottom: 8 }}>
-        {items.length - pending}/{items.length} ελέγχθηκαν
-        {problems.length > 0 && <span style={{ color: COLORS.red, fontWeight: 700 }}> · {problems.length} με πρόβλημα</span>}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        <div style={{ fontSize: T.small, color: COLORS.sub }}>
+          {items.length - pending}/{items.length} ελέγχθηκαν
+          {problems.length > 0 && <span style={{ color: COLORS.red, fontWeight: 700 }}> · {problems.length} με πρόβλημα</span>}
+        </div>
+        {!done && pending > 0 && (
+          <Btn small color={COLORS.navy} outline={!huntMode} onClick={() => setHuntMode(v => !v)}>
+            {huntMode ? "Ανά κατηγορία" : `🔍 Μόνο όσα λείπουν (${pending})`}
+          </Btn>
+        )}
       </div>
 
-      {!done && INVENTORY_CATS.map(([cat, label]) => {
+      {/* «Μόνο όσα λείπουν»: επίτηδες ΜΙΑ επίπεδη λίστα χωρίς κατηγορίες — κάθε ✔ βγάζει αμέσως το αντικείμενο
+          από εδώ, η λίστα μικραίνει μπροστά στα μάτια μέχρι να αδειάσει, χωρίς να χρειάζεται να ξαναψάχνεις
+          ποια κατηγορία είχες ανοιχτή. Άδειασμα = τελείωσες. */}
+      {!done && huntMode && (
+        pending === 0 ? (
+          <div style={{ padding: "16px 0", textAlign: "center", color: COLORS.green, fontWeight: 700 }}>🎉 Όλα ελέγχθηκαν!</div>
+        ) : (
+          <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: R.sm, padding: "0 12px" }}>
+            {items.filter(it => it.status === "pending").map(it => renderItemRow(it, true))}
+          </div>
+        )
+      )}
+
+      {!done && !huntMode && INVENTORY_CATS.map(([cat, label]) => {
         const catItems = items.filter(it => it.cat === cat);
         if (!catItems.length) return null;
         const catPending = catItems.filter(it => it.status === "pending").length;
         const catProblems = catItems.filter(it => it.status === "problem").length;
         const skipped = catItems.every(it => it.status === "skipped");
-        const isOpen = openCat === cat;
+        const isOpen = openCats.has(cat);
         const statusTxt = catProblems > 0 ? `⚠ ${catProblems}` : skipped ? "παραλείφθηκε" : catPending === 0 ? "✔" : `${catItems.length - catPending}/${catItems.length}`;
         const statusCol = catProblems > 0 ? COLORS.red : catPending === 0 ? COLORS.green : COLORS.sub;
         return (
           <div key={cat} style={{ border: `1px solid ${COLORS.line}`, borderRadius: R.sm, marginBottom: 8 }}>
-            <button onClick={() => setOpenCat(isOpen ? null : cat)} style={{ width: "100%", background: "none", border: "none", padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, textAlign: "left" }}>
+            <button onClick={() => toggleCat(cat)} style={{ width: "100%", background: "none", border: "none", padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, textAlign: "left" }}>
               <span style={{ fontSize: T.small, fontWeight: 600 }}>{label}</span>
               <span style={{ fontSize: T.caption, color: statusCol, fontWeight: 700 }}>{statusTxt} {isOpen ? "▾" : "▸"}</span>
             </button>
@@ -1961,29 +2019,7 @@ function InventoryItems({ t, onInventoryItem, onBulkCategory, onFinish, onConfir
             </div>
             {isOpen && (
               <div style={{ padding: "0 12px 8px" }}>
-                {catItems.map(it => (
-                  <div key={it.id} style={{ borderTop: `1px dashed ${COLORS.line}`, padding: "8px 0" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: T.small, flex: 1, color: it.status === "skipped" ? COLORS.sub : COLORS.text }}>
-                        {it.status === "ok" && "✔ "}{it.status === "problem" && "⚠ "}{it.text}
-                      </span>
-                      <span style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                        <Btn small color={COLORS.green} outline onClick={() => onInventoryItem(t, it.id, "ok")}>✔</Btn>
-                        <Btn small color={COLORS.red} outline onClick={() => { setProbFor(it.id); setNote(""); }}>⚠</Btn>
-                      </span>
-                    </div>
-                    {it.status === "problem" && it.note && <div style={{ fontSize: T.caption, color: COLORS.red, marginTop: 2 }}>{it.note}</div>}
-                    {probFor === it.id && (
-                      <div style={{ marginTop: 8 }}>
-                        <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder="Τι λείπει ή τι πρόβλημα έχει;" style={inputStyle} />
-                        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                          <Btn small color={COLORS.red} onClick={() => { if (!note.trim()) return; onInventoryItem(t, it.id, "problem", note.trim()); setProbFor(null); }}>Καταχώρηση</Btn>
-                          <Btn small color={COLORS.sub} outline onClick={() => setProbFor(null)}>Άκυρο</Btn>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {catItems.map(it => renderItemRow(it, false))}
               </div>
             )}
           </div>
