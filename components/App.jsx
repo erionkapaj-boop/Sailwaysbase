@@ -1982,7 +1982,18 @@ function FindingsFlow({ t, onLogFinding, onComplete, isMgr, me, setCompleteAsId,
 // ανά κατηγορία και ανοίγει μόνο εκείνη όπου βρήκε κάτι — έτσι ~80 αντικείμενα τελειώνουν σε δευτερόλεπτα
 // όταν όλα είναι εντάξει, αλλά υπάρχει πλήρες ίχνος εκεί που χρειάζεται.
 const INVENTORY_CAT_LABEL = Object.fromEntries(INVENTORY_CATS);
-function InventoryItems({ t, onInventoryItem, onBulkCategory, onFinish, onConfirm, isMgr, users }) {
+function InventoryItems({ t, boat, onInventoryItem, onBulkCategory, onFinish, onConfirm, isMgr, users }) {
+  const [printing, setPrinting] = useState(false);
+  useEffect(() => {
+    if (!printing) return;
+    let cancelled = false;
+    const prevTitle = document.title;
+    document.title = printFileName("Inventory - εκκρεμή", boat?.name || "");
+    printWhenImagesReady(() => cancelled);
+    const reset = () => { setPrinting(false); document.title = prevTitle; };
+    window.addEventListener("afterprint", reset);
+    return () => { cancelled = true; window.removeEventListener("afterprint", reset); document.title = prevTitle; };
+  }, [printing]);
   // Κάθε κατηγορία ανοίγει/κλείνει ανεξάρτητα (Set αντί για ένα «τρέχον ανοιχτό») — με ένα μόνο openCat, το
   // άνοιγμα νέας κατηγορίας έκλεινε αναγκαστικά την προηγούμενη, και το ξαφνικό «μάζεμα» του περιεχομένου από
   // πάνω έσπρωχνε ολόκληρη την οθόνη προς τα πάνω κάτω από το δάχτυλο — αυτό ήταν το «φεύγει προς τα πάνω,
@@ -2037,9 +2048,12 @@ function InventoryItems({ t, onInventoryItem, onBulkCategory, onFinish, onConfir
           {problems.length > 0 && <span style={{ color: COLORS.red, fontWeight: 700 }}> · {problems.length} με πρόβλημα</span>}
         </div>
         {!done && pending > 0 && (
-          <Btn small color={COLORS.navy} outline={!huntMode} onClick={() => setHuntMode(v => !v)}>
-            {huntMode ? "Ανά κατηγορία" : `🔍 Μόνο όσα λείπουν (${pending})`}
-          </Btn>
+          <div style={{ display: "flex", gap: 4 }}>
+            <Btn small color={COLORS.navy} outline={!huntMode} onClick={() => setHuntMode(v => !v)}>
+              {huntMode ? "Ανά κατηγορία" : `🔍 Μόνο όσα λείπουν (${pending})`}
+            </Btn>
+            {boat && <Btn small color={COLORS.sub} outline onClick={() => setPrinting(true)}>🖨 Εξαγωγή εκκρεμών</Btn>}
+          </div>
         )}
       </div>
 
@@ -2101,6 +2115,10 @@ function InventoryItems({ t, onInventoryItem, onBulkCategory, onFinish, onConfir
             : isMgr && <div style={{ marginTop: 8 }}><Btn small color={COLORS.navy} onClick={() => onConfirm(t)}>Επιβεβαίωση</Btn></div>}
         </div>
       )}
+      {printing && (
+        <PendingItemsPrintSheet boat={boat} title="Inventory — εκκρεμή"
+          items={items.filter(it => it.status === "pending").map(it => ({ id: it.id, text: `${INVENTORY_CAT_LABEL[it.cat]}: ${it.text}` }))} />
+      )}
     </div>
   );
 }
@@ -2108,8 +2126,19 @@ function InventoryItems({ t, onInventoryItem, onBulkCategory, onFinish, onConfir
 // Τεχνικός check-in καπετάνιου: ίδιο tap-to-check/toggle/«μόνο όσα λείπουν» με το Inventory List, αλλά ΧΩΡΙΣ
 // κατηγορίες-ντουλάπια (δεν έχει νόημα ο διαχωρισμός σε lockers για θέσεις/λειτουργία συστημάτων) — μία επίπεδη
 // λίστα, ίδια λογική με το Inventory παρακάτω αλλά πιο απλή.
-function CheckinItems({ t, onCheckinItem, onFinish, isMgr, users }) {
+function CheckinItems({ t, boat, onCheckinItem, onFinish, isMgr, users }) {
   const [huntMode, setHuntMode] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  useEffect(() => {
+    if (!printing) return;
+    let cancelled = false;
+    const prevTitle = document.title;
+    document.title = printFileName("Check-in - εκκρεμή", boat?.name || "");
+    printWhenImagesReady(() => cancelled);
+    const reset = () => { setPrinting(false); document.title = prevTitle; };
+    window.addEventListener("afterprint", reset);
+    return () => { cancelled = true; window.removeEventListener("afterprint", reset); document.title = prevTitle; };
+  }, [printing]);
   const [probFor, setProbFor] = useState(null);
   const [note, setNote] = useState("");
   const items = Array.isArray(t.checkinItems) ? t.checkinItems : [];
@@ -2127,9 +2156,12 @@ function CheckinItems({ t, onCheckinItem, onFinish, isMgr, users }) {
           {problems.length > 0 && <span style={{ color: COLORS.red, fontWeight: 700 }}> · {problems.length} με πρόβλημα</span>}
         </div>
         {!done && pending > 0 && (
-          <Btn small color={COLORS.navy} outline={!huntMode} onClick={() => setHuntMode(v => !v)}>
-            {huntMode ? "Όλα" : `🔍 Μόνο όσα λείπουν (${pending})`}
-          </Btn>
+          <div style={{ display: "flex", gap: 4 }}>
+            <Btn small color={COLORS.navy} outline={!huntMode} onClick={() => setHuntMode(v => !v)}>
+              {huntMode ? "Όλα" : `🔍 Μόνο όσα λείπουν (${pending})`}
+            </Btn>
+            {boat && <Btn small color={COLORS.sub} outline onClick={() => setPrinting(true)}>🖨 Εξαγωγή εκκρεμών</Btn>}
+          </div>
         )}
       </div>
 
@@ -2178,6 +2210,10 @@ function CheckinItems({ t, onCheckinItem, onFinish, isMgr, users }) {
             Ολοκληρώθηκε από <b>{un(t.completedBy) || "—"}</b>{t.completedAt ? ` · ${new Date(t.completedAt).toLocaleString("el-GR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
           </div>
         </div>
+      )}
+      {printing && (
+        <PendingItemsPrintSheet boat={boat} title="Check-in — εκκρεμή"
+          items={items.filter(it => it.status === "pending").map(it => ({ id: it.id, text: it.text }))} />
       )}
     </div>
   );
@@ -2457,10 +2493,10 @@ function TaskCard({ t, boats, users, isMgr, me, deadline, onComplete, onProgress
             <ChecklistItems t={t} onChecklistItem={onChecklistItem} />
           )}
           {Array.isArray(t.inventoryItems) && onInventoryItem && (
-            <InventoryItems t={t} onInventoryItem={onInventoryItem} onBulkCategory={onBulkCategory} onFinish={onFinishInventory} onConfirm={onConfirmInventory} isMgr={isMgr} users={users} />
+            <InventoryItems t={t} boat={boat} onInventoryItem={onInventoryItem} onBulkCategory={onBulkCategory} onFinish={onFinishInventory} onConfirm={onConfirmInventory} isMgr={isMgr} users={users} />
           )}
           {Array.isArray(t.checkinItems) && onCheckinItem && (
-            <CheckinItems t={t} onCheckinItem={onCheckinItem} onFinish={onFinishCheckin} isMgr={isMgr} users={users} />
+            <CheckinItems t={t} boat={boat} onCheckinItem={onCheckinItem} onFinish={onFinishCheckin} isMgr={isMgr} users={users} />
           )}
           {t.findMode && (
             <FindingsFlow t={t} onLogFinding={onLogFinding} onComplete={onComplete} isMgr={isMgr} me={me} setCompleteAsId={setCompleteAsId} setMode={setMode} employees={employees} completeAsId={completeAsId} />
@@ -4575,6 +4611,25 @@ function PrintPhotoRow({ urls }) {
   return (
     <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
       {urls.map((url, pi) => <img key={pi} src={url} alt="" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc" }} />)}
+    </div>
+  );
+}
+
+// Έντυπο για ό,τι έχει μείνει ΑΤΣΕΚΑΡΙΣΤΟ σε ένα Inventory List ή Check-in — χρησιμοποιείται από τα δύο,
+// γι' αυτό δέχεται τίτλο. Ίδια λογική/δομή με το BoatTaskPrintSheet (όνομα+φωτογραφία σκάφους πάνω, καθαρή
+// αριθμημένη λίστα), αλλά σκόπιμα ΧΩΡΙΣ το υποσέλιδο «Sailways — Βάση Αλίμου».
+function PendingItemsPrintSheet({ boat, title, items }) {
+  if (!boat) return null;
+  const printedAt = new Date().toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return (
+    <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px", boxSizing: "border-box" }}>
+      <PrintSheetHeader boat={boat} title={title} printedAt={printedAt} />
+      <PrintNumberedList items={items} emptyText="Τίποτα εκκρεμές." renderItem={it => (
+        <>
+          <div style={{ fontSize: 15, lineHeight: 1.5 }}>{it.text}</div>
+          {it.note && <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{it.note}</div>}
+        </>
+      )} />
     </div>
   );
 }
