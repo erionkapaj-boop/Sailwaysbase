@@ -4339,6 +4339,18 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNo
           ) : (
             <Btn small color={COLORS.sub} outline onClick={() => setEditingInfo(true)}>✏️ Επεξεργασία ονόματος/τύπου</Btn>
           )}
+          {isOwner && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 12, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 10 }}>
+              <div>
+                <div style={{ fontSize: 13 }}>Εκτός ροής εργασιών</div>
+                <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 2 }}>Ορατό μόνο σε σένα. Καμία αυτόματη εργασία, κατανομή ή κλείσιμο — δεν μετράει σε στατιστικά ούτε στο Βιβλίο service. Οι σημειώσεις και το χειροκίνητο Inventory δουλεύουν κανονικά.</div>
+              </div>
+              <Toggle on={!isOpsBoat(boat)} onChange={v => {
+                persistBoats(cur => cur.map(x => x.id === boat.id ? { ...x, isolated: v } : x));
+                showToast?.(v ? `Το ${boat.name} βγήκε εκτός ροής` : `Το ${boat.name} επέστρεψε στη ροή`);
+              }} />
+            </div>
+          )}
         </InfoSection>
       )}
 
@@ -5042,18 +5054,6 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
               </div>
             )}
 
-            {detailFor === b.id && isOwner && (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 8, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 10 }}>
-                <div>
-                  <div style={{ fontSize: 13 }}>Εκτός ροής εργασιών</div>
-                  <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 2 }}>Ορατό μόνο σε σένα. Καμία αυτόματη εργασία, κατανομή ή κλείσιμο — δεν μετράει σε στατιστικά ούτε στο Βιβλίο service. Οι σημειώσεις και το χειροκίνητο Inventory δουλεύουν κανονικά.</div>
-                </div>
-                <Toggle on={!isOpsBoat(b)} onChange={v => {
-                  persistBoats(cur => cur.map(x => x.id === b.id ? { ...x, isolated: v } : x));
-                  showToast(v ? `Το ${b.name} βγήκε εκτός ροής` : `Το ${b.name} επέστρεψε στη ροή`);
-                }} />
-              </div>
-            )}
             {detailFor === b.id && (
               <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} onClearNotes={onClearBoatNotes ? () => onClearBoatNotes(b.id) : null} partners={partners} isMgr={isMgr} isOwner={isOwner} persistBoats={persistBoats} showToast={showToast}
                 onExportBoat={(opts) => exportBoatForPrint(b, opts)}
