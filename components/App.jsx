@@ -4237,7 +4237,7 @@ function InfoSection({ title, hint, children }) {
     </div>
   );
 }
-function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNotes, partners, isMgr, isOwner, persistBoats, showToast, onExportBoat, onPrintObservations, onDeleteBoat }) {
+function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNotes, partners, isMgr, isOwner, persistBoats, showToast, onExportBoat, onDeleteBoat }) {
   const [editingInfo, setEditingInfo] = useState(false);
   const [editName, setEditName] = useState(boat.name);
   const [editType, setEditType] = useState(boat.type || "");
@@ -4251,14 +4251,13 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNo
   const [expTasks, setExpTasks] = useState(true);
   const [expCheckin, setExpCheckin] = useState(false);
   const [expInventory, setExpInventory] = useState(false);
+  const [expObservations, setExpObservations] = useState(false);
+  const [expFrom, setExpFrom] = useState("");
+  const [expTo, setExpTo] = useState("");
+  const [expCompany, setExpCompany] = useState("");
+  const [expNote, setExpNote] = useState("");
   const [expEnglish, setExpEnglish] = useState(false);
   const [exportBusy, setExportBusy] = useState(false);
-  const [obsFormOpen, setObsFormOpen] = useState(false);
-  const [obsFrom, setObsFrom] = useState("");
-  const [obsTo, setObsTo] = useState("");
-  const [obsCompany, setObsCompany] = useState("");
-  const [obsEnglish, setObsEnglish] = useState(false);
-  const [obsBusy, setObsBusy] = useState(false);
   const [confirmClearNotes, setConfirmClearNotes] = useState(false);
   const partnerCompanies = [...new Set((partners || []).map(p => p.company).filter(Boolean))].sort((a, b) => a.localeCompare(b, "el"));
   const [noteText, setNoteText] = useState("");
@@ -4344,7 +4343,7 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNo
       )}
 
       {onExportBoat && (
-        <InfoSection title="Εξαγωγή PDF" hint="Φτιάξε ένα PDF με ό,τι διαλέξεις — εργασίες, ή ό,τι δεν έχει γίνει τσεκ στο Check-in/Inventory.">
+        <InfoSection title="Εξαγωγή PDF" hint="Φτιάξε ένα PDF με ό,τι διαλέξεις — εργασίες, ό,τι δεν έχει γίνει τσεκ στο Check-in/Inventory, ή τις παρατηρήσεις σου.">
           <Btn small color={COLORS.sub} outline onClick={() => setExportOpen(v => !v)}>📤 Επιλογή τι θα εξαχθεί</Btn>
           {exportOpen && (
             <div style={{ marginTop: 8, background: COLORS.card, borderRadius: 8, padding: 8 }}>
@@ -4358,14 +4357,38 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNo
               <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 14 }}>
                 <input type="checkbox" checked={expInventory} onChange={e => setExpInventory(e.target.checked)} /> Inventory (ό,τι δεν έχει γίνει τσεκ)
               </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 14, marginTop: 4, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 8 }}>
+              {isOwner && (
+                <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 14 }}>
+                  <input type="checkbox" checked={expObservations} onChange={e => setExpObservations(e.target.checked)} /> Παρατηρήσεις σου
+                </label>
+              )}
+
+              {isOwner && (
+                <div style={{ marginTop: 8, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.sub, marginBottom: 6 }}>Στοιχεία συνεργασίας (προαιρετικό — μόνο για σένα, όχι για base manager)</div>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+                    <input type="date" value={expFrom} onChange={e => setExpFrom(e.target.value)} style={{ ...inputStyle, width: "auto" }} placeholder="Ημερομηνία ναύλου" />
+                    <span style={{ color: COLORS.sub }}>→</span>
+                    <input type="date" min={expFrom} value={expTo} onChange={e => setExpTo(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
+                  </div>
+                  <input value={expCompany} onChange={e => setExpCompany(e.target.value)} placeholder="Εταιρεία συνεργασίας" list="obs-company-suggestions" style={{ ...inputStyle, marginBottom: 8 }} />
+                  <datalist id="obs-company-suggestions">{partnerCompanies.map(c => <option key={c} value={c} />)}</datalist>
+                  <textarea value={expNote} onChange={e => setExpNote(e.target.value)} rows={2} placeholder="Γραπτή παρατήρηση για αυτό το PDF (προαιρετικό)" style={inputStyle} />
+                </div>
+              )}
+
+              <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 14, marginTop: 8, borderTop: `1px dashed ${COLORS.line}`, paddingTop: 8 }}>
                 <input type="checkbox" checked={expEnglish} onChange={e => setExpEnglish(e.target.checked)} /> 🇬🇧 Στα αγγλικά (η εφαρμογή μένει στα ελληνικά)
               </label>
               <div style={{ marginTop: 8 }}>
                 <Btn small color={COLORS.navy} onClick={async () => {
-                  if (!expTasks && !expCheckin && !expInventory) { showToast?.("Επίλεξε τουλάχιστον ένα"); return; }
+                  if (!expTasks && !expCheckin && !expInventory && !expObservations) { showToast?.("Επίλεξε τουλάχιστον ένα"); return; }
                   setExportBusy(true);
-                  await onExportBoat({ tasks: expTasks, checkin: expCheckin, inventory: expInventory, english: expEnglish });
+                  await onExportBoat({
+                    tasks: expTasks, checkin: expCheckin, inventory: expInventory, observations: isOwner && expObservations,
+                    charterFrom: isOwner ? expFrom : "", charterTo: isOwner ? expTo : "", company: isOwner ? expCompany : "", note: isOwner ? expNote : "",
+                    english: expEnglish,
+                  });
                   setExportBusy(false); setExportOpen(false);
                 }}>{exportBusy ? "Μετάφραση…" : "🖨 Εκτύπωση"}</Btn>
               </div>
@@ -4384,11 +4407,12 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNo
       </InfoSection>
 
       {isOwner && (
-        <InfoSection title="Παρατηρήσεις καπετάνιου" hint="Θετικές ή αρνητικές, ό,τι αξίζει να θυμάσαι για αυτό το σκάφος — ορατές μόνο σε σένα, σε κανέναν άλλον.">
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginBottom: 8 }}>
-            {onPrintObservations && <Btn small color={COLORS.sub} outline onClick={() => { setObsFormOpen(v => !v); setObsFrom(""); setObsTo(""); setObsCompany(""); }}>📝 Εκτύπωση σε PDF</Btn>}
-            {onClearNotes && myNotes.length > 0 && <Btn small color={COLORS.red} outline onClick={() => setConfirmClearNotes(true)}>🗑 Διαγραφή όλων</Btn>}
-          </div>
+        <InfoSection title="Παρατηρήσεις καπετάνιου" hint="Θετικές ή αρνητικές, ό,τι αξίζει να θυμάσαι για αυτό το σκάφος — ορατές μόνο σε σένα, σε κανέναν άλλον. Η εκτύπωσή τους γίνεται πλέον από την «Εξαγωγή PDF» παραπάνω.">
+          {onClearNotes && myNotes.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+              <Btn small color={COLORS.red} outline onClick={() => setConfirmClearNotes(true)}>🗑 Διαγραφή όλων</Btn>
+            </div>
+          )}
           {confirmClearNotes && (
             <div style={{ margin: "4px 0 8px", background: COLORS.card, borderRadius: 8, padding: 8 }}>
               <div style={{ fontSize: 13, color: COLORS.red, marginBottom: 8 }}>Διαγραφή και των {myNotes.length} παρατηρήσεων; Κάν' το αφού πρώτα τις έχεις παραδώσει — δεν αναιρείται.</div>
@@ -4396,26 +4420,6 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNo
                 <Btn small color={COLORS.red} onClick={() => { onClearNotes(); setConfirmClearNotes(false); }}>Ναι, διαγραφή</Btn>
                 <Btn small color={COLORS.sub} outline onClick={() => setConfirmClearNotes(false)}>Άκυρο</Btn>
               </div>
-            </div>
-          )}
-          {obsFormOpen && (
-            <div style={{ margin: "4px 0 8px", background: COLORS.card, borderRadius: 8, padding: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.sub, marginBottom: 4 }}>Στοιχεία εκτύπωσης παρατηρήσεων</div>
-              <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
-                <input type="date" value={obsFrom} onChange={e => setObsFrom(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
-                <span style={{ color: COLORS.sub }}>→</span>
-                <input type="date" min={obsFrom} value={obsTo} onChange={e => setObsTo(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
-              </div>
-              <input value={obsCompany} onChange={e => setObsCompany(e.target.value)} placeholder="Εταιρεία συνεργασίας" list="obs-company-suggestions" style={{ ...inputStyle, marginBottom: 8 }} />
-              <datalist id="obs-company-suggestions">{partnerCompanies.map(c => <option key={c} value={c} />)}</datalist>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 14, marginBottom: 8 }}>
-                <input type="checkbox" checked={obsEnglish} onChange={e => setObsEnglish(e.target.checked)} /> 🇬🇧 Στα αγγλικά (η εφαρμογή μένει στα ελληνικά)
-              </label>
-              <Btn small color={COLORS.navy} onClick={async () => {
-                setObsBusy(true);
-                await onPrintObservations(obsFrom, obsTo, obsCompany, obsEnglish);
-                setObsBusy(false); setObsFormOpen(false);
-              }}>{obsBusy ? "Μετάφραση…" : "🖨 Εκτύπωση"}</Btn>
             </div>
           )}
           {myNotes.length === 0 && <div style={{ color: COLORS.sub, fontSize: 13 }}>Καμία ακόμα.</div>}
@@ -4761,15 +4765,31 @@ function PendingItemsPrintSheet({ boat, title, items, lang }) {
   );
 }
 
-// Ενιαίο, επιλέξιμο export από τις «Πληροφορίες» σκάφους: ο χρήστης διαλέγει ποια από τα τρία section
-// (εργασίες / check-in εκκρεμή / inventory εκκρεμή) θέλει, σε οποιονδήποτε συνδυασμό, και όλα μπαίνουν στο
-// ίδιο PDF, ένα κάτω από το άλλο, κάτω από ένα κοινό header σκάφους. Χωρίς υποσέλιδο εταιρείας.
-function BoatExportPrintSheet({ boat, sections, lang }) {
+// Ενιαίο, επιλέξιμο export από τις «Πληροφορίες» σκάφους: ο χρήστης διαλέγει ποια sections θέλει (εργασίες /
+// check-in εκκρεμή / inventory εκκρεμή / παρατηρήσεις), σε οποιονδήποτε συνδυασμό, και όλα μπαίνουν στο ίδιο
+// PDF κάτω από ένα κοινό header σκάφους. Το `meta` (καπετάνιος/ημερομηνία ναύλου/εταιρεία/γραπτή σημείωση)
+// είναι προαιρετικό και εμφανίζεται μόνο όταν υπάρχει πραγματικά κάτι μέσα — δηλαδή μόνο όταν ο ιδιοκτήτης το
+// συμπλήρωσε ρητά για συνεργασία με άλλη εταιρεία (base manager δεν βλέπει καν αυτά τα πεδία). Χωρίς υποσέλιδο εταιρείας.
+function BoatExportPrintSheet({ boat, sections, lang, meta }) {
   if (!boat) return null;
-  const printedAt = new Date().toLocaleDateString(lang === "en" ? "en-GB" : "el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const en = lang === "en";
+  const printedAt = new Date().toLocaleDateString(en ? "en-GB" : "el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const charterRange = meta && (meta.charterFrom || meta.charterTo)
+    ? `${meta.charterFrom ? fmtDate(meta.charterFrom) : "—"} – ${meta.charterTo ? fmtDate(meta.charterTo) : "—"}`
+    : "—";
   return (
     <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px", boxSizing: "border-box" }}>
-      <PrintSheetHeader boat={boat} title={lang === "en" ? "Export" : "Εξαγωγή"} printedAt={printedAt} />
+      <PrintSheetHeader boat={boat} title={en ? "Export" : "Εξαγωγή"} printedAt={printedAt} />
+      {meta && (
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", fontSize: 13, color: "#333", marginBottom: meta.note ? 14 : 22, paddingBottom: 14, borderBottom: meta.note ? "none" : "1px solid #ddd" }}>
+          <div><span style={{ color: "#888" }}>{en ? "Captain: " : "Καπετάνιος: "}</span><b>{meta.captainName || "—"}</b></div>
+          <div><span style={{ color: "#888" }}>{en ? "Charter date: " : "Ημερομηνία ναύλου: "}</span><b>{charterRange}</b></div>
+          <div><span style={{ color: "#888" }}>{en ? "Company: " : "Εταιρεία: "}</span><b>{meta.company || "—"}</b></div>
+        </div>
+      )}
+      {meta?.note && (
+        <div style={{ fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap", background: "#F7F6F3", borderRadius: 8, padding: "10px 12px", marginBottom: 22 }}>{meta.note}</div>
+      )}
       {sections.map((s, si) => (
         <div key={s.key} style={si === 0 ? undefined : { marginTop: 24, paddingTop: 14, borderTop: "1px solid #ddd" }}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{s.title}</div>
@@ -4779,6 +4799,7 @@ function BoatExportPrintSheet({ boat, sections, lang }) {
                 {it.text}
                 {it.urgent && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: "#8A1F1F", border: "1px solid #8A1F1F", borderRadius: 4, padding: "1px 6px" }}>{lang === "en" ? "URGENT" : "ΕΠΕΙΓΟΝ"}</span>}
               </div>
+              {it.date && <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>{fmtDate(it.date)}</div>}
               <PrintPhotoRow urls={it.photos} />
             </>
           )} />
@@ -4787,47 +4808,11 @@ function BoatExportPrintSheet({ boat, sections, lang }) {
     </div>
   );
 }
-
-// Ξεχωριστό έντυπο από τη λίστα εργασιών: προσωπικές παρατηρήσεις του καπετάνιου κατά την παραλαβή ενός
-// σκάφους (π.χ. από άντρες συνεργαζόμενης εταιρείας), με στοιχεία που αλλάζουν κάθε φορά (ημερομηνία ναύλου,
-// εταιρεία) — γι' αυτό ζητούνται στη στιγμή της εκτύπωσης αντί να αποθηκεύονται στο σκάφος. Παρακάτω από τις
-// παρατηρήσεις μπαίνει και η ίδια λίστα ανοιχτών εργασιών, ώστε ένα μόνο έντυπο να καλύπτει ό,τι χρειάζεται η
-// συνεργαζόμενη εταιρεία. Σκόπιμα χωρίς το υποσέλιδο «Sailways — Βάση Αλίμου» της λίστας εργασιών.
-function BoatObservationsPrintSheet({ boat, notes, tasks, captainName, charterFrom, charterTo, company, lang }) {
-  if (!boat) return null;
-  const en = lang === "en";
-  const printedAt = new Date().toLocaleDateString(en ? "en-GB" : "el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const charterRange = charterFrom || charterTo
-    ? `${charterFrom ? fmtDate(charterFrom) : "—"} – ${charterTo ? fmtDate(charterTo) : "—"}`
-    : "—";
-  return (
-    <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px", boxSizing: "border-box" }}>
-      <PrintSheetHeader boat={boat} title={en ? "Captain's observations" : "Παρατηρήσεις καπετάνιου"} printedAt={printedAt} />
-
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", fontSize: 13, color: "#333", marginBottom: 22, paddingBottom: 14, borderBottom: "1px solid #ddd" }}>
-        <div><span style={{ color: "#888" }}>{en ? "Captain: " : "Καπετάνιος: "}</span><b>{captainName || "—"}</b></div>
-        <div><span style={{ color: "#888" }}>{en ? "Charter date: " : "Ημερομηνία ναύλου: "}</span><b>{charterRange}</b></div>
-        <div><span style={{ color: "#888" }}>{en ? "Company: " : "Εταιρεία: "}</span><b>{company || "—"}</b></div>
-      </div>
-
-      <PrintNumberedList items={combinedObservations(notes, tasks)} emptyText={en ? "No observations logged." : "Καμία παρατήρηση καταχωρημένη."} renderItem={item => (
-        <>
-          <div style={{ fontSize: 15, lineHeight: 1.5 }}>
-            {item.text}
-            {item.urgent && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: "#8A1F1F", border: "1px solid #8A1F1F", borderRadius: 4, padding: "1px 6px" }}>{en ? "URGENT" : "ΕΠΕΙΓΟΝ"}</span>}
-          </div>
-          {item.date && <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>{fmtDate(item.date)}</div>}
-          <PrintPhotoRow urls={item.photos} />
-        </>
-      )} />
-    </div>
-  );
-}
-// Στο έγγραφο που δίνεται σε συνεργαζόμενη εταιρεία, ό,τι έχει καταγραφεί (χειροκίνητες παρατηρήσεις ΚΑΙ οι
-// ίδιες οι ανοιχτές εργασίες του σκάφους) εμφανίζεται σαν ΜΙΑ ενιαία λίστα «παρατηρήσεων» με συνεχόμενη
-// αρίθμηση — σκόπιμα χωρίς να ξεχωρίζει ή να ονομάζεται τίποτα «εργασία»: δεν δίνει εντολές σε προσωπικό
-// άλλης εταιρείας, απλά τους ενημερώνει τι έχει βρει. Η ίδια πληροφορία λέγεται «εργασίες» μόνο στο export
-// για το δικό του προσωπικό (BoatExportPrintSheet).
+// Στο τμήμα «Παρατηρήσεις» του export, ό,τι έχει καταγραφεί (χειροκίνητες παρατηρήσεις ΚΑΙ οι ίδιες οι
+// ανοιχτές εργασίες του σκάφους) εμφανίζεται σαν ΜΙΑ ενιαία λίστα με συνεχόμενη αρίθμηση — σκόπιμα χωρίς να
+// ξεχωρίζει ή να ονομάζεται τίποτα «εργασία»: όταν αυτό φεύγει σε άλλη εταιρεία δεν δίνει εντολές στο
+// προσωπικό της, απλά την ενημερώνει τι έχει βρει. Η ίδια πληροφορία λέγεται «εργασίες» μόνο στο δικό του
+// ξεχωριστό section (BoatExportPrintSheet, key "tasks").
 function combinedObservations(notes, tasks) {
   return [
     ...notes.map(n => ({ id: n.id, text: n.text, photos: n.photos, date: n.at, urgent: false })),
@@ -4863,9 +4848,12 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
   const [addingBoat, setAddingBoat] = useState(false);
   const newBoatPhotoRef = useRef(null);
   // Ένα μόνο export από τις «Πληροφορίες» αντί για ξεχωριστά κουμπιά ανά τύπο δεδομένων — ο χρήστης επιλέγει
-  // ο ίδιος ποια από τα τρία (εργασίες / check-in εκκρεμή / inventory εκκρεμή) θέλει στο ίδιο PDF, οποιονδήποτε
-  // συνδυασμό. `null` σε ένα section σημαίνει «δεν το ζήτησε» (δεν εμφανίζεται καθόλου) — [] σημαίνει «το ζήτησε
-  // αλλά δεν έχει τίποτα» (εμφανίζεται με «καμία εκκρεμότητα»).
+  // ο ίδιος ποια sections (εργασίες / check-in εκκρεμή / inventory εκκρεμή / παρατηρήσεις) θέλει στο ίδιο PDF,
+  // οποιονδήποτε συνδυασμό. `null` σε ένα section σημαίνει «δεν το ζήτησε» (δεν εμφανίζεται καθόλου) — []
+  // σημαίνει «το ζήτησε αλλά δεν έχει τίποτα» (εμφανίζεται με «καμία εκκρεμότητα»).
+  // Τα στοιχεία συνεργασίας (ημερομηνία ναύλου/εταιρεία/γραπτή σημείωση) είναι δυνατότητα ΜΟΝΟ του ιδιοκτήτη —
+  // ένας base manager χρησιμοποιεί το ίδιο κουμπί αλλά ούτε καν βλέπει αυτά τα πεδία στη φόρμα (BoatDetail),
+  // οπότε εδώ φτάνουν πάντα κενά για εκείνον και το `meta` παρακάτω βγαίνει null — καμία ανάμειξη ρόλων.
   const [exportBoat, setExportBoat] = useState(null);
   // Μαζεύει τα δεδομένα ΠΡΙΝ μπει το print-area στο DOM (όχι reactively μέσα στο render) ώστε να προλάβει να
   // περιμένει τη μετάφραση όταν ζητηθεί αγγλικά — μία κλήση AI για όλο το κείμενο του export μαζί, όχι ανά section.
@@ -4873,14 +4861,22 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
     const taskItems = !opts.tasks ? [] : tasks.filter(t => t.boatId === boat.id && t.status === "open" && !t.inventoryItems && !t.checkinItems);
     const checkinItems = !opts.checkin ? [] : (tasks.find(t => t.boatId === boat.id && t.status === "open" && t.checkinItems)?.checkinItems || []).filter(it => it.status === "pending");
     const invItems = !opts.inventory ? [] : (tasks.find(t => t.boatId === boat.id && t.status === "open" && t.inventoryItems)?.inventoryItems || []).filter(it => it.status === "pending");
+    const rawNotes = !opts.observations ? [] : boatNotes.filter(n => n.boatId === boat.id).sort((a, c) => c.at.localeCompare(a.at));
+    const rawObsTasks = !opts.observations ? [] : tasks.filter(t => t.boatId === boat.id && t.status === "open");
     let taskTexts = taskItems.map(t => t.desc), checkinTexts = checkinItems.map(it => it.text), invTexts = invItems.map(it => it.text);
+    let noteTexts = rawNotes.map(n => n.text), obsTaskTexts = rawObsTasks.map(t => t.desc);
+    let freeNote = opts.note || "";
     const lang = opts.english ? "en" : "el";
     if (opts.english) {
-      const translated = await translateBatchToEnglish([...taskTexts, ...checkinTexts, ...invTexts]);
+      const all = [...taskTexts, ...checkinTexts, ...invTexts, ...noteTexts, ...obsTaskTexts, ...(freeNote ? [freeNote] : [])];
+      const translated = await translateBatchToEnglish(all);
       let i = 0;
       taskTexts = taskTexts.map(() => translated[i++]);
       checkinTexts = checkinTexts.map(() => translated[i++]);
       invTexts = invTexts.map(() => translated[i++]);
+      noteTexts = noteTexts.map(() => translated[i++]);
+      obsTaskTexts = obsTaskTexts.map(() => translated[i++]);
+      if (freeNote) freeNote = translated[i++];
     }
     const catLabel = lang === "en" ? INVENTORY_CAT_LABEL_EN : INVENTORY_CAT_LABEL;
     const sections = [
@@ -4890,8 +4886,12 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
         items: checkinItems.map((it, i) => ({ id: it.id, text: checkinTexts[i] })) },
       !opts.inventory ? null : { key: "inventory", title: lang === "en" ? "Inventory — pending" : "Inventory — εκκρεμή", emptyText: lang === "en" ? "Nothing pending." : "Τίποτα εκκρεμές.",
         items: invItems.map((it, i) => ({ id: it.id, text: `${catLabel[it.cat]}: ${invTexts[i]}` })) },
+      !opts.observations ? null : { key: "observations", title: lang === "en" ? "Observations" : "Παρατηρήσεις", emptyText: lang === "en" ? "No observations logged." : "Καμία παρατήρηση καταχωρημένη.",
+        items: combinedObservations(rawNotes.map((n, i) => ({ ...n, text: noteTexts[i] })), rawObsTasks.map((t, i) => ({ ...t, desc: obsTaskTexts[i] }))) },
     ].filter(Boolean);
-    setExportBoat({ boat, lang, sections });
+    const hasCompanyInfo = opts.charterFrom || opts.charterTo || opts.company || opts.note;
+    const meta = !hasCompanyInfo ? null : { captainName: me?.name, charterFrom: opts.charterFrom, charterTo: opts.charterTo, company: opts.company, note: freeNote };
+    setExportBoat({ boat, lang, sections, meta });
   };
   useEffect(() => {
     if (!exportBoat) return;
@@ -4903,33 +4903,6 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
     window.addEventListener("afterprint", reset);
     return () => { cancelled = true; window.removeEventListener("afterprint", reset); document.title = prevTitle; };
   }, [exportBoat]);
-
-  // «Παρατηρήσεις καπετάνιου»: ξεχωριστό έντυπο από τη λίστα εργασιών, με στοιχεία (καπετάνιος/ημερομηνία
-  // ναύλου/εταιρεία) που δεν αποθηκεύονται στο σκάφος — τα ζητάμε στη στιγμή της εκτύπωσης γιατί αλλάζουν
-  // κάθε φορά. Το φορμάκι ημερομηνίας/εταιρείας ζει μέσα στο BoatDetail (owner-only)· εδώ μόνο το print sheet.
-  const [printObs, setPrintObs] = useState(null);
-  const printObservationsForBoat = async (boat, charterFrom, charterTo, company, english) => {
-    const rawNotes = boatNotes.filter(n => n.boatId === boat.id).sort((a, c) => c.at.localeCompare(a.at));
-    const rawTasks = tasks.filter(t => t.boatId === boat.id && t.status === "open");
-    let notes = rawNotes, taskList = rawTasks;
-    const lang = english ? "en" : "el";
-    if (english) {
-      const translated = await translateBatchToEnglish([...rawNotes.map(n => n.text), ...rawTasks.map(t => t.desc)]);
-      notes = rawNotes.map((n, i) => ({ ...n, text: translated[i] }));
-      taskList = rawTasks.map((t, i) => ({ ...t, desc: translated[rawNotes.length + i] }));
-    }
-    setPrintObs({ boat, charterFrom, charterTo, company, lang, notes, tasks: taskList });
-  };
-  useEffect(() => {
-    if (!printObs) return;
-    let cancelled = false;
-    const prevTitle = document.title;
-    document.title = printFileName("Παρατηρήσεις", printObs.boat.name);
-    printWhenImagesReady(() => cancelled);
-    const reset = () => { setPrintObs(null); document.title = prevTitle; };
-    window.addEventListener("afterprint", reset);
-    return () => { cancelled = true; window.removeEventListener("afterprint", reset); document.title = prevTitle; };
-  }, [printObs]);
 
   // Προτεραιότητα σε 4 επίπεδα, με απλή χρωματική σήμανση:
   // 1. Στη βάση + φεύγει σύντομα — ΠΡΑΣΙΝΟ
@@ -5083,7 +5056,7 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
             )}
             {detailFor === b.id && (
               <BoatDetail boat={b} tasks={tasks} boatNotes={boatNotes} onAddNote={onAddBoatNote} onDeleteNote={onDeleteBoatNote} onClearNotes={onClearBoatNotes ? () => onClearBoatNotes(b.id) : null} partners={partners} isMgr={isMgr} isOwner={isOwner} persistBoats={persistBoats} showToast={showToast}
-                onExportBoat={(opts) => exportBoatForPrint(b, opts)} onPrintObservations={(charterFrom, charterTo, company, english) => printObservationsForBoat(b, charterFrom, charterTo, company, english)}
+                onExportBoat={(opts) => exportBoatForPrint(b, opts)}
                 onDeleteBoat={() => { persistBoats(cur => cur.filter(x => x.id !== b.id)); showToast(`Το ${b.name} διαγράφηκε`); }} />
             )}
           </div>
@@ -5127,17 +5100,7 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
           </div>
         )}
       </div>
-      <BoatExportPrintSheet boat={exportBoat?.boat || null} sections={exportBoat?.sections || []} lang={exportBoat?.lang} />
-      <BoatObservationsPrintSheet
-        boat={printObs?.boat || null}
-        notes={printObs?.notes || []}
-        tasks={printObs?.tasks || []}
-        captainName={me?.name}
-        charterFrom={printObs?.charterFrom}
-        charterTo={printObs?.charterTo}
-        company={printObs?.company}
-        lang={printObs?.lang}
-      />
+      <BoatExportPrintSheet boat={exportBoat?.boat || null} sections={exportBoat?.sections || []} lang={exportBoat?.lang} meta={exportBoat?.meta} />
     </div>
   );
 }
