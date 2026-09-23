@@ -4225,7 +4225,28 @@ const nextDeparture = (b) => {
   return null;
 };
 
+// Κάθε λειτουργικό κομμάτι των «Πληροφοριών» σκάφους (φωτογραφία/όνομα, εξαγωγή, AI, παρατηρήσεις, ιστορικό)
+// σε δικό του, σαφώς ξεχωριστό τμήμα με τίτλο και μία γραμμή εξήγησης — πριν ήταν όλα στοιβαγμένα σαν μία λίστα
+// κουμπιών χωρίς όρια, δύσκολο να καταλάβει κανείς τι κάνει το καθένα χωρίς να το δοκιμάσει.
+function InfoSection({ title, hint, children }) {
+  return (
+    <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${COLORS.line}` }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.sub, letterSpacing: 0.4, textTransform: "uppercase" }}>{title}</div>
+      {hint && <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 2 }}>{hint}</div>}
+      <div style={{ marginTop: 8 }}>{children}</div>
+    </div>
+  );
+}
 function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNotes, partners, isMgr, isOwner, persistBoats, showToast, onExportBoat, onPrintObservations, onDeleteBoat }) {
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [editName, setEditName] = useState(boat.name);
+  const [editType, setEditType] = useState(boat.type || "");
+  const saveInfo = () => {
+    if (!editName.trim()) { showToast?.("Το όνομα δεν μπορεί να είναι κενό"); return; }
+    persistBoats(cur => cur.map(x => x.id === boat.id ? { ...x, name: editName.trim(), type: editType.trim() } : x));
+    setEditingInfo(false);
+    showToast?.("Ενημερώθηκαν τα στοιχεία του σκάφους");
+  };
   const [exportOpen, setExportOpen] = useState(false);
   const [expTasks, setExpTasks] = useState(true);
   const [expCheckin, setExpCheckin] = useState(false);
@@ -4295,20 +4316,36 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNo
       <div style={{ fontWeight: 700, marginBottom: 8 }}>ℹ️ {boat.name} — Πληροφορίες</div>
 
       {persistBoats && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <BoatAvatar boat={boat} size={56} />
-          <input ref={boatPhotoRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }}
-            onChange={e => { const f = e.target.files?.[0]; if (f) setBoatPhoto(f); e.target.value = ""; }} />
-          <Btn small color={COLORS.teal} outline onClick={() => boatPhotoRef.current?.click()}>
-            {photoBusy ? "Ανεβαίνει…" : boat.photoUrl ? "📷 Αλλαγή φωτογραφίας" : "📷 Προσθήκη φωτογραφίας"}
-          </Btn>
-          {boat.photoUrl && !photoBusy && <Btn small color={COLORS.sub} outline onClick={removeBoatPhoto}>Αφαίρεση</Btn>}
-        </div>
+        <InfoSection title="Στοιχεία σκάφους" hint="Όνομα, τύπος και φωτογραφία — όπως εμφανίζεται σε όλη την εφαρμογή.">
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: editingInfo ? 8 : 0 }}>
+            <BoatAvatar boat={boat} size={56} />
+            <input ref={boatPhotoRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) setBoatPhoto(f); e.target.value = ""; }} />
+            <Btn small color={COLORS.teal} outline onClick={() => boatPhotoRef.current?.click()}>
+              {photoBusy ? "Ανεβαίνει…" : boat.photoUrl ? "📷 Αλλαγή φωτογραφίας" : "📷 Προσθήκη φωτογραφίας"}
+            </Btn>
+            {boat.photoUrl && !photoBusy && <Btn small color={COLORS.sub} outline onClick={removeBoatPhoto}>Αφαίρεση</Btn>}
+          </div>
+          {editingInfo ? (
+            <div>
+              <label style={lbl}>Όνομα</label>
+              <input value={editName} onChange={e => setEditName(e.target.value)} style={inputStyle} />
+              <label style={lbl}>Τύπος</label>
+              <input value={editType} onChange={e => setEditType(e.target.value)} placeholder="π.χ. Bavaria 46" style={inputStyle} />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <Btn small color={COLORS.navy} onClick={saveInfo}>Αποθήκευση</Btn>
+                <Btn small color={COLORS.sub} outline onClick={() => { setEditName(boat.name); setEditType(boat.type || ""); setEditingInfo(false); }}>Άκυρο</Btn>
+              </div>
+            </div>
+          ) : (
+            <Btn small color={COLORS.sub} outline onClick={() => setEditingInfo(true)}>✏️ Επεξεργασία ονόματος/τύπου</Btn>
+          )}
+        </InfoSection>
       )}
 
       {onExportBoat && (
-        <div style={{ marginBottom: 8 }}>
-          <Btn small color={COLORS.sub} outline onClick={() => setExportOpen(v => !v)}>📤 Εξαγωγή</Btn>
+        <InfoSection title="Εξαγωγή PDF" hint="Φτιάξε ένα PDF με ό,τι διαλέξεις — εργασίες, ή ό,τι δεν έχει γίνει τσεκ στο Check-in/Inventory.">
+          <Btn small color={COLORS.sub} outline onClick={() => setExportOpen(v => !v)}>📤 Επιλογή τι θα εξαχθεί</Btn>
           {exportOpen && (
             <div style={{ marginTop: 8, background: COLORS.card, borderRadius: 8, padding: 8 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.sub, marginBottom: 6 }}>Τι να περιλαμβάνει το PDF;</div>
@@ -4334,24 +4371,23 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNo
               </div>
             </div>
           )}
-        </div>
+        </InfoSection>
       )}
 
-      <Btn small color={COLORS.teal} onClick={() => ask("Τι θέματα ή επαναλαμβανόμενα προβλήματα έχει αυτό το σκάφος; Αν κάτι φαίνεται καινούργιο (δηλαδή υπάρχει παλιότερη ένδειξη ότι δούλευε καλά), ανάφερέ το ρητά. Δώσε σύντομη επισκόπηση.")}>{busy ? "…" : "Επισκόπηση AI"}</Btn>
-      <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-        <input value={aiQ} onChange={e => setAiQ(e.target.value)} placeholder="Ρώτησε κάτι για αυτό το σκάφος…" style={{ ...inputStyle, flex: 1 }} />
-        <Btn small color={COLORS.navy} onClick={() => ask()}>{busy ? "…" : "Ρώτησε"}</Btn>
-      </div>
-      {aiAns && <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", background: COLORS.card, borderRadius: 8, padding: 8 }}>{aiAns}</div>}
+      <InfoSection title="AI βοηθός σκάφους" hint="Ρώτησε κάτι για το ιστορικό/προβλήματα αυτού του σκάφους — απαντάει με βάση το Βιβλίο Service, τις παρατηρήσεις και το ιστορικό ρουτίνας.">
+        <Btn small color={COLORS.teal} onClick={() => ask("Τι θέματα ή επαναλαμβανόμενα προβλήματα έχει αυτό το σκάφος; Αν κάτι φαίνεται καινούργιο (δηλαδή υπάρχει παλιότερη ένδειξη ότι δούλευε καλά), ανάφερέ το ρητά. Δώσε σύντομη επισκόπηση.")}>{busy ? "…" : "Επισκόπηση AI"}</Btn>
+        <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+          <input value={aiQ} onChange={e => setAiQ(e.target.value)} placeholder="Ρώτησε κάτι για αυτό το σκάφος…" style={{ ...inputStyle, flex: 1 }} />
+          <Btn small color={COLORS.navy} onClick={() => ask()}>{busy ? "…" : "Ρώτησε"}</Btn>
+        </div>
+        {aiAns && <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", background: COLORS.card, borderRadius: 8, padding: 8 }}>{aiAns}</div>}
+      </InfoSection>
 
       {isOwner && (
-        <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-            <div style={{ fontWeight: 700, fontSize: 13 }}>Παρατηρήσεις <span style={{ fontWeight: 400, color: COLORS.sub, fontSize: 12 }}>(θετικές ή αρνητικές — και τα δύο βοηθούν — ορατές μόνο σε σένα)</span></div>
-            <div style={{ display: "flex", gap: 4 }}>
-              {onPrintObservations && <Btn small color={COLORS.sub} outline onClick={() => { setObsFormOpen(v => !v); setObsFrom(""); setObsTo(""); setObsCompany(""); }}>📝 Εκτύπωση</Btn>}
-              {onClearNotes && myNotes.length > 0 && <Btn small color={COLORS.red} outline onClick={() => setConfirmClearNotes(true)}>🗑 Διαγραφή όλων</Btn>}
-            </div>
+        <InfoSection title="Παρατηρήσεις καπετάνιου" hint="Θετικές ή αρνητικές, ό,τι αξίζει να θυμάσαι για αυτό το σκάφος — ορατές μόνο σε σένα, σε κανέναν άλλον.">
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginBottom: 8 }}>
+            {onPrintObservations && <Btn small color={COLORS.sub} outline onClick={() => { setObsFormOpen(v => !v); setObsFrom(""); setObsTo(""); setObsCompany(""); }}>📝 Εκτύπωση σε PDF</Btn>}
+            {onClearNotes && myNotes.length > 0 && <Btn small color={COLORS.red} outline onClick={() => setConfirmClearNotes(true)}>🗑 Διαγραφή όλων</Btn>}
           </div>
           {confirmClearNotes && (
             <div style={{ margin: "4px 0 8px", background: COLORS.card, borderRadius: 8, padding: 8 }}>
@@ -4406,16 +4442,15 @@ function BoatDetail({ boat, tasks, boatNotes, onAddNote, onDeleteNote, onClearNo
               {notePhotos.length > 0 && <span style={{ fontSize: 12, color: COLORS.sub, marginLeft: 8 }}>{notePhotos.length} επιλεγμένες</span>}
             </div>
           </div>
-        </>
+        </InfoSection>
       )}
 
       {serviceHistory.length > 0 && (
-        <>
-          <div style={{ fontWeight: 700, marginTop: 12, marginBottom: 4, fontSize: 13 }}>Πρόσφατο ιστορικό Service Book</div>
+        <InfoSection title="Ιστορικό Service Book" hint="Οι τελευταίες καταχωρημένες επισκευές/συντηρήσεις αυτού του σκάφους.">
           {serviceHistory.slice(0, 6).map(t => (
             <div key={t.id} style={{ fontSize: 13, padding: "4px 0", color: COLORS.sub }}>• {t.desc} — {fmtDate(t.completedAt)}</div>
           ))}
-        </>
+        </InfoSection>
       )}
       {isMgr && onDeleteBoat && (
         <div style={{ marginTop: 16, paddingTop: 12, borderTop: `1px dashed ${COLORS.line}` }}>
