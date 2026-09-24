@@ -118,6 +118,17 @@ export function AuthProvider({ children }) {
     return () => sub.subscription.unsubscribe();
   }, [refresh]);
 
+  // Nothing polls the bell or the account's approval — someone who left the
+  // app open (or backgrounded on a phone) while waiting would otherwise see
+  // neither until a full reload. Coming back to the tab re-reads both.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === "visible") refresh();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refresh]);
+
   const startViewAs = useCallback((subject) => {
     sessionStorage.setItem("sf_view_as", JSON.stringify(subject));
     setViewAsUser(subject.id);
