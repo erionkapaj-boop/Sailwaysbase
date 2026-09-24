@@ -11,6 +11,8 @@ import MessagesPanel from "./components/MessagesPanel";
 import AccountMenu from "./components/AccountMenu";
 import { SECTIONS as ADMIN_SECTIONS } from "./admin/AdminShell";
 import { hasStashedAdminSession, returnToAdminSession, adminOverview } from "../../lib/platform/db";
+import { hasPendingBroadcast } from "../../lib/platform/pendingBroadcast";
+import { hasPendingDelivery } from "../../lib/platform/pendingDelivery";
 import { nav, colors, fontSans, container, card, h1, muted, button } from "../../lib/platform/theme";
 
 const navLink = {
@@ -315,34 +317,62 @@ function ReturnToAdminBanner() {
 // yet) starts with users.phone_verified_at = null and has to wait for an
 // admin to confirm it's a real person (Χρήστες → «Επαλήθευση») before it
 // can do anything account-specific. Blocks only the "act as a member"
-// pages — home, search, and the auth/legal pages a not-yet-verified (or
+// pages — home, search, the delivery form, and the auth/legal pages a not-yet-verified (or
 // signed-out) visitor still needs to reach stay open, same as before.
 const VERIFICATION_GATED_PREFIXES = [
   "/platform/requests",
   "/platform/bookings",
   "/platform/wallet",
   "/platform/availability",
-  "/platform/delivery",
+  // Only the list of one's own delivery requests — the delivery form itself
+  // stays open like search does: picking is fine while waiting, sending is
+  // what waits (blocked in the UI and by 0083).
+  "/platform/delivery/requests",
   "/platform/profile",
 ];
 
 function VerificationGate({ children }) {
   const { userRow, isAdmin, signOut } = useAuth();
   const pathname = usePathname();
+  // Read after mount only — localStorage doesn't exist during the server render.
+  const [resume, setResume] = useState(null);
+  useEffect(() => {
+    if (hasPendingBroadcast()) setResume("/platform/search");
+    else if (hasPendingDelivery()) setResume("/platform/delivery");
+  }, []);
 
   const pending = userRow && !userRow.phone_verified_at && !isAdmin;
   const onGatedPage = VERIFICATION_GATED_PREFIXES.some((p) => pathname.startsWith(p));
   if (!pending || !onGatedPage) return children;
 
+  // Used to offer nothing but "Αποσύνδεση" — a dead end for someone who had
+  // just registered and wanted to get on with their search. Browsing and
+  // picking stay open while they wait; only sending (which charges) waits.
   return (
     <div style={{ ...container, maxWidth: 460 }}>
       <div style={{ ...card, marginTop: 20, textAlign: "center" }}>
-        <h1 style={{ ...h1, fontSize: 20 }}>Ο λογαριασμός σου περιμένει επαλήθευση</h1>
-        <p style={{ ...muted, margin: "10px 0 0" }}>
-          Δεν στέλνουμε κωδικό SMS αυτή τη στιγμή, οπότε ένας από εμάς ελέγχει χειροκίνητα κάθε νέα εγγραφή. Μόλις
-          επιβεβαιωθεί, ο λογαριασμός σου ενεργοποιείται κανονικά — δεν χρειάζεται να κάνεις τίποτα άλλο.
+        <h1 style={{ ...h1, fontSize: 20 }}>Ο λογαριασμός σου ελέγχεται</h1>
+        <p style={{ ...muted, margin: "10px 0 0", lineHeight: 1.55 }}>
+          Επειδή δεν στέλνουμε ακόμα κωδικό SMS, ελέγχουμε κάθε νέα εγγραφή χειροκίνητα — συνήθως μέσα στην ημέρα.
+          Δεν χρειάζεται να κάνεις τίποτα άλλο.
         </p>
-        <button type="button" onClick={signOut} style={{ ...button("secondary"), marginTop: 18 }}>
+        <p style={{ ...muted, margin: "10px 0 0", lineHeight: 1.55 }}>
+          Μέχρι τότε μπορείς να ψάχνεις και να διαλέγεις επαγγελματίες· η αποστολή αιτήματος ενεργοποιείται μόλις
+          εγκριθεί ο λογαριασμός σου. Δεν έχεις χρεωθεί τίποτα.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
+          <Link href={resume || "/platform"} style={{ ...button("primary"), textDecoration: "none" }}>
+            {resume ? "Γύρνα στις επιλογές σου" : "Συνέχισε την αναζήτηση"}
+          </Link>
+          <Link href="/platform/contact" style={{ ...button("secondary"), textDecoration: "none" }}>
+            Επικοινώνησε μαζί μας
+          </Link>
+        </div>
+        <button
+          type="button"
+          onClick={signOut}
+          style={{ background: "none", border: "none", padding: 0, marginTop: 16, cursor: "pointer", color: colors.inkSoft, fontSize: 13, textDecoration: "underline", fontFamily: "inherit" }}
+        >
           Αποσύνδεση
         </button>
       </div>

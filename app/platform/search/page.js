@@ -53,6 +53,7 @@ const BROADCAST_ERRORS = {
   invalid_skipper_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος.",
   no_skippers_selected: "Επίλεξε τουλάχιστον έναν επαγγελματία.",
   already_paid_or_closed: "Αυτό το αίτημα έχει ήδη σταλεί.",
+  account_not_verified: "Ο λογαριασμός σου ελέγχεται ακόμα — θα μπορείς να στείλεις αίτημα μόλις ενεργοποιηθεί.",
 };
 
 // Inclusive day count: a 1st→3rd booking is three days of work, not two.
@@ -734,6 +735,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
   const [sentSlots, setSentSlots] = useState(new Set());
   const [termsOpen, setTermsOpen] = useState(false);
 
+  const { userRow, isAdmin } = useAuth();
   const { activeRoles, positionsFor, slotsFor, totalSlots, totalFee, shortRoles } = computeOrderTotals(
     supportedRoles,
     selectionsByRole,
@@ -741,43 +743,64 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
     fee
   );
 
+  // A new account without SMS OTP waits for an admin to verify it (0075).
+  // Until then it can browse and pick, but not send: sending charges the fee,
+  // and every page that would show the request afterwards is behind the
+  // verification gate — paying for something you then can't see was exactly
+  // the trap. The server refuses it too (0083); this is the explanation.
+  const awaitingVerification = Boolean(session && userRow && !userRow.phone_verified_at && !isAdmin);
+
+  // Every role on the page is saved, not just the ones with a pick yet, so a
+  // role still being browsed re-renders on restore too.
+  function snapshot() {
+    const selections = {};
+    for (const role of supportedRoles) {
+      const set = selectionsByRole[role];
+      if (!set || set.size === 0) continue;
+      selections[role] = { boatTypeId: boatTypesByRole[role] || "", positions: positionsFor(role), selected: Array.from(set) };
+    }
+    return {
+      roles: supportedRoles,
+      filters: {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        regionId: filters.regionId,
+        departurePoint: filters.departurePoint || "",
+        arrivalPoint: filters.arrivalPoint || "",
+        // Shared page-level value the skipper section's own auto-search
+        // reads (see RoleSection's hasCompleteIncoming) — only skipper
+        // ever cares, but it has to survive the round trip regardless of
+        // whether skipper itself has a pick yet.
+        boatTypeId: boatTypesByRole.skipper || "",
+        languageId: filters.languageId || "",
+        partySize: filters.partySize,
+        privateCabin: filters.privateCabin,
+      },
+      selections,
+    };
+  }
+
+  // Kept continuously while waiting, so whenever the account gets verified —
+  // later today, after the app was closed — the same search and picks are
+  // waiting on /platform/search instead of an empty form.
+  const selectionKey = activeRoles.map((r) => `${r}:${positionsFor(r)}:${[...selectionsByRole[r]].sort().join(",")}`).join("|");
+  useEffect(() => {
+    if (awaitingVerification && activeRoles.length > 0 && !done) savePendingBroadcast(snapshot());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [awaitingVerification, selectionKey, filters, boatTypesByRole, done]);
+
   if (activeRoles.length === 0 && !done) return null;
 
   async function handleCheckout() {
     if (!session) {
       // Nothing below this line has run yet (no request created, nothing
       // charged) — there's nothing to lose by sending whoever isn't signed
-      // in to log in first and letting them finish from where they left
-      // off. Every role on the page is saved, not just the ones with a
-      // pick yet, so a role still being browsed re-renders after login too.
-      const selections = {};
-      for (const role of supportedRoles) {
-        const set = selectionsByRole[role];
-        if (!set || set.size === 0) continue;
-        selections[role] = { boatTypeId: boatTypesByRole[role] || "", positions: positionsFor(role), selected: Array.from(set) };
-      }
-      savePendingBroadcast({
-        roles: supportedRoles,
-        filters: {
-          startDate: filters.startDate,
-          endDate: filters.endDate,
-          regionId: filters.regionId,
-          departurePoint: filters.departurePoint || "",
-          arrivalPoint: filters.arrivalPoint || "",
-          // Shared page-level value the skipper section's own auto-search
-          // reads (see RoleSection's hasCompleteIncoming) — only skipper
-          // ever cares, but it has to survive the round trip regardless of
-          // whether skipper itself has a pick yet.
-          boatTypeId: boatTypesByRole.skipper || "",
-          languageId: filters.languageId || "",
-          partySize: filters.partySize,
-          privateCabin: filters.privateCabin,
-        },
-        selections,
-      });
+      // in to log in first and letting them finish from where they left off.
+      savePendingBroadcast(snapshot());
       router.push("/platform/login?next=/platform/search");
       return;
     }
+    if (awaitingVerification) return;
     if (!filters.partySize || filters.privateCabin === undefined) {
       setError("Συμπλήρωσε αριθμό ατόμων και ιδιωτική καμπίνα πριν στείλεις το αίτημα.");
       return;
@@ -895,10 +918,20 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
 
             {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}
 
-            <button style={{ ...button("primary"), width: "100%" }} disabled={busy} onClick={handleCheckout}>
-              {busy ? "..." : session ? "Αποστολή αιτημάτων" : "Σύνδεση για αποστολή"}
-            </button>
-            <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
+            {awaitingVerification ? (
+              <div style={{ padding: "12px 14px", border: `1px solid ${colors.warn}`, background: "#F7F0E2", borderRadius: radius.md }}>
+                <b style={{ display: "block", fontSize: 14, marginBottom: 4 }}>Ο λογαριασμός σου ελέγχεται</b>
+                <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>
+                  Συνήθως μέσα στην ημέρα. Οι επιλογές σου κρατήθηκαν — μόλις ενεργοποιηθεί ο λογαριασμός σου θα
+                  μπορείς να στείλεις το αίτημα με ένα πάτημα. Δεν έχεις χρεωθεί τίποτα.
+                </span>
+              </div>
+            ) : (
+              <button style={{ ...button("primary"), width: "100%" }} disabled={busy} onClick={handleCheckout}>
+                {busy ? "..." : session ? "Αποστολή αιτημάτων" : "Σύνδεση για αποστολή"}
+              </button>
+            )}
+            {!awaitingVerification && <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
               Πατώντας «Αποστολή αιτημάτων» αποδέχεσαι την παραπάνω χρέωση και τους{" "}
               <button
                 type="button"
@@ -916,7 +949,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
                 Όρους Χρήσης
               </button>
               .
-            </p>
+            </p>}
           </>
         )}
       </div>

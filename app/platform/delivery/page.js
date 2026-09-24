@@ -31,6 +31,7 @@ import {
 } from "../../../lib/platform/theme";
 
 const REQUEST_ERRORS = {
+  account_not_verified: "Ο λογαριασμός σου ελέγχεται ακόμα — θα μπορείς να στείλεις το αίτημα μόλις ενεργοποιηθεί.",
   no_client_profile: "Χρειάζεται λογαριασμός πελάτη.",
   invalid_distance: "Τα μίλια πρέπει να είναι θετικός αριθμός.",
   invalid_date_mode: "Μη έγκυρος τύπος ημερομηνίας.",
@@ -147,6 +148,7 @@ function RoleBlock({
   session,
   formValues,
   onAuthRequired,
+  awaitingVerification,
   onRequestCreated,
   onSent,
   onRemove,
@@ -283,9 +285,17 @@ function RoleBlock({
       </div>
 
       {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 10px" }}>{error}</p>}
-      <button style={button("primary")} disabled={busy || !candidates?.length} onClick={handleSend}>
-        {busy ? "..." : `Αποστολή σε ${selected.size || 0} επιλεγμέν${selected.size === 1 ? "ο" : "ους"}`}
-      </button>
+      {awaitingVerification ? (
+        <div style={{ padding: "12px 14px", border: `1px solid ${colors.warn}`, background: "#F7F0E2", borderRadius: radius.md, fontSize: 13.5, lineHeight: 1.5 }}>
+          <b style={{ display: "block", fontSize: 14, marginBottom: 4 }}>Ο λογαριασμός σου ελέγχεται</b>
+          Συνήθως μέσα στην ημέρα. Η φόρμα σου κρατήθηκε — μόλις ενεργοποιηθεί ο λογαριασμός σου θα μπορείς να
+          στείλεις το αίτημα. Δεν έχεις χρεωθεί τίποτα.
+        </div>
+      ) : (
+        <button style={button("primary")} disabled={busy || !candidates?.length} onClick={handleSend}>
+          {busy ? "..." : `Αποστολή σε ${selected.size || 0} επιλεγμέν${selected.size === 1 ? "ο" : "ους"}`}
+        </button>
+      )}
     </div>
   );
 }
@@ -558,7 +568,14 @@ function RolePickerStep({ onContinue }) {
 // πραγματικά· από εκεί και πέρα κάθε επόμενο block το χρησιμοποιεί έτοιμο.
 function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated, restoredBlock }) {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, userRow, isAdmin } = useAuth();
+  // Ίδιος κανόνας με την αναζήτηση πληρώματος (0075/0083): λογαριασμός σε
+  // αναμονή επαλήθευσης δεν στέλνει — αλλά η φόρμα του κρατιέται, ώστε να τη
+  // βρει έτοιμη όταν ενεργοποιηθεί.
+  const awaitingVerification = Boolean(session && userRow && !userRow.phone_verified_at && !isAdmin);
+  useEffect(() => {
+    if (awaitingVerification && !deliveryRequest) savePendingDelivery({ formValues, pickedRoles });
+  }, [awaitingVerification, deliveryRequest, formValues, pickedRoles]);
   const [settings, setSettings] = useState(null);
   // Κάθε μπλοκ είναι { key, role } — ένα ανά ρόλο επιλεγμένο στο βήμα
   // επιλογής πληρώματος, plus ό,τι προστεθεί μετά με τα κουμπιά "+ ρόλος".
@@ -610,6 +627,7 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
         endDate={rangeEnd}
         settings={settings}
         session={session}
+        awaitingVerification={awaitingVerification}
         formValues={formValues}
         onAuthRequired={(price, sel) => handleAuthRequired("skipper", price, sel)}
         onRequestCreated={onRequestCreated}
@@ -627,6 +645,7 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
           endDate={rangeEnd}
           settings={settings}
           session={session}
+          awaitingVerification={awaitingVerification}
           formValues={formValues}
           onAuthRequired={(price, sel) => handleAuthRequired(role, price, sel)}
           onRequestCreated={onRequestCreated}
