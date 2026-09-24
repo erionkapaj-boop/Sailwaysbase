@@ -103,7 +103,8 @@ function UsersInner() {
     : "client";
 
   const [tab, setTab] = useState(initialTab);
-  const [crewRole, setCrewRole] = useState("");
+  // ?crew=cook: από την Επισκόπηση, κατευθείαν στους επαγγελματίες μιας ιδιότητας.
+  const [crewRole, setCrewRole] = useState(() => (initialTab === "pro" && searchParams.get("crew")) || "");
   const [sort, setSort] = useState("recent");
   const [search, setSearch] = useState(initialSearch);
   const [list, setList] = useState([]);
