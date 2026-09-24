@@ -124,7 +124,10 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
           {" · "}
           {request.fee_paid_at ? "Πληρώθηκε" : "Δεν πληρώθηκε"}
         </p>
-        <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>Στάλθηκε {formatDateTime(request.created_at)}</p>
+        <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>
+          Στάλθηκε {formatDateTime(request.created_at)}
+          {isOpen && request.expires_at && ` · Ισχύει έως ${formatDateTime(request.expires_at)}`}
+        </p>
       </div>
 
       {expanded && (

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "./AuthContext";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
+import PendingReadyBanner from "./components/PendingReadyBanner";
 import { button, colors, muted, h2 } from "../../lib/platform/theme";
 
 // The first screen shows only the CTA and the secondary link (brief §4) —
@@ -70,6 +71,8 @@ export default function HomeEntry() {
           <p style={muted}>{t("welcomeSubtitle")}</p>
         </div>
       )}
+
+      <PendingReadyBanner />
 
       {/* Outline rather than filled: lighter against the warm page, closer to
           the "spare, premium" direction. Hover/active fills it so it still

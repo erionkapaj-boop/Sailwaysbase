@@ -10,6 +10,7 @@ import Toast from "../components/Toast";
 import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
 import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
+import PendingReadyBanner from "../components/PendingReadyBanner";
 
 const REQ_STATUS = {
   matched: ["Βρέθηκε επαγγελματίας", "success"],
@@ -69,6 +70,7 @@ export default function RequestsPage() {
   return (
     <div style={container}>
       <h1 style={h1}>Αιτήματα</h1>
+      <PendingReadyBanner />
 
       {isProfessional && (
         <div style={{ marginBottom: 32 }}>
