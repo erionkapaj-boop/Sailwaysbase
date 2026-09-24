@@ -9,7 +9,7 @@ import Logo from "./components/Logo";
 import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
 import AccountMenu from "./components/AccountMenu";
-import { SECTIONS as ADMIN_SECTIONS } from "./admin/AdminShell";
+import { SECTIONS as ADMIN_SECTIONS, badgeCount, ADMIN_COUNTS_EVENT } from "./admin/AdminShell";
 import { hasStashedAdminSession, returnToAdminSession, adminOverview } from "../../lib/platform/db";
 import { hasPendingBroadcast } from "../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../lib/platform/pendingDelivery";
@@ -97,28 +97,30 @@ function AccountNavBar({ name, photoUrl, loading, items, activeHref, onSignOut, 
 // σελίδα είναι «ενεργή»), οπότε εισάγεται αντί να ξαναγραφτεί.
 function buildMenuItems({ role, isAdmin, adminCounts }) {
   const items = [{ href: "/platform", label: "Αρχική" }];
-  items.push({ href: "/platform/requests", label: "Αιτήματα", group: true });
-  // Πάντα ξεκάθαρο ότι είναι ΤΟ ΔΙΚΟ ΣΟΥ, ξεχωριστό από το «Όλες οι
-  // κρατήσεις» του admin παρακάτω — πριν δεν συνυπήρχαν στο ίδιο μενού,
-  // οπότε δεν χρειαζόταν διάκριση.
-  items.push({ href: "/platform/bookings", label: isAdmin ? "Οι κρατήσεις μου" : "Κρατήσεις" });
-  if (role === "skipper" || isAdmin) {
-    items.push({ href: "/platform/availability", label: "Η διαθεσιμότητά μου" });
-  }
-  items.push({ href: "/platform/profile", label: "Το προφίλ μου" });
-  items.push({ href: "/platform/wallet", label: "Το πορτοφόλι μου" });
+  const own = [];
+  own.push({ href: "/platform/requests", label: "Αιτήματα" });
+  own.push({ href: "/platform/bookings", label: isAdmin ? "Οι κρατήσεις μου" : "Κρατήσεις" });
+  if (role === "skipper" || isAdmin) own.push({ href: "/platform/availability", label: "Η διαθεσιμότητά μου" });
+  own.push({ href: "/platform/profile", label: "Το προφίλ μου" });
+  own.push({ href: "/platform/wallet", label: "Το πορτοφόλι μου" });
 
-  if (isAdmin) {
-    for (const s of ADMIN_SECTIONS)
-      items.push({
-        href: s.href,
-        label: s.label,
-        heading: s.heading,
-        prefix: !s.exact,
-        badge: s.badge ? adminCounts?.[s.badge] || 0 : 0,
-      });
+  if (!isAdmin) {
+    own[0].group = true;
+    return [...items, ...own];
   }
-  return items;
+
+  // For an admin the console comes first — it's what they opened the app for
+  // — and their own personal pages move to a group of their own at the end.
+  for (const s of ADMIN_SECTIONS)
+    items.push({
+      href: s.href,
+      label: s.label,
+      heading: s.heading,
+      prefix: !s.exact,
+      badge: badgeCount(s.badge, adminCounts),
+    });
+  own[0].heading = "Ο λογαριασμός μου";
+  return [...items, ...own];
 }
 
 function NavBar() {
@@ -133,8 +135,12 @@ function NavBar() {
   // μόνο μέσα στο admin console.
   const [adminCounts, setAdminCounts] = useState({});
   useEffect(() => {
-    if (isAdmin) adminOverview().then(setAdminCounts).catch(() => {});
-  }, [isAdmin]);
+    if (!isAdmin) return;
+    const load = () => adminOverview().then(setAdminCounts).catch(() => {});
+    load();
+    window.addEventListener(ADMIN_COUNTS_EVENT, load);
+    return () => window.removeEventListener(ADMIN_COUNTS_EVENT, load);
+  }, [isAdmin, pathname]);
 
   if (session && (isAdmin || role === "skipper" || role === "client")) {
     return (

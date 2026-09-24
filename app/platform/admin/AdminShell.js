@@ -1,5 +1,6 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import { adminOverview } from "../../../lib/platform/db";
 import { colors, muted, fontSans } from "../../../lib/platform/theme";
@@ -23,36 +24,71 @@ import { colors, muted, fontSans } from "../../../lib/platform/theme";
 // `badge` still names the live count key from useAdminCounts() for the
 // pages that show their own "X need attention" callouts.
 export const SECTIONS = [
+  // Grouped by what you came to do, not by where the data lives. Anything
+  // that can be waiting on you sits in the first group, with a count.
   { href: "/platform/admin", label: "Επισκόπηση", exact: true, heading: "Διαχείριση" },
-  { href: "/platform/admin/coverage", label: "Κάλυψη", badge: "coverage_needed", heading: "Ανάθεση πληρώματος" },
-  { href: "/platform/admin/offers", label: "Αναθέσεις" },
-  { href: "/platform/admin/approvals", label: "Εγκρίσεις", badge: "pending_approvals", heading: "Χρήστες" },
-  { href: "/platform/admin/users", label: "Χρήστες", badge: "pending_verification" },
-  { href: "/platform/admin/ghost", label: "Ghost Mode" },
-  { href: "/platform/admin/bookings", label: "Όλες οι κρατήσεις", heading: "Καταγραφές" },
-  { href: "/platform/admin/deliveries", label: "Μεταφορές" },
-  { href: "/platform/admin/finance", label: "Οικονομικά", heading: "Οικονομικά & διαφορές" },
-  { href: "/platform/admin/disputes", label: "Διαφορές", badge: "open_disputes" },
-  { href: "/platform/admin/messages", label: "Μηνύματα", badge: "contact_new", heading: "Λοιπά" },
-  { href: "/platform/admin/settings", label: "Ρυθμίσεις" },
+  {
+    href: "/platform/admin/approvals",
+    label: "Εκκρεμότητες",
+    badge: ["pending_verification", "pending_approvals", "pending_secondary_roles"],
+  },
+  { href: "/platform/admin/messages", label: "Μηνύματα επικοινωνίας", badge: "contact_new" },
+  { href: "/platform/admin/disputes", label: "Αναφορές ακύρωσης", badge: "open_disputes" },
+  { href: "/platform/admin/coverage", label: "Κενά από ακυρώσεις", badge: "coverage_needed", heading: "Κρατήσεις & πλήρωμα" },
+  { href: "/platform/admin/offers", label: "Αναθέσεις δουλειάς" },
+  { href: "/platform/admin/bookings", label: "Όλες οι κρατήσεις" },
+  { href: "/platform/admin/deliveries", label: "Μεταφορές σκάφους" },
+  { href: "/platform/admin/users", label: "Χρήστες", heading: "Χρήστες & χρήματα" },
+  { href: "/platform/admin/finance", label: "Οικονομικά" },
+  { href: "/platform/admin/settings", label: "Ρυθμίσεις", heading: "Σύστημα" },
+  { href: "/platform/admin/ghost", label: "Δοκιμές (Ghost Mode)" },
 ];
+
+// Sum of one or several overview counts — a section can stand for more than
+// one kind of waiting item (Εκκρεμότητες: signups + profiles + extra roles).
+export function badgeCount(badge, counts) {
+  if (!badge || !counts) return 0;
+  const keys = Array.isArray(badge) ? badge : [badge];
+  return keys.reduce((n, k) => n + (Number(counts[k]) || 0), 0);
+}
+
+// Pages call useRefreshAdminCounts() after an action; the site menu (which
+// lives outside this provider) listens for the same event.
+export const ADMIN_COUNTS_EVENT = "sf-admin-counts-changed";
 
 // Fetched once, in the layout that wraps every admin route, and shared from
 // there. Each page used to call this independently, which meant a fresh
 // round trip — and the nav badges briefly reading stale/zero — on every
 // single click between sections, not just on first load.
 const AdminCountsContext = createContext({});
+const AdminCountsRefreshContext = createContext(() => {});
 
+// Re-read on every section change and after every action that changes a
+// count (useRefreshAdminCounts) — fetched only once, the menu kept saying
+// "Χρήστες 2" after both had been verified.
 export function AdminCountsProvider({ children }) {
+  const pathname = usePathname();
   const [counts, setCounts] = useState({});
-  useEffect(() => {
+  const refresh = useCallback(() => {
     adminOverview().then(setCounts).catch(() => {});
+    window.dispatchEvent(new Event(ADMIN_COUNTS_EVENT));
   }, []);
-  return <AdminCountsContext.Provider value={counts}>{children}</AdminCountsContext.Provider>;
+  useEffect(() => {
+    refresh();
+  }, [pathname, refresh]);
+  return (
+    <AdminCountsRefreshContext.Provider value={refresh}>
+      <AdminCountsContext.Provider value={counts}>{children}</AdminCountsContext.Provider>
+    </AdminCountsRefreshContext.Provider>
+  );
 }
 
 export function useAdminCounts() {
   return useContext(AdminCountsContext);
+}
+
+export function useRefreshAdminCounts() {
+  return useContext(AdminCountsRefreshContext);
 }
 
 // Per-page header only. Navigation lives in the site's one hamburger drawer
