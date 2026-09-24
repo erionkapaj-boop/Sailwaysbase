@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import MissingProfile from "../skipper/MissingProfile";
 import ProfileForm from "../skipper/ProfileForm";
@@ -437,7 +438,10 @@ function DeleteAccount() {
 
   if (!open) {
     return (
-      <div style={{ marginTop: 28, textAlign: "center" }}>
+      <div style={{ marginTop: 28, textAlign: "center", display: "flex", justifyContent: "center", gap: 20, flexWrap: "wrap" }}>
+        <Link href="/platform/set-pin?change=1" style={{ color: colors.inkSoft, fontSize: 13 }}>
+          Αλλαγή κωδικού
+        </Link>
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -664,6 +668,7 @@ function ClientIdentityProfile({ role }) {
   return (
     <div style={container}>
       <h1 style={h1}>Το προφίλ μου</h1>
+      <PinChangedNotice />
       {role && role !== "client" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως πελάτης</p>}
 
       <div style={card}>
@@ -731,6 +736,22 @@ function ClientIdentityProfile({ role }) {
   );
 }
 
+// Shown once after Αλλαγή κωδικού sends the user back here. Read from
+// window.location in an effect: this page has no Suspense boundary for
+// useSearchParams, and the note has nothing to render on the server anyway.
+function PinChangedNotice() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("pin") === "changed") setShow(true);
+  }, []);
+  if (!show) return null;
+  return (
+    <div style={{ ...card, borderLeft: `3px solid ${colors.success}`, marginBottom: 16 }}>
+      ✓ Ο κωδικός σου άλλαξε. Από εδώ και πέρα συνδέεσαι με τον νέο.
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { session, profile, userRow, loading, refresh, loadError, isAdmin, role } = useAuth();
 
@@ -744,6 +765,7 @@ export default function ProfilePage() {
   return (
     <div style={container}>
       <h1 style={h1}>Το προφίλ μου</h1>
+      <PinChangedNotice />
       {userRow?.role !== "skipper" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως επαγγελματίας</p>}
       <ProfileForm profile={profile} onSaved={refresh} />
       <DeliveryAvailability profile={profile} />

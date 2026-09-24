@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useAuth } from "../../AuthContext";
 import {
   signInWithPin,
@@ -73,17 +72,17 @@ export default function AdminLoginPage() {
         <p style={muted}>Είσοδος διαχειριστή.</p>
 
         {lockedOut ? (
-          // Χωρίς πεδία για νέα προσπάθεια: το κλείδωμα δεν λήγει μόνο του,
-          // οπότε η φόρμα εδώ θα ήταν απλώς μια κλειστή πόρτα.
+          // Locks expire after 15 minutes (0085). The forgot-PIN page is no
+          // help to the admin: with SMS off it only says "contact us".
           <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
-            <b style={{ fontWeight: 600 }}>Ο λογαριασμός κλειδώθηκε.</b>
+            <b style={{ fontWeight: 600 }}>Κλειδώθηκε για 15 λεπτά</b>
             <p style={{ ...muted, margin: "8px 0 16px" }}>
-              Έγιναν τρεις αποτυχημένες προσπάθειες. Το κλείδωμα δεν λήγει από μόνο του — για να
-              συνεχίσεις, όρισε νέο κωδικό με το τηλέφωνό σου.
+              Έγιναν τρεις λάθος προσπάθειες. Περίμενε 15 λεπτά και δοκίμασε ξανά. Αν δεν θυμάσαι τον κωδικό, ένας
+              άλλος διαχειριστής μπορεί να σου δώσει προσωρινό (Χρήστες → Στοιχεία → Νέος προσωρινός κωδικός).
             </p>
-            <Link href="/platform/forgot-pin">
-              <button style={button("primary")}>Ορισμός νέου κωδικού</button>
-            </Link>
+            <button style={button("secondary")} onClick={() => setLockedOut(false)}>
+              Δοκίμασε ξανά
+            </button>
           </div>
         ) : (
         <form onSubmit={submit} style={{ ...card, marginTop: 20 }}>

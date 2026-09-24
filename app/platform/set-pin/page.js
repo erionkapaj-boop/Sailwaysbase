@@ -25,6 +25,9 @@ function SetPinInner() {
   const router = useRouter();
   const params = useSearchParams();
   const isProfessional = params.get("as") === "professional";
+  // Reached from Το προφίλ μου → Αλλαγή κωδικού (e.g. after the admin gave a
+  // temporary one) rather than straight after signing up.
+  const isChange = params.get("change") === "1";
   const { session, refresh } = useAuth();
 
   const [pin, setPinValue] = useState("");
@@ -45,6 +48,10 @@ function SetPinInner() {
     try {
       await setPin(pin);
       await refresh();
+      if (isChange) {
+        router.push("/platform/profile?pin=changed");
+        return;
+      }
       if (hasPendingBroadcast()) {
         // A search + pick made before signing up is waiting on
         // /platform/search — that takes priority over the usual
@@ -83,7 +90,7 @@ function SetPinInner() {
   return (
     <div style={{ ...container, maxWidth: 460 }}>
       <BackButton onClick={() => router.back()} />
-      <h1 style={{ ...h1, marginTop: 20 }}>Δημιούργησε κωδικό</h1>
+      <h1 style={{ ...h1, marginTop: 20 }}>{isChange ? "Αλλαγή κωδικού" : "Δημιούργησε κωδικό"}</h1>
       <p style={muted}>
         Θα τον χρησιμοποιείς μαζί με το τηλέφωνό σου σε κάθε επόμενη είσοδο. Διάλεξε ό,τι θες, αρκεί
         να έχει {MIN_LENGTH} χαρακτήρες ή περισσότερους.

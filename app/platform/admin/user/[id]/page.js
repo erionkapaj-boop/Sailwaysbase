@@ -12,10 +12,13 @@ import {
   adminDeleteAccount,
   adminSuspendAccount,
   adminReactivateAccount,
+  adminVerifyUser,
+  adminResetPin,
   loginAsTestAccount,
   departureLabel,
 } from "../../../../../lib/platform/db";
-import { computeCrewHighlights } from "../../../../../lib/platform/roles";
+import { computeCrewHighlights, labelForRole } from "../../../../../lib/platform/roles";
+import { STATUS_LABEL, Status, WALLET_TYPE_LABEL, ProCredentials, VERIFY_HINT } from "../../ui";
 import Stat from "../../../components/Stat";
 import Stars from "../../../components/Stars";
 import BackButton from "../../../components/BackButton";
@@ -31,7 +34,7 @@ import {
   colors,
   money,
 } from "../../../../../lib/platform/theme";
-import { formatDate } from "../../../../../lib/platform/notifications";
+import { formatDate, formatDateTime, timeAgo } from "../../../../../lib/platform/notifications";
 
 const DELETE_ERRORS = {
   has_pending_activity: "Έχει ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση. Πρέπει να τακτοποιηθούν πρώτα.",
@@ -51,7 +54,7 @@ function Row({ left, right, tone = "neutral" }) {
     <div style={card}>
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <span>{left}</span>
-        {right && <span style={badge(tone)}>{right}</span>}
+        {right && <span style={badge(tone)}>{STATUS_LABEL[right] || right}</span>}
       </div>
     </div>
   );
@@ -84,6 +87,9 @@ export default function AdminUserViewPage() {
   const [confirm, confirmDialog] = useConfirm();
   const [suspendReason, setSuspendReason] = useState("");
   const [showSuspendForm, setShowSuspendForm] = useState(false);
+  const [rejectNote, setRejectNote] = useState("");
+  const [notice, setNotice] = useState("");
+  const [tempPin, setTempPin] = useState(null);
 
   async function load() {
     setBusy(true);
@@ -106,9 +112,11 @@ export default function AdminUserViewPage() {
   async function handleApprove() {
     setActionBusy(true);
     setActionError("");
+    setNotice("");
     try {
       await adminApproveSkipper(id);
       await load();
+      setNotice("Το προφίλ εγκρίθηκε — εμφανίζεται πλέον στις αναζητήσεις.");
     } catch (err) {
       setActionError(err.message || String(err));
     } finally {
@@ -116,12 +124,57 @@ export default function AdminUserViewPage() {
     }
   }
 
-  async function handleReject() {
+  async function handleReject(isRevoke = false) {
+    const name = target.full_name || target.phone_number;
+    const msg = isRevoke
+      ? `Ανάκληση της έγκρισης του ${name}; Δεν θα εμφανίζεται πλέον σε αναζητήσεις μέχρι να εγκριθεί ξανά.`
+      : `Απόρριψη του προφίλ του ${name};`;
+    if (!(await confirm(msg))) return;
     setActionBusy(true);
     setActionError("");
+    setNotice("");
     try {
-      await adminRejectSkipper(id, null);
+      await adminRejectSkipper(id, rejectNote.trim() || null);
+      setRejectNote("");
       await load();
+      setNotice(isRevoke ? "Η έγκριση ανακλήθηκε." : "Το προφίλ απορρίφθηκε.");
+    } catch (err) {
+      setActionError(err.message || String(err));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleVerify() {
+    setActionBusy(true);
+    setActionError("");
+    setNotice("");
+    try {
+      await adminVerifyUser(id);
+      await load();
+      setNotice("Ο λογαριασμός επαληθεύτηκε — ο χρήστης ειδοποιήθηκε.");
+    } catch (err) {
+      setActionError(err.message || String(err));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleResetPin() {
+    const name = target.full_name || target.phone_number;
+    if (
+      !(await confirm(
+        `Νέος προσωρινός κωδικός για τον ${name}; Ο τωρινός του κωδικός θα σταματήσει να δουλεύει. Χρησιμοποίησέ το μόνο αν σου το ζήτησε ο ίδιος.`,
+        { tone: "primary" }
+      ))
+    )
+      return;
+    setActionBusy(true);
+    setActionError("");
+    setTempPin(null);
+    try {
+      const { pin } = await adminResetPin(id);
+      setTempPin(pin);
     } catch (err) {
       setActionError(err.message || String(err));
     } finally {
@@ -130,6 +183,14 @@ export default function AdminUserViewPage() {
   }
 
   async function handleToggleTestAccount() {
+    const name = target.full_name || target.phone_number;
+    if (
+      !target.is_test_account &&
+      !(await confirm(
+        `Να σημειωθεί ο ${name} ως λογαριασμός τεστ; Αυτό επιτρέπει «Σύνδεση ως», που αλλάζει τον κωδικό του. Μόνο για ψεύτικους λογαριασμούς δοκιμών, ποτέ για πραγματικό πελάτη.`
+      ))
+    )
+      return;
     setActionBusy(true);
     setActionError("");
     try {
@@ -143,6 +204,13 @@ export default function AdminUserViewPage() {
   }
 
   async function handleToggleStaffAdmin() {
+    const name = target.full_name || target.phone_number;
+    const ok = await confirm(
+      target.is_staff_admin
+        ? `Αφαίρεση των δικαιωμάτων διαχειριστή από τον ${name};`
+        : `Να δοθούν δικαιώματα διαχειριστή στον ${name}; Θα βλέπει και θα αλλάζει τα πάντα εδώ — χρήστες, χρήματα, ρυθμίσεις. Δώσ' τα μόνο σε άτομο που εμπιστεύεσαι απόλυτα.`
+    );
+    if (!ok) return;
     setActionBusy(true);
     setActionError("");
     try {
@@ -235,83 +303,69 @@ export default function AdminUserViewPage() {
     <div style={container}>
       <BackButton href="/platform/admin/users" />
 
-      {/* This screen is the record; walking the app as them is the other
-          button. Keeping the two distinct stops "I looked at their data" and
-          "I saw what they see" from being confused for each other. */}
-      <div style={{ ...card, marginTop: 14 }}>
-        <b style={{ fontWeight: 600 }}>Στοιχεία λογαριασμού</b>
-        <p style={{ ...muted, margin: "6px 0 12px" }}>
-          Ό,τι είναι αποθηκευμένο για αυτόν τον χρήστη. Για να δεις τις σελίδες όπως τις βλέπει ο
-          ίδιος, χρησιμοποίησε την προβολή.
-        </p>
-        {/* Ούτε "Προβολή ως" ούτε "Σύνδεση ως" βγάζουν νόημα πάνω σε έναν
-            κρυμμένο/σταματημένο λογαριασμό — ίδιο όριο με τη λίστα Χρήστες. */}
-        {target && target.role !== "admin" && target.status !== "deleted" && target.status !== "suspended" && (
-          <button
-            style={{ ...button("secondary"), marginRight: 8 }}
-            onClick={() => {
-              startViewAs({ id: target.id, name: target.full_name, phone: target.phone_number, role: target.role });
-              router.push("/platform/requests");
-            }}
-          >
-            Προβολή ως {target.full_name || target.phone_number}
-          </button>
-        )}
-        {target?.is_test_account &&
-          target.role !== "admin" &&
-          target.status !== "deleted" &&
-          target.status !== "suspended" && (
-            <button style={{ ...button("primary"), marginRight: 8 }} disabled={actionBusy} onClick={handleLoginAs}>
-              Σύνδεση ως {target.full_name || target.phone_number}
-            </button>
-          )}
-        {target && (
-          <div style={{ marginTop: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={Boolean(target.is_test_account)}
-                disabled={actionBusy}
-                onChange={handleToggleTestAccount}
-              />
-              Λογαριασμός τεστ
-              <span style={{ ...muted, fontWeight: 400 }}>
-                — επιτρέπει «Σύνδεση ως» (επαναφέρει το PIN του, πραγματική σύνδεση)
-              </span>
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", marginTop: 8 }}>
-              <input
-                type="checkbox"
-                checked={Boolean(target.is_staff_admin)}
-                disabled={actionBusy}
-                onChange={handleToggleStaffAdmin}
-              />
-              Δικαιώματα admin
-              <span style={{ ...muted, fontWeight: 400 }}>
-                — μπαίνει και στο admin console (/platform/admin/login) με το ίδιο τηλέφωνο/PIN,
-                χωρίς να αλλάξει τον κανονικό του λογαριασμό
-              </span>
-            </label>
-          </div>
-        )}
-        {actionError && <p style={{ color: colors.danger, marginTop: 8, fontSize: 13 }}>{actionError}</p>}
-      </div>
-
-      {busy && <p style={muted}>Φόρτωση…</p>}
+      {busy && !target && <p style={muted}>Φόρτωση…</p>}
       {error && <p style={{ color: colors.danger }}>{error}</p>}
 
       {target && (
         <>
-          <h1 style={h1}>{target.full_name || "(χωρίς όνομα)"}</h1>
-          <p style={muted}>
+          <h1 style={{ ...h1, marginTop: 14, marginBottom: 6 }}>{target.full_name || "(χωρίς όνομα)"}</h1>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 6 }}>
+            <Status value={target.role === "skipper" ? "skipper" : target.role} />
+            {data?.role === "skipper" && data.profile?.role && (
+              <span style={badge("neutral")}>{labelForRole(data.profile.role)}</span>
+            )}
+            <Status value={target.status} />
+          </div>
+          <p style={{ ...muted, margin: "0 0 4px" }}>
             <span style={money}>{target.phone_number}</span>
-            {target.email ? ` · ${target.email}` : ""} · {target.role} · {target.status}
+            {target.email ? ` · ${target.email}` : ""}
           </p>
+          <p style={{ ...muted, fontSize: 12.5, margin: 0 }}>
+            Εγγραφή {formatDateTime(target.created_at)}
+            {" · "}
+            {target.last_seen_at ? `τελευταία φορά ενεργός ${timeAgo(target.last_seen_at)}` : "δεν έχει μπει ποτέ"}
+          </p>
+
+          {notice && (
+            <div style={{ ...card, marginTop: 14, borderLeft: `3px solid ${colors.success}` }}>{notice}</div>
+          )}
+          {actionError && <p style={{ color: colors.danger, marginTop: 10, fontSize: 13 }}>{actionError}</p>}
+
+          {/* Pending verification — used to be actionable only from the list,
+              and this page didn't even say the account was waiting. */}
+          {!target.phone_verified_at && target.role !== "admin" && target.status !== "deleted" && (
+            <div style={{ ...card, marginTop: 16, borderLeft: `3px solid ${colors.warn}` }}>
+              <b style={{ fontWeight: 600 }}>Περιμένει επαλήθευση</b>
+              <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>{VERIFY_HINT}</p>
+              <button style={button("primary")} disabled={actionBusy} onClick={handleVerify}>
+                {actionBusy ? "…" : "✓ Επαλήθευση"}
+              </button>
+            </div>
+          )}
+
+          {target.role !== "admin" && target.status !== "deleted" && target.status !== "suspended" && (
+            <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                style={button("secondary")}
+                onClick={() => {
+                  startViewAs({ id: target.id, name: target.full_name, phone: target.phone_number, role: target.role });
+                  router.push("/platform/requests");
+                }}
+              >
+                Δες την εφαρμογή όπως τη βλέπει
+              </button>
+              {target.is_test_account && (
+                <button style={button("primary")} disabled={actionBusy} onClick={handleLoginAs}>
+                  Σύνδεση ως {target.full_name || target.phone_number}
+                </button>
+              )}
+            </div>
+          )}
 
           {data?.role === "client" && (
             <>
               <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap", marginTop: 20 }}>
-                <Stat label="Wallet" value={`${data.profile?.wallet_balance ?? 0}€`} />
+                <Stat label="Υπόλοιπο" value={`${data.profile?.wallet_balance ?? 0}€`} />
                 <Stat
                   label="Αξιοπιστία"
                   value={
@@ -372,34 +426,57 @@ export default function AdminUserViewPage() {
                 <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
                   <b style={{ fontWeight: 600 }}>
                     {data.profile.approval_status === "pending"
-                      ? "Το προφίλ περιμένει έγκριση."
-                      : "Το προφίλ έχει απορριφθεί."}
+                      ? "Το προφίλ περιμένει έγκριση"
+                      : "Το προφίλ έχει απορριφθεί"}
                   </b>
-                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                  <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
+                    Έλεγξε ότι το δίπλωμα και η εμπειρία ταιριάζουν με την ιδιότητα. Με την έγκριση ο επαγγελματίας
+                    εμφανίζεται στις αναζητήσεις.
+                  </p>
+                  <ProCredentials profile={data.profile} roleLabel={labelForRole(data.profile.role)} />
+                  <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
                     <button style={button("primary")} disabled={actionBusy} onClick={handleApprove}>
                       {actionBusy ? "..." : "Έγκριση"}
                     </button>
                     {data.profile.approval_status === "pending" && (
-                      <button style={button("secondary")} disabled={actionBusy} onClick={handleReject}>
+                      <button style={button("secondary")} disabled={actionBusy} onClick={() => handleReject(false)}>
                         {actionBusy ? "..." : "Απόρριψη"}
                       </button>
                     )}
                   </div>
-                  {actionError && <p style={{ color: colors.danger, marginTop: 10 }}>{actionError}</p>}
+                  {data.profile.approval_status === "pending" && (
+                    <input
+                      value={rejectNote}
+                      onChange={(e) => setRejectNote(e.target.value)}
+                      placeholder="Λόγος απόρριψης (προαιρετικό — καταγράφεται)"
+                      style={{
+                        width: "100%",
+                        marginTop: 10,
+                        padding: "8px 10px",
+                        fontSize: 13,
+                        fontFamily: "inherit",
+                        borderRadius: 8,
+                        border: `1px solid ${colors.border}`,
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  )}
                 </div>
               )}
               {data.profile.approval_status === "approved" && (
-                <div style={{ ...card, marginTop: 20, display: "flex", gap: 12, alignItems: "center" }}>
-                  <span style={badge("success")}>Εγκεκριμένο</span>
-                  <button style={button("secondary")} disabled={actionBusy} onClick={handleReject}>
-                    {actionBusy ? "..." : "Ανάκληση έγκρισης"}
-                  </button>
-                  {actionError && <p style={{ color: colors.danger, margin: 0 }}>{actionError}</p>}
+                <div style={{ ...card, marginTop: 20 }}>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+                    <span style={badge("success")}>Εγκεκριμένο</span>
+                    <button style={button("secondary")} disabled={actionBusy} onClick={() => handleReject(true)}>
+                      {actionBusy ? "..." : "Ανάκληση έγκρισης"}
+                    </button>
+                  </div>
+                  <ProCredentials profile={data.profile} roleLabel={labelForRole(data.profile.role)} />
                 </div>
               )}
 
               <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap", marginTop: 20 }}>
-                <Stat label="Wallet" value={`${data.profile.wallet_balance}€`} />
+                <Stat label="Υπόλοιπο" value={`${data.profile.wallet_balance}€`} />
                 <Stat label="Τιμή/ημέρα" value={`${data.profile.price_per_day}€`} />
                 <Stat
                   label="Βαθμίδα"
@@ -419,7 +496,7 @@ export default function AdminUserViewPage() {
                       : "—"
                   }
                 />
-                <Stat label="Έγκριση" value={data.profile.approval_status} />
+                <Stat label="Έγκριση" value={STATUS_LABEL[data.profile.approval_status] || data.profile.approval_status} />
                 <div style={{ flexBasis: "100%" }}>
                   <Stars rating={data.profile.rating_avg} count={data.profile.rating_count ?? 0} />
                 </div>
@@ -427,11 +504,7 @@ export default function AdminUserViewPage() {
 
               <h2 style={h2}>Προφίλ</h2>
               <div style={card}>
-                {data.profile.gender && (
-                  <p style={{ margin: "0 0 14px" }}>{data.profile.gender}</p>
-                )}
-
-                <p style={{ ...muted, margin: "0 0 6px" }}>Highlights</p>
+                <p style={{ ...muted, margin: "0 0 6px" }}>Χαρακτηριστικά που βλέπει ο πελάτης</p>
                 <Chips
                   items={computeCrewHighlights(data.profile, { languageCount: data.languages.length })}
                 />
@@ -463,7 +536,7 @@ export default function AdminUserViewPage() {
                 </div>
               ))}
 
-              <h2 style={h2}>Καμπανάκια ({data.pings.length})</h2>
+              <h2 style={h2}>Αιτήματα που του στάλθηκαν ({data.pings.length})</h2>
               {data.pings.length === 0 && <p style={muted}>Κανένα.</p>}
               {data.pings.map((p) => (
                 <Row
@@ -499,13 +572,13 @@ export default function AdminUserViewPage() {
 
           {data?.wallet?.length > 0 && (
             <>
-              <h2 style={h2}>Κινήσεις wallet</h2>
+              <h2 style={h2}>Κινήσεις πορτοφολιού</h2>
               {data.wallet.map((w) => (
                 <Row
                   key={w.id}
                   left={
                     <>
-                      <span style={money}>{formatDate(w.created_at?.slice(0, 10))}</span> · {w.type}
+                      <span style={money}>{formatDate(w.created_at?.slice(0, 10))}</span> · {WALLET_TYPE_LABEL[w.type] || w.type}
                     </>
                   }
                   right={`${w.amount > 0 ? "+" : ""}${w.amount}€`}
@@ -513,6 +586,68 @@ export default function AdminUserViewPage() {
                 />
               ))}
             </>
+          )}
+
+          {target.role !== "admin" && target.status !== "deleted" && (
+            <div style={{ ...card, marginTop: 28 }}>
+              <b style={{ fontWeight: 600 }}>Κωδικός σύνδεσης</b>
+              <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
+                Αν ο χρήστης ξέχασε τον κωδικό του ή κλειδώθηκε από λάθος προσπάθειες, δώσ' του έναν προσωρινό.
+                Ξεκλειδώνει και τον λογαριασμό.
+              </p>
+              {tempPin ? (
+                <div style={{ padding: "12px 14px", background: "#EAF2EE", borderRadius: 10, fontSize: 13.5 }}>
+                  Προσωρινός κωδικός: <b style={{ ...money, fontSize: 20, letterSpacing: "0.08em" }}>{tempPin}</b>
+                  <p style={{ margin: "8px 0 0", lineHeight: 1.5 }}>
+                    Πες τον στον χρήστη τηλεφωνικά (<span style={money}>{target.phone_number}</span>). Μόλις μπει, να
+                    τον αλλάξει από «Το προφίλ μου → Αλλαγή κωδικού». Δεν θα ξαναεμφανιστεί εδώ.
+                  </p>
+                </div>
+              ) : (
+                <button style={button("secondary")} disabled={actionBusy} onClick={handleResetPin}>
+                  Νέος προσωρινός κωδικός
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Moved down from the very top of the page, where a one-tap
+              checkbox granting full admin rights sat above the person's name. */}
+          {target.status !== "deleted" && (
+            <div style={{ ...card, marginTop: 28 }}>
+              <b style={{ fontWeight: 600 }}>Προχωρημένες ρυθμίσεις</b>
+              <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13 }}>Σπάνια χρειάζονται — ζητούν επιβεβαίωση.</p>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(target.is_test_account)}
+                  disabled={actionBusy || target.role === "admin"}
+                  onChange={handleToggleTestAccount}
+                  style={{ marginTop: 3 }}
+                />
+                <span>
+                  Λογαριασμός δοκιμών
+                  <span style={{ ...muted, display: "block", fontSize: 12.5 }}>
+                    Μόνο για ψεύτικους λογαριασμούς. Επιτρέπει «Σύνδεση ως» (αλλάζει τον κωδικό του).
+                  </span>
+                </span>
+              </label>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, cursor: "pointer", marginTop: 12 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(target.is_staff_admin)}
+                  disabled={actionBusy || target.role === "admin"}
+                  onChange={handleToggleStaffAdmin}
+                  style={{ marginTop: 3 }}
+                />
+                <span>
+                  Δικαιώματα διαχειριστή
+                  <span style={{ ...muted, display: "block", fontSize: 12.5 }}>
+                    Μπαίνει και σε αυτή τη διαχείριση με το ίδιο τηλέφωνο και κωδικό. Μόνο για άτομο εμπιστοσύνης.
+                  </span>
+                </span>
+              </label>
+            </div>
           )}
 
           {target.status === "deleted" ? (

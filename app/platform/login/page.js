@@ -75,17 +75,22 @@ function LoginInner() {
       )}
 
       {lockedOut ? (
-        // Deliberately no retry field: after three consecutive failures the
-        // only way forward is a reset, so offering the form again would just
-        // waste attempts.
+        // Locks expire after 15 minutes (0085); until then another attempt
+        // would only be refused, so the form stays hidden behind "retry".
         <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
-          <b style={{ fontWeight: 600 }}>Ο λογαριασμός κλειδώθηκε.</b>
+          <b style={{ fontWeight: 600 }}>Κλειδώθηκε για 15 λεπτά</b>
           <p style={{ ...muted, margin: "8px 0 16px" }}>
-            Έγιναν τρεις αποτυχημένες προσπάθειες. Για να συνεχίσεις, όρισε νέο κωδικό.
+            Έγιναν τρεις λάθος προσπάθειες. Περίμενε 15 λεπτά και δοκίμασε ξανά — ή, αν δεν θυμάσαι τον κωδικό,
+            ζήτα βοήθεια.
           </p>
-          <Link href="/platform/forgot-pin">
-            <button style={button("primary")}>Ορισμός νέου κωδικού</button>
-          </Link>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button style={button("secondary")} onClick={() => setLockedOut(false)}>
+              Δοκίμασε ξανά
+            </button>
+            <Link href="/platform/forgot-pin" style={{ ...button("primary"), textDecoration: "none" }}>
+              Ξέχασα τον κωδικό
+            </Link>
+          </div>
         </div>
       ) : (
         <form onSubmit={submit} style={{ ...card, marginTop: 20 }}>
