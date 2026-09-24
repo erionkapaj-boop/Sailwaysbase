@@ -25,7 +25,7 @@ import {
   becomeProfessional,
 } from "../../../lib/platform/db";
 import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
-import { formatDate } from "../../../lib/platform/notifications";
+import { formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { container, card, h1, h2, muted, colors, radius, select, label, button, input } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
 import { friendlyError } from "../../../lib/platform/friendlyError";
@@ -138,9 +138,8 @@ function SecondaryRoles({ profile }) {
     <div style={{ ...card, marginBottom: 88 }}>
       <h2 style={{ ...h2, fontSize: 17 }}>Επιπλέον ρόλοι</h2>
       <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-        Δούλεψε και σε άλλη ειδικότητα με τον ίδιο λογαριασμό — π.χ. skipper ΚΑΙ μάγειρας. Κάθε ρόλος έχει δική του
-        τιμή και δική του αξιολόγηση· ποτέ δεν μπορείς να αναλάβεις δύο ρόλους στο ίδιο ταξίδι, αλλά τίποτα δεν σε
-        εμποδίζει να δουλέψεις διαφορετικό ρόλο άλλη βδομάδα.
+        Δούλεψε και σε άλλη ειδικότητα με τον ίδιο λογαριασμό. Κάθε ρόλος έχει δική του τιμή και αξιολόγηση. Σε
+        ένα ταξίδι αναλαμβάνεις πάντα έναν ρόλο.
       </p>
 
       {error && <p style={{ color: colors.danger, fontSize: 13, marginBottom: 12 }}>{error}</p>}
@@ -318,9 +317,8 @@ function DeliveryAvailability({ profile }) {
     <div style={card}>
       <h2 style={{ ...h2, fontSize: 17 }}>Μεταφορές σκάφους</h2>
       <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-        Δήλωσε τα διαστήματα που είσαι διαθέσιμος για μεταφορές σκάφους (αφετηρία → προορισμός) — ανεξάρτητα από τη
-        συνήθη διαθεσιμότητά σου για πλήρωμα. Θα προτείνεσαι σε πελάτες μόνο για αιτήματα που πέφτουν μέσα σε αυτά τα
-        διαστήματα.
+        Πότε μπορείς να αναλάβεις μεταφορά σκάφους από λιμάνι σε λιμάνι. Είναι ξεχωριστό από τη διαθεσιμότητά
+        σου για ναύλα.
       </p>
       {error && <p style={{ color: colors.danger, fontSize: 13, marginBottom: 12 }}>{error}</p>}
 
@@ -335,7 +333,7 @@ function DeliveryAvailability({ profile }) {
         >
           <span style={{ minWidth: 80, fontWeight: 600 }}>{labelForRole(w.crew_role)}</span>
           <span style={{ fontSize: 13.5 }}>
-            {formatDate(w.start_date)} → {formatDate(w.end_date)}
+            {formatDateRange(w.start_date, w.end_date)}
           </span>
           <button
             type="button"
@@ -406,7 +404,7 @@ const chip = (active) => ({
 // πελάτη — χωρίς κανένα επαγγελματικό προφίλ να αντλήσει — συμπληρώνει αυτά
 // τα στοιχεία εδώ ο ίδιος.
 const DELETE_ERRORS = {
-  has_pending_activity: "Έχεις ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση. Τακτοποίησέ τα πρώτα — ολοκλήρωσε ή ακύρωσέ τα — και ξαναδοκίμασε.",
+  has_pending_activity: "Έχεις ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση. Ολοκλήρωσέ τα ή ακύρωσέ τα και δοκίμασε ξανά.",
   already_deleted: "Ο λογαριασμός έχει ήδη διαγραφεί.",
   user_not_found: "Δεν βρέθηκε ο λογαριασμός.",
 };
@@ -458,8 +456,8 @@ function DeleteAccount() {
       <h2 style={{ ...h2, fontSize: 16 }}>Διαγραφή λογαριασμού</h2>
       <p style={{ ...muted, fontSize: 13.5, margin: "0 0 14px" }}>
         Το προφίλ σου σταματά αμέσως να είναι ορατό στην πλατφόρμα. Αν κάποια στιγμή ξαναγραφτείς με το ίδιο
-        τηλέφωνο, θα πάρεις πίσω τον ίδιο λογαριασμό — μαζί με το ιστορικό και την αξιολόγησή σου, όχι καθαρό
-        μηδέν. Χρειάζεται πρώτα να μην έχεις ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση.
+        τηλέφωνο, επανέρχεται ο ίδιος λογαριασμός με το ιστορικό και τις αξιολογήσεις σου. Πριν τη διαγραφή
+        δεν πρέπει να έχεις ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση.
       </p>
       <label style={label}>Γράψε «ΔΙΑΓΡΑΦΗ» για να επιβεβαιώσεις</label>
       <input
@@ -554,8 +552,8 @@ function BecomeProfessional() {
     <div style={card}>
       <h2 style={{ ...h2, fontSize: 17 }}>Γίνε επαγγελματίας</h2>
       <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-        Η φωτογραφία, η εθνικότητα και οι γλώσσες σου έρχονται αυτόματα από το προφίλ σου — χρειάζεται μόνο ό,τι
-        είναι καινούριο. Το προφίλ σου θα περάσει από έγκριση, όπως κάθε νέος επαγγελματίας.
+        Φωτογραφία, εθνικότητα και γλώσσες μεταφέρονται από το προφίλ σου. Συμπλήρωσε μόνο τα υπόλοιπα. Κάθε
+        νέος επαγγελματίας περνά από έγκριση.
       </p>
       <form onSubmit={handleSubmit}>
         <label style={label}>Ιδιότητα</label>
@@ -674,7 +672,7 @@ function ClientIdentityProfile({ role }) {
       <div style={card}>
         <h2 style={{ ...h2, fontSize: 17 }}>Φωτογραφία</h2>
         <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-          Αυτή τη φωτογραφία βλέπει ο απέναντι — πελάτης ή επαγγελματίας — μόλις μια κράτηση επιβεβαιωθεί.
+          Τη βλέπει η άλλη πλευρά μόλις επιβεβαιωθεί μια κράτηση.
         </p>
         <PhotoUpload value={userRow?.photo_url} onUploaded={handleUploaded} />
       </div>
@@ -720,7 +718,7 @@ function ClientIdentityProfile({ role }) {
         </div>
 
         <button type="button" disabled={busy} style={button("primary")} onClick={handleSave}>
-          {busy ? "Αποθήκευση…" : saved ? "Αποθηκεύτηκε ✓" : "Αποθήκευση"}
+          {busy ? "Αποθήκευση…" : saved ? "Αποθηκεύτηκε" : "Αποθήκευση"}
         </button>
         {error && <p style={{ color: colors.danger, marginTop: 10, fontSize: 13 }}>{error}</p>}
       </div>
@@ -747,7 +745,7 @@ function PinChangedNotice() {
   if (!show) return null;
   return (
     <div style={{ ...card, borderLeft: `3px solid ${colors.success}`, marginBottom: 16 }}>
-      ✓ Ο κωδικός σου άλλαξε. Από εδώ και πέρα συνδέεσαι με τον νέο.
+      Ο κωδικός σου άλλαξε. Από εδώ και πέρα συνδέεσαι με τον νέο.
     </div>
   );
 }

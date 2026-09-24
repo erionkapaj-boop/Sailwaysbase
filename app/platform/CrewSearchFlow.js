@@ -325,7 +325,7 @@ export default function CrewSearchFlow() {
             </>
           )}
           <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>
-            Ή γράψε το ακριβές σημείο αναχώρησης — λιμάνι, όρμος, ό,τι θέλεις (π.χ. Καλλιθέα, Αίγινα).
+            Ή γράψε το ακριβές σημείο: λιμάνι, μαρίνα ή όρμο.
           </p>
           <input
             type="text"
@@ -427,7 +427,7 @@ export default function CrewSearchFlow() {
               onChange={(e) => setPartySize(e.target.value)}
             />
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              Πόσα άτομα θα είναι συνολικά στο ταξίδι — το βλέπει ο επαγγελματίας πριν αποφασίσει.
+              Όλοι όσοι θα είναι στο σκάφος. Ο επαγγελματίας το βλέπει πριν αποφασίσει.
             </p>
           </div>
           <div style={{ marginBottom: 24 }}>
@@ -442,8 +442,7 @@ export default function CrewSearchFlow() {
               <option value="false">Όχι</option>
             </select>
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              Οι επαγγελματίες συνήθως μένουν πάνω στο σκάφος τις νύχτες του ταξιδιού — πες αν θα έχουν δική τους
-              καμπίνα ή θα μοιράζονται χώρο.
+              Συνήθως το πλήρωμα μένει στο σκάφος. Θα έχει δική του καμπίνα ή κοινό χώρο;
             </p>
           </div>
           <button

@@ -5,7 +5,7 @@ import OfferComposer from "../OfferComposer";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { adminCoverageNeeded, adminCancelOffer } from "../../../../lib/platform/db";
-import { formatDate } from "../../../../lib/platform/notifications";
+import { formatDate, formatDateRange } from "../../../../lib/platform/notifications";
 
 export default function CoveragePage() {
   const refreshCounts = useRefreshAdminCounts();
@@ -48,7 +48,7 @@ export default function CoveragePage() {
   return (
     <AdminShell
       title="Κενά από ακυρώσεις"
-      subtitle="Κρατήσεις που έμειναν χωρίς επαγγελματία. Ο πελάτης δεν επιλέγει αντικαταστάτη — τη δουλειά τη δίνεις εσύ."
+      subtitle="Κρατήσεις που έμειναν χωρίς επαγγελματία. Ο πελάτης δεν επιλέγει αντικαταστάτη, τη δουλειά τη δίνεις εσύ."
       counts={counts}
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
@@ -95,7 +95,7 @@ export default function CoveragePage() {
 
       {selected && (
         <Panel
-          title={`Διαθέσιμοι ${formatDate(selected.start_date)} → ${formatDate(selected.end_date)}`}
+          title={`Διαθέσιμοι ${formatDateRange(selected.start_date, selected.end_date)}`}
           subtitle={
             selected.port_name
               ? `${selected.port_name} · μόνο όσοι δηλώνουν αυτό το λιμάνι και είναι ελεύθεροι όλες τις ημέρες`
@@ -118,7 +118,7 @@ export default function CoveragePage() {
       {offered.length > 0 && (
         <Panel
           title={`Στάλθηκαν και περιμένουν (${offered.length})`}
-          subtitle="Η πρόταση είναι στον αέρα. Δεν χρειάζεσαι εσύ — χρειάζεται απάντηση."
+          subtitle="Η πρόταση είναι στον αέρα. Περιμένει απάντηση από τους επαγγελματίες."
           padded={false}
         >
           {offered.map((j) => (

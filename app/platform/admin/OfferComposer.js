@@ -49,7 +49,7 @@ const selectControl = {
 
 const ERRORS = {
   already_covered: "Έχει ήδη καλυφθεί από κάποιον άλλον.",
-  offer_already_open: "Υπάρχει ήδη ανοιχτή πρόταση για αυτή την ακύρωση — απόσυρέ την πρώτα.",
+  offer_already_open: "Υπάρχει ήδη ανοιχτή πρόταση για αυτή την ακύρωση. Απόσυρέ την πρώτα.",
   skipper_already_booked: "Έχει ήδη κράτηση σε αυτές τις ημερομηνίες.",
   skipper_not_eligible: "Το προφίλ του δεν είναι εγκεκριμένο.",
   invalid_skipper_selection: "Κάποιος από τους επιλεγμένους δεν είναι εγκεκριμένος.",
@@ -165,7 +165,7 @@ export default function OfferComposer({ job = null, onDone }) {
         expiresHours: Number(expiresHours),
       });
       const n = picked.length;
-      const msg = `✓ Η πρόταση στάλθηκε σε ${n === 1 ? "1 επαγγελματία" : `${n} επαγγελματίες`}. Όποιος αποδεχτεί πρώτος την παίρνει — θα το δεις στις «Αναθέσεις δουλειάς».`;
+      const msg = `Η πρόταση στάλθηκε σε ${n === 1 ? "1 επαγγελματία" : `${n} επαγγελματίες`}. Όποιος αποδεχτεί πρώτος την παίρνει. Θα το δεις στις «Αναθέσεις δουλειάς».`;
       setPicked([]);
       setNote("");
       setResults(null);
@@ -197,7 +197,7 @@ export default function OfferComposer({ job = null, onDone }) {
     setError("");
     try {
       await adminAssignReplacement(job.booking_id, skipperId);
-      const msg = `✓ ${name}: η κράτηση ανατέθηκε και είναι πλέον επιβεβαιωμένη.`;
+      const msg = `${name}: η κράτηση ανατέθηκε και είναι πλέον επιβεβαιωμένη.`;
       setDoneMsg(msg);
       onDone?.(msg);
     } catch (err) {
@@ -327,7 +327,7 @@ export default function OfferComposer({ job = null, onDone }) {
                 style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12, flexShrink: 0 }}
                 disabled={assigningId === s.skipper_id}
                 onClick={() => assignDirect(s.skipper_id)}
-                title="Το έκλεισες στο τηλέφωνο — γράψε την κράτηση χωρίς χρέωση και χωρίς αποδοχή."
+                title="Το έκλεισες στο τηλέφωνο. Γράψε την κράτηση χωρίς χρέωση και χωρίς αποδοχή."
               >
                 {assigningId === s.skipper_id ? "…" : "Άμεση ανάθεση"}
               </button>

@@ -13,20 +13,29 @@ import {
   departureLabel,
 } from "../../../lib/platform/db";
 import { card, muted, button, input, select, badge, colors, money, radius } from "../../../lib/platform/theme";
-import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
+import { formatDateTime, formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { labelForRole } from "../../../lib/platform/roles";
 import { useConfirm } from "./ConfirmDialog";
+import Avatar from "./Avatar";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const STATUS_LABEL = {
   confirmed: ["Επιβεβαιωμένη", "success"],
   completed: ["Ολοκληρώθηκε", "neutral"],
-  cancelled_by_client: ["Ακυρώθηκε από πελάτη", "danger"],
-  cancelled_by_skipper: ["Ακυρώθηκε από skipper", "danger"],
+  cancelled_by_client: ["Ακυρώθηκε από τον πελάτη", "danger"],
+  cancelled_by_skipper: ["Ακυρώθηκε από τον επαγγελματία", "danger"],
 };
 
-export default function BookingPanel({ booking, viewerRole, viewerUserId, onChanged, autoExpand = false, hasUnread = false }) {
+export default function BookingPanel({
+  booking,
+  viewerRole,
+  viewerUserId,
+  onChanged,
+  autoExpand = false,
+  hasUnread = false,
+  replacedBy = null,
+}) {
   const { refreshNotifications } = useAuth();
   const rootRef = useRef(null);
   const [expanded, setExpanded] = useState(autoExpand);
@@ -206,7 +215,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
           <span style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
             <span style={{ fontSize: 14, fontWeight: 500 }}>{departureLabel(booking)}</span>
             <span style={{ ...money, fontSize: 13, color: colors.inkSoft }}>
-              {formatDate(booking.start_date)} → {formatDate(booking.end_date)}
+              {formatDateRange(booking.start_date, booking.end_date)}
             </span>
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -231,6 +240,23 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
           </span>
         </div>
 
+        {viewerRole === "client" && booking.replaces_booking_id && booking.status === "confirmed" && (
+          <p style={{ margin: "0 18px 12px", fontSize: 13, color: colors.success }}>
+            Αντικατάσταση: ανέλαβε τη θέση του επαγγελματία που ακύρωσε.
+          </p>
+        )}
+        {viewerRole !== "client" && booking.replaces_booking_id && booking.status === "confirmed" && (
+          <p style={{ ...muted, margin: "0 18px 12px", fontSize: 13 }}>Ανέλαβες τη θέση ενός επαγγελματία που ακύρωσε.</p>
+        )}
+        {viewerRole === "client" && booking.status === "cancelled_by_skipper" && (
+          <p style={{ margin: "0 18px 12px", fontSize: 13, color: replacedBy ? colors.success : colors.ink, lineHeight: 1.5 }}>
+            {replacedBy
+              ? "Βρέθηκε αντικαταστάτης. Θα τον δεις στην κράτηση με τις ίδιες ημερομηνίες."
+              : booking.replaces_booking_id
+              ? "Ψάχνουμε νέο επαγγελματία και θα σε ειδοποιήσουμε μόλις βρεθεί."
+              : "Το τέλος του αιτήματος επιστράφηκε στο πορτοφόλι σου. Ψάχνουμε νέο επαγγελματία και θα σε ειδοποιήσουμε μόλις βρεθεί."}
+          </p>
+        )}
         {/* Always visible once revealed — not gated behind expanding the row.
             A confirmed booking's whole point is that both sides can now
             identify and reach each other; that shouldn't hide behind a click
@@ -255,18 +281,21 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
                 />
               </button>
             ) : (
-              <span
-                aria-hidden="true"
-                style={{ width: 44, height: 44, borderRadius: "50%", background: "#EFEDE8", flexShrink: 0 }}
-              />
+              <Avatar name={counterpart.full_name} size={44} />
             )}
             <div>
               <div style={{ ...muted, fontSize: 13 }}>
                 {viewerRole === "client" ? labelForRole(counterpart.crew_role) || "Επαγγελματίας" : "Πελάτης"}
               </div>
               <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>{counterpart.full_name || "—"}</div>
-              {counterpart.phone_number && (
-                <div style={{ ...money, fontSize: 14, marginTop: 2 }}>{counterpart.phone_number}</div>
+              {counterpart.phone_number && !booking.status.startsWith("cancelled") && (
+                <a
+                  href={`tel:${counterpart.phone_number}`}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ ...money, fontSize: 14, marginTop: 2, display: "block", color: colors.ink, textDecoration: "none" }}
+                >
+                  {counterpart.phone_number}
+                </a>
               )}
             </div>
           </div>

@@ -51,9 +51,27 @@ function Section({ title, children, note }) {
 
 function Criterion({ met, children }) {
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 14 }}>
-      <span style={{ color: met ? colors.success : colors.inkSoft, fontWeight: 600 }}>
-        {met ? "✓" : "✗"}
+    <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 14 }}>
+      <span
+        aria-label={met ? "Ολοκληρώθηκε" : "Λείπει"}
+        style={{
+          width: 16,
+          height: 16,
+          borderRadius: "50%",
+          flexShrink: 0,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: met ? colors.success : "transparent",
+          border: met ? "none" : `1.5px solid ${colors.border}`,
+          boxSizing: "border-box",
+        }}
+      >
+        {met && (
+          <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2.5 6.2l2.3 2.3 4.7-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
       </span>
       <span style={{ color: met ? colors.ink : colors.inkSoft }}>{children}</span>
     </div>
@@ -209,7 +227,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         {!hasBoatTypes && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
             Διάλεξε τουλάχιστον έναν τύπο σκάφους παρακάτω. Οι πελάτες ψάχνουν πάντα για συγκεκριμένο
-            σκάφος — χωρίς αυτό δεν εμφανίζεσαι σε καμία αναζήτηση.
+            σκάφος, οπότε χωρίς αυτό δεν εμφανίζεσαι σε αναζητήσεις.
           </p>
         )}
         {!hasAvailability && (
@@ -223,7 +241,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         )}
         {visible && !hasPhoto && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
-            Δεν έχεις φωτογραφία. Εμφανίζεσαι κανονικά, αλλά η κάρτα σου βγαίνει χωρίς πρόσωπο —
+            Δεν έχεις φωτογραφία. Εμφανίζεσαι κανονικά, αλλά η κάρτα σου βγαίνει χωρίς πρόσωπο.
             πρόσθεσε μία παρακάτω.
           </p>
         )}
@@ -234,7 +252,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
           <span style={label}>Φωτογραφία</span>
           <PhotoUpload value={form.photo_url} onUploaded={(url) => setField("photo_url", url)} />
           {!form.photo_url && (
-            <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>Υποχρεωτική.</p>
+            <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>Απαραίτητη για να εμφανίζεσαι στους πελάτες.</p>
           )}
         </div>
 
@@ -311,7 +329,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
               ))}
             </div>
             <p style={{ ...muted, fontSize: 12, margin: "8px 0 0" }}>
-              Προκύπτουν αυτόματα από τα στοιχεία σου — δεν γράφονται χειροκίνητα.
+              Προκύπτουν αυτόματα από τα στοιχεία σου.
             </p>
           </div>
         )}
@@ -387,7 +405,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
           <button type="submit" disabled={busy} style={{ ...button("primary"), flex: 1 }}>
             {busy ? "Αποθήκευση…" : "Αποθήκευση προφίλ"}
           </button>
-          {saved && <span style={{ color: colors.success, fontSize: 14 }}>✓ Αποθηκεύτηκε</span>}
+          {saved && <span style={{ color: colors.success, fontSize: 14 }}>Αποθηκεύτηκε</span>}
         </div>
         {error && (
           <p style={{ color: colors.danger, fontSize: 13, margin: "8px auto 0", maxWidth: 960 }}>{error}</p>

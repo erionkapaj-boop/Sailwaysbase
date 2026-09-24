@@ -7,7 +7,7 @@ import PingsInbox from "../components/PingsInbox";
 import DeliveryPingsInbox from "../components/DeliveryPingsInbox";
 import RequestPanel from "../components/RequestPanel";
 import Toast from "../components/Toast";
-import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
+import { formatDateTime, formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
 import PendingReadyBanner from "../components/PendingReadyBanner";
@@ -15,7 +15,7 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const REQ_STATUS = {
   matched: ["Βρέθηκε επαγγελματίας", "success"],
-  expired_unclaimed: ["Δεν βρέθηκε — επιστροφή ως credit", "warn"],
+  expired_unclaimed: ["Έληξε, το τέλος επιστράφηκε", "warn"],
   cancelled: ["Ακυρώθηκε", "danger"],
 };
 
@@ -35,7 +35,16 @@ export default function RequestsPage() {
   async function load() {
     setBusy(true);
     try {
-      const [r, cp] = await Promise.all([listMyBookingRequests(), getMyClientProfile()]);
+      let [r, cp] = await Promise.all([listMyBookingRequests(), getMyClientProfile()]);
+      // Κάθε λογαριασμός μπορεί να στείλει αίτημα, και οι επαγγελματίες. Αν
+      // λείπει το προφίλ πελάτη (π.χ. εγγραφή ως επαγγελματίας), φτιάχνεται
+      // εδώ αθόρυβα αντί να εμφανίζεται ως σφάλμα.
+      if (!cp) {
+        try {
+          await createMissingProfile("client");
+          cp = await getMyClientProfile();
+        } catch {}
+      }
       setRequests(r);
       setClientProfile(cp);
     } finally {
@@ -103,17 +112,17 @@ export default function RequestsPage() {
 
       <div>
         {!clientProfile && !busy ? (
-          <div style={{ ...card, borderColor: colors.danger }}>
-            <b>Δεν βρέθηκε προφίλ πελάτη για τον λογαριασμό σου.</b>
-            <p style={muted}>Πάτα το κουμπί για να το φτιάξουμε τώρα, ώστε να μπορείς να στείλεις αιτήματα.</p>
+          <div style={card}>
+            <b>Ο λογαριασμός σου δεν είναι έτοιμος για αιτήματα.</b>
+            <p style={muted}>Ολοκλήρωσέ τον με ένα πάτημα.</p>
             <button style={button("primary")} disabled={creating} onClick={recreateClientProfile}>
-              {creating ? "..." : "Δημιουργία προφίλ πελάτη"}
+              {creating ? "Ολοκλήρωση…" : "Ολοκλήρωση"}
             </button>
             {createError && <p style={{ color: colors.danger, marginTop: 8 }}>{createError}</p>}
           </div>
         ) : (
           <>
-            <h2 style={sectionLabel}>Αιτήματα που έστειλες ({openRequests.length})</h2>
+            <h2 style={sectionLabel}>Αιτήματα που έστειλες<span style={{ marginLeft: 8, opacity: 0.55 }}>{openRequests.length}</span></h2>
             {busy && <p style={muted}>Φόρτωση...</p>}
             {openRequests.length === 0 && !busy && (
               <div style={{ ...card, textAlign: "center" }}>
@@ -121,7 +130,7 @@ export default function RequestsPage() {
                   Εδώ θα δεις τα αιτήματα που έχεις στείλει σε επαγγελματίες, μέχρι κάποιος να τα αναλάβει.
                 </p>
                 <Link href="/platform" style={{ ...button("secondary"), textDecoration: "none" }}>
-                  Βρες πλήρωμα →
+                  Βρες πλήρωμα
                 </Link>
               </div>
             )}
@@ -136,8 +145,7 @@ export default function RequestsPage() {
                   <div key={r.id} style={{ ...card, opacity: 0.75 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                       <span>
-                        {departureLabel(r)} · <span style={money}>{formatDate(r.start_date)}</span> →{" "}
-                        <span style={money}>{formatDate(r.end_date)}</span>
+                        {departureLabel(r)} · <span style={money}>{formatDateRange(r.start_date, r.end_date)}</span>
                       </span>
                       <span style={badge(REQ_STATUS[r.status]?.[1] || "neutral")}>{REQ_STATUS[r.status]?.[0] || r.status}</span>
                     </div>

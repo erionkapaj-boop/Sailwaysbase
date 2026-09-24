@@ -1,4 +1,5 @@
 "use client";
+import Avatar from "../components/Avatar";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
@@ -8,7 +9,7 @@ import BackButton from "../components/BackButton";
 import { SUPPORTED_ROLES, labelForRole, computeCrewHighlights } from "../../../lib/platform/roles";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { savePendingBroadcast, takePendingBroadcast } from "../../../lib/platform/pendingBroadcast";
-import { formatDate } from "../../../lib/platform/notifications";
+import { formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import {
   listLookups,
   searchSkippers,
@@ -55,7 +56,7 @@ const BROADCAST_ERRORS = {
   invalid_skipper_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος.",
   no_skippers_selected: "Επίλεξε τουλάχιστον έναν επαγγελματία.",
   already_paid_or_closed: "Αυτό το αίτημα έχει ήδη σταλεί.",
-  account_not_verified: "Ο λογαριασμός σου ελέγχεται ακόμα — θα μπορείς να στείλεις αίτημα μόλις ενεργοποιηθεί.",
+  account_not_verified: "Ο λογαριασμός σου ελέγχεται ακόμα. Θα μπορείς να στείλεις αίτημα μόλις ενεργοποιηθεί.",
 };
 
 // Inclusive day count: a 1st→3rd booking is three days of work, not two.
@@ -282,7 +283,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
             onToggle(s.id);
           }}
         >
-          {selected ? "✓ Επιλέχθηκε" : "Επιλογή"}
+          {selected ? "Επιλέχθηκε" : "Επιλογή"}
         </button>
       </div>
 
@@ -381,16 +382,7 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
         }}
         style={{ ...card, display: "flex", gap: 16, alignItems: "flex-start", cursor: "pointer", boxShadow: shadow.card }}
       >
-        <div
-          style={{
-            width: 60,
-            height: 60,
-            borderRadius: "50%",
-            background: s.photo_url ? `url(${s.photo_url}) center/cover` : "#EFEFF1",
-            border: `1px solid ${colors.border}`,
-            flexShrink: 0,
-          }}
-        />
+        <Avatar src={s.photo_url} size={60} />
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Same order as the detail sheet (price, then the stay total,
               then who they are) — the two views read as one continuous
@@ -430,12 +422,14 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
                 onToggle(s.id);
               }}
             >
-              {selected ? "✓ Επιλέχθηκε" : "Επιλογή"}
+              {selected ? "Επιλέχθηκε" : "Επιλογή"}
             </button>
             {/* The only thing on the card that says "there's more behind this"
                 — without it, tapping anywhere else looked identical to tapping
                 nothing at all. */}
-            <span style={{ ...muted, fontSize: 13, color: colors.accent }}>Δες πλήρες προφίλ →</span>
+            <span style={{ fontSize: 13, color: colors.inkSoft, textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: colors.border }}>
+              Προφίλ
+            </span>
           </div>
         </div>
       </div>
@@ -576,7 +570,7 @@ function RoleSection({
       <h2 style={h2}>{roleLabel}</h2>
       {restoredNotice && (
         <p style={{ ...muted, fontSize: 13, margin: "-6px 0 12px", color: colors.accent }}>
-          Οι επιλογές σου διατηρήθηκαν — θα τις βρεις παρακάτω, στο σύνολο της παραγγελίας.
+          Οι επιλογές σου κρατήθηκαν.
         </p>
       )}
 
@@ -618,8 +612,7 @@ function RoleSection({
       </div>
       {positions > 1 && (
         <p style={{ ...muted, fontSize: 12.5, margin: "-8px 0 14px" }}>
-          Θα σταλούν {positions} ξεχωριστά αιτήματα σε όσους επιλέξεις παρακάτω — ο καθένας μπορεί να πάρει μόνο μία
-          θέση.
+          Θα σταλούν {positions} αιτήματα, ένα για κάθε θέση. Κάθε επαγγελματίας μπορεί να πάρει μόνο μία.
         </p>
       )}
 
@@ -671,33 +664,17 @@ function RoleSection({
             {results.length} διαθέσιμ{results.length === 1 ? "ος" : "οι"} {roleLabel.toLowerCase()}
           </p>
 
-          {/* Χωρίς αυτό, τίποτα στη σελίδα δεν λέει στον πελάτη ότι το
-              "Επιλογή" είναι πολλαπλής επιλογής, ούτε ότι μπορεί να κάνει το
-              ίδιο και σε άλλους ρόλους παρακάτω πριν στείλει οτιδήποτε — η
-              καθοδήγηση πρέπει να έρχεται πριν αρχίσει να επιλέγει. */}
           {results.length > 0 && (
-            <div style={{ ...card, background: colors.bgSoft || "#F7F5F0", marginBottom: 14 }}>
-              <p style={{ margin: 0, fontSize: 13.5 }}>
-                Μπορείς να επιλέξεις όσους {roleLabel.toLowerCase()} θέλεις πατώντας «Επιλογή» σε καθέναν — και να
-                κάνεις το ίδιο σε κάθε άλλο ρόλο πιο κάτω, αν έψαχνες παραπάνω από έναν. Όλοι όσοι επιλέξεις βλέπουν το
-                αίτημα και ο πρώτος που θα το αποδεχτεί αναλαμβάνει. Στο τέλος της σελίδας θα δεις τι κοστίζει συνολικά
-                και θα επιβεβαιώσεις πριν σταλεί οτιδήποτε.
-              </p>
-            </div>
+            <p style={{ ...muted, fontSize: 13.5, margin: "-4px 0 14px" }}>
+              Διάλεξε όσους θέλεις. Το αίτημα το αναλαμβάνει ο πρώτος που θα το αποδεχτεί.
+            </p>
           )}
 
           {results.map((s) => (
             <ProfessionalCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={onToggle} days={days} />
           ))}
 
-          {results.length > 0 && (
-            <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-              <span style={{ fontSize: 14 }}>
-                Επιλεγμέν{selected.size === 1 ? "ος/η" : "οι"} {roleLabel.toLowerCase()}
-              </span>
-              <span style={{ ...money, fontSize: 17, fontWeight: 600 }}>{selected.size}</span>
-            </div>
-          )}
+
         </div>
       )}
     </div>
@@ -736,7 +713,6 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sentSlots, setSentSlots] = useState(new Set());
-  const [termsOpen, setTermsOpen] = useState(false);
 
   const { userRow, isAdmin } = useAuth();
   const { activeRoles, positionsFor, slotsFor, totalSlots, totalFee, shortRoles } = computeOrderTotals(
@@ -859,7 +835,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
       const sentNow = nowSent.size;
       const partial =
         sentNow > 0
-          ? ` Στάλθηκ${sentNow === 1 ? "ε ήδη 1 αίτημα" : `αν ήδη ${sentNow} αιτήματα`} από ${totalSlots} — με νέα Αποστολή φεύγουν μόνο όσα έμειναν, χωρίς δεύτερη χρέωση.`
+          ? ` Στάλθηκ${sentNow === 1 ? "ε ήδη 1 αίτημα" : `αν ήδη ${sentNow} αιτήματα`} από ${totalSlots}. Με νέα αποστολή φεύγουν μόνο όσα έμειναν, χωρίς δεύτερη χρέωση.`
           : "";
       setError((BROADCAST_ERRORS[err.message] || friendlyError(err)) + partial);
     } finally {
@@ -872,19 +848,19 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
       <div style={{ ...card, boxShadow: shadow.raised }}>
         {done ? (
           <div>
-            <p style={{ color: colors.accent, fontWeight: 600, margin: "0 0 14px" }}>
-              ✓ Στάλθηκ{totalSlots === 1 ? "ε" : "αν"} <span style={money}>{totalSlots}</span>{" "}
-              {totalSlots === 1 ? "αίτημα" : "αιτήματα"}
-              {activeRoles.length > 0
-                ? ` (${activeRoles
-                    .map((r) => `${slotsFor(r)} ${slotsFor(r) === 1 ? "θέση" : "θέσεις"} ${labelForRole(r).toLowerCase()}`)
-                    .join(", ")})`
-                : ""}
+            <p style={{ color: colors.ink, fontWeight: 600, fontSize: 17, margin: "0 0 6px" }}>
+              {totalSlots === 1 ? "Το αίτημά σου στάλθηκε" : `Στάλθηκαν ${totalSlots} αιτήματα`}
             </p>
-            <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-              Κάθε επιλεγμένος βλέπει το αίτημα και μπορεί να το αποδεχτεί — ο πρώτος που θα το κάνει παίρνει τη
-              θέση. Θα ειδοποιηθείς μόλις συμβεί αυτό. Αν δεν το αποδεχτεί κανείς εγκαίρως, η χρέωση επιστρέφεται
-              αυτόματα ως credit στο πορτοφόλι σου — στα Αιτήματα θα δεις μέχρι πότε ισχύει.
+            {activeRoles.length > 0 && (
+              <p style={{ ...muted, fontSize: 13.5, margin: "0 0 12px" }}>
+                {activeRoles
+                  .map((r) => `${labelForRole(r)}: ${slotsFor(r)} ${slotsFor(r) === 1 ? "θέση" : "θέσεις"}`)
+                  .join(" · ")}
+              </p>
+            )}
+            <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 16px" }}>
+              Θα σε ειδοποιήσουμε μόλις κάποιος το αποδεχτεί. Αν δεν το αναλάβει κανείς εγκαίρως, το τέλος
+              επιστρέφεται αυτόματα στο πορτοφόλι σου.
             </p>
             <button style={button("primary")} onClick={() => router.push("/platform/requests")}>
               Παρακολούθηση αιτήματος
@@ -904,8 +880,8 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
                   {positionsFor(role) > 1 ? ` · ${positionsFor(role)} θέσεις` : ""}
                 </span>
                 <span style={{ ...muted, fontSize: 13 }}>
-                  <span style={{ ...money, color: colors.ink }}>{selectionsByRole[role].size}</span> επιλεγμέν
-                  {selectionsByRole[role].size === 1 ? "ος/η" : "οι"}
+                  <span style={{ ...money, color: colors.ink }}>{selectionsByRole[role].size}</span>{" "}
+                  {selectionsByRole[role].size === 1 ? "επιλογή" : "επιλογές"}
                 </span>
               </div>
             ))}
@@ -917,7 +893,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
             {emptyRoles.length > 0 && (
               <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px" }}>
                 {emptyRoles
-                  .map((r) => `Για ${labelForRole(r).toLowerCase()} δεν επέλεξες κανέναν — δεν θα σταλεί αίτημα για αυτόν τον ρόλο.`)
+                  .map((r) => `Για ${labelForRole(r)} δεν διάλεξες κανέναν, οπότε δεν στέλνεται αίτημα.`)
                   .join(" ")}
               </p>
             )}
@@ -927,9 +903,9 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
                 {shortRoles
                   .map(
                     (r) =>
-                      `Για ${labelForRole(r).toLowerCase()} ζήτησες ${positionsFor(r)} θέσεις αλλά επέλεξες ${selectionsByRole[r].size} — θα σταλ${
-                        slotsFor(r) === 1 ? "εί μόνο 1 αίτημα" : `ούν ${slotsFor(r)} αιτήματα`
-                      }, όσα βρήκες.`
+                      `Για ${labelForRole(r)} ζήτησες ${positionsFor(r)} θέσεις και διάλεξες ${selectionsByRole[r].size}. Στέλν${
+                        slotsFor(r) === 1 ? "εται 1 αίτημα" : `ονται ${slotsFor(r)} αιτήματα`
+                      }.`
                   )
                   .join(" ")}
               </p>
@@ -937,17 +913,16 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
 
             <div style={{ padding: "12px 14px", background: colors.seaGlass, borderRadius: radius.md, margin: "10px 0 14px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                <span style={{ fontSize: 14 }}>Τέλος πλατφόρμας ({totalSlots} {totalSlots === 1 ? "θέση" : "θέσεις"})</span>
-                <span style={{ ...money, fontSize: 18, fontWeight: 700 }}>{totalFee != null ? `${totalFee}€` : "—"}</span>
+                <span style={{ fontSize: 14 }}>Τέλος πλατφόρμας</span>
+                <span style={{ ...money, fontSize: 18, fontWeight: 700 }}>{totalFee != null ? `${totalFee}€` : ""}</span>
               </div>
-              <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
-                {fee != null ? `${fee}€` : "—"} για κάθε θέση που χρειάζεσαι, ανεξάρτητα από πόσους υποψήφιους διάλεξες
-                για αυτήν. Όσοι επιλεγμένοι μοιράζονται μία θέση τη βλέπουν όλοι μαζί· ο πρώτος που θα την αποδεχτεί
-                την αναλαμβάνει, χωρίς να μπορεί να πάρει και δεύτερη θέση στο ίδιο ταξίδι.
-              </p>
+              {fee != null && (
+                <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
+                  {fee}€ ανά θέση, ανεξάρτητα από το πόσους διάλεξες.
+                </p>
+              )}
               <p style={{ fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
-                Την αμοιβή του επαγγελματία (την τιμή ανά ημέρα που βλέπεις στο προφίλ του) την πληρώνεις απευθείας
-                σε εκείνον — εδώ πληρώνεις μόνο το τέλος πλατφόρμας.
+                Την αμοιβή του επαγγελματία την κανονίζεις απευθείας μαζί του.
               </p>
             </div>
 
@@ -957,51 +932,32 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
               <div style={{ padding: "12px 14px", border: `1px solid ${colors.warn}`, background: "#F7F0E2", borderRadius: radius.md }}>
                 <b style={{ display: "block", fontSize: 14, marginBottom: 4 }}>Ο λογαριασμός σου ελέγχεται</b>
                 <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>
-                  Συνήθως μέσα στην ημέρα. Οι επιλογές σου κρατήθηκαν — μόλις ενεργοποιηθεί ο λογαριασμός σου θα
-                  μπορείς να στείλεις το αίτημα με ένα πάτημα. Δεν έχεις χρεωθεί τίποτα.
+                  Συνήθως ολοκληρώνεται μέσα στην ημέρα. Οι επιλογές σου κρατήθηκαν και δεν έχεις χρεωθεί.
                 </span>
               </div>
             ) : (
               <button style={{ ...button("primary"), width: "100%" }} disabled={busy} onClick={handleCheckout}>
-                {busy ? "..." : session ? "Αποστολή αιτημάτων" : "Σύνδεση για αποστολή"}
+                {busy ? "Αποστολή…" : session ? "Αποστολή αιτημάτων" : "Σύνδεση για αποστολή"}
               </button>
             )}
             {!awaitingVerification && <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
               {session
-                ? "Πατώντας «Αποστολή αιτημάτων» αποδέχεσαι την παραπάνω χρέωση και τους"
-                : "Δεν χρεώνεσαι τίποτα ακόμα — πρώτα συνδέεσαι ή κάνεις εγγραφή, και οι επιλογές σου κρατιούνται. Με την αποστολή αποδέχεσαι την παραπάνω χρέωση και τους"}{" "}
-              <button
-                type="button"
-                onClick={() => setTermsOpen(true)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  font: "inherit",
-                  color: colors.inkSoft,
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                }}
+                ? "Με την αποστολή αποδέχεσαι τη χρέωση και τους"
+                : "Δεν χρεώνεσαι ακόμα. Οι επιλογές σου κρατιούνται μέχρι να συνδεθείς. Με την αποστολή αποδέχεσαι τη χρέωση και τους"}{" "}
+              <a
+                href="/platform/terms"
+                target="_blank"
+                rel="noopener"
+                style={{ color: colors.inkSoft, textDecoration: "underline", textUnderlineOffset: 2 }}
               >
-                Όρους Χρήσης
-              </button>
+                Όρους χρήσης
+              </a>
               .
             </p>}
           </>
         )}
       </div>
 
-      {termsOpen && (
-        <div style={sheetOverlayStyle} onClick={() => setTermsOpen(false)}>
-          <div style={{ ...sheetStyle, maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ ...h2, fontSize: 16, margin: "0 0 10px" }}>Όροι χρήσης</h3>
-            <p style={{ ...muted, lineHeight: 1.6, marginBottom: 20 }}>Το κείμενο των όρων χρήσης ετοιμάζεται.</p>
-            <button style={{ ...button("secondary"), width: "100%" }} onClick={() => setTermsOpen(false)}>
-              Κλείσιμο
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1271,7 +1227,7 @@ function SearchPageInner() {
       {unsupportedRoles.length > 0 && (
         <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
           <p style={{ ...muted, margin: 0 }}>
-            {unsupportedRoles.map(labelForRole).join(", ")} — δεν είναι ακόμα διαθέσιμοι στην πλατφόρμα.
+            Δεν είναι ακόμα διαθέσιμοι: {unsupportedRoles.map(labelForRole).join(", ")}.
             {supportedRoles.length > 0
               ? " Τα αποτελέσματα παρακάτω αφορούν μόνο " + supportedRoles.map(labelForRole).join(", ") + "."
               : ""}
@@ -1425,7 +1381,7 @@ function SearchPageInner() {
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
             ) : (
               <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-                Πόσα άτομα θα είναι συνολικά στο ταξίδι — το βλέπει ο επαγγελματίας πριν αποφασίσει.
+                Όλοι όσοι θα είναι στο σκάφος. Ο επαγγελματίας το βλέπει πριν αποφασίσει.
               </p>
             )}
           </div>
@@ -1452,7 +1408,7 @@ function SearchPageInner() {
         <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 14 }}>
             <b style={{ ...money, color: colors.ink }}>
-              {formatDate(filters.startDate)} → {formatDate(filters.endDate)}
+              {formatDateRange(filters.startDate, filters.endDate)}
             </b>
             <span style={muted}>
               {" · "}

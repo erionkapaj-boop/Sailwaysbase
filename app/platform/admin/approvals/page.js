@@ -92,13 +92,13 @@ export default function PendingPage() {
   }
 
   const verify = (u) =>
-    run(u.id, () => adminVerifyUser(u.id), `✓ ${u.full_name || u.phone_number}: επαληθεύτηκε και ειδοποιήθηκε.`);
+    run(u.id, () => adminVerifyUser(u.id), `${u.full_name || u.phone_number}: επαληθεύτηκε και ειδοποιήθηκε.`);
 
   async function approvePro(s) {
     const result = await run(
       s.user_id,
       () => adminApproveSkipper(s.user_id),
-      `✓ ${s.full_name || "Ο επαγγελματίας"}: εγκρίθηκε — εμφανίζεται πλέον στις αναζητήσεις.`
+      `${s.full_name || "Ο επαγγελματίας"}: εγκρίθηκε και εμφανίζεται πλέον στις αναζητήσεις.`
     );
     // The approval merges a returning professional back onto their old
     // history when it recognises them — worth saying, since their numbers
@@ -112,7 +112,7 @@ export default function PendingPage() {
   }
 
   const approveRole = (r) =>
-    run(r.id, () => adminApproveSecondaryRole(r.id), `✓ ${r.full_name}: εγκρίθηκε ως ${labelForRole(r.role)}.`);
+    run(r.id, () => adminApproveSecondaryRole(r.id), `${r.full_name}: εγκρίθηκε ως ${labelForRole(r.role)}.`);
 
   async function rejectRole(r) {
     if (!(await confirm(`${r.full_name}: απόρριψη της ιδιότητας ${labelForRole(r.role)};`))) return;
@@ -173,7 +173,7 @@ export default function PendingPage() {
             />
             <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
               <button style={button("primary")} disabled={busyId === u.id} onClick={() => verify(u)}>
-                {busyId === u.id ? "…" : "✓ Επαλήθευση"}
+                {busyId === u.id ? "…" : "Επαλήθευση"}
               </button>
               <DetailsLink userId={u.id} />
             </div>
@@ -238,7 +238,7 @@ export default function PendingPage() {
         {roles.map((r) => (
           <div key={r.id} style={item}>
             <RowMain
-              title={`${r.full_name || "(χωρίς όνομα)"} — ζητά: ${labelForRole(r.role)}`}
+              title={`${r.full_name || "Χωρίς όνομα"} · ζητά ${labelForRole(r.role)}`}
               meta={
                 <>
                   <span style={money}>{r.phone_number}</span>

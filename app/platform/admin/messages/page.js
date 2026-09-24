@@ -145,7 +145,7 @@ export default function AdminMessagesPage() {
               )}
             </div>
             <input
-              placeholder="Σημείωση — τι απάντησες ή τι έκανες (προαιρετικό)"
+              placeholder="Σημείωση: τι απάντησες ή τι έκανες (προαιρετικό)"
               value={notes[m.id] || ""}
               onChange={(e) => setNotes((n) => ({ ...n, [m.id]: e.target.value }))}
               style={noteInput}
@@ -155,7 +155,7 @@ export default function AdminMessagesPage() {
               disabled={busyId === m.id}
               onClick={() => setStatus(m.id, "handled")}
             >
-              {busyId === m.id ? "…" : "✓ Το απάντησα"}
+              {busyId === m.id ? "…" : "Το απάντησα"}
             </button>
           </div>
         ))}

@@ -58,7 +58,7 @@ function Topup({ onDone }) {
     setError("");
     try {
       await adminCreditWallet(selected.id, Number(amount), note || `Χειροκίνητη κατάθεση ${amount}€`);
-      setDone(`✓ ${selected.full_name || selected.phone_number}: πιστώθηκαν ${amount}€.`);
+      setDone(`${selected.full_name || selected.phone_number}: πιστώθηκαν ${amount}€.`);
       setAmount("");
       setNote("");
       setSelected(null);
@@ -150,12 +150,12 @@ export default function FinancePage() {
           below are other people's money the platform is holding, not income,
           and an operator reading them as the same figure is the mistake this
           screen exists to prevent. */}
-      <Panel title="Υπόλοιπα χρηστών — υποχρεώσεις, όχι έσοδα" padded={false}>
+      <Panel title="Υπόλοιπα χρηστών" padded={false}>
         <div style={{ padding: 16 }}>
           <MetricGrid min={160}>
             {/* Ένα πορτοφόλι ανά άνθρωπο πια, όχι ανά ρόλο — δεν έχει νόημα να
                 σπάει σε "πελάτες"/"επαγγελματίες". */}
-            <Metric label="Σύνολο" value={`${live.wallet_total ?? 0}€`} hint="credit σε πορτοφόλια — χρήματα τρίτων" />
+            <Metric label="Σύνολο" value={`${live.wallet_total ?? 0}€`} hint="χρήματα χρηστών, όχι έσοδα" />
           </MetricGrid>
         </div>
       </Panel>

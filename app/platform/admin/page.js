@@ -24,7 +24,7 @@ const WEEKDAY_LONG = ["Κυριακή", "Δευτέρα", "Τρίτη", "Τετ�
 const ACTIVITY_LABEL = {
   booking: "Κράτηση",
   signup: "Νέα εγγραφή",
-  dispute: "Αναφορά",
+  dispute: "Ακύρωση",
 };
 const ACTIVITY_TONE = {
   booking: colors.success,
@@ -302,7 +302,7 @@ function QuickSearch() {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-          placeholder="Βρες χρήστη — όνομα ή τηλέφωνο"
+          placeholder="Βρες χρήστη με όνομα ή τηλέφωνο"
           aria-label="Αναζήτηση χρήστη"
           style={{
             width: "100%",
@@ -467,7 +467,7 @@ function waitingRows(counts) {
         "κράτηση έμεινε χωρίς επαγγελματία",
         "κρατήσεις έμειναν χωρίς επαγγελματία",
       ),
-      meta: "Ο επαγγελματίας ακύρωσε — βρες αντικαταστάτη πριν το ταξίδι.",
+      meta: "Ο επαγγελματίας ακύρωσε. Βρες αντικαταστάτη πριν το ταξίδι.",
     },
     pendingTotal > 0 && {
       href: "/platform/admin/approvals",
@@ -497,8 +497,8 @@ function waitingRows(counts) {
       ),
       meta:
         counts.profiles_invisible === 1
-          ? "Εγκεκριμένος, αλλά χωρίς διαθεσιμότητα — μάλλον δεν το ξέρει. Ένα τηλέφωνο βοηθά."
-          : "Εγκεκριμένοι, αλλά χωρίς διαθεσιμότητα — μάλλον δεν το ξέρουν. Ένα τηλέφωνο βοηθά.",
+          ? "Εγκεκριμένος αλλά χωρίς διαθεσιμότητα. Μάλλον δεν το ξέρει, ένα τηλέφωνο βοηθά."
+          : "Εγκεκριμένοι αλλά χωρίς διαθεσιμότητα. Μάλλον δεν το ξέρουν, ένα τηλέφωνο βοηθά.",
     },
   ].filter(Boolean);
 }
@@ -565,11 +565,11 @@ function ExpiringCard({ item, now }) {
   const what = item.kind === "delivery" ? `${roleAcc(item.role)} για μεταφορά σκάφους` : roleAcc(item.role);
 
   let advice;
-  if (pinged === 0) advice = "Δεν στάλθηκε σε κανέναν — πάρε τον πελάτη να διαλέξει επαγγελματία.";
+  if (pinged === 0) advice = "Δεν στάλθηκε σε κανέναν. Πάρε τον πελάτη να διαλέξει επαγγελματία.";
   else if (allDeclined)
-    advice = `${pinged === 1 ? "Ο μόνος που ρωτήθηκε αρνήθηκε" : `Αρνήθηκαν και οι ${pinged}`} — ο πελάτης χρειάζεται να διαλέξει άλλους.`;
+    advice = `${pinged === 1 ? "Ο μόνος που ρωτήθηκε αρνήθηκε" : `Αρνήθηκαν και οι ${pinged}`}. Ο πελάτης χρειάζεται να διαλέξει άλλους.`;
   else if (waiting.length > 0)
-    advice = `${waiting.length === 1 ? "Δεν έχει απαντήσει ακόμα 1" : `Δεν έχουν απαντήσει ακόμα ${waiting.length}`} — ένα τηλέφωνο μπορεί να το σώσει.`;
+    advice = `${waiting.length === 1 ? "Δεν έχει απαντήσει ακόμα 1" : `Δεν έχουν απαντήσει ακόμα ${waiting.length}`}. Ένα τηλέφωνο μπορεί να το σώσει.`;
 
   return (
     <div
@@ -910,7 +910,7 @@ function MarketRow({ m }) {
       {short && (
         <div style={{ fontSize: 12.5, color: colors.danger, marginTop: 5 }}>
           {approved === 0
-            ? "Δεν υπάρχει κανένας εγκεκριμένος — τα αιτήματα θα χάνονται."
+            ? "Δεν υπάρχει κανένας εγκεκριμένος, οπότε τα αιτήματα θα χάνονται."
             : "Κανείς δεν έχει δηλώσει διαθεσιμότητα για τις επόμενες 30 μέρες. Αξίζει ένα τηλέφωνο."}{" "}
           {approved > 0 && (
             <Link
@@ -982,7 +982,7 @@ function buildInsights(dash, counts) {
   if (weak) {
     out.push({
       tone: "warn",
-      text: `${weak.region}: χάθηκαν ${weak.lost} από ${weak.requests} αιτήματα τον τελευταίο μήνα — λείπουν επαγγελματίες σε αυτή την περιοχή.`,
+      text: `${weak.region}: χάθηκαν ${weak.lost} από ${weak.requests} αιτήματα τον τελευταίο μήνα. Λείπουν επαγγελματίες σε αυτή την περιοχή.`,
     });
   }
   const top = (dash.regions || [])[0];
@@ -997,7 +997,7 @@ function buildInsights(dash, counts) {
       tone: "plain",
       text: `${
         dash.dormant_clients === 1 ? "1 πελάτης έχει εγκριθεί" : `${dash.dormant_clients} πελάτες έχουν εγκριθεί`
-      } εδώ και μέρες αλλά δεν ${dash.dormant_clients === 1 ? "έστειλε" : "έστειλαν"} ποτέ αίτημα — ίσως κόλλησαν κάπου.`,
+      } εδώ και μέρες αλλά δεν ${dash.dormant_clients === 1 ? "έστειλε" : "έστειλαν"} ποτέ αίτημα. Ίσως κόλλησαν κάπου.`,
       href: "/platform/admin/users?tab=client",
       cta: "Πελάτες",
     });
@@ -1005,7 +1005,7 @@ function buildInsights(dash, counts) {
   if (counts.suspended_count > 0) {
     out.push({
       tone: "plain",
-      text: `${plural(counts.suspended_count, "λογαριασμός είναι", "λογαριασμοί είναι")} σε αναστολή — δες αν ήρθε η ώρα να επανέλθ${counts.suspended_count === 1 ? "ει" : "ουν"}.`,
+      text: `${plural(counts.suspended_count, "λογαριασμός είναι", "λογαριασμοί είναι")} σε αναστολή. Δες αν ήρθε η ώρα να επανέλθ${counts.suspended_count === 1 ? "ει" : "ουν"}.`,
       href: "/platform/admin/users?tab=suspended",
       cta: "Δες",
     });
@@ -1278,7 +1278,8 @@ function Activity({ activity }) {
       <SectionTitle>Πρόσφατη δραστηριότητα</SectionTitle>
       <Panel padded={false}>
         {activity.length === 0 && <Empty>Καμία δραστηριότητα ακόμα.</Empty>}
-        {list.map((a, i) => (
+        {list.map((a, i) => {
+          const row = (
           <Row key={`${a.kind}-${a.at}-${i}`}>
             <span
               style={{
@@ -1305,8 +1306,18 @@ function Activity({ activity }) {
               />
             </span>
             <span style={{ ...muted, fontSize: 11.5, flexShrink: 0 }}>{timeAgo(a.at)}</span>
+            {a.href && <span style={{ ...muted, fontSize: 18, marginLeft: 6 }}>›</span>}
           </Row>
-        ))}
+          );
+          // Κάθε γραμμή ανοίγει ό,τι αφορά (0090): τον χρήστη ή τις αναφορές.
+          return a.href ? (
+            <Link key={`${a.kind}-${a.at}-${i}`} href={a.href} style={{ textDecoration: "none", color: "inherit" }}>
+              {row}
+            </Link>
+          ) : (
+            row
+          );
+        })}
         {activity.length > 6 && (
           <button
             type="button"

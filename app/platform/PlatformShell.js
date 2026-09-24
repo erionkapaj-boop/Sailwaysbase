@@ -8,6 +8,7 @@ import Footer, { AppFooter } from "./components/Footer";
 import Logo from "./components/Logo";
 import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
+import Avatar from "./components/Avatar";
 import AccountMenu from "./components/AccountMenu";
 import { SECTIONS as ADMIN_SECTIONS, badgeCount, ADMIN_COUNTS_EVENT } from "./admin/AdminShell";
 import { hasStashedAdminSession, returnToAdminSession, adminOverview } from "../../lib/platform/db";
@@ -43,21 +44,7 @@ function AccountNavBar({ name, photoUrl, loading, items, activeHref, onSignOut, 
         href="/platform"
         style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none", minWidth: 0 }}
       >
-        {photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={photoUrl}
-            alt=""
-            style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-          />
-        ) : (
-          // Reserved from the first frame so the row doesn't shift sideways
-          // once the profile finishes loading.
-          <span
-            aria-hidden="true"
-            style={{ width: 34, height: 34, borderRadius: "50%", background: colors.border, flexShrink: 0 }}
-          />
-        )}
+        <Avatar src={photoUrl} name={loading ? "" : name} size={34} />
         <span
           style={{
             fontSize: 16,
@@ -223,7 +210,7 @@ function ViewAsBanner() {
       }}
     >
       <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        Προβολή ως <b>{viewingAs.name || viewingAs.phone}</b> — μόνο ανάγνωση
+        Βλέπεις ως <b>{viewingAs.name || viewingAs.phone}</b>. Μόνο ανάγνωση.
       </span>
       <button
         type="button"
@@ -359,7 +346,7 @@ function VerificationGate({ children }) {
       <div style={{ ...card, marginTop: 20, textAlign: "center" }}>
         <h1 style={{ ...h1, fontSize: 20 }}>Ο λογαριασμός σου ελέγχεται</h1>
         <p style={{ ...muted, margin: "10px 0 0", lineHeight: 1.55 }}>
-          Επειδή δεν στέλνουμε ακόμα κωδικό SMS, ελέγχουμε κάθε νέα εγγραφή χειροκίνητα — συνήθως μέσα στην ημέρα.
+          Ελέγχουμε κάθε νέα εγγραφή, συνήθως μέσα στην ημέρα.
           Δεν χρειάζεται να κάνεις τίποτα άλλο.
         </p>
         <p style={{ ...muted, margin: "10px 0 0", lineHeight: 1.55 }}>

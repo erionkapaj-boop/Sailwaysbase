@@ -70,7 +70,7 @@ export default function AdminDeliveriesPage() {
                 </span>
                 {rr.booking && (
                   <span style={{ width: "100%", ...muted }}>
-                    Ανέλαβε: {rr.booking.skipper_name} — {BOOKING_STATUS_LABEL[rr.booking.status] || rr.booking.status}
+                    Ανέλαβε: {rr.booking.skipper_name} · {BOOKING_STATUS_LABEL[rr.booking.status] || rr.booking.status}
                   </span>
                 )}
               </div>

@@ -81,7 +81,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
 
   return (
     <div style={{ marginTop: 24 }}>
-      <h2 style={sectionLabel}>Προτάσεις μεταφοράς σκάφους ({pending.length})</h2>
+      <h2 style={sectionLabel}>Προτάσεις μεταφοράς σκάφους<span style={{ marginLeft: 8, opacity: 0.55 }}>{pending.length}</span></h2>
       {error && <p style={{ color: colors.danger }}>{error}</p>}
       {pending.map(({ ping, role_request, request }) => {
         const covers = ["covers_tickets", "covers_travel", "covers_food", "covers_fuel", "covers_port_expenses"].filter(

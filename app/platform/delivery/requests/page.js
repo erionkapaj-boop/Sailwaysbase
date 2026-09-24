@@ -25,7 +25,7 @@ const ROLE_REQUEST_LABEL = {
   open: "Ανοιχτό",
   filled: "Καλύφθηκε",
   cancelled: "Αποσύρθηκε",
-  expired: "Έληξε — επιστράφηκε το τέλος",
+  expired: "Έληξε, το τέλος επιστράφηκε",
 };
 
 const BOOKING_STATUS_LABEL = { confirmed: "Επιβεβαιωμένη", completed: "Ολοκληρώθηκε", cancelled: "Ακυρώθηκε" };
@@ -39,7 +39,7 @@ const COVER_LABEL = {
 };
 
 const RELIST_ERRORS = {
-  not_open: "Αυτή η θέση δεν είναι πια ανοιχτή — για νέα αναζήτηση στείλε νέο αίτημα μεταφοράς.",
+  not_open: "Αυτή η θέση έκλεισε. Για νέα αναζήτηση στείλε νέο αίτημα μεταφοράς.",
   invalid_price: "Μη έγκυρη τιμή.",
   no_candidates_selected: "Επίλεξε τουλάχιστον έναν υποψήφιο.",
   invalid_candidate_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος για μεταφορές.",
@@ -181,7 +181,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
         <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 10 }}>
           {roleRequest.pings.map((p) => (
             <span key={p.skipper_id} style={{ fontSize: 12.5, color: PING_LABEL[p.status]?.[1] || colors.inkSoft }}>
-              {p.full_name || "Υποψήφιος"} — {PING_LABEL[p.status]?.[0] || p.status}
+              {p.full_name || "Υποψήφιος"}: {PING_LABEL[p.status]?.[0] || p.status}
             </span>
           ))}
         </div>
@@ -192,7 +192,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
           {roleRequest.booking.status === "cancelled" ? (
             roleRequest.booking.cancelled_by === "professional" ? (
               <>
-                Ο επαγγελματίας ακύρωσε — το τέλος{fee > 0 ? ` (${formatMoney(fee)}€)` : ""} επιστράφηκε στο πορτοφόλι σου.
+                Ο επαγγελματίας ακύρωσε και το τέλος{fee > 0 ? ` των ${formatMoney(fee)}€` : ""} επιστράφηκε στο πορτοφόλι σου.
                 Για άλλον άνθρωπο στείλε νέο αίτημα μεταφοράς.
               </>
             ) : (
@@ -203,8 +203,8 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
               Ανέλαβε:{" "}
               <span style={{ ...money, color: colors.ink }}>
                 {BOOKING_STATUS_LABEL[roleRequest.booking.status] || roleRequest.booking.status}
-              </span>{" "}
-              — στοιχεία επικοινωνίας στις Κρατήσεις.
+              </span>
+              . Τα στοιχεία επικοινωνίας είναι στις Κρατήσεις.
             </>
           )}
         </p>
@@ -239,7 +239,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
               onClick={() => setRelisting(true)}
               style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.accent, fontSize: 13 }}
             >
-              Αύξηση τιμής &amp; νέα αποστολή →
+              Αύξηση τιμής και νέα αποστολή
             </button>
           )}
         </div>

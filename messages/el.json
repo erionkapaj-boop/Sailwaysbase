@@ -11,14 +11,15 @@
   },
   "Nav": {
     "login": "Σύνδεση",
-    "homeAriaLabel": "SkipperFinder — αρχική"
+    "homeAriaLabel": "SkipperFinder, αρχική"
   },
   "Home": {
-    "searchCrew": "Αναζήτηση Πληρώματος",
-    "boatDelivery": "Μεταφορά Σκάφους →",
-    "professionalSignup": "Είσαι skipper, hostess, cook ή ναύτης; Κάνε εγγραφή →",
+    "searchCrew": "Αναζήτηση πληρώματος",
+    "boatDelivery": "Μεταφορά σκάφους",
+    "professionalSignup": "Είσαι skipper, hostess, cook ή ναύτης; Κάνε εγγραφή",
     "welcomeTitle": "Καλώς ήρθες, {name}!",
-    "welcomeSubtitle": "Ξεκίνα βρίσκοντας πλήρωμα για το ταξίδι σου."
+    "welcomeSubtitle": "Ξεκίνα βρίσκοντας πλήρωμα για το ταξίδι σου.",
+    "tagline": "Skipper και πλήρωμα για το σκάφος σου."
   },
   "LanguageSwitcher": {
     "greek": "Ελληνικά",

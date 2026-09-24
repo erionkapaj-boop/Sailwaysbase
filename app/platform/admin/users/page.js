@@ -191,7 +191,7 @@ function UsersInner() {
   async function enterLoginAs(u) {
     if (
       !(await confirm(
-        `Θα γίνει πραγματική σύνδεση ως ${u.full_name || u.phone_number} — ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`,
+        `Θα γίνει πραγματική σύνδεση ως ${u.full_name || u.phone_number}. Ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`,
         { tone: "primary" }
       ))
     )
@@ -387,7 +387,7 @@ function UsersInner() {
                     disabled={busy}
                     onClick={() => handleVerify(u)}
                   >
-                    ✓ Επαλήθευση
+                    Επαλήθευση
                   </button>
                 )}
                 {/* Ούτε "Προβολή ως" ούτε "Σύνδεση ως" βγάζουν νόημα πάνω σε
@@ -419,7 +419,7 @@ function UsersInner() {
                   </button>
                 )}
                 {/* 0078: επαναφορά με ένα κλικ, χωρίς λόγο (μόνο η αναστολή
-                    χρειάζεται λόγο) — ίδιο μοτίβο με το «✓ Επαλήθευση». */}
+                    χρειάζεται λόγο) — ίδιο μοτίβο με το «Επαλήθευση». */}
                 {u.status === "suspended" && (
                   <button
                     style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}

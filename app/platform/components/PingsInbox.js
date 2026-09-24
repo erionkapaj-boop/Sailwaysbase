@@ -4,13 +4,13 @@ import { useAuth } from "../AuthContext";
 import { listMyPings, claimBookingRequest, declineBookingRequest, getPlatformSetting, departureLabel } from "../../../lib/platform/db";
 import Stars from "./Stars";
 import { card, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
-import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
+import { formatDateTime, formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 
 const CLIENT_CATEGORIES = reviewCategoriesForRole("client");
 
 const CLAIM_ERRORS = {
-  request_not_open: "Το αίτημα δεν είναι πια ανοιχτό — κάποιος άλλος πρόλαβε ή έληξε.",
+  request_not_open: "Το αίτημα έκλεισε. Το ανέλαβε κάποιος άλλος ή έληξε.",
   already_resolved: "Έχεις ήδη απαντήσει σε αυτό το αίτημα.",
   date_overlap: "Έχεις ήδη επιβεβαιωμένη κράτηση που επικαλύπτεται με αυτές τις ημερομηνίες.",
   insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο για τη χρέωση αποδοχής. Φόρτωσε υπόλοιπο από το Πορτοφόλι και δοκίμασε ξανά.",
@@ -25,7 +25,7 @@ const CLAIM_ERRORS = {
 // σε πολλούς.
 const OFFER_LABEL = {
   admin_direct: "Πρόταση από τη διαχείριση",
-  admin_replacement: "Αντικατάσταση — ο πελάτης έμεινε χωρίς πλήρωμα",
+  admin_replacement: "Αντικατάσταση: ο πελάτης έμεινε χωρίς πλήρωμα",
 };
 
 export default function PingsInbox({ skipperId }) {
@@ -86,7 +86,7 @@ export default function PingsInbox({ skipperId }) {
 
   return (
     <div>
-      <h2 style={sectionLabel}>Εισερχόμενα αιτήματα ({pending.length})</h2>
+      <h2 style={sectionLabel}>Εισερχόμενα αιτήματα<span style={{ marginLeft: 8, opacity: 0.55 }}>{pending.length}</span></h2>
       {error && <p style={{ color: colors.danger }}>{error}</p>}
       {pending.length === 0 && <p style={muted}>Δεν υπάρχουν εκκρεμή αιτήματα αυτή τη στιγμή.</p>}
       {pending.map((p) => (
@@ -141,7 +141,7 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
             </p>
           )}
           <p style={{ ...muted, margin: "6px 0 0" }}>
-            <span style={money}>{formatDate(r.start_date)}</span> → <span style={money}>{formatDate(r.end_date)}</span>
+            <span style={money}>{formatDateRange(r.start_date, r.end_date)}</span>
           </p>
           <p style={{ ...muted, fontSize: 12, margin: "2px 0 0" }}>Στάλθηκε {formatDateTime(r.created_at)}</p>
           {isOffer ? (

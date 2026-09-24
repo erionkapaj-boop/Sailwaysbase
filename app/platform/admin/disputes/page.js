@@ -63,7 +63,7 @@ export default function DisputesPage() {
   return (
     <AdminShell
       title="Αναφορές ακύρωσης"
-      subtitle="Όταν ακυρώνεται μια κράτηση, η άλλη πλευρά μπορεί να το αναφέρει. Η ακύρωση έχει ήδη μετρήσει στην αξιοπιστία — το «Κλείσιμο» σημαίνει ότι το είδες, δεν την αναιρεί."
+      subtitle="Όταν ακυρώνεται μια κράτηση, η άλλη πλευρά μπορεί να το αναφέρει. Η ακύρωση έχει ήδη μετρήσει στην αξιοπιστία. Το «Κλείσιμο» σημαίνει ότι το είδες, δεν την αναιρεί."
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
@@ -104,7 +104,7 @@ export default function DisputesPage() {
               disabled={busyId === r.id}
               onClick={() => resolve(r.id)}
             >
-              {busyId === r.id ? "…" : "✓ Κλείσιμο αναφοράς"}
+              {busyId === r.id ? "…" : "Κλείσιμο αναφοράς"}
             </button>
           </div>
         ))}

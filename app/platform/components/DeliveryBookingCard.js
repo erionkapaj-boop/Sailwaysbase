@@ -120,7 +120,7 @@ export default function DeliveryBookingCard({ booking: initial }) {
             <div>
               <input
                 style={{ ...input, marginBottom: 8 }}
-                placeholder="Λόγος (προαιρετικά — τον βλέπει η άλλη πλευρά)"
+                placeholder="Λόγος (προαιρετικά)"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
               />

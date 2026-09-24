@@ -96,18 +96,39 @@ export default function PhotoUpload({ value, onUploaded }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-      <div
+      <button
+        type="button"
+        aria-label={shown ? "Αλλαγή φωτογραφίας" : "Ανέβασμα φωτογραφίας"}
+        disabled={busy}
+        onClick={() => inputRef.current?.click()}
         style={{
           width: 84,
           height: 84,
           borderRadius: "50%",
           flexShrink: 0,
-          background: shown ? `url(${shown}) center/cover` : "#EFEDE8",
-          border: `1px solid ${colors.border}`,
+          padding: 0,
+          cursor: "pointer",
+          background: shown ? `url(${shown}) center/cover` : colors.card,
+          border: shown ? `1px solid ${colors.border}` : `1.5px dashed ${colors.border}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           opacity: busy ? 0.6 : 1,
           transition: "opacity 0.2s ease",
         }}
-      />
+      >
+        {!shown && (
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.2-1.8A1 1 0 0 1 9.5 4.8h5a1 1 0 0 1 .8.4L16.5 7h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"
+              stroke={colors.inkSoft}
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            <circle cx="12" cy="12.8" r="3.3" stroke={colors.inkSoft} strokeWidth="1.4" />
+          </svg>
+        )}
+      </button>
       <div>
         <input
           ref={inputRef}
@@ -125,7 +146,7 @@ export default function PhotoUpload({ value, onUploaded }) {
           {busy ? "Ανέβασμα…" : shown ? "Αλλαγή φωτογραφίας" : "Ανέβασμα φωτογραφίας"}
         </button>
         <p style={{ ...muted, fontSize: 12, margin: "8px 0 0" }}>
-          Οποιαδήποτε φωτογραφία — προσαρμόζεται αυτόματα.
+          Προσαρμόζεται αυτόματα.
         </p>
         {error && <p style={{ color: colors.danger, fontSize: 13, margin: "6px 0 0" }}>{error}</p>}
       </div>

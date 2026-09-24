@@ -85,8 +85,8 @@ function LoginInner() {
         <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
           <b style={{ fontWeight: 600 }}>Κλειδώθηκε για 15 λεπτά</b>
           <p style={{ ...muted, margin: "8px 0 16px" }}>
-            Έγιναν τρεις λάθος προσπάθειες. Περίμενε 15 λεπτά και δοκίμασε ξανά — ή, αν δεν θυμάσαι τον κωδικό,
-            ζήτα βοήθεια.
+            Έγιναν τρεις λάθος προσπάθειες. Δοκίμασε ξανά σε 15 λεπτά ή ζήτα βοήθεια αν δεν θυμάσαι τον
+            κωδικό.
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button style={button("secondary")} onClick={() => setLockedOut(false)}>

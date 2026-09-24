@@ -22,7 +22,7 @@ import {
   calendarDay,
   shadow,
 } from "../../../lib/platform/theme";
-import { formatDate } from "../../../lib/platform/notifications";
+import { formatDate, formatDateRange } from "../../../lib/platform/notifications";
 
 const WEEKDAYS = ["Δε", "Τρ", "Τε", "Πε", "Πα", "Σα", "Κυ"];
 const MONTH_NAMES = [
@@ -193,7 +193,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
       return;
     }
     if (bookedInRange(range.startDate, range.endDate)) {
-      setError("Το διάστημα περιλαμβάνει ημέρες με κράτηση — δοκίμασε γύρω τους.");
+      setError("Το διάστημα περιλαμβάνει ημέρες με κράτηση. Διάλεξε άλλες μέρες.");
       return;
     }
     if (addSheet === "open" && sheetRegionIds.length === 0) {
@@ -284,7 +284,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   return (
     <div style={{ ...card, position: "relative" }}>
       <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-        Δήλωσε πότε είσαι διαθέσιμος για δουλειά, ή κλείσε μέρες που λείπεις (π.χ. διακοπές).
+        Δήλωσε πότε είσαι διαθέσιμος για δουλειά ή κλείσε τις μέρες που λείπεις.
       </p>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
@@ -292,7 +292,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
           + Νέο διάστημα διαθεσιμότητας
         </button>
         <button type="button" style={{ ...button("secondary"), flex: "1 1 200px" }} onClick={() => openAddSheet("close")}>
-          Δήλωσε διακοπές / απουσία
+          Δήλωσε απουσία
         </button>
       </div>
 
@@ -375,7 +375,8 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                 )}
                 <span
                   style={{
-                    fontFamily: fontMono,
+                    fontFamily: fontSans,
+                    fontVariantNumeric: "tabular-nums",
                     fontSize: 12,
                     // Struck through so a closed day is legible as "off" even
                     // to someone who can't tell the two fills apart.
@@ -428,7 +429,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${colors.border}` }}
               >
                 <span style={{ fontSize: 13 }}>
-                  Κλειστό: {formatDate(b.start_date)} → {formatDate(b.end_date)}
+                  Κλειστό: {formatDateRange(b.start_date, b.end_date)}
                   <span style={{ ...muted, fontSize: 12, display: "block" }}>Δεν δέχεσαι κρατήσεις</span>
                 </span>
                 <button
@@ -445,7 +446,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
             {windowsFor(detail).map((w) => (
               <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${colors.border}` }}>
                 <span style={{ fontSize: 13 }}>
-                  {formatDate(w.start_date)} → {formatDate(w.end_date)}
+                  {formatDateRange(w.start_date, w.end_date)}
                   <br />
                   <span style={{ ...muted, fontSize: 12 }}>
                     {(w.availability_window_regions || []).map((r) => r.regions?.name).join(", ")}
@@ -486,7 +487,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         <div style={sheetOverlayStyle} onClick={closeAddSheet}>
           <div role="dialog" aria-modal="true" style={{ ...sheetStyle, maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ ...sectionLabel, margin: "0 0 12px" }}>
-              {addSheet === "open" ? "Νέο διάστημα διαθεσιμότητας" : "Δήλωσε διακοπές / απουσία"}
+              {addSheet === "open" ? "Νέο διάστημα διαθεσιμότητας" : "Δήλωσε απουσία"}
             </h3>
 
             <DateRangeCalendar
@@ -502,7 +503,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
             {addSheet === "open" && (
               <div style={{ marginTop: 16 }}>
                 <p style={{ ...muted, fontSize: 13, margin: "0 0 10px" }}>
-                  Σε ποιες περιοχές είσαι διαθέσιμος/η — όχι συγκεκριμένα λιμάνια. Ένας πελάτης που ζητά ένα λιμάνι
+                  Σε ποιες περιοχές είσαι διαθέσιμος. Ένας πελάτης που ζητά ένα λιμάνι
                   μέσα σε μια από αυτές θα σε βρίσκει, ακόμα κι αν δεν έχεις δηλώσει ποτέ εκείνο το λιμάνι.
                 </p>
                 <button

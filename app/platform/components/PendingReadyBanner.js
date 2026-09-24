@@ -26,10 +26,10 @@ export default function PendingReadyBanner() {
     <div style={{ ...card, borderLeft: `3px solid ${colors.accent}`, textAlign: "left", marginBottom: 24 }}>
       <b style={{ fontWeight: 600 }}>Ο λογαριασμός σου εγκρίθηκε</b>
       <p style={{ ...muted, margin: "6px 0 12px" }}>
-        Οι επιλογές που είχες κάνει είναι έτοιμες — δεν έχουν σταλεί ακόμα.
+        Οι επιλογές σου σε περιμένουν. Δεν έχουν σταλεί ακόμα.
       </p>
       <Link href={href} style={{ ...button("primary"), textDecoration: "none", display: "inline-block" }}>
-        Συνέχισε στην αποστολή →
+        Συνέχεια στην αποστολή
       </Link>
     </div>
   );

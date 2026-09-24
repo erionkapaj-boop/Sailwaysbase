@@ -75,13 +75,13 @@ function GhostInner() {
   return (
     <AdminShell
       title="Δοκιμές (Ghost Mode)"
-      subtitle="Δοκιμή της εφαρμογής από την πλευρά κάθε ρόλου — χωρίς να αγγίζει πραγματικούς λογαριασμούς."
+      subtitle="Δοκιμή της εφαρμογής από την πλευρά κάθε ρόλου, χωρίς πραγματικούς λογαριασμούς."
       counts={counts}
     >
       <Panel title="1. Μπες στην εφαρμογή ως ένας ψεύτικος λογαριασμός">
         <ol style={{ ...muted, margin: "0 0 12px", paddingLeft: 20, lineHeight: 1.7 }}>
           <li>
-            Χρήστες → <b>Στοιχεία</b> του λογαριασμού → Προχωρημένες ρυθμίσεις → τσέκαρε <b>«Λογαριασμός δοκιμών»</b>.
+            Χρήστες, <b>Στοιχεία</b> του λογαριασμού, Προχωρημένες ρυθμίσεις και τσέκαρε <b>«Λογαριασμός δοκιμών»</b>.
           </li>
           <li>
             Πάτα <b>«Σύνδεση ως»</b>. Μπαίνεις πραγματικά ως αυτός και μπορείς να κάνεις ό,τι κάνει κι εκείνος.
@@ -92,16 +92,16 @@ function GhostInner() {
         </ol>
         <p style={{ ...muted, margin: "0 0 14px", fontSize: 13 }}>
           Θες απλώς να <i>δεις</i> τι βλέπει ένας πραγματικός χρήστης, χωρίς να κάνεις τίποτα; Χρησιμοποίησε το{" "}
-          <b>«Προβολή ως»</b> — δουλεύει σε όλους, μόνο για ανάγνωση.
+          <b>«Προβολή ως»</b>: δουλεύει σε όλους, μόνο για ανάγνωση.
         </p>
         <Link href="/platform/admin/users" style={{ textDecoration: "none" }}>
-          <span style={button("primary")}>Άνοιγμα λίστας χρηστών →</span>
+          <span style={button("primary")}>Άνοιγμα λίστας χρηστών</span>
         </Link>
       </Panel>
 
       <Panel title="2. Κάνε μια δοκιμαστική εγγραφή από την αρχή">
         <p style={{ ...muted, margin: "0 0 8px" }}>
-          Κάνε εγγραφή όπως ένας νέος χρήστης, αλλά με τηλέφωνο από αυτή τη σειρά — δεν στέλνεται SMS:
+          Κάνε εγγραφή όπως ένας νέος χρήστης, αλλά με τηλέφωνο από αυτή τη σειρά. Δεν στέλνεται SMS:
         </p>
         <p style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 600 }}>{TEST_RANGE_LABEL}</p>
         <p style={{ ...muted, margin: "0 0 18px", fontSize: 13 }}>
@@ -110,10 +110,10 @@ function GhostInner() {
         </p>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Link href="/platform" style={{ textDecoration: "none" }}>
-            <span style={button("primary")}>Άνοιγμα αρχικής σελίδας →</span>
+            <span style={button("primary")}>Άνοιγμα αρχικής σελίδας</span>
           </Link>
           <Link href="/platform/register?as=professional" style={{ textDecoration: "none" }}>
-            <span style={button("secondary")}>Απευθείας εγγραφή επαγγελματία →</span>
+            <span style={button("secondary")}>Απευθείας εγγραφή επαγγελματία</span>
           </Link>
         </div>
       </Panel>
@@ -145,7 +145,7 @@ function GhostInner() {
       <Panel title={`Ποια νούμερα της σειράς έχουν ήδη χρησιμοποιηθεί${used ? ` (${used.length})` : ""}`}>
         {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
         {!used && !error && <Empty>Φόρτωση…</Empty>}
-        {used && used.length === 0 && <Empty>Κανένα ακόμα — όλη η σειρά είναι ελεύθερη.</Empty>}
+        {used && used.length === 0 && <Empty>Κανένα ακόμα. Όλη η σειρά είναι ελεύθερη.</Empty>}
         {used?.map((u) => (
           <TestPhoneRow key={u.id} u={u} />
         ))}

@@ -46,7 +46,7 @@ const DELETE_ERRORS = {
   cannot_delete_self: "Δεν μπορείς να διαγράψεις τον δικό σου λογαριασμό από εδώ.",
   not_deleted: "Ο λογαριασμός δεν είναι διαγραμμένος.",
   cannot_impersonate_admin: "Δεν γίνεται «Σύνδεση ως» πάνω σε λογαριασμό admin.",
-  cannot_remove_last_admin: "Δεν μπορείς να αφαιρέσεις τα δικαιώματα admin — είναι ο μόνος admin που έχει απομείνει.",
+  cannot_remove_last_admin: "Δεν μπορείς να αφαιρέσεις τα δικαιώματα admin από τον μόνο admin που έχει απομείνει.",
   cannot_suspend_admin: "Λογαριασμός admin δεν μπορεί να τεθεί σε αναστολή.",
   already_suspended: "Ο λογαριασμός είναι ήδη σε αναστολή.",
   reason_required: "Χρειάζεται λόγος για την αναστολή.",
@@ -121,7 +121,7 @@ export default function AdminUserViewPage() {
     try {
       await adminApproveSkipper(id);
       await load();
-      setNotice("Το προφίλ εγκρίθηκε — εμφανίζεται πλέον στις αναζητήσεις.");
+      setNotice("Το προφίλ εγκρίθηκε και εμφανίζεται πλέον στις αναζητήσεις.");
     } catch (err) {
       setActionError(err.message || String(err));
     } finally {
@@ -157,7 +157,7 @@ export default function AdminUserViewPage() {
     try {
       await adminVerifyUser(id);
       await load();
-      setNotice("Ο λογαριασμός επαληθεύτηκε — ο χρήστης ειδοποιήθηκε.");
+      setNotice("Ο λογαριασμός επαληθεύτηκε και ο χρήστης ειδοποιήθηκε.");
     } catch (err) {
       setActionError(err.message || String(err));
     } finally {
@@ -213,7 +213,7 @@ export default function AdminUserViewPage() {
     const ok = await confirm(
       target.is_staff_admin
         ? `${name}: αφαίρεση των δικαιωμάτων διαχειριστή;`
-        : `${name}: να δοθούν δικαιώματα διαχειριστή; Θα βλέπει και θα αλλάζει τα πάντα εδώ — χρήστες, χρήματα, ρυθμίσεις. Δώσ' τα μόνο σε άτομο που εμπιστεύεσαι απόλυτα.`
+        : `${name}: να δοθούν δικαιώματα διαχειριστή; Θα βλέπει και θα αλλάζει τα πάντα εδώ: χρήστες, χρήματα, ρυθμίσεις. Δώσ' τα μόνο σε άτομο που εμπιστεύεσαι απόλυτα.`
     );
     if (!ok) return;
     setActionBusy(true);
@@ -264,7 +264,7 @@ export default function AdminUserViewPage() {
   async function handleLoginAs() {
     if (
       !(await confirm(
-        `Θα γίνει πραγματική σύνδεση ως ${target.full_name || target.phone_number} — ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`,
+        `Θα γίνει πραγματική σύνδεση ως ${target.full_name || target.phone_number}. Ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`,
         { tone: "primary" }
       ))
     )
@@ -293,7 +293,7 @@ export default function AdminUserViewPage() {
     if (pendingPings > 0)
       lines.push(`Αφαιρείται από ${pendingPings === 1 ? "1 αίτημα" : `${pendingPings} αιτήματα`} που περίμεναν απάντησή του.`);
     if (upcoming > 0)
-      lines.push(`ΠΡΟΣΟΧΗ: ${upcoming === 1 ? "η 1 επιβεβαιωμένη κράτησή του ΔΕΝ ακυρώνεται" : `οι ${upcoming} επιβεβαιωμένες κρατήσεις του ΔΕΝ ακυρώνονται`} — αν χρειάζεται, τακτοποίησέ τες ξεχωριστά.`);
+      lines.push(`ΠΡΟΣΟΧΗ: ${upcoming === 1 ? "η 1 επιβεβαιωμένη κράτησή του ΔΕΝ ακυρώνεται" : `οι ${upcoming} επιβεβαιωμένες κρατήσεις του ΔΕΝ ακυρώνονται`}. Αν χρειάζεται, τακτοποίησέ τες ξεχωριστά.`);
     return lines;
   }
 
@@ -301,7 +301,7 @@ export default function AdminUserViewPage() {
     const name = target.full_name || target.phone_number;
     const impact = deletionImpact();
     const ok = await confirm(
-      `${name}: διαγραφή λογαριασμού; Δεν θα μπορεί να συνδεθεί και κρύβεται από την πλατφόρμα. Τίποτα δεν σβήνεται — μπορείς να τον επαναφέρεις από αυτή τη σελίδα όποτε θελήσεις.` +
+      `${name}: διαγραφή λογαριασμού; Δεν θα μπορεί να συνδεθεί και κρύβεται από την πλατφόρμα. Τίποτα δεν σβήνεται και μπορείς να τον επαναφέρεις από αυτή τη σελίδα όποτε θελήσεις.` +
         (impact.length ? `\n\n${impact.join("\n")}` : "")
     );
     if (!ok) return;
@@ -336,7 +336,7 @@ export default function AdminUserViewPage() {
     try {
       await adminRestoreAccount(id);
       await load();
-      setNotice("✓ Ο λογαριασμός επανήλθε και ο χρήστης ειδοποιήθηκε.");
+      setNotice("Ο λογαριασμός επανήλθε και ο χρήστης ειδοποιήθηκε.");
     } catch (err) {
       setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
     } finally {
@@ -388,7 +388,7 @@ export default function AdminUserViewPage() {
               <b style={{ fontWeight: 600 }}>Περιμένει επαλήθευση</b>
               <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>{VERIFY_HINT}</p>
               <button style={button("primary")} disabled={actionBusy} onClick={handleVerify}>
-                {actionBusy ? "…" : "✓ Επαλήθευση"}
+                {actionBusy ? "…" : "Επαλήθευση"}
               </button>
             </div>
           )}
@@ -423,7 +423,7 @@ export default function AdminUserViewPage() {
                   href={`/platform/admin/finance?phone=${encodeURIComponent(target.phone_number || "")}`}
                   style={{ alignSelf: "flex-end", fontSize: 12.5, color: colors.ink }}
                 >
-                  Φόρτωση υπολοίπου →
+                  Φόρτωση υπολοίπου
                 </Link>
                 <Stat
                   label="Αξιοπιστία"
@@ -507,7 +507,7 @@ export default function AdminUserViewPage() {
                     <input
                       value={rejectNote}
                       onChange={(e) => setRejectNote(e.target.value)}
-                      placeholder="Λόγος απόρριψης (προαιρετικό — καταγράφεται)"
+                      placeholder="Λόγος απόρριψης (προαιρετικό)"
                       style={{
                         width: "100%",
                         marginTop: 10,
@@ -540,7 +540,7 @@ export default function AdminUserViewPage() {
                   href={`/platform/admin/finance?phone=${encodeURIComponent(target.phone_number || "")}`}
                   style={{ alignSelf: "flex-end", fontSize: 12.5, color: colors.ink }}
                 >
-                  Φόρτωση υπολοίπου →
+                  Φόρτωση υπολοίπου
                 </Link>
                 <Stat label="Τιμή/ημέρα" value={`${data.profile.price_per_day}€`} />
                 <Stat
@@ -586,7 +586,7 @@ export default function AdminUserViewPage() {
                   claimed. Ports are per window now, not one global list. */}
               <h2 style={h2}>Διαθεσιμότητα ({data.availability.length})</h2>
               {data.availability.length === 0 && (
-                <p style={muted}>Καμία δηλωμένη περίοδος — δεν εμφανίζεται σε καμία αναζήτηση.</p>
+                <p style={muted}>Καμία δηλωμένη περίοδος, άρα δεν εμφανίζεται σε αναζητήσεις.</p>
               )}
               {data.availability.map((w) => (
                 <div key={w.id} style={card}>
@@ -665,7 +665,7 @@ export default function AdminUserViewPage() {
                   Προσωρινός κωδικός: <b style={{ ...money, fontSize: 20, letterSpacing: "0.08em" }}>{tempPin}</b>
                   <p style={{ margin: "8px 0 0", lineHeight: 1.5 }}>
                     Πες τον στον χρήστη τηλεφωνικά (<span style={money}>{target.phone_number}</span>). Μόλις μπει, να
-                    τον αλλάξει από «Το προφίλ μου → Αλλαγή κωδικού». Δεν θα ξαναεμφανιστεί εδώ.
+                    τον αλλάξει από «Το προφίλ μου», «Αλλαγή κωδικού». Δεν θα ξαναεμφανιστεί εδώ.
                   </p>
                 </div>
               ) : (
@@ -681,7 +681,7 @@ export default function AdminUserViewPage() {
           {target.status !== "deleted" && (
             <div style={{ ...card, marginTop: 28 }}>
               <b style={{ fontWeight: 600 }}>Προχωρημένες ρυθμίσεις</b>
-              <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13 }}>Σπάνια χρειάζονται — ζητούν επιβεβαίωση.</p>
+              <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13 }}>Σπάνια χρειάζονται και ζητούν επιβεβαίωση.</p>
               <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, cursor: "pointer" }}>
                 <input
                   type="checkbox"
@@ -753,7 +753,7 @@ export default function AdminUserViewPage() {
                         <textarea
                           required
                           rows={2}
-                          placeholder="Λόγος αναστολής — θα τον βλέπεις εδώ όταν το ξανακοιτάξεις."
+                          placeholder="Λόγος αναστολής"
                           value={suspendReason}
                           onChange={(e) => setSuspendReason(e.target.value)}
                           style={{
@@ -799,7 +799,7 @@ export default function AdminUserViewPage() {
                   <b style={{ fontWeight: 600 }}>Διαγραφή λογαριασμού</b>
                   <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
                     Ο λογαριασμός κρύβεται από την πλατφόρμα και δεν μπορεί να συνδεθεί. Τίποτα δεν σβήνεται
-                    (ιστορικό, αξιολογήσεις, υπόλοιπο) — μπορείς να τον επαναφέρεις από εδώ όποτε θελήσεις.
+                    (ιστορικό, αξιολογήσεις, υπόλοιπο) και μπορείς να τον επαναφέρεις από εδώ όποτε θελήσεις.
                     Τα ανοιχτά του αιτήματα ακυρώνονται με επιστροφή χρημάτων.
                   </p>
                   {deletionImpact().some((l) => l.startsWith("ΠΡΟΣΟΧΗ")) && (
@@ -810,7 +810,7 @@ export default function AdminUserViewPage() {
                   <input
                     value={deleteReason}
                     onChange={(e) => setDeleteReason(e.target.value)}
-                    placeholder="Λόγος (προαιρετικό — θα τον βλέπεις αν τον ξανανοίξεις)"
+                    placeholder="Λόγος (προαιρετικό)"
                     style={{
                       width: "100%",
                       padding: "8px 10px",

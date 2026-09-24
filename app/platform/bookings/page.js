@@ -63,7 +63,7 @@ function BookingsInner() {
 
       {deliveryBookings.length > 0 && (
         <div style={{ marginTop: 8 }}>
-          <h2 style={sectionLabel}>Μεταφορές σκάφους ({deliveryBookings.length})</h2>
+          <h2 style={sectionLabel}>Μεταφορές σκάφους<span style={{ marginLeft: 8, opacity: 0.55 }}>{deliveryBookings.length}</span></h2>
           {deliveryBookings.map((b) => (
             <DeliveryBookingCard key={b.id} booking={b} />
           ))}
@@ -72,7 +72,7 @@ function BookingsInner() {
 
       {isProfessional && (
         <div style={{ marginTop: 8 }}>
-          <h2 style={sectionLabel}>Ως επαγγελματίας ({proBookings.length})</h2>
+          <h2 style={sectionLabel}>Ως επαγγελματίας<span style={{ marginLeft: 8, opacity: 0.55 }}>{proBookings.length}</span></h2>
           {busy && <p style={muted}>Φόρτωση...</p>}
           {!busy && proBookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
           {proBookings.map((b) => (
@@ -90,7 +90,7 @@ function BookingsInner() {
       )}
 
       <div style={{ marginTop: 32 }}>
-        <h2 style={sectionLabel}>Ως πελάτης ({clientBookings.length})</h2>
+        <h2 style={sectionLabel}>Ως πελάτης<span style={{ marginLeft: 8, opacity: 0.55 }}>{clientBookings.length}</span></h2>
         {busy && <p style={muted}>Φόρτωση...</p>}
         {!busy && clientBookings.length === 0 && (
           <div style={{ ...card, textAlign: "center" }}>
@@ -98,7 +98,7 @@ function BookingsInner() {
               Εδώ θα δεις τις κρατήσεις σου, μόλις κάποιος επαγγελματίας αναλάβει ένα αίτημά σου.
             </p>
             <Link href="/platform" style={{ ...button("secondary"), textDecoration: "none" }}>
-              Βρες πλήρωμα →
+              Βρες πλήρωμα
             </Link>
           </div>
         )}
@@ -106,6 +106,7 @@ function BookingsInner() {
           <BookingPanel
             key={b.id}
             booking={b}
+            replacedBy={clientBookings.find((x) => x.replaces_booking_id === b.id && x.status !== "cancelled_by_skipper") || null}
             viewerRole="client"
             viewerUserId={userRow.id}
             onChanged={load}

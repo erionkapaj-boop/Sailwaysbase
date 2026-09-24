@@ -109,6 +109,7 @@ export default function HomeEntry() {
           the header drops its own mark on this route so there's no double. */}
       <div style={{ marginBottom: 44 }}>
         <Logo variant="stacked" />
+        <p style={{ ...muted, fontSize: 15, margin: "14px auto 0", maxWidth: 300, lineHeight: 1.5 }}>{t("tagline")}</p>
       </div>
 
       {welcome && firstName && (

@@ -84,16 +84,15 @@ export default function WalletPage() {
         <div style={muted}>Διαθέσιμο υπόλοιπο</div>
         <div style={{ ...money, fontSize: 32, fontWeight: 600, marginTop: 6 }}>{userRow?.wallet_balance ?? 0}€</div>
         <p style={{ ...muted, fontSize: 13, margin: "10px 0 0" }}>
-          Για φόρτωση (τραπεζική κατάθεση ή κάρτα){" "}
+          Για φόρτωση με κατάθεση ή κάρτα,{" "}
           <Link href="/platform/contact" style={{ color: colors.ink, textDecoration: "underline" }}>
             επικοινώνησε μαζί μας
-          </Link>{" "}
-          — πιστώνεται στο υπόλοιπό σου.
+          </Link>
+          .
         </p>
         <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
-          Ό,τι φορτίζεις μένει εδώ σαν υπόλοιπο, χωρίς λήξη — δεν επιστρέφεται σε τραπεζικό λογαριασμό
-          επειδή άλλαξες γνώμη ή δεν το χρησιμοποίησες. Φόρτισε μόνο όσο πραγματικά χρειάζεσαι· δοκίμασε
-          πρώτα με ό,τι δωρεάν υπόλοιπο ήδη έχεις.
+          Το υπόλοιπο δεν λήγει και χρησιμοποιείται μόνο μέσα στην εφαρμογή. Δεν εξαργυρώνεται σε
+          τραπεζικό λογαριασμό.
         </p>
       </div>
 

@@ -32,7 +32,7 @@ import {
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const REQUEST_ERRORS = {
-  account_not_verified: "Ο λογαριασμός σου ελέγχεται ακόμα — θα μπορείς να στείλεις το αίτημα μόλις ενεργοποιηθεί.",
+  account_not_verified: "Ο λογαριασμός σου ελέγχεται ακόμα. Θα μπορείς να στείλεις το αίτημα μόλις ενεργοποιηθεί.",
   no_client_profile: "Χρειάζεται λογαριασμός πελάτη.",
   invalid_distance: "Τα μίλια πρέπει να είναι θετικός αριθμός.",
   invalid_date_mode: "Μη έγκυρος τύπος ημερομηνίας.",
@@ -122,7 +122,7 @@ function CandidateCard({ s, selected, onToggle }) {
         }}
         style={{ ...button(selected ? "primary" : "secondary"), padding: "6px 14px", fontSize: 13, flexShrink: 0 }}
       >
-        {selected ? "✓" : "Επιλογή"}
+        {selected ? "Επιλέχθηκε" : "Επιλογή"}
       </button>
     </div>
   );
@@ -217,8 +217,8 @@ function RoleBlock({
     return (
       <div style={{ ...card, borderLeft: `3px solid ${colors.accent}` }}>
         <p style={{ margin: 0, fontWeight: 600 }}>
-          ✓ Στάλθηκε αίτημα για {labelForRole(role).toLowerCase()} — {selected.size} υποψήφι
-          {selected.size === 1 ? "ος/α" : "οι/ες"}
+          Στάλθηκε το αίτημα για {labelForRole(role)} σε {selected.size}{" "}
+          {selected.size === 1 ? "υποψήφιο" : "υποψηφίους"}
         </p>
         <p style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>
           Προσφερόμενη τιμή: <span style={{ ...money, color: colors.ink }}>{formatMoney(sent.offered_price)}€</span> · Χρεώθηκες{" "}
@@ -232,7 +232,7 @@ function RoleBlock({
     <div style={card}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
         <h3 style={{ ...h2, fontSize: 16, margin: "0 0 10px" }}>
-          {labelForRole(role)} {role === "skipper" && <span style={{ ...muted, fontSize: 12.5 }}>(υποχρεωτικό)</span>}
+          {labelForRole(role)}
         </h3>
         {removable && (
           <button
@@ -247,7 +247,7 @@ function RoleBlock({
 
       {restoredNotice && (
         <p style={{ ...muted, fontSize: 13, margin: "-4px 0 12px", color: colors.accent }}>
-          Οι επιλογές σου διατηρήθηκαν — πάτησε ξανά «Αποστολή» για να ολοκληρωθεί.
+          Οι επιλογές σου κρατήθηκαν. Πάτησε ξανά «Αποστολή».
         </p>
       )}
 
@@ -261,14 +261,13 @@ function RoleBlock({
         placeholder="π.χ. 1500"
       />
       <p style={{ ...muted, fontSize: 12.5, margin: "0 0 14px" }}>
-        Η τιμή που θα δει και θα αποδεχτεί ή θα απορρίψει ο υποψήφιος — πληρώνεται απευθείας σε αυτόν, εκτός
-        πλατφόρμας.
+        Η αμοιβή που προτείνεις. Την πληρώνεις απευθείας στον επαγγελματία.
       </p>
 
       {estimate != null && (
         <div style={{ padding: "10px 12px", background: colors.seaGlass, borderRadius: radius.md, marginBottom: 14, fontSize: 13 }}>
-          Τέλος πλατφόρμας: <span style={{ ...money, color: colors.ink }}>{estimate}€</span> — υπολογισμένο από τα
-          μίλια, ανεξάρτητα από την τιμή που όρισες παραπάνω.
+          Τέλος πλατφόρμας: <span style={{ ...money, color: colors.ink }}>{estimate}€</span>. Υπολογίζεται από τα
+          μίλια, όχι από την αμοιβή.
         </div>
       )}
 
@@ -289,8 +288,7 @@ function RoleBlock({
       {awaitingVerification ? (
         <div style={{ padding: "12px 14px", border: `1px solid ${colors.warn}`, background: "#F7F0E2", borderRadius: radius.md, fontSize: 13.5, lineHeight: 1.5 }}>
           <b style={{ display: "block", fontSize: 14, marginBottom: 4 }}>Ο λογαριασμός σου ελέγχεται</b>
-          Συνήθως μέσα στην ημέρα. Η φόρμα σου κρατήθηκε — μόλις ενεργοποιηθεί ο λογαριασμός σου θα μπορείς να
-          στείλεις το αίτημα. Δεν έχεις χρεωθεί τίποτα.
+          Συνήθως ολοκληρώνεται μέσα στην ημέρα. Η φόρμα σου κρατήθηκε και δεν έχεις χρεωθεί.
         </div>
       ) : (
         <button style={button("primary")} disabled={busy || !candidates?.length} onClick={handleSend}>
@@ -439,8 +437,7 @@ function DeliveryForm({ onCreated }) {
       <div style={{ margin: "18px 0" }}>
         <label style={label}>Τι καλύπτεται</label>
         <p style={{ ...muted, fontSize: 12.5, margin: "2px 0 10px" }}>
-          Τι από τα έξοδα του υποψηφίου αναλαμβάνεις εσύ — δεν περνάει από την πλατφόρμα, το βλέπει μόνο ο
-          υποψήφιος πριν αποφασίσει.
+          Ποια έξοδα του πληρώματος αναλαμβάνεις εσύ. Τα βλέπει ο υποψήφιος πριν αποφασίσει.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
@@ -466,7 +463,7 @@ function DeliveryForm({ onCreated }) {
                   onChange={(e) => setFoodAllowanceAmount(e.target.value)}
                   placeholder="π.χ. 30"
                 />
-                <span style={{ ...muted, fontSize: 13 }}>€ — το ποσό που καλύπτεις</span>
+                <span style={{ ...muted, fontSize: 13 }}>€ συνολικά</span>
               </div>
             )}
           </div>
@@ -476,7 +473,7 @@ function DeliveryForm({ onCreated }) {
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
             <input type="checkbox" checked={coversPortExpenses} onChange={(e) => setCoversPortExpenses(e.target.checked)} />
-            Λοιπά έξοδα μεταφοράς — λιμάνια, ανεφοδιασμός, νερό κ.λπ.
+            Λιμενικά, ανεφοδιασμός, νερό
           </label>
         </div>
       </div>
@@ -488,12 +485,12 @@ function DeliveryForm({ onCreated }) {
         onChange={(e) => setNotes(e.target.value)}
       />
       <p style={{ ...muted, fontSize: 12, margin: "0 0 14px" }}>
-        Μην γράφεις τηλέφωνο ή email εδώ — δεν φτάνει στον υποψήφιο πριν επιβεβαιωθεί η κράτηση.
+        Χωρίς τηλέφωνο ή email. Τα στοιχεία σας ανταλλάσσονται μετά την επιβεβαίωση.
       </p>
 
       {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}
       <button style={{ ...button("primary"), width: "100%" }} type="submit">
-        Συνέχεια — επιλογή πληρώματος
+        Συνέχεια
       </button>
     </form>
   );
@@ -527,8 +524,7 @@ function RolePickerStep({ onContinue }) {
   return (
     <div style={card}>
       <p style={{ ...muted, margin: "0 0 16px" }}>
-        Ο skipper χρειάζεται πάντα. Πρόσθεσε ό,τι άλλο πλήρωμα θέλεις για τη μεταφορά — μπορείς να προσθέσεις
-        κι άλλους αργότερα.
+        Ο skipper χρειάζεται πάντα. Πρόσθεσε όποιον άλλον θέλεις στο πλήρωμα.
       </p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
         <span
@@ -541,7 +537,7 @@ function RolePickerStep({ onContinue }) {
             color: "#fff",
           }}
         >
-          Skipper (υποχρεωτικό)
+          Skipper
         </span>
         {EXTRA_ROLES.map((role) => (
           <button
@@ -555,11 +551,10 @@ function RolePickerStep({ onContinue }) {
               fontFamily: "inherit",
               cursor: "pointer",
               border: `1px solid ${picked.has(role) ? colors.ink : colors.border}`,
-              background: picked.has(role) ? colors.seaGlass : "transparent",
-              color: colors.ink,
+              background: picked.has(role) ? colors.ink : "transparent",
+              color: picked.has(role) ? "#fff" : colors.ink,
             }}
           >
-            {picked.has(role) ? "✓ " : ""}
             {labelForRole(role)}
           </button>
         ))}
@@ -684,7 +679,7 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
 
       {deliveryRequest && (
         <button style={{ ...button("primary"), width: "100%" }} onClick={() => router.push("/platform/delivery/requests")}>
-          Ολοκλήρωση — προβολή αιτημάτων μου
+          Τα αιτήματά μου
         </button>
       )}
     </div>
@@ -735,12 +730,11 @@ export default function DeliveryPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
         <h1 style={{ ...h1, marginTop: pickedRoles != null ? 14 : 0 }}>Μεταφορά σκάφους</h1>
         <Link href="/platform/delivery/requests" style={{ fontSize: 13.5, color: colors.accent, textDecoration: "none" }}>
-          Τα αιτήματά μου →
+          Τα αιτήματά μου
         </Link>
       </div>
       <p style={muted}>
-        Βρες κάποιον να αναλάβει τη μεταφορά του σκάφους σου από ένα σημείο σε άλλο — πλήρωμα ειδικά για το ταξίδι,
-        όχι για διαμονή. Η δημιουργία αιτήματος και η επιλογή πληρώματος δεν απαιτούν λογαριασμό — μόνο η αποστολή.
+        Πλήρωμα για να πάει το σκάφος σου από ένα λιμάνι σε άλλο. Λογαριασμό χρειάζεσαι μόνο για την αποστολή.
       </p>
       {pickedRoles == null ? (
         <RolePickerStep onContinue={setPickedRoles} />

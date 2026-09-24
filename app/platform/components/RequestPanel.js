@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { listRequestPings, withdrawPing, cancelBookingRequest, departureLabel } from "../../../lib/platform/db";
 import { labelForRole } from "../../../lib/platform/roles";
-import { formatDate, formatDateTime } from "../../../lib/platform/notifications";
+import { formatDate, formatDateTime, formatDateRange } from "../../../lib/platform/notifications";
 import { card, muted, badge, button, colors, money } from "../../../lib/platform/theme";
 import { useConfirm } from "./ConfirmDialog";
 import { friendlyError } from "../../../lib/platform/friendlyError";
@@ -10,7 +10,7 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 const REQ_STATUS = {
   open: ["Περιμένει απάντηση", "brand"],
   matched: ["Βρέθηκε επαγγελματίας", "success"],
-  expired_unclaimed: ["Δεν βρέθηκε — το τέλος επιστράφηκε", "warn"],
+  expired_unclaimed: ["Έληξε, το τέλος επιστράφηκε", "warn"],
   cancelled: ["Ακυρώθηκε", "danger"],
 };
 
@@ -53,7 +53,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
       !(await confirm(
         `Σίγουρα θέλεις να αφαιρέσεις ${ping.skipper_profiles?.full_name || "αυτόν τον υποψήφιο"} από το αίτημα; ` +
           (remaining > 1
-            ? "Η χρέωση δεν αλλάζει — το αίτημα μένει ανοιχτό για τους υπόλοιπους."
+            ? "Η χρέωση δεν αλλάζει. Το αίτημα μένει ανοιχτό για τους υπόλοιπους."
             : "Είναι ο τελευταίος που περιμένει απάντηση· η χρέωση δεν επιστρέφεται με την αφαίρεση. Αν θέλεις τα χρήματα πίσω, ακύρωσε ολόκληρο το αίτημα.")
       ))
     )
@@ -73,9 +73,9 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
   async function handleCancelRequest() {
     const refundNote =
       request.fee_paid_at && request.fee_amount > 0
-        ? ` Το τέλος των ${request.fee_amount}€ θα επιστραφεί ως credit στο πορτοφόλι σου (όχι σε τραπεζικό λογαριασμό).`
+        ? `\n\nΤα ${request.fee_amount}€ του τέλους επιστρέφονται στο πορτοφόλι σου.`
         : "";
-    if (!(await confirm(`Σίγουρα θέλεις να ακυρώσεις όλο το αίτημα;${refundNote}`))) return;
+    if (!(await confirm(`Να ακυρωθεί όλο το αίτημα;${refundNote}`))) return;
     setBusyId("__all__");
     setError("");
     try {
@@ -127,7 +127,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
           </span>
         </div>
         <p style={{ ...muted, margin: "6px 0 0" }}>
-          <span style={money}>{formatDate(request.start_date)}</span> → <span style={money}>{formatDate(request.end_date)}</span>
+          <span style={money}>{formatDateRange(request.start_date, request.end_date)}</span>
           {" · Τέλος "}
           <span style={{ ...money, color: colors.ink }}>{request.fee_amount}€</span>
           {" · "}
