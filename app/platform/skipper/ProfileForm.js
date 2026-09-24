@@ -49,6 +49,57 @@ function Section({ title, children, note }) {
   );
 }
 
+// Ημερομηνία γέννησης: τρεις επιλογές αντί για ημερολόγιο — κανείς δεν
+// θέλει να γυρίσει σαράντα χρόνια πίσω μήνα-μήνα.
+const DOB_MONTHS = ["Ιαν", "Φεβ", "Μαρ", "Απρ", "Μάι", "Ιούν", "Ιούλ", "Αύγ", "Σεπ", "Οκτ", "Νοέ", "Δεκ"];
+function DobSelect({ id, value, onChange }) {
+  const [y0, m0, d0] = value ? value.split("-") : ["", "", ""];
+  const [parts, setParts] = useState({ y: y0 || "", m: m0 || "", d: d0 || "" });
+  useEffect(() => {
+    const [y, m, d] = value ? value.split("-") : ["", "", ""];
+    setParts((p) => (value ? { y, m, d } : p));
+  }, [value]);
+  const thisYear = new Date().getFullYear();
+  const years = [];
+  for (let y = thisYear - 18; y >= thisYear - 80; y--) years.push(String(y));
+  const daysIn = parts.y && parts.m ? new Date(Number(parts.y), Number(parts.m), 0).getDate() : 31;
+  function set(k, v) {
+    const next = { ...parts, [k]: v };
+    if (next.d && Number(next.d) > (next.y && next.m ? new Date(Number(next.y), Number(next.m), 0).getDate() : 31)) next.d = "";
+    setParts(next);
+    onChange(next.y && next.m && next.d ? `${next.y}-${next.m}-${next.d}` : "");
+  }
+  const sel = { ...select, flex: 1, minWidth: 0 };
+  return (
+    <div style={{ display: "flex", gap: 8 }}>
+      <select id={id} aria-label="Ημέρα" style={{ ...sel, flex: "0 0 84px" }} value={parts.d} onChange={(e) => set("d", e.target.value)}>
+        <option value="">Ημέρα</option>
+        {Array.from({ length: daysIn }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => (
+          <option key={d} value={d}>
+            {Number(d)}
+          </option>
+        ))}
+      </select>
+      <select aria-label="Μήνας" style={sel} value={parts.m} onChange={(e) => set("m", e.target.value)}>
+        <option value="">Μήνας</option>
+        {DOB_MONTHS.map((name, i) => (
+          <option key={name} value={String(i + 1).padStart(2, "0")}>
+            {name}
+          </option>
+        ))}
+      </select>
+      <select aria-label="Έτος" style={{ ...sel, flex: "0 0 96px" }} value={parts.y} onChange={(e) => set("y", e.target.value)}>
+        <option value="">Έτος</option>
+        {years.map((y) => (
+          <option key={y} value={y}>
+            {y}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function Criterion({ met, children }) {
   return (
     <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 14 }}>
@@ -307,14 +358,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
             <label style={label} htmlFor="p-dob">
               Ημερομηνία γέννησης
             </label>
-            <input
-              id="p-dob"
-              type="date"
-              required
-              style={input}
-              value={form.date_of_birth || ""}
-              onChange={(e) => setField("date_of_birth", e.target.value)}
-            />
+            <DobSelect id="p-dob" value={form.date_of_birth || ""} onChange={(v) => setField("date_of_birth", v)} />
           </div>
         </div>
 

@@ -181,7 +181,7 @@ export default function CrewSearchFlow() {
   const current = STEPS[step];
 
   return (
-    <div style={{ maxWidth: 460, margin: "0 auto" }}>
+    <div style={{ maxWidth: 460, width: "100%", margin: "0 auto" }}>
       <style>{`
         @keyframes sf-step-in {
           from { opacity: 0; transform: translateY(8px); }

@@ -1,175 +1,227 @@
 "use client";
-import { useState } from "react";
-import { card, muted, button, colors, radius, fontSans, fontMono, calendarDay } from "../../../lib/platform/theme";
-import { formatDate, formatDateRange } from "../../../lib/platform/notifications";
+import { useEffect, useState } from "react";
+import { colors, fontSans, radius } from "../../../lib/platform/theme";
+import { formatDateRange } from "../../../lib/platform/notifications";
+import {
+  CalendarStyles,
+  MonthNav,
+  MonthGrid,
+  addMonths,
+  startOfMonth,
+  parseISO,
+  todayKey,
+  daysBetween,
+  shortDay,
+  useMonthCount,
+} from "./calendar/Calendar";
 
-const WEEKDAYS = ["Δε", "Τρ", "Τε", "Πε", "Πα", "Σα", "Κυ"];
-const MONTH_NAMES = [
-  "Ιανουάριος", "Φεβρουάριος", "Μάρτιος", "Απρίλιος", "Μάιος", "Ιούνιος",
-  "Ιούλιος", "Αύγουστος", "Σεπτέμβριος", "Οκτώβριος", "Νοέμβριος", "Δεκέμβριος",
-];
-
-const navArrow = {
-  width: 32,
-  height: 32,
-  borderRadius: "50%",
-  border: `1px solid ${colors.border}`,
-  background: colors.card,
-  color: colors.ink,
-  fontSize: 15,
-  lineHeight: 1,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 0,
-  flexShrink: 0,
-};
-
-const pad = (n) => String(n).padStart(2, "0");
-// Local formatting — toISOString() shifts to UTC and can land on the wrong
-// day near midnight, which is precisely wrong for picking dates.
-const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const addMonths = (d, n) => new Date(d.getFullYear(), d.getMonth() + n, 1);
-
-// Two taps make a range, same gesture as the availability calendar so the
-// two never have to be learned separately. Replaces a pair of native date
-// inputs, which on mobile means two modal pickers and no sense of how long
-// the trip actually is.
-export default function DateRangeCalendar({ startDate, endDate, onChange, minDate }) {
-  const today = fmt(new Date());
-  const floor = minDate || today;
-  const [month, setMonth] = useState(() => {
-    const anchor = startDate ? new Date(startDate) : new Date();
-    return new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-  });
-  // Set once the first tap lands, cleared when the range completes.
-  const [pendingStart, setPendingStart] = useState(null);
+// Επιλογή διαστήματος, ίδια σε όλη την εφαρμογή. Πάνω από το πλέγμα δύο
+// «θέσεις» (Αναχώρηση / Επιστροφή): η ενεργή έχει περίγραμμα, οπότε από
+// την πρώτη ματιά φαίνεται ότι ζητούνται δύο ημερομηνίες και ποια
+// περιμένει τώρα. Μετά το πρώτο πάτημα ενεργοποιείται αμέσως η Επιστροφή
+// και, όσο κινείσαι πάνω στις μέρες, το διάστημα γεμίζει ζωντανά.
+export default function DateRangeCalendar({
+  startDate,
+  endDate,
+  onChange,
+  minDate,
+  startLabel = "Αναχώρηση",
+  endLabel = "Επιστροφή",
+  bare = false,
+  maxMonths = 2,
+}) {
+  const floor = minDate || todayKey();
+  const [month, setMonth] = useState(() => startOfMonth(startDate ? parseISO(startDate) : new Date()));
+  // "start" | "end" | "done" (διάστημα πλήρες: καμία θέση δεν περιμένει)
+  const [active, setActive] = useState(!startDate ? "start" : !endDate ? "end" : "done");
   const [hovered, setHovered] = useState(null);
+  const [wrapRef, count] = useMonthCount(maxMonths, 300);
 
-  function handleDay(key) {
+  // Αν αλλάξει απ' έξω (π.χ. «Καθαρισμός» από τον γονέα), ακολουθεί.
+  useEffect(() => {
+    if (!startDate) setActive("start");
+  }, [startDate]);
+
+  function pick(key) {
     if (key < floor) return;
-    if (pendingStart) {
-      const [s, e] = pendingStart <= key ? [pendingStart, key] : [key, pendingStart];
-      setPendingStart(null);
-      setHovered(null);
-      onChange({ startDate: s, endDate: e });
-    } else {
-      setPendingStart(key);
-      setHovered(null);
+    if (active !== "end" || !startDate) {
       onChange({ startDate: key, endDate: "" });
+      setActive("end");
+    } else if (key < startDate) {
+      // Πιο νωρίς από την αναχώρηση: γίνεται η νέα αναχώρηση.
+      onChange({ startDate: key, endDate: "" });
+    } else {
+      onChange({ startDate, endDate: key });
+      setActive("done");
     }
+    setHovered(null);
   }
 
-  // While picking the second date, preview the span under the cursor so the
-  // length of the booking is visible before committing to it.
-  const previewEnd = pendingStart && hovered ? hovered : null;
-  const spanStart = pendingStart && previewEnd ? (pendingStart <= previewEnd ? pendingStart : previewEnd) : startDate;
-  const spanEnd = pendingStart && previewEnd ? (pendingStart <= previewEnd ? previewEnd : pendingStart) : endDate;
+  const choosingEnd = active === "end" && startDate;
+  const previewEnd = choosingEnd && hovered && hovered >= startDate ? hovered : null;
+  const rangeEnd = endDate || previewEnd;
+  const isPreview = !endDate && !!previewEnd;
 
-  function inSpan(key) {
-    if (!spanStart || !spanEnd) return false;
-    return key >= spanStart && key <= spanEnd;
+  function dayProps(key) {
+    const disabled = key < floor;
+    const base = { disabled, onClick: pick, onHover: choosingEnd ? setHovered : undefined };
+    if (!startDate) return base;
+    const tone = isPreview ? "preview" : "range";
+    if (!rangeEnd) {
+      if (key === startDate) return { ...base, filled: true, band: "single", tone, pulse: true };
+      return base;
+    }
+    if (key === startDate && key === rangeEnd) return { ...base, filled: true, band: "single", tone };
+    if (key === startDate) return { ...base, filled: true, band: "start", tone };
+    if (key === rangeEnd) return { ...base, filled: !isPreview, outline: isPreview, band: "end", tone };
+    if (key > startDate && key < rangeEnd) return { ...base, band: "mid", tone };
+    return base;
   }
-  const isEdge = (key) => key === spanStart || key === spanEnd;
 
-  const first = new Date(month.getFullYear(), month.getMonth(), 1);
-  const last = new Date(month.getFullYear(), month.getMonth() + 1, 0);
-  const offset = (first.getDay() + 6) % 7; // Monday-first
-  const cells = [];
-  for (let i = 0; i < offset; i++) cells.push(null);
-  for (let d = 1; d <= last.getDate(); d++) cells.push(new Date(month.getFullYear(), month.getMonth(), d));
+  const days = startDate && endDate ? daysBetween(startDate, endDate) + 1 : null;
 
-  const nights =
-    startDate && endDate
-      ? Math.round((new Date(endDate) - new Date(startDate)) / 86400000) + 1
-      : null;
+  const slot = (which, label, value, placeholder) => {
+    const isActive = active === which && !(which === "end" && !startDate);
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          if (which === "end" && !startDate) return;
+          setActive(which);
+        }}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          textAlign: "left",
+          padding: "10px 14px",
+          borderRadius: radius.md,
+          border: `1.5px solid ${isActive ? colors.ink : "transparent"}`,
+          background: isActive ? colors.card : "transparent",
+          boxShadow: isActive ? "0 2px 10px rgba(22,40,60,0.10)" : "none",
+          cursor: which === "end" && !startDate ? "default" : "pointer",
+          fontFamily: fontSans,
+          transition: "border-color .15s ease, background-color .15s ease, box-shadow .15s ease",
+        }}
+      >
+        <span
+          style={{
+            display: "block",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: isActive ? colors.ink : colors.inkSoft,
+          }}
+        >
+          {label}
+        </span>
+        <span
+          style={{
+            display: "block",
+            marginTop: 3,
+            fontSize: 15,
+            fontWeight: value ? 600 : 400,
+            color: value ? colors.ink : colors.inkSoft,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {value ? shortDay(value) : placeholder}
+        </span>
+      </button>
+    );
+  };
+
+  const prompt = !startDate
+    ? `Πάτησε την ημέρα ${startLabel === "Αναχώρηση" ? "αναχώρησης" : "έναρξης"}.`
+    : !endDate
+    ? `Τώρα πάτησε την ημέρα ${endLabel === "Επιστροφή" ? "επιστροφής" : "λήξης"}.`
+    : null;
 
   return (
-    <div style={{ ...card, padding: 16, marginBottom: 0 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <button type="button" onClick={() => setMonth((m) => addMonths(m, -1))} style={navArrow}>
-          ‹
-        </button>
-        <span style={{ fontFamily: fontSans, fontSize: 16, fontWeight: 600 }}>
-          {MONTH_NAMES[month.getMonth()]} {month.getFullYear()}
-        </span>
-        <button type="button" onClick={() => setMonth((m) => addMonths(m, 1))} style={navArrow}>
-          ›
-        </button>
+    <div
+      ref={wrapRef}
+      style={
+        bare
+          ? { width: "100%" }
+          : {
+              width: "100%",
+              boxSizing: "border-box",
+              background: colors.card,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.lg,
+              padding: 16,
+            }
+      }
+    >
+      <CalendarStyles />
+      <div
+        style={{
+          display: "flex",
+          gap: 4,
+          padding: 4,
+          marginBottom: 16,
+          background: "#F1F4F5",
+          borderRadius: radius.md + 4,
+        }}
+      >
+        {slot("start", startLabel, startDate, "Επίλεξε")}
+        {slot("end", endLabel, endDate, "Επίλεξε")}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5, marginBottom: 8, width: "100%" }}>
-        {WEEKDAYS.map((w) => (
-          <div key={w} style={{ ...muted, fontSize: 11, textAlign: "center", letterSpacing: "0.03em" }}>
-            {w}
-          </div>
+      <MonthNav
+        month={month}
+        count={count}
+        onPrev={() => setMonth((m) => addMonths(m, -1))}
+        onNext={() => setMonth((m) => addMonths(m, 1))}
+        prevDisabled={addMonths(month, 0) <= startOfMonth(parseISO(floor))}
+      />
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${count}, 1fr)`, gap: 28 }}>
+        {Array.from({ length: count }).map((_, i) => (
+          <MonthGrid key={i} month={addMonths(month, i)} dayProps={dayProps} onLeave={() => setHovered(null)} />
         ))}
       </div>
 
       <div
-        style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5, width: "100%", boxSizing: "border-box" }}
-        onMouseLeave={() => setHovered(null)}
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          marginTop: 14,
+          minHeight: 22,
+          fontFamily: fontSans,
+          fontSize: 13.5,
+        }}
       >
-        {cells.map((d, i) => {
-          if (!d) return <div key={`e${i}`} />;
-          const key = fmt(d);
-          const disabled = key < floor;
-          const selected = inSpan(key);
-          const edge = selected && isEdge(key);
-          const isToday = key === today;
-
-          return (
-            <button
-              key={key}
-              type="button"
-              disabled={disabled}
-              onClick={() => handleDay(key)}
-              onMouseEnter={() => pendingStart && setHovered(key)}
-              style={{
-                position: "relative",
-                minHeight: 42,
-                minWidth: 0,
-                boxSizing: "border-box",
-                padding: 0,
-                borderRadius: radius.sm,
-                // Κάθε επιλέξιμη μέρα έχει πραγματικό περίγραμμα από την αρχή —
-                // χωρίς αυτό οι κενές μέρες επιπλέουν σαν αριθμοί στο κενό
-                // αντί να διαβάζονται σαν πλέγμα ημερολογίου.
-                border: `1px solid ${edge ? colors.ink : disabled ? "transparent" : colors.border}`,
-                cursor: disabled ? "default" : "pointer",
-                fontFamily: fontSans,
-                    fontVariantNumeric: "tabular-nums",
-                fontSize: 13,
-                fontWeight: edge ? 600 : 400,
-                // Edges solid, the days between them tinted — the shape of
-                // the stay reads at a glance instead of two isolated dots.
-                background: edge ? colors.ink : selected ? calendarDay.available.bg : disabled ? "transparent" : colors.card,
-                color: edge ? "#fff" : disabled ? colors.inkSoft : colors.ink,
-                opacity: disabled ? 0.35 : 1,
-              }}
-            >
-              {d.getDate()}
-              {isToday && !edge && (
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute", bottom: 5, left: "50%", transform: "translateX(-50%)",
-                    width: 4, height: 4, borderRadius: "50%", background: colors.accent,
-                  }}
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{ marginTop: 12, fontSize: 13, color: colors.inkSoft, minHeight: 20 }}>
-        {pendingStart && !endDate
-          ? "Διάλεξε και την ημέρα επιστροφής."
-          : nights
-          ? `${formatDateRange(startDate, endDate)} · ${nights} ${nights === 1 ? "ημέρα" : "ημέρες"}`
-          : "Διάλεξε ημερομηνία αναχώρησης."}
+        <span style={{ color: prompt ? colors.ink : colors.inkSoft, fontWeight: prompt ? 500 : 400 }}>
+          {prompt ||
+            `${days} ${days === 1 ? "ημέρα" : "ημέρες"} · ${formatDateRange(startDate, endDate)}`}
+        </span>
+        {startDate && (
+          <button
+            type="button"
+            onClick={() => {
+              onChange({ startDate: "", endDate: "" });
+              setActive("start");
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              fontFamily: fontSans,
+              fontSize: 13.5,
+              color: colors.ink,
+              textDecoration: "underline",
+              textUnderlineOffset: 3,
+              flexShrink: 0,
+            }}
+          >
+            Καθαρισμός
+          </button>
+        )}
       </div>
     </div>
   );

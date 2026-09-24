@@ -1,4 +1,5 @@
 "use client";
+import DateField from "../components/calendar/DateField";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -415,9 +416,14 @@ function DeliveryForm({ onCreated }) {
           </button>
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div>
-            <label style={{ ...label, fontSize: 12 }}>{dateMode === "flexible" ? "Γύρω από" : "Ημερομηνία"}</label>
-            <input type="date" style={input} value={departureDate} onChange={(e) => setDepartureDate(e.target.value)} />
+          <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+            <label style={{ ...label, fontSize: 12 }}>{dateMode === "flexible" ? "Γύρω από" : "Αναχώρηση"}</label>
+            <DateField
+              mode="single"
+              title="Ημερομηνία αναχώρησης"
+              value={departureDate}
+              onChange={setDepartureDate}
+            />
           </div>
           {dateMode === "flexible" && (
             <div>

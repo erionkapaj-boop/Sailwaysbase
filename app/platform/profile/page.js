@@ -1,4 +1,5 @@
 "use client";
+import DateField from "../components/calendar/DateField";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -357,15 +358,17 @@ function DeliveryAvailability({ profile }) {
               </option>
             ))}
           </select>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-            <div>
-              <label style={label}>Από</label>
-              <input type="date" style={input} value={newStart} onChange={(e) => setNewStart(e.target.value)} />
-            </div>
-            <div>
-              <label style={label}>Έως</label>
-              <input type="date" style={input} value={newEnd} onChange={(e) => setNewEnd(e.target.value)} />
-            </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={label}>Διάστημα</label>
+            <DateField
+              mode="range"
+              title="Διαθέσιμος για μεταφορές"
+              value={{ startDate: newStart, endDate: newEnd }}
+              onChange={({ startDate, endDate }) => {
+                setNewStart(startDate);
+                setNewEnd(endDate);
+              }}
+            />
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" style={button("primary")} disabled={busy} onClick={handleAdd}>

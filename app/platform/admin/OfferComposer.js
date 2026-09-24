@@ -1,8 +1,10 @@
 "use client";
+import DateField from "../components/calendar/DateField";
 import { useCallback, useEffect, useState } from "react";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Toolbar, Row, RowMain, Empty, colors, muted, money, button } from "./ui";
 import { CREW_ROLES, labelForRole } from "../../../lib/platform/roles";
+import { formatDateRange } from "../../../lib/platform/notifications";
 import {
   adminSearchAvailability,
   adminCreateOffer,
@@ -231,24 +233,20 @@ export default function OfferComposer({ job = null, onDone }) {
               ))}
             </select>
           </Field>
-          <Field label="Από">
-            <input
-              type="date"
-              style={control}
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              disabled={replacing}
-            />
-          </Field>
-          <Field label="Έως">
-            <input
-              type="date"
-              style={control}
-              min={startDate || undefined}
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              disabled={replacing}
-            />
+          <Field label="Ημερομηνίες" basis="100%">
+            {replacing ? (
+              <div style={{ ...control, color: colors.ink }}>{formatDateRange(startDate, endDate)}</div>
+            ) : (
+              <DateField
+                mode="range"
+                title="Ημερομηνίες δουλειάς"
+                value={{ startDate, endDate }}
+                onChange={({ startDate: s, endDate: e }) => {
+                  setStartDate(s);
+                  setEndDate(e);
+                }}
+              />
+            )}
           </Field>
           {!replacing && (
             <>

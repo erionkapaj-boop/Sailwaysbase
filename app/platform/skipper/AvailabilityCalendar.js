@@ -10,6 +10,7 @@ import {
   listLookups,
 } from "../../../lib/platform/db";
 import DateRangeCalendar from "../components/DateRangeCalendar";
+import { CalendarStyles, MonthNav, MonthGrid, TONES, addDaysKey } from "../components/calendar/Calendar";
 import {
   card,
   sectionLabel,
@@ -18,17 +19,10 @@ import {
   colors,
   radius,
   fontSans,
-  fontMono,
-  calendarDay,
   shadow,
 } from "../../../lib/platform/theme";
 import { formatDate, formatDateRange } from "../../../lib/platform/notifications";
 
-const WEEKDAYS = ["Δε", "Τρ", "Τε", "Πε", "Πα", "Σα", "Κυ"];
-const MONTH_NAMES = [
-  "Ιανουάριος", "Φεβρουάριος", "Μάρτιος", "Απρίλιος", "Μάιος", "Ιούνιος",
-  "Ιούλιος", "Αύγουστος", "Σεπτέμβριος", "Οκτώβριος", "Νοέμβριος", "Δεκέμβριος",
-];
 
 function pad(n) {
   return String(n).padStart(2, "0");
@@ -60,22 +54,6 @@ const chip = (active) => ({
   color: active ? "#fff" : colors.ink,
 });
 
-const navArrow = {
-  width: 32,
-  height: 32,
-  borderRadius: "50%",
-  border: `1px solid ${colors.border}`,
-  background: colors.card,
-  color: colors.ink,
-  fontSize: 15,
-  lineHeight: 1,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 0,
-  flexShrink: 0,
-};
 
 // ----------------------------------------------------------------------------
 // Ζητήθηκε ρητά: το ημερολόγιο να μοιάζει με ό,τι χρησιμοποιεί κανείς
@@ -274,12 +252,32 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
     }
   }
 
-  const first = new Date(month.getFullYear(), month.getMonth(), 1);
-  const last = new Date(month.getFullYear(), month.getMonth() + 1, 0);
-  const offset = (first.getDay() + 6) % 7; // Monday-first
-  const gridDays = [];
-  for (let i = 0; i < offset; i++) gridDays.push(null);
-  for (let d = 1; d <= last.getDate(); d++) gridDays.push(new Date(month.getFullYear(), month.getMonth(), d));
+  // Συνεχόμενες μέρες με την ίδια κατάσταση (και, για τη διαθεσιμότητα,
+  // τις ίδιες περιοχές) σχηματίζουν μία λωρίδα με στρογγυλά άκρα.
+  function runKey(key) {
+    if (key < today) return null;
+    const st = cellState(key);
+    if (st === "empty") return null;
+    return st === "available" ? `available:${daySignature(key)}` : st;
+  }
+  function availabilityDayProps(key) {
+    const isPast = key < today;
+    const state = cellState(key);
+    const base = { disabled: isPast || state === "booked", onClick: onDayClick };
+    if (isPast || state === "empty") return base;
+    const me = runKey(key);
+    const prevSame = runKey(addDaysKey(key, -1)) === me;
+    const nextSame = runKey(addDaysKey(key, 1)) === me;
+    const band = prevSame && nextSame ? "mid" : prevSame ? "end" : nextSame ? "start" : "single";
+    return {
+      ...base,
+      band,
+      tone: state,
+      strike: state === "blocked",
+      sub: state === "available" && !prevSame ? dayLabel(key) : null,
+      ariaLabel: `${formatDate(key)}: ${state === "available" ? "διαθέσιμο" : state === "blocked" ? "κλειστό" : "κράτηση"}`,
+    };
+  }
 
   return (
     <div style={{ ...card, position: "relative" }}>
@@ -296,122 +294,25 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         </button>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <button type="button" aria-label="Προηγούμενος μήνας" onClick={() => setMonth((m) => addMonths(m, -1))} style={navArrow}>
-          ‹
-        </button>
-        <span style={{ fontFamily: fontSans, fontSize: 16, fontWeight: 600 }}>
-          {MONTH_NAMES[month.getMonth()]} {month.getFullYear()}
-        </span>
-        <button type="button" aria-label="Επόμενος μήνας" onClick={() => setMonth((m) => addMonths(m, 1))} style={navArrow}>
-          ›
-        </button>
-      </div>
+      <CalendarStyles />
+      <MonthNav
+        month={month}
+        onPrev={() => setMonth((m) => addMonths(m, -1))}
+        onNext={() => setMonth((m) => addMonths(m, 1))}
+      />
+      <MonthGrid month={month} dayProps={availabilityDayProps} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5, marginBottom: 8, width: "100%", boxSizing: "border-box" }}>
-        {WEEKDAYS.map((w) => (
-          <div key={w} style={{ ...muted, fontSize: 11, textAlign: "center", letterSpacing: "0.04em" }}>
-            {w}
-          </div>
+      <div style={{ display: "flex", gap: 16, fontSize: 12.5, marginTop: 16, flexWrap: "wrap", color: colors.inkSoft }}>
+        {[
+          ["available", "Διαθέσιμο"],
+          ["blocked", "Κλειστό"],
+          ["booked", "Κράτηση"],
+        ].map(([tone, text]) => (
+          <span key={tone} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <i style={{ width: 18, height: 10, borderRadius: 5, background: TONES[tone].band, display: "inline-block" }} />
+            {text}
+          </span>
         ))}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5, width: "100%", boxSizing: "border-box" }}>
-        {(() => {
-          let prevSig = null;
-          return gridDays.map((d, i) => {
-            if (!d) {
-              prevSig = null;
-              return <div key={`e${i}`} />;
-            }
-            const key = fmt(d);
-            const state = cellState(key);
-            const isPast = key < today;
-            const isToday = key === today;
-            const disabled = state === "booked" || isPast;
-            const sig = state === "available" ? daySignature(key) : null;
-            const showLabel = state === "available" && sig !== prevSig;
-            prevSig = sig;
-            const label = showLabel ? dayLabel(key) : null;
-            const tone = calendarDay[state] ?? null;
-
-            return (
-              <button
-                key={key}
-                type="button"
-                disabled={disabled}
-                onClick={() => onDayClick(key)}
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  flexDirection: "column",
-                  minWidth: 0,
-                  boxSizing: "border-box",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 1,
-                  minHeight: 52,
-                  padding: 2,
-                  borderRadius: radius.sm,
-                  // Κάθε επιλέξιμη μέρα έχει πραγματικό περίγραμμα από την
-                  // αρχή — χωρίς αυτό οι κενές μέρες επιπλέουν σαν αριθμοί
-                  // στο κενό αντί να διαβάζονται σαν πλέγμα ημερολογίου.
-                  border: `1px solid ${disabled ? "transparent" : tone ? "transparent" : colors.border}`,
-                  fontFamily: "inherit",
-                  cursor: disabled ? "default" : "pointer",
-                  background: tone?.bg ?? (disabled ? "transparent" : colors.card),
-                  color: isPast ? colors.inkSoft : tone?.fg ?? colors.inkSoft,
-                  opacity: isPast ? 0.35 : 1,
-                }}
-              >
-                {isToday && state === "empty" && (
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      position: "absolute", top: 4, right: 4,
-                      width: 4, height: 4, borderRadius: "50%", background: colors.accent,
-                    }}
-                  />
-                )}
-                <span
-                  style={{
-                    fontFamily: fontSans,
-                    fontVariantNumeric: "tabular-nums",
-                    fontSize: 12,
-                    // Struck through so a closed day is legible as "off" even
-                    // to someone who can't tell the two fills apart.
-                    textDecoration: state === "blocked" ? "line-through" : "none",
-                  }}
-                >
-                  {d.getDate()}
-                </span>
-                {state === "blocked" && (
-                  <span style={{ fontSize: 9, lineHeight: 1.1 }}>κλειστό</span>
-                )}
-                {label && (
-                  <span style={{ fontSize: 9, lineHeight: 1.1, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {label}
-                  </span>
-                )}
-              </button>
-            );
-          });
-        })()}
-      </div>
-
-      <div style={{ display: "flex", gap: 14, fontSize: 12, marginTop: 16, flexWrap: "wrap" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
-          <i style={{ width: 10, height: 10, borderRadius: "50%", background: calendarDay.available.bg, display: "inline-block" }} />
-          Διαθέσιμο
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
-          <i style={{ width: 10, height: 10, borderRadius: "50%", background: calendarDay.blocked.bg, display: "inline-block" }} />
-          Κλειστό
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.inkSoft }}>
-          <i style={{ width: 10, height: 10, borderRadius: "50%", background: calendarDay.booked.bg, display: "inline-block" }} />
-          Κράτηση
-        </span>
       </div>
 
       {error && !addSheet && <p style={{ color: colors.danger, fontSize: 13, marginTop: 12 }}>{error}</p>}
@@ -494,6 +395,10 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
               startDate={range.startDate}
               endDate={range.endDate}
               minDate={today}
+              startLabel="Από"
+              endLabel="Έως"
+              bare
+              maxMonths={1}
               onChange={({ startDate, endDate }) => {
                 setRange({ startDate, endDate });
                 setError("");
