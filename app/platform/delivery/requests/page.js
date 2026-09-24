@@ -7,6 +7,7 @@ import { formatDate, formatMoney } from "../../../../lib/platform/notifications"
 import { listMyDeliveryRequests, relistDeliveryRoleRequest, searchDeliveryCandidates } from "../../../../lib/platform/db";
 import { container, card, h1, h2, muted, button, input, colors, money, badge, sectionLabel } from "../../../../lib/platform/theme";
 import SignedOutNotice from "../../components/SignedOutNotice";
+import { friendlyError } from "../../../../lib/platform/friendlyError";
 
 const PING_LABEL = {
   pending: ["Αναμονή", colors.inkSoft],
@@ -85,7 +86,7 @@ function RelistForm({ roleRequest, request, onDone }) {
       await relistDeliveryRoleRequest(roleRequest.id, Number(price), Array.from(selected));
       onDone();
     } catch (err) {
-      setError(RELIST_ERRORS[err.message] || err.message || String(err));
+      setError(RELIST_ERRORS[err.message] || friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -183,7 +184,7 @@ export default function MyDeliveryRequestsPage() {
     try {
       setRows(await listMyDeliveryRequests());
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     }
   }
   useEffect(() => {

@@ -16,7 +16,7 @@ export default function HomeEntry() {
   const t = useTranslations("Home");
   const router = useRouter();
   const params = useSearchParams();
-  const { userRow } = useAuth();
+  const { session, userRow } = useAuth();
   const [started, setStarted] = useState(false);
 
   // Set once, right after set-pin, for a brand-new client with nothing else
@@ -106,6 +106,9 @@ export default function HomeEntry() {
           side. Deliberately far below the CTA, smaller than the delivery link,
           and only here — a visitor passing through an interior page isn't the
           audience for it. It also disappears once the search flow starts. */}
+      {/* Signed in, "Κάνε εγγραφή" reads as a second account — a client who
+          wants to go pro does it from Το προφίλ μου («Ξεκίνα»). */}
+      {!session && (
       <div style={{ marginTop: 72 }}>
         <Link
           href="/platform/professionals"
@@ -114,6 +117,7 @@ export default function HomeEntry() {
           {t("professionalSignup")}
         </Link>
       </div>
+      )}
     </div>
   );
 }

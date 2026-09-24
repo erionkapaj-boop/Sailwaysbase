@@ -14,6 +14,7 @@ import {
 import { CREW_ROLES } from "../../../lib/platform/roles";
 import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, select, colors, radius } from "../../../lib/platform/theme";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 
 // Επιλογή κωδικού χώρας μόνο για επαγγελματίες, μόνο εδώ — χωρίς αυτήν, ένας
 // πραγματικά ξένος επαγγελματίας δεν είχε τρόπο να δηλώσει το πραγματικό του
@@ -146,7 +147,7 @@ function RegisterInner() {
         router.push(isProfessional ? "/platform/set-pin?as=professional" : "/platform/set-pin");
       }
     } catch (err) {
-      setError(REGISTER_ERRORS[err.message] || err.message || String(err));
+      setError(REGISTER_ERRORS[err.message] || friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -180,7 +181,7 @@ function RegisterInner() {
       // from now on.
       router.push(isProfessional ? "/platform/set-pin?as=professional" : "/platform/set-pin");
     } catch (err) {
-      setError(REGISTER_ERRORS[err.message] || err.message || String(err));
+      setError(REGISTER_ERRORS[err.message] || friendlyError(err));
     } finally {
       setBusy(false);
     }

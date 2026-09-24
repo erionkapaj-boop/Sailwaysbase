@@ -33,6 +33,7 @@ import {
   radius,
   sectionLabel,
 } from "../../../lib/platform/theme";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 
 // Quick picks for the region's main ports, sitting above the free-text
 // field — a tap fills the same field a keystroke would, it just saves the
@@ -527,7 +528,7 @@ function RoleSection({
         pendingSelectedRef.current = null;
       }
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -584,7 +585,7 @@ function RoleSection({
           η μία. */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, margin: "0 0 14px" }}>
         <span style={{ fontSize: 13.5, color: colors.inkSoft }}>
-          Πόσες θέσεις χρειάζεσαι για {roleLabel.toLowerCase()};
+          Πόσα άτομα χρειάζεσαι ως {roleLabel.toLowerCase()};
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button
@@ -677,8 +678,9 @@ function RoleSection({
             <div style={{ ...card, background: colors.bgSoft || "#F7F5F0", marginBottom: 14 }}>
               <p style={{ margin: 0, fontSize: 13.5 }}>
                 Μπορείς να επιλέξεις όσους {roleLabel.toLowerCase()} θέλεις πατώντας «Επιλογή» σε καθέναν — και να
-                κάνεις το ίδιο σε κάθε άλλο ρόλο πιο κάτω, αν έψαχνες παραπάνω από έναν. Στο τέλος της σελίδας θα δεις
-                τι κοστίζει συνολικά και θα επιβεβαιώσεις πριν σταλεί οτιδήποτε.
+                κάνεις το ίδιο σε κάθε άλλο ρόλο πιο κάτω, αν έψαχνες παραπάνω από έναν. Όλοι όσοι επιλέξεις βλέπουν το
+                αίτημα και ο πρώτος που θα το αποδεχτεί αναλαμβάνει. Στο τέλος της σελίδας θα δεις τι κοστίζει συνολικά
+                και θα επιβεβαιώσεις πριν σταλεί οτιδήποτε.
               </p>
             </div>
           )}
@@ -742,6 +744,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
     positionsByRole,
     fee
   );
+  const emptyRoles = activeRoles.length ? supportedRoles.filter((r) => !selectionsByRole[r]?.size) : [];
 
   // A new account without SMS OTP waits for an admin to verify it (0075).
   // Until then it can browse and pick, but not send: sending charges the fee,
@@ -844,7 +847,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
       }
       setDone(true);
     } catch (err) {
-      setError(BROADCAST_ERRORS[err.message] || err.message || String(err));
+      setError(BROADCAST_ERRORS[err.message] || friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -897,6 +900,14 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
                 available is the ordinary case, not an error. This just says
                 plainly what will actually go out, so it's never a surprise
                 after the fact. */}
+            {emptyRoles.length > 0 && (
+              <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px" }}>
+                {emptyRoles
+                  .map((r) => `Για ${labelForRole(r).toLowerCase()} δεν επέλεξες κανέναν — δεν θα σταλεί αίτημα για αυτόν τον ρόλο.`)
+                  .join(" ")}
+              </p>
+            )}
+
             {shortRoles.length > 0 && (
               <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px" }}>
                 {shortRoles
@@ -942,7 +953,9 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
               </button>
             )}
             {!awaitingVerification && <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
-              Πατώντας «Αποστολή αιτημάτων» αποδέχεσαι την παραπάνω χρέωση και τους{" "}
+              {session
+                ? "Πατώντας «Αποστολή αιτημάτων» αποδέχεσαι την παραπάνω χρέωση και τους"
+                : "Δεν χρεώνεσαι τίποτα ακόμα — πρώτα συνδέεσαι ή κάνεις εγγραφή, και οι επιλογές σου κρατιούνται. Με την αποστολή αποδέχεσαι την παραπάνω χρέωση και τους"}{" "}
               <button
                 type="button"
                 onClick={() => setTermsOpen(true)}
@@ -1343,7 +1356,7 @@ function SearchPageInner() {
                   }
                 }}
               />
-              Ο ναύλος τελειώνει σε διαφορετικό σημείο
+              Το ταξίδι τελειώνει σε διαφορετικό σημείο
             </label>
             {!sameDestination && (
               <div style={{ marginTop: 10 }}>

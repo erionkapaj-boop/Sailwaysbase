@@ -12,6 +12,7 @@ import {
 } from "../../../lib/platform/db";
 import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, colors, radius } from "../../../lib/platform/theme";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const MIN_LENGTH = 6;
 
@@ -75,7 +76,7 @@ export default function ForgotPinPage() {
       }
       setSent(true);
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -98,7 +99,7 @@ export default function ForgotPinPage() {
         router.push("/platform/login");
       }
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }

@@ -17,6 +17,7 @@ import { formatDateTime, formatDate } from "../../../lib/platform/notifications"
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { labelForRole } from "../../../lib/platform/roles";
 import { useConfirm } from "./ConfirmDialog";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const STATUS_LABEL = {
   confirmed: ["Επιβεβαιωμένη", "success"],
@@ -90,7 +91,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       setNewMessage("");
       setMessages(await listMessages(booking.id));
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -109,7 +110,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       await cancelBooking(booking.id, cancelReason || "Χωρίς αναφερόμενο λόγο");
       onChanged?.();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -149,7 +150,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       });
       setReviews(await listReviewsForBooking(booking.id));
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -162,7 +163,7 @@ export default function BookingPanel({ booking, viewerRole, viewerUserId, onChan
       await replyToReview(reviewOfMe.id, reply);
       setReviews(await listReviewsForBooking(booking.id));
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }

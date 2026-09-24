@@ -7,6 +7,7 @@ import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../../lib/platform/pendingDelivery";
 import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, colors } from "../../../lib/platform/theme";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const MIN_LENGTH = 6;
 
@@ -64,7 +65,7 @@ function SetPinInner() {
       // approval-status banner and inbox live.
       router.push(isProfessional ? "/platform/requests" : "/platform?welcome=1");
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }

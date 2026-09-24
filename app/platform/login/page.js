@@ -13,6 +13,8 @@ function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
   const { session, refresh } = useAuth();
+  const nextParam = params.get("next") || "";
+  const fromSend = nextParam === "/platform/search" || nextParam === "/platform/delivery";
 
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
@@ -65,7 +67,12 @@ function LoginInner() {
   return (
     <div style={{ ...container, maxWidth: 460 }}>
       <BackButton onClick={() => router.back()} />
-      <h1 style={{ ...h1, marginTop: 20 }}>Είσοδος</h1>
+      <h1 style={{ ...h1, marginTop: 20 }}>Σύνδεση</h1>
+      {fromSend && (
+        <p style={muted}>
+          Για να σταλεί το αίτημά σου χρειάζεσαι λογαριασμό. Οι επιλογές σου κρατήθηκαν και δεν έχεις χρεωθεί τίποτα.
+        </p>
+      )}
 
       {lockedOut ? (
         // Deliberately no retry field: after three consecutive failures the
@@ -110,20 +117,31 @@ function LoginInner() {
           />
 
           <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%" }}>
-            {busy ? "Είσοδος…" : "Είσοδος"}
+            {busy ? "Σύνδεση…" : "Σύνδεση"}
           </button>
 
           {error && <p style={{ color: colors.danger, marginTop: 12, marginBottom: 0 }}>{error}</p>}
 
-          <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ marginTop: 16 }}>
             <Link href="/platform/forgot-pin" style={{ ...muted, fontSize: 13, textDecoration: "none" }}>
               Ξέχασα τον κωδικό
             </Link>
-            <Link href="/platform/register" style={{ ...muted, fontSize: 13, textDecoration: "none" }}>
-              Δεν έχω λογαριασμό
-            </Link>
           </div>
         </form>
+      )}
+
+      {/* A first-timer sent here from "Σύνδεση για αποστολή" has no account
+          yet — sign-up was a small grey link in the corner of a login form. */}
+      {!lockedOut && (
+        <div style={{ ...card, marginTop: 16, textAlign: "center" }}>
+          <p style={{ ...muted, margin: "0 0 12px" }}>Πρώτη φορά εδώ;</p>
+          <Link
+            href="/platform/register"
+            style={{ ...button("secondary"), display: "block", textDecoration: "none", textAlign: "center" }}
+          >
+            Δημιουργία λογαριασμού
+          </Link>
+        </div>
       )}
     </div>
   );

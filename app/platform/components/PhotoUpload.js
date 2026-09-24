@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { supabase } from "../../../lib/platform/supabaseClient";
 import { colors, muted, button, radius } from "../../../lib/platform/theme";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 
 // Phone cameras produce 4–12MB files, so rejecting on size would fail for
 // most real uploads. Downscale and re-encode in the browser instead: 1200px
@@ -86,7 +87,7 @@ export default function PhotoUpload({ value, onUploaded }) {
       const { data } = supabase.storage.from("crew-photos").getPublicUrl(path);
       onUploaded(data.publicUrl);
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
       setPreview(null);
     } finally {
       setBusy(false);

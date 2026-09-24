@@ -27,6 +27,7 @@ import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform
 import { formatDate } from "../../../lib/platform/notifications";
 import { container, card, h1, h2, muted, colors, radius, select, label, button, input } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const MIN_PRICE = 210;
 
@@ -60,7 +61,7 @@ function SecondaryRoles({ profile }) {
     try {
       setRoles(await getMySecondaryRoles(profile.id));
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     }
   }
   useEffect(() => {
@@ -93,7 +94,7 @@ function SecondaryRoles({ profile }) {
       setNewLicenseType("");
       await load();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -111,7 +112,7 @@ function SecondaryRoles({ profile }) {
     try {
       await updateSecondaryRole(id, { pricePerDay: Number(value) });
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
       await load();
     }
   }
@@ -122,7 +123,7 @@ function SecondaryRoles({ profile }) {
       await removeSecondaryRole(id);
       await load();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -260,7 +261,7 @@ function DeliveryAvailability({ profile }) {
       setSecondary(sec);
       setWindows(w);
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     }
   }
   useEffect(() => {
@@ -294,7 +295,7 @@ function DeliveryAvailability({ profile }) {
       setNewEnd("");
       await load();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -306,7 +307,7 @@ function DeliveryAvailability({ profile }) {
       await removeDeliveryAvailabilityWindow(id);
       await load();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -429,7 +430,7 @@ function DeleteAccount() {
       await signOut();
       router.push("/platform");
     } catch (err) {
-      setError(DELETE_ERRORS[err.message] || err.message || String(err));
+      setError(DELETE_ERRORS[err.message] || friendlyError(err));
       setBusy(false);
     }
   }
@@ -529,7 +530,7 @@ function BecomeProfessional() {
       await refresh();
       router.push("/platform/profile");
     } catch (err) {
-      setError(BECOME_PROFESSIONAL_ERRORS[err.message] || err.message || String(err));
+      setError(BECOME_PROFESSIONAL_ERRORS[err.message] || friendlyError(err));
       setBusy(false);
     }
   }
@@ -654,7 +655,7 @@ function ClientIdentityProfile({ role }) {
       await setClientLanguages(userRow.id, languageIds);
       setSaved(true);
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }

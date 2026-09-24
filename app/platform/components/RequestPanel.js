@@ -5,11 +5,12 @@ import { labelForRole } from "../../../lib/platform/roles";
 import { formatDate, formatDateTime } from "../../../lib/platform/notifications";
 import { card, muted, badge, button, colors, money } from "../../../lib/platform/theme";
 import { useConfirm } from "./ConfirmDialog";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const REQ_STATUS = {
-  open: ["Αναμονή διεκδίκησης", "brand"],
-  matched: ["Βρέθηκε skipper", "success"],
-  expired_unclaimed: ["Άκαρπο — έγινε credit", "warn"],
+  open: ["Περιμένει απάντηση", "brand"],
+  matched: ["Βρέθηκε επαγγελματίας", "success"],
+  expired_unclaimed: ["Δεν βρέθηκε — επιστροφή ως credit", "warn"],
   cancelled: ["Ακυρώθηκε", "danger"],
 };
 
@@ -42,14 +43,18 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
     setLoadingPings(true);
     listRequestPings(request.id)
       .then(setPings)
-      .catch((err) => setError(err.message || String(err)))
+      .catch((err) => setError(friendlyError(err)))
       .finally(() => setLoadingPings(false));
   }, [expanded, request.id]);
 
   async function handleWithdraw(ping) {
+    const remaining = pings.filter((p) => p.status === "pending").length;
     if (
       !(await confirm(
-        `Σίγουρα θέλεις να αφαιρέσεις τον/την ${ping.skipper_profiles?.full_name || "επαγγελματία"} από αυτό το αίτημα;`
+        `Σίγουρα θέλεις να αφαιρέσεις ${ping.skipper_profiles?.full_name || "αυτόν τον υποψήφιο"} από το αίτημα; ` +
+          (remaining > 1
+            ? "Η χρέωση δεν αλλάζει — το αίτημα μένει ανοιχτό για τους υπόλοιπους."
+            : "Είναι ο τελευταίος που περιμένει απάντηση· η χρέωση δεν επιστρέφεται με την αφαίρεση. Αν θέλεις τα χρήματα πίσω, ακύρωσε ολόκληρο το αίτημα.")
       ))
     )
       return;
@@ -59,14 +64,18 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
       await withdrawPing(request.id, ping.id);
       setPings((prev) => prev.filter((p) => p.id !== ping.id));
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusyId(null);
     }
   }
 
   async function handleCancelRequest() {
-    if (!(await confirm("Σίγουρα θέλεις να ακυρώσεις όλο το αίτημα;"))) return;
+    const refundNote =
+      request.fee_paid_at && request.fee_amount > 0
+        ? ` Το τέλος των ${request.fee_amount}€ θα επιστραφεί ως credit στο πορτοφόλι σου (όχι σε τραπεζικό λογαριασμό).`
+        : "";
+    if (!(await confirm(`Σίγουρα θέλεις να ακυρώσεις όλο το αίτημα;${refundNote}`))) return;
     setBusyId("__all__");
     setError("");
     try {
@@ -76,7 +85,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
       }
       onChanged?.();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusyId(null);
     }
@@ -119,7 +128,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
         </div>
         <p style={{ ...muted, margin: "6px 0 0" }}>
           <span style={money}>{formatDate(request.start_date)}</span> → <span style={money}>{formatDate(request.end_date)}</span>
-          {" · Fee "}
+          {" · Τέλος "}
           <span style={{ ...money, color: colors.ink }}>{request.fee_amount}€</span>
           {" · "}
           {request.fee_paid_at ? "Πληρώθηκε" : "Δεν πληρώθηκε"}
@@ -135,7 +144,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
           {loadingPings && <p style={muted}>Φόρτωση...</p>}
           {!loadingPings && pings.length === 0 && <p style={muted}>Δεν στάλθηκε σε κανέναν επαγγελματία ακόμα.</p>}
           {!loadingPings &&
-            pings.map((p) => {
+            pings.map((p, i) => {
               const sp = p.skipper_profiles;
               const declined = p.status === "missed" && p.declined_at;
               const missedRace = p.status === "missed" && !p.declined_at;
@@ -166,9 +175,9 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
                       />
                     )}
                     <span style={{ minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: 14, fontWeight: 500 }}>{sp?.full_name || "—"}</span>
+                      <span style={{ display: "block", fontSize: 14, fontWeight: 500 }}>{sp?.full_name || `Υποψήφιος ${i + 1}`}</span>
                       <span style={{ ...muted, fontSize: 12.5 }}>
-                        {labelForRole(sp?.role) || "Επαγγελματίας"}
+                        {labelForRole(sp?.role || request.crew_role) || "Επαγγελματίας"}
                         {" · "}
                         {declined ? "Αρνήθηκε" : missedRace ? "Δεν πρόλαβε" : PING_STATUS_LABEL[p.status] || p.status}
                       </span>
@@ -187,6 +196,12 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
                 </div>
               );
             })}
+
+          {!loadingPings && pings.length > 0 && pings.some((p) => !p.skipper_profiles?.full_name) && (
+            <p style={{ ...muted, fontSize: 12.5, margin: "10px 0 0" }}>
+              Τα στοιχεία κάθε υποψηφίου εμφανίζονται μόλις αποδεχτεί το αίτημα.
+            </p>
+          )}
 
           {isOpen && (
             <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${colors.border}` }}>

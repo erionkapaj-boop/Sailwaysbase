@@ -29,6 +29,7 @@ import {
   radius,
   sectionLabel,
 } from "../../../lib/platform/theme";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const REQUEST_ERRORS = {
   account_not_verified: "Ο λογαριασμός σου ελέγχεται ακόμα — θα μπορείς να στείλεις το αίτημα μόλις ενεργοποιηθεί.",
@@ -206,7 +207,7 @@ function RoleBlock({
       setSent(row);
       onSent?.(row);
     } catch (err) {
-      setError(REQUEST_ERRORS[err.message] || ROLE_ERRORS[err.message] || err.message || String(err));
+      setError(REQUEST_ERRORS[err.message] || ROLE_ERRORS[err.message] || friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -382,6 +383,10 @@ function DeliveryForm({ onCreated }) {
             onChange={(e) => setDistanceMiles(e.target.value)}
             placeholder="π.χ. 250"
           />
+          <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
+            Από αυτήν υπολογίζεται το τέλος πλατφόρμας. Αν δεν την ξέρεις, μέτρησέ τη σε έναν ναυτικό χάρτη ή ρώτα τη
+            μαρίνα.
+          </p>
         </div>
       </div>
 

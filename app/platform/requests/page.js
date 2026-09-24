@@ -11,10 +11,11 @@ import { formatDateTime, formatDate } from "../../../lib/platform/notifications"
 import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
 import PendingReadyBanner from "../components/PendingReadyBanner";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const REQ_STATUS = {
   matched: ["Βρέθηκε επαγγελματίας", "success"],
-  expired_unclaimed: ["Άκαρπο — έγινε credit", "warn"],
+  expired_unclaimed: ["Δεν βρέθηκε — επιστροφή ως credit", "warn"],
   cancelled: ["Ακυρώθηκε", "danger"],
 };
 
@@ -61,7 +62,7 @@ export default function RequestsPage() {
       await refresh();
       await load();
     } catch (err) {
-      setCreateError(err.message || String(err));
+      setCreateError(friendlyError(err));
     } finally {
       setCreating(false);
     }
@@ -112,7 +113,7 @@ export default function RequestsPage() {
           </div>
         ) : (
           <>
-            <h2 style={sectionLabel}>Εξερχόμενα αιτήματα ({openRequests.length})</h2>
+            <h2 style={sectionLabel}>Αιτήματα που έστειλες ({openRequests.length})</h2>
             {busy && <p style={muted}>Φόρτωση...</p>}
             {openRequests.length === 0 && !busy && (
               <div style={{ ...card, textAlign: "center" }}>

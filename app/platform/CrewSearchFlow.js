@@ -345,12 +345,12 @@ export default function CrewSearchFlow() {
                 if (!different) setArrivalPoint("");
               }}
             />
-            Ο ναύλος τελειώνει σε διαφορετικό σημείο
+            Το ταξίδι τελειώνει σε διαφορετικό σημείο
           </label>
 
           {!sameDestination && (
             <>
-              <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>Πού τελειώνει ο ναύλος;</p>
+              <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>Πού τελειώνει το ταξίδι;</p>
               <input
                 type="text"
                 style={{ ...input, marginBottom: 20 }}
