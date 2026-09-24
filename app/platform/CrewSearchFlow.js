@@ -4,17 +4,18 @@ import { useRouter } from "next/navigation";
 import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
-import { Mark } from "./components/Logo";
 import BackButton from "./components/BackButton";
 import { button, colors, input, label, muted, radius, select, h2 } from "../../lib/platform/theme";
 
 // Progressive disclosure (brief §4): one question on screen at a time, gentle
 // fade/slide between them — never the whole form at once.
 //
-// "country" exists as its own step even though Greece is the only option
-// today — the regions table was always meant to grow beyond one country
-// (see its own seed comment), so the step is there to grow into rather than
-// retrofit later.
+// A dedicated "country" step used to sit here (Greece was, and still is,
+// the only option) — dropped because it asked a question with no real
+// answer to give, just a single button to tap through. The regions table
+// can still grow to more than one country later; that step can come back
+// once there's an actual choice to make, rather than staying as a tap that
+// does nothing today.
 //
 // The "boat" step only makes sense when the search includes skipper: a boat
 // type is what a skipper operates, and hostess (or any future non-skipper
@@ -26,7 +27,7 @@ import { button, colors, input, label, muted, radius, select, h2 } from "../../l
 // asked for here instead, so landing on results means there's nothing left
 // to fill in, just candidates to browse and pick.
 function stepsFor(roles) {
-  const base = ["role", "dates", "country", "region", "port"];
+  const base = ["role", "dates", "region", "port"];
   const withBoat = roles.includes("skipper") ? [...base, "boat"] : base;
   return [...withBoat, "extras"];
 }
@@ -124,6 +125,16 @@ export default function CrewSearchFlow() {
 
   const STEPS = stepsFor(roles);
 
+  // Picking "skipper" adds a "boat" step further on — recalculating the
+  // total live off `roles` made the fraction in the header change the
+  // instant a role got tapped, while the client was still standing on that
+  // same question. Assuming the longer, skipper-included count while still
+  // on the role step (then switching to the real one once they've moved
+  // past it, where `roles` is fixed for the rest of the flow) means the
+  // number only ever changes on the way to the next screen, not underneath
+  // an answer they're still choosing.
+  const displaySteps = step === 0 ? stepsFor(roles.includes("skipper") ? roles : [...roles, "skipper"]) : STEPS;
+
   // Pushes history itself rather than inside a setStep updater — React
   // (StrictMode, in dev) can invoke an updater function twice per call,
   // which would push two history entries for a single "Συνέχεια" click and
@@ -185,7 +196,7 @@ export default function CrewSearchFlow() {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
         <BackButton onClick={back} />
         <span style={{ ...muted, fontSize: 13, marginLeft: "auto" }}>
-          {step + 1} / {STEPS.length}
+          {step + 1} / {displaySteps.length}
         </span>
       </div>
 
@@ -233,25 +244,6 @@ export default function CrewSearchFlow() {
             style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15 }}
           >
             Συνέχεια
-          </button>
-        </div>
-      )}
-
-      {current === "country" && (
-        <div key="country" data-sf-step style={stepWrap}>
-          <StepHeading>Ποια χώρα;</StepHeading>
-          <button
-            type="button"
-            onClick={next}
-            style={{
-              ...option(true),
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <Mark size={22} />
-            Ελλάδα
           </button>
         </div>
       )}
@@ -426,6 +418,10 @@ export default function CrewSearchFlow() {
               <option value="true">Ναι</option>
               <option value="false">Όχι</option>
             </select>
+            <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
+              Οι επαγγελματίες συνήθως μένουν πάνω στο σκάφος τις νύχτες του ταξιδιού — πες αν θα έχουν δική τους
+              καμπίνα ή θα μοιράζονται χώρο.
+            </p>
           </div>
           <button
             type="button"
@@ -435,6 +431,15 @@ export default function CrewSearchFlow() {
           >
             Ολοκλήρωση
           </button>
+          {(!partySize || privateCabin === undefined) && (
+            <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0", textAlign: "center" }}>
+              {!partySize && privateCabin === undefined
+                ? "Συμπλήρωσε τον αριθμό ατόμων και απάντησε για την καμπίνα για να συνεχίσεις."
+                : !partySize
+                  ? "Συμπλήρωσε τον αριθμό ατόμων για να συνεχίσεις."
+                  : "Απάντησε για την καμπίνα για να συνεχίσεις."}
+            </p>
+          )}
         </div>
       )}
     </div>

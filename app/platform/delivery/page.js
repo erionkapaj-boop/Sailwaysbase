@@ -293,7 +293,11 @@ function RoleBlock({
         </div>
       ) : (
         <button style={button("primary")} disabled={busy || !candidates?.length} onClick={handleSend}>
-          {busy ? "..." : `Αποστολή σε ${selected.size || 0} επιλεγμέν${selected.size === 1 ? "ο" : "ους"}`}
+          {busy
+            ? "..."
+            : !session
+              ? "Σύνδεση για αποστολή"
+              : `Αποστολή σε ${selected.size || 0} επιλεγμέν${selected.size === 1 ? "ο" : "ους"}`}
         </button>
       )}
     </div>

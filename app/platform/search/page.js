@@ -856,12 +856,18 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
         {done ? (
           <div>
             <p style={{ color: colors.accent, fontWeight: 600, margin: "0 0 14px" }}>
-              ✓ Στάλθηκαν <span style={money}>{totalSlots}</span> {totalSlots === 1 ? "αίτημα" : "αιτήματα"}
+              ✓ Στάλθηκ{totalSlots === 1 ? "ε" : "αν"} <span style={money}>{totalSlots}</span>{" "}
+              {totalSlots === 1 ? "αίτημα" : "αιτήματα"}
               {activeRoles.length > 0
                 ? ` (${activeRoles
                     .map((r) => `${slotsFor(r)} ${slotsFor(r) === 1 ? "θέση" : "θέσεις"} ${labelForRole(r).toLowerCase()}`)
                     .join(", ")})`
                 : ""}
+            </p>
+            <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
+              Κάθε επιλεγμένος βλέπει το αίτημα και μπορεί να το αποδεχτεί — ο πρώτος που θα το κάνει παίρνει τη
+              θέση. Θα ειδοποιηθείς μόλις συμβεί αυτό. Αν καμία θέση δεν βρει επαγγελματία μέχρι το ταξίδι σου, η
+              χρέωση επιστρέφεται αυτόματα ως credit στο πορτοφόλι σου.
             </p>
             <button style={button("primary")} onClick={() => router.push("/platform/requests")}>
               Παρακολούθηση αιτήματος
@@ -982,7 +988,13 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
 // once, and disappears entirely once the request has actually gone out.
 function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, fee, onGoToCheckout }) {
   const { totalSlots, totalFee } = computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, fee);
-  if (totalSlots === 0) return null;
+  // totalSlots is capped at how many positions were actually requested (see
+  // computeOrderTotals) — picking 2 candidates for 1 requested position is
+  // meant to read as "2 selected", not "1 selected", so this bar counts
+  // actual picks rather than reusing the fee-relevant, position-capped
+  // number the checkout panel below uses for the charge itself.
+  const totalSelected = supportedRoles.reduce((n, r) => n + (selectionsByRole[r]?.size || 0), 0);
+  if (totalSelected === 0) return null;
   return (
     <div
       style={{
@@ -1008,7 +1020,7 @@ function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, f
         }}
       >
         <span style={{ fontSize: 13.5 }}>
-          <b style={money}>{totalSlots}</b> {totalSlots === 1 ? "επιλεγμένος" : "επιλεγμένοι"}
+          <b style={money}>{totalSelected}</b> {totalSelected === 1 ? "επιλεγμένος" : "επιλεγμένοι"}
           {totalFee != null && (
             <>
               {" · "}
