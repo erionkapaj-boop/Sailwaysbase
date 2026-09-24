@@ -210,6 +210,11 @@ export default function CrewSearchFlow() {
               onClick={() => toggleRole(r.key)}
             >
               {r.label}
+              {r.blurb && (
+                <span style={{ ...muted, display: "block", fontSize: 12.5, fontWeight: 400, marginTop: 2 }}>
+                  {r.blurb}
+                </span>
+              )}
             </button>
           ))}
           <p style={{ ...muted, fontSize: 13, margin: "12px 0 20px" }}>
