@@ -1,7 +1,9 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import AdminShell, { useAdminCounts } from "../AdminShell";
+import Link from "next/link";
+import AdminShell from "../AdminShell";
+import { labelForRole } from "../../../../lib/platform/roles";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { adminListBookings, departureLabel } from "../../../../lib/platform/db";
 import { formatDate } from "../../../../lib/platform/notifications";
@@ -14,6 +16,15 @@ const FILTERS = [
   ["", "Όλες"],
 ];
 
+function PersonLink({ label, p }) {
+  if (!p) return null;
+  return (
+    <Link href={`/platform/admin/user/${p.id}`} style={{ color: colors.ink }}>
+      {label}: {p.name || "(χωρίς όνομα)"}
+    </Link>
+  );
+}
+
 function BookingsInner() {
   const searchParams = useSearchParams();
   // Δίνει στα κουτιά της Επισκόπησης («Επερχόμενες», «Ολοκληρωμένες»,
@@ -21,7 +32,6 @@ function BookingsInner() {
   const filterParam = searchParams.get("filter");
   const initialFilter = FILTERS.some((f) => f[0] === filterParam) ? filterParam : "upcoming";
 
-  const counts = useAdminCounts();
   const [all, setAll] = useState([]);
   const [filter, setFilter] = useState(initialFilter);
   const [busy, setBusy] = useState(true);
@@ -52,7 +62,7 @@ function BookingsInner() {
   }, [all, filter]);
 
   return (
-    <AdminShell title="Κρατήσεις" subtitle="Κάθε κράτηση στην πλατφόρμα, νεότερη πρώτη." counts={counts}>
+    <AdminShell title="Όλες οι κρατήσεις" subtitle="Κάθε κράτηση στην πλατφόρμα, νεότερη πρώτη. Πάτα ένα όνομα για τα στοιχεία του.">
       <Panel title={`${FILTERS.find((f) => f[0] === filter)?.[1]} (${list.length})`} padded={false}>
         <Toolbar>
           {FILTERS.map(([key, label]) => (
@@ -80,6 +90,11 @@ function BookingsInner() {
               meta={
                 <>
                   <span style={money}>{formatDate(b.start_date)}</span> → <span style={money}>{formatDate(b.end_date)}</span>
+                  {b.crew_role ? ` · ${labelForRole(b.crew_role)}` : ""}
+                  <br />
+                  <PersonLink label="Πελάτης" p={b.people?.client} />
+                  {b.people?.client && b.people?.pro ? " · " : ""}
+                  <PersonLink label="Επαγγελματίας" p={b.people?.pro} />
                 </>
               }
             />

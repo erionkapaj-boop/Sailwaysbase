@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "../../../AuthContext";
 import {
   adminGetUser,
@@ -127,8 +128,8 @@ export default function AdminUserViewPage() {
   async function handleReject(isRevoke = false) {
     const name = target.full_name || target.phone_number;
     const msg = isRevoke
-      ? `Ανάκληση της έγκρισης του ${name}; Δεν θα εμφανίζεται πλέον σε αναζητήσεις μέχρι να εγκριθεί ξανά.`
-      : `Απόρριψη του προφίλ του ${name};`;
+      ? `${name}: ανάκληση της έγκρισης; Δεν θα εμφανίζεται πλέον σε αναζητήσεις μέχρι να εγκριθεί ξανά.`
+      : `${name}: απόρριψη του προφίλ;`;
     if (!(await confirm(msg))) return;
     setActionBusy(true);
     setActionError("");
@@ -164,7 +165,7 @@ export default function AdminUserViewPage() {
     const name = target.full_name || target.phone_number;
     if (
       !(await confirm(
-        `Νέος προσωρινός κωδικός για τον ${name}; Ο τωρινός του κωδικός θα σταματήσει να δουλεύει. Χρησιμοποίησέ το μόνο αν σου το ζήτησε ο ίδιος.`,
+        `${name}: νέος προσωρινός κωδικός; Ο τωρινός κωδικός θα σταματήσει να δουλεύει. Χρησιμοποίησέ το μόνο αν σου το ζήτησε ο ίδιος.`,
         { tone: "primary" }
       ))
     )
@@ -187,7 +188,7 @@ export default function AdminUserViewPage() {
     if (
       !target.is_test_account &&
       !(await confirm(
-        `Να σημειωθεί ο ${name} ως λογαριασμός τεστ; Αυτό επιτρέπει «Σύνδεση ως», που αλλάζει τον κωδικό του. Μόνο για ψεύτικους λογαριασμούς δοκιμών, ποτέ για πραγματικό πελάτη.`
+        `${name}: να σημειωθεί ως λογαριασμός δοκιμών; Αυτό επιτρέπει «Σύνδεση ως», που αλλάζει τον κωδικό του λογαριασμού. Μόνο για ψεύτικους λογαριασμούς δοκιμών, ποτέ για πραγματικό πελάτη.`
       ))
     )
       return;
@@ -207,8 +208,8 @@ export default function AdminUserViewPage() {
     const name = target.full_name || target.phone_number;
     const ok = await confirm(
       target.is_staff_admin
-        ? `Αφαίρεση των δικαιωμάτων διαχειριστή από τον ${name};`
-        : `Να δοθούν δικαιώματα διαχειριστή στον ${name}; Θα βλέπει και θα αλλάζει τα πάντα εδώ — χρήστες, χρήματα, ρυθμίσεις. Δώσ' τα μόνο σε άτομο που εμπιστεύεσαι απόλυτα.`
+        ? `${name}: αφαίρεση των δικαιωμάτων διαχειριστή;`
+        : `${name}: να δοθούν δικαιώματα διαχειριστή; Θα βλέπει και θα αλλάζει τα πάντα εδώ — χρήστες, χρήματα, ρυθμίσεις. Δώσ' τα μόνο σε άτομο που εμπιστεύεσαι απόλυτα.`
     );
     if (!ok) return;
     setActionBusy(true);
@@ -344,7 +345,7 @@ export default function AdminUserViewPage() {
           )}
 
           {target.role !== "admin" && target.status !== "deleted" && target.status !== "suspended" && (
-            <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <button
                 style={button("secondary")}
                 onClick={() => {
@@ -352,13 +353,16 @@ export default function AdminUserViewPage() {
                   router.push("/platform/requests");
                 }}
               >
-                Δες την εφαρμογή όπως τη βλέπει
+                Προβολή ως {target.full_name || target.phone_number}
               </button>
               {target.is_test_account && (
                 <button style={button("primary")} disabled={actionBusy} onClick={handleLoginAs}>
                   Σύνδεση ως {target.full_name || target.phone_number}
                 </button>
               )}
+              <span style={{ ...muted, fontSize: 12.5, flexBasis: "100%" }}>
+                «Προβολή ως»: βλέπεις τις σελίδες του όπως τις βλέπει ο ίδιος, χωρίς να μπορείς να κάνεις ενέργειες.
+              </span>
             </div>
           )}
 
@@ -366,6 +370,12 @@ export default function AdminUserViewPage() {
             <>
               <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap", marginTop: 20 }}>
                 <Stat label="Υπόλοιπο" value={`${data.profile?.wallet_balance ?? 0}€`} />
+                <Link
+                  href={`/platform/admin/finance?phone=${encodeURIComponent(target.phone_number || "")}`}
+                  style={{ alignSelf: "flex-end", fontSize: 12.5, color: colors.ink }}
+                >
+                  Φόρτωση υπολοίπου →
+                </Link>
                 <Stat
                   label="Αξιοπιστία"
                   value={
@@ -477,6 +487,12 @@ export default function AdminUserViewPage() {
 
               <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap", marginTop: 20 }}>
                 <Stat label="Υπόλοιπο" value={`${data.profile.wallet_balance}€`} />
+                <Link
+                  href={`/platform/admin/finance?phone=${encodeURIComponent(target.phone_number || "")}`}
+                  style={{ alignSelf: "flex-end", fontSize: 12.5, color: colors.ink }}
+                >
+                  Φόρτωση υπολοίπου →
+                </Link>
                 <Stat label="Τιμή/ημέρα" value={`${data.profile.price_per_day}€`} />
                 <Stat
                   label="Βαθμίδα"

@@ -1,13 +1,29 @@
 "use client";
 import { useEffect, useState } from "react";
-import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
+import Link from "next/link";
+import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
 import { adminListCancellationReports, adminResolveReport, departureLabel } from "../../../../lib/platform/db";
 import { timeAgo, formatDate } from "../../../../lib/platform/notifications";
 
+function People({ people }) {
+  if (!people?.client && !people?.pro) return null;
+  const item = (label, p) =>
+    p && (
+      <Link href={`/platform/admin/user/${p.id}`} style={{ color: colors.ink, textDecoration: "underline" }}>
+        {label}: {p.name || "(χωρίς όνομα)"}
+      </Link>
+    );
+  return (
+    <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13, marginTop: 8 }}>
+      {item("Πελάτης", people.client)}
+      {item("Επαγγελματίας", people.pro)}
+    </div>
+  );
+}
+
 export default function DisputesPage() {
   const refreshCounts = useRefreshAdminCounts();
-  const counts = useAdminCounts();
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -46,9 +62,8 @@ export default function DisputesPage() {
 
   return (
     <AdminShell
-      title="Διαφορές"
-      subtitle="Αναφορές ακύρωσης. Κάθε μία έχει ήδη επηρεάσει την αξιοπιστία κάποιου — η επίλυση την κλείνει, δεν την αναιρεί."
-      counts={counts}
+      title="Αναφορές ακύρωσης"
+      subtitle="Όταν ακυρώνεται μια κράτηση, η άλλη πλευρά μπορεί να το αναφέρει. Η ακύρωση έχει ήδη μετρήσει στην αξιοπιστία — το «Κλείσιμο» σημαίνει ότι το είδες, δεν την αναιρεί."
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
@@ -57,29 +72,18 @@ export default function DisputesPage() {
         {!busy && open.length === 0 && <Empty>Καμία ανοιχτή αναφορά.</Empty>}
         {open.map((r) => (
           <div key={r.id} style={{ borderBottom: `1px solid ${colors.border}`, padding: "14px 16px", background: "#FBF6EC" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              <RowMain
-                title={`${r.bookings ? departureLabel(r.bookings) : "Κράτηση"} · υπαίτιος: ${
-                  r.at_fault_party === "client" ? "πελάτης" : "επαγγελματίας"
-                }`}
-                meta={
-                  <>
-                    <span style={money}>{formatDate(r.bookings?.start_date)}</span> →{" "}
-                    <span style={money}>{formatDate(r.bookings?.end_date)}</span> · {timeAgo(r.created_at)}
-                  </>
-                }
-              />
-              <button
-                style={button("primary")}
-                disabled={busyId === r.id}
-                onClick={() => resolve(r.id)}
-              >
-                {busyId === r.id ? "…" : "Επίλυση"}
-              </button>
-            </div>
+            <RowMain
+              title={
+                r.bookings
+                  ? `${departureLabel(r.bookings)} · ${formatDate(r.bookings.start_date)} → ${formatDate(r.bookings.end_date)}`
+                  : "Κράτηση"
+              }
+              meta={`Ακύρωσε ${r.at_fault_party === "client" ? "ο πελάτης" : "ο επαγγελματίας"} · αναφέρθηκε ${timeAgo(r.created_at)}`}
+            />
+            <People people={r.people} />
             <p style={{ fontSize: 13, margin: "10px 0 0", color: colors.ink }}>{r.reason}</p>
             <input
-              placeholder="Σημείωση επίλυσης (προαιρετικό)"
+              placeholder="Τι έγινε / τι αποφάσισες (προαιρετικό)"
               value={notes[r.id] || ""}
               onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
               style={{
@@ -95,6 +99,13 @@ export default function DisputesPage() {
                 color: colors.ink,
               }}
             />
+            <button
+              style={{ ...button("primary"), marginTop: 10 }}
+              disabled={busyId === r.id}
+              onClick={() => resolve(r.id)}
+            >
+              {busyId === r.id ? "…" : "✓ Κλείσιμο αναφοράς"}
+            </button>
           </div>
         ))}
       </Panel>
@@ -104,7 +115,7 @@ export default function DisputesPage() {
         {done.map((r) => (
           <Row key={r.id}>
             <RowMain
-              title={r.bookings ? departureLabel(r.bookings) : "Κράτηση"}
+              title={`${r.bookings ? departureLabel(r.bookings) : "Κράτηση"} · ${[r.people?.client?.name, r.people?.pro?.name].filter(Boolean).join(" ↔ ")}`}
               meta={r.resolution_note || r.reason}
             />
             <span style={{ ...muted, fontSize: 11.5, flexShrink: 0 }}>{timeAgo(r.resolved_at)}</span>

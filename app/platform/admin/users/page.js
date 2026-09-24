@@ -90,12 +90,21 @@ function UsersInner() {
   // δείχνουν εδώ με ?tab=..., ώστε να ανοίγουν κατευθείαν στη σωστή καρτέλα
   // αντί να αφήνουν τον admin να την ψάξει μόνος του.
   const tabParam = searchParams.get("tab");
-  const initialTab = invisibleOnly ? "pro" : TABS.some((t) => t.key === tabParam) ? tabParam : "client";
+  // ?q=... opens with a search already filled in — e.g. from a contact
+  // message by a visitor who can't log in, to find the account by phone.
+  const initialSearch = searchParams.get("q") || "";
+  const initialTab = invisibleOnly
+    ? "pro"
+    : TABS.some((t) => t.key === tabParam)
+    ? tabParam
+    : initialSearch
+    ? "all"
+    : "client";
 
   const [tab, setTab] = useState(initialTab);
   const [crewRole, setCrewRole] = useState("");
   const [sort, setSort] = useState("recent");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
@@ -184,7 +193,7 @@ function UsersInner() {
   return (
     <AdminShell
       title="Χρήστες"
-      subtitle="Πελάτες και επαγγελματίες ανά ιδιότητα. «Προβολή ως» ανοίγει τις πραγματικές σελίδες του λογαριασμού."
+      subtitle="Όλοι οι λογαριασμοί. «Στοιχεία»: ό,τι αφορά τον χρήστη (επαλήθευση, κωδικός, αναστολή). «Προβολή ως»: βλέπεις την εφαρμογή όπως τη βλέπει, μόνο για ανάγνωση."
       counts={counts}
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}

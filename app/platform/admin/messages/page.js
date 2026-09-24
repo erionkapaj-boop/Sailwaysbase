@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
+import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
+import Link from "next/link";
 import { Panel, Row, RowMain, Empty, colors, muted, button } from "../ui";
 import { adminListContactMessages, adminSetContactMessageStatus } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
@@ -31,9 +32,30 @@ const noteInput = {
   color: colors.ink,
 };
 
+// Replies happen outside the platform, on whatever the sender left — so the
+// page offers that channel directly instead of leaving it to copy/paste.
+function replyLinks(contact) {
+  const c = (contact || "").trim();
+  if (c.includes("@")) return [{ href: `mailto:${c}`, label: "Απάντηση με email" }];
+  const digits = c.replace(/[^\d+]/g, "");
+  if (digits.replace(/\D/g, "").length >= 8) {
+    const tel = digits.startsWith("+") ? digits : digits.length === 10 ? `+30${digits}` : digits;
+    return [{ href: `tel:${tel}`, label: "Κλήση" }];
+  }
+  return [];
+}
+
+// Phone numbers are stored as +30…; searching the last 10 digits matches
+// however the sender typed theirs.
+function searchTerm(contact) {
+  const c = (contact || "").trim();
+  if (c.includes("@")) return c;
+  const digits = c.replace(/\D/g, "");
+  return digits.length >= 10 ? digits.slice(-10) : c;
+}
+
 export default function AdminMessagesPage() {
   const refreshCounts = useRefreshAdminCounts();
-  const counts = useAdminCounts();
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -72,9 +94,8 @@ export default function AdminMessagesPage() {
 
   return (
     <AdminShell
-      title="Μηνύματα"
-      subtitle="Ό,τι φτάνει από τη φόρμα επικοινωνίας. Η απάντηση στέλνεται εκτός πλατφόρμας, στο στοιχείο που άφησε ο αποστολέας."
-      counts={counts}
+      title="Μηνύματα επικοινωνίας"
+      subtitle="Ό,τι φτάνει από τη φόρμα επικοινωνίας. Απαντάς με email ή τηλέφωνο, στο στοιχείο που άφησε ο αποστολέας, και μετά πατάς «Το απάντησα»."
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
@@ -90,29 +111,52 @@ export default function AdminMessagesPage() {
               background: URGENT.has(m.topic) ? "#FBF6EC" : colors.card,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              <RowMain
-                title={`${m.name} · ${TOPIC_LABEL[m.topic] || m.topic}`}
-                meta={
-                  <>
-                    {m.contact} · {timeAgo(m.created_at)}
-                    {m.user_id ? " · εγγεγραμμένος χρήστης" : " · επισκέπτης"}
-                  </>
-                }
-              />
-              <button style={button("primary")} disabled={busyId === m.id} onClick={() => setStatus(m.id, "handled")}>
-                {busyId === m.id ? "…" : "Απαντήθηκε"}
-              </button>
-            </div>
+            <RowMain
+              title={`${m.name} · ${TOPIC_LABEL[m.topic] || m.topic}`}
+              meta={
+                <>
+                  {m.contact} · {timeAgo(m.created_at)}
+                  {m.user_id ? " · εγγεγραμμένος χρήστης" : " · επισκέπτης (χωρίς λογαριασμό)"}
+                </>
+              }
+            />
             <p style={{ fontSize: 13.5, margin: "10px 0 0", color: colors.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
               {m.message}
             </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+              {replyLinks(m.contact).map((r) => (
+                <a key={r.href} href={r.href} style={{ ...button("secondary"), textDecoration: "none" }}>
+                  {r.label}
+                </a>
+              ))}
+              {m.user_id ? (
+                <Link href={`/platform/admin/user/${m.user_id}`} style={{ ...button("secondary"), textDecoration: "none" }}>
+                  Στοιχεία χρήστη
+                </Link>
+              ) : (
+                // A visitor who can't log in (e.g. forgot the PIN) writes in
+                // without an account link — this finds them by what they left.
+                <Link
+                  href={`/platform/admin/users?q=${encodeURIComponent(searchTerm(m.contact))}`}
+                  style={{ ...button("secondary"), textDecoration: "none" }}
+                >
+                  Βρες τον λογαριασμό του
+                </Link>
+              )}
+            </div>
             <input
-              placeholder="Σημείωση (προαιρετικό)"
+              placeholder="Σημείωση — τι απάντησες ή τι έκανες (προαιρετικό)"
               value={notes[m.id] || ""}
               onChange={(e) => setNotes((n) => ({ ...n, [m.id]: e.target.value }))}
               style={noteInput}
             />
+            <button
+              style={{ ...button("primary"), marginTop: 10 }}
+              disabled={busyId === m.id}
+              onClick={() => setStatus(m.id, "handled")}
+            >
+              {busyId === m.id ? "…" : "✓ Το απάντησα"}
+            </button>
           </div>
         ))}
       </Panel>
@@ -132,7 +176,7 @@ export default function AdminMessagesPage() {
                 disabled={busyId === m.id}
                 onClick={() => setStatus(m.id, "new")}
               >
-                Άνοιγμα
+                Ξανά αναπάντητο
               </button>
             </div>
           </Row>

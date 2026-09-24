@@ -107,7 +107,7 @@ export default function PendingPage() {
   }
 
   async function rejectPro(s) {
-    if (!(await confirm(`Απόρριψη του προφίλ του ${s.full_name || "επαγγελματία"};`))) return;
+    if (!(await confirm(`${s.full_name || "Επαγγελματίας"}: απόρριψη του προφίλ;`))) return;
     run(s.user_id, () => adminRejectSkipper(s.user_id, notes[s.user_id] || null), `${s.full_name || "Το προφίλ"}: απορρίφθηκε.`);
   }
 
@@ -115,7 +115,7 @@ export default function PendingPage() {
     run(r.id, () => adminApproveSecondaryRole(r.id), `✓ ${r.full_name}: εγκρίθηκε ως ${labelForRole(r.role)}.`);
 
   async function rejectRole(r) {
-    if (!(await confirm(`Απόρριψη της ιδιότητας ${labelForRole(r.role)} για τον ${r.full_name};`))) return;
+    if (!(await confirm(`${r.full_name}: απόρριψη της ιδιότητας ${labelForRole(r.role)};`))) return;
     run(r.id, () => adminRejectSecondaryRole(r.id, notes[r.id] || null), `${r.full_name}: η ιδιότητα απορρίφθηκε.`);
   }
 

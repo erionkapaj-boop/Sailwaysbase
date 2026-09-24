@@ -65,6 +65,17 @@ function message(err) {
   return ERRORS[code] || err.message || String(err);
 }
 
+function Field({ label, basis = "140px", children }) {
+  return (
+    <label
+      style={{ flex: `1 1 ${basis}`, display: "flex", flexDirection: "column", gap: 3, fontSize: 12, color: colors.inkSoft }}
+    >
+      {label}
+      {children}
+    </label>
+  );
+}
+
 export default function OfferComposer({ job = null, onDone }) {
   const replacing = Boolean(job);
 
@@ -189,61 +200,60 @@ export default function OfferComposer({ job = null, onDone }) {
   return (
     <>
       <Toolbar>
-        <form onSubmit={search} style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: 1 }}>
-          <select
-            style={{ ...selectControl, flex: "1 1 130px" }}
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            disabled={replacing}
-          >
-            {CREW_ROLES.map((r) => (
-              <option key={r.key} value={r.key}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-          <input
-            type="date"
-            style={{ ...control, flex: "1 1 140px" }}
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            disabled={replacing}
-          />
-          <input
-            type="date"
-            style={{ ...control, flex: "1 1 140px" }}
-            min={startDate || undefined}
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            disabled={replacing}
-          />
+        <form onSubmit={search} style={{ display: "flex", gap: 10, flexWrap: "wrap", flex: 1, alignItems: "flex-end" }}>
+          {/* Every control carries its own small label, so the two date
+              fields say which is which and everything lines up. */}
+          <Field label="Ιδιότητα" basis="100%">
+            <select style={selectControl} value={role} onChange={(e) => setRole(e.target.value)} disabled={replacing}>
+              {CREW_ROLES.map((r) => (
+                <option key={r.key} value={r.key}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Από">
+            <input
+              type="date"
+              style={control}
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              disabled={replacing}
+            />
+          </Field>
+          <Field label="Έως">
+            <input
+              type="date"
+              style={control}
+              min={startDate || undefined}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              disabled={replacing}
+            />
+          </Field>
           {!replacing && (
             <>
-              <select
-                style={{ ...selectControl, flex: "1 1 160px" }}
-                value={portId}
-                onChange={(e) => setPortId(e.target.value)}
-              >
-                <option value="">Οποιοδήποτε λιμάνι</option>
-                {lookups.ports.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              {role === "skipper" && (
-                <select
-                  style={{ ...selectControl, flex: "1 1 150px" }}
-                  value={boatTypeId}
-                  onChange={(e) => setBoatTypeId(e.target.value)}
-                >
-                  <option value="">Τύπος σκάφους…</option>
-                  {lookups.boatTypes.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
+              <Field label="Λιμάνι">
+                <select style={selectControl} value={portId} onChange={(e) => setPortId(e.target.value)}>
+                  <option value="">Οποιοδήποτε</option>
+                  {lookups.ports.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
                     </option>
                   ))}
                 </select>
+              </Field>
+              {role === "skipper" && (
+                <Field label="Τύπος σκάφους">
+                  <select style={selectControl} value={boatTypeId} onChange={(e) => setBoatTypeId(e.target.value)}>
+                    <option value="">Οποιοσδήποτε</option>
+                    {lookups.boatTypes.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
               )}
             </>
           )}

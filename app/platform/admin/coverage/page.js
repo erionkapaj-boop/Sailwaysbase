@@ -46,7 +46,7 @@ export default function CoveragePage() {
 
   return (
     <AdminShell
-      title="Κάλυψη"
+      title="Κενά από ακυρώσεις"
       subtitle="Κρατήσεις που έμειναν χωρίς επαγγελματία. Ο πελάτης δεν επιλέγει αντικαταστάτη — τη δουλειά τη δίνεις εσύ."
       counts={counts}
     >

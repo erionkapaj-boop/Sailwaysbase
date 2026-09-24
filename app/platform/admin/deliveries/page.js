@@ -62,7 +62,7 @@ export default function AdminDeliveriesPage() {
                 <span style={{ fontWeight: 600, minWidth: 60 }}>{labelForRole(rr.crew_role)}</span>
                 <span>Προσφορά: <b style={{ color: colors.ink }}>{formatMoney(rr.offered_price)}€</b></span>
                 <span>Βάση προμήθειας: {formatMoney(rr.commission_base)}€</span>
-                <span>Προμήθεια 5%: {formatMoney(rr.platform_commission)}€</span>
+                <span>Προμήθεια πλατφόρμας: {formatMoney(rr.platform_commission)}€</span>
                 <span>Πελάτης: <b style={{ color: colors.ink }}>{formatMoney(rr.client_fee)}€</b></span>
                 <span>Επαγγελματίας: <b style={{ color: colors.ink }}>{formatMoney(rr.professional_fee)}€</b></span>
                 <span style={{ marginLeft: "auto", color: rr.status === "filled" ? colors.success : colors.inkSoft }}>

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import AdminShell, { useAdminCounts } from "../AdminShell";
-import { Panel, Metric, MetricGrid, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
+import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
+import { Panel, Metric, MetricGrid, Row, RowMain, Empty, colors, muted, money, button, STATUS_LABEL } from "../ui";
 import { adminFindUserByPhone, adminCreditWallet } from "../../../../lib/platform/db";
 
 const inputStyle = {
@@ -25,16 +25,32 @@ function Topup({ onDone }) {
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
 
-  async function find(e) {
-    e.preventDefault();
+  async function lookup(value) {
     setError("");
     setDone("");
     try {
-      setResults(await adminFindUserByPhone(phone));
+      const found = await adminFindUserByPhone(value);
+      setResults(found);
+      if (found.length === 1) setSelected(found[0]);
     } catch (err) {
       setError(err.message || String(err));
     }
   }
+
+  function find(e) {
+    e.preventDefault();
+    lookup(phone);
+  }
+
+  // Opened from a user's page («Φόρτωση υπολοίπου») with ?phone=… — land
+  // with that person already found and selected.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("phone");
+    if (p) {
+      setPhone(p);
+      lookup(p);
+    }
+  }, []);
 
   async function credit() {
     if (!selected || !amount) return;
@@ -42,7 +58,7 @@ function Topup({ onDone }) {
     setError("");
     try {
       await adminCreditWallet(selected.id, Number(amount), note || `Χειροκίνητη κατάθεση ${amount}€`);
-      setDone(`Πιστώθηκαν ${amount}€ στον ${selected.full_name || selected.phone_number}.`);
+      setDone(`✓ ${selected.full_name || selected.phone_number}: πιστώθηκαν ${amount}€.`);
       setAmount("");
       setNote("");
       setSelected(null);
@@ -87,7 +103,7 @@ function Topup({ onDone }) {
             fontSize: 14,
           }}
         >
-          {u.full_name || "(χωρίς όνομα)"} · <span style={money}>{u.phone_number}</span> · {u.role}
+          {u.full_name || "(χωρίς όνομα)"} · <span style={money}>{u.phone_number}</span> · {STATUS_LABEL[u.role] || u.role}
         </button>
       ))}
 
@@ -120,7 +136,7 @@ function Topup({ onDone }) {
 
 export default function FinancePage() {
   const counts = useAdminCounts();
-  const [version, setVersion] = useState(0);
+  const refreshCounts = useRefreshAdminCounts();
   const [live, setLive] = useState(counts);
 
   useEffect(() => setLive(counts), [counts]);
@@ -128,8 +144,7 @@ export default function FinancePage() {
   return (
     <AdminShell
       title="Οικονομικά"
-      subtitle="Τι κρατά η πλατφόρμα για λογαριασμό χρηστών, και τι έχει εισπράξει."
-      counts={counts}
+      subtitle="Τι κρατά η πλατφόρμα για λογαριασμό χρηστών, τι έχει εισπράξει, και φόρτωση υπολοίπου σε χρήστη."
     >
       {/* Liabilities and revenue kept visually apart on purpose: the balances
           below are other people's money the platform is holding, not income,
@@ -156,10 +171,10 @@ export default function FinancePage() {
       </Panel>
 
       <Panel
-        title="Χειροκίνητη πίστωση"
-        subtitle="Για τραπεζική κατάθεση ή κάρτα εκτός πλατφόρμας. Καταγράφεται στο ιστορικό του χρήστη."
+        title="Φόρτωση υπολοίπου σε χρήστη"
+        subtitle="Όταν κάποιος σού πλήρωσε με τραπεζική κατάθεση ή κάρτα εκτός πλατφόρμας. Βρες τον με το τηλέφωνο, γράψε το ποσό και πάτα «Πίστωση». Καταγράφεται στο ιστορικό του."
       >
-        <Topup key={version} onDone={() => setVersion((v) => v + 1)} />
+        <Topup onDone={refreshCounts} />
       </Panel>
     </AdminShell>
   );

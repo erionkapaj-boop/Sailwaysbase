@@ -55,7 +55,7 @@ export default function OffersPage() {
 
   return (
     <AdminShell
-      title="Αναθέσεις"
+      title="Αναθέσεις δουλειάς"
       subtitle="Δουλειά που δίνεις εσύ σε συγκεκριμένα άτομα. Την παίρνει όποιος αποδεχτεί πρώτος, και πληρώνει."
       counts={counts}
     >
