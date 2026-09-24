@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
-import AdminShell, { useAdminCounts } from "../AdminShell";
+import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
 import { adminListCancellationReports, adminResolveReport, departureLabel } from "../../../../lib/platform/db";
 import { timeAgo, formatDate } from "../../../../lib/platform/notifications";
 
 export default function DisputesPage() {
+  const refreshCounts = useRefreshAdminCounts();
   const counts = useAdminCounts();
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(true);
@@ -32,6 +33,7 @@ export default function DisputesPage() {
     try {
       await adminResolveReport(id, notes[id] || null);
       await load();
+      refreshCounts();
     } catch (err) {
       setError(err.message || String(err));
     } finally {

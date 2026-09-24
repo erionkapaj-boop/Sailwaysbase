@@ -2,7 +2,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import AdminShell, { useAdminCounts } from "../AdminShell";
+import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import { useAuth } from "../../AuthContext";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { CREW_ROLES, labelForRole } from "../../../../lib/platform/roles";
@@ -76,6 +76,7 @@ function ageFrom(dob) {
 }
 
 function UsersInner() {
+  const refreshCounts = useRefreshAdminCounts();
   const router = useRouter();
   const searchParams = useSearchParams();
   const counts = useAdminCounts();
@@ -141,6 +142,7 @@ function UsersInner() {
     try {
       await adminVerifyUser(u.id);
       await load();
+      refreshCounts();
     } catch (err) {
       setError(err.message || String(err));
       setBusy(false);
@@ -153,6 +155,7 @@ function UsersInner() {
     try {
       await adminReactivateAccount(u.id);
       await load();
+      refreshCounts();
     } catch (err) {
       setError(err.message || String(err));
       setBusy(false);

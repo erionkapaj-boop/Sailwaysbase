@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { colors, radius, shadow, button, fontSans } from "../../../lib/platform/theme";
 
@@ -12,6 +12,16 @@ import { colors, radius, shadow, button, fontSans } from "../../../lib/platform/
 // reliably knows where the screen ends.
 export default function HeaderPanel({ icon, count = 0, ariaLabel, title, action, children, onOpen }) {
   const [open, setOpen] = useState(false);
+
+  // Same keyboard way out as the account drawer and the confirm dialog.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   function toggle() {
     const next = !open;

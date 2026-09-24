@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import AdminShell, { useAdminCounts } from "../AdminShell";
+import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted, button } from "../ui";
 import { adminListContactMessages, adminSetContactMessageStatus } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
@@ -32,6 +32,7 @@ const noteInput = {
 };
 
 export default function AdminMessagesPage() {
+  const refreshCounts = useRefreshAdminCounts();
   const counts = useAdminCounts();
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(true);
@@ -58,6 +59,7 @@ export default function AdminMessagesPage() {
     try {
       await adminSetContactMessageStatus(id, status, notes[id] || null);
       await load();
+      refreshCounts();
     } catch (err) {
       setError(err.message || String(err));
     } finally {

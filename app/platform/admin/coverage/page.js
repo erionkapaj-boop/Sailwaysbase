@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import AdminShell, { useAdminCounts } from "../AdminShell";
+import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import OfferComposer from "../OfferComposer";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
 import { labelForRole } from "../../../../lib/platform/roles";
@@ -8,6 +8,7 @@ import { adminCoverageNeeded, adminCancelOffer } from "../../../../lib/platform/
 import { formatDate } from "../../../../lib/platform/notifications";
 
 export default function CoveragePage() {
+  const refreshCounts = useRefreshAdminCounts();
   const counts = useAdminCounts();
   const [jobs, setJobs] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -32,6 +33,7 @@ export default function CoveragePage() {
     try {
       await adminCancelOffer(requestId);
       await load();
+      refreshCounts();
     } catch (err) {
       setError(err.message || String(err));
     }
@@ -91,6 +93,7 @@ export default function CoveragePage() {
             onDone={() => {
               setSelected(null);
               load();
+              refreshCounts();
             }}
           />
         </Panel>

@@ -18,6 +18,10 @@ const ACTIVITY_TONE = {
   dispute: colors.danger,
 };
 
+function plural(n, one, many) {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
 export default function AdminOverview() {
   const counts = useAdminCounts();
   const [activity, setActivity] = useState([]);
@@ -28,23 +32,66 @@ export default function AdminOverview() {
     adminActivityCounts().then(setLive).catch(() => {});
   }, []);
 
+  const pendingTotal =
+    (counts.pending_verification || 0) + (counts.pending_approvals || 0) + (counts.pending_secondary_roles || 0);
   const needsAttention =
-    (counts.pending_verification || 0) +
+    pendingTotal +
     (counts.coverage_needed || 0) +
-    (counts.pending_approvals || 0) +
+    (counts.contact_new || 0) +
     (counts.open_disputes || 0) +
     (counts.profiles_invisible || 0) +
     (counts.suspended_count || 0);
 
+  // Everything waiting on you, most time-sensitive first. Each row names the
+  // count with the right grammatical number ("1 κράτηση", not "1 κρατήσεις")
+  // and says what happens if it's left.
+  const pendingParts = [
+    counts.pending_verification > 0 &&
+      plural(counts.pending_verification, "νέα εγγραφή για επαλήθευση", "νέες εγγραφές για επαλήθευση"),
+    counts.pending_approvals > 0 &&
+      plural(counts.pending_approvals, "επαγγελματίας για έγκριση", "επαγγελματίες για έγκριση"),
+    counts.pending_secondary_roles > 0 &&
+      plural(counts.pending_secondary_roles, "αίτηση επιπλέον ιδιότητας", "αιτήσεις επιπλέον ιδιότητας"),
+  ].filter(Boolean);
+
+  const rows = [
+    counts.coverage_needed > 0 && {
+      href: "/platform/admin/coverage",
+      title: plural(counts.coverage_needed, "κράτηση έμεινε χωρίς επαγγελματία", "κρατήσεις έμειναν χωρίς επαγγελματία"),
+      meta: "Ο επαγγελματίας ακύρωσε — βρες αντικαταστάτη πριν το ταξίδι.",
+    },
+    pendingTotal > 0 && {
+      href: "/platform/admin/approvals",
+      title: `Εκκρεμότητες (${pendingTotal})`,
+      meta: `${pendingParts.join(" · ")}. Μέχρι να τις δεις, οι νέοι πελάτες δεν στέλνουν αιτήματα και οι επαγγελματίες δεν εμφανίζονται.`,
+    },
+    counts.contact_new > 0 && {
+      href: "/platform/admin/messages",
+      title: plural(counts.contact_new, "αναπάντητο μήνυμα επικοινωνίας", "αναπάντητα μηνύματα επικοινωνίας"),
+      meta: "Κάποιος περιμένει απάντηση από εσένα.",
+    },
+    counts.open_disputes > 0 && {
+      href: "/platform/admin/disputes",
+      title: plural(counts.open_disputes, "ανοιχτή αναφορά ακύρωσης", "ανοιχτές αναφορές ακύρωσης"),
+      meta: "Δες τι έγινε και κλείσε την αναφορά.",
+    },
+    counts.profiles_invisible > 0 && {
+      href: "/platform/admin/users?filter=invisible",
+      title: plural(counts.profiles_invisible, "επαγγελματίας χωρίς διαθεσιμότητα", "επαγγελματίες χωρίς διαθεσιμότητα"),
+      meta:
+        counts.profiles_invisible === 1
+          ? "Εγκεκριμένος, αλλά δεν βγαίνει σε αναζητήσεις — μάλλον δεν το ξέρει. Ένα τηλέφωνο βοηθά."
+          : "Εγκεκριμένοι, αλλά δεν βγαίνουν σε αναζητήσεις — μάλλον δεν το ξέρουν. Ένα τηλέφωνο βοηθά.",
+    },
+    counts.suspended_count > 0 && {
+      href: "/platform/admin/users?tab=suspended",
+      title: plural(counts.suspended_count, "λογαριασμός σε αναστολή", "λογαριασμοί σε αναστολή"),
+      meta: "Σταματημένοι επ' αόριστο — δες αν ήρθε η ώρα να επαναφερθούν.",
+    },
+  ].filter(Boolean);
+
   return (
-    <AdminShell
-      title="Επισκόπηση"
-      subtitle="Η κατάσταση της πλατφόρμας με μια ματιά."
-      counts={counts}
-    >
-      {/* What needs a person, before anything that merely reports a number.
-          An operations screen that opens on totals makes you hunt for the
-          work; this one opens on the work. */}
+    <AdminShell title="Επισκόπηση" subtitle="Πρώτα ό,τι περιμένει εσένα, μετά οι αριθμοί.">
       <Panel
         title="Χρειάζονται ενέργεια"
         subtitle={needsAttention === 0 ? "Τίποτα εκκρεμές αυτή τη στιγμή." : undefined}
@@ -53,84 +100,20 @@ export default function AdminOverview() {
         {needsAttention === 0 ? (
           <Empty>Όλα τακτοποιημένα.</Empty>
         ) : (
-          <>
-            {/* Πρώτο από όλα: κάποιος έκανε εγγραφή και περιμένει —
-                όσο πιο γρήγορα ελεγχθεί, τόσο πιο γρήγορα μπαίνει κανονικά. */}
-            {counts.pending_verification > 0 && (
-              <Link href="/platform/admin/users?tab=pending" style={{ textDecoration: "none" }}>
-                <Row tone="attention">
-                  <RowMain
-                    title={`${counts.pending_verification} εγγραφές περιμένουν επαλήθευση`}
-                    meta="Δεν στέλνουμε SMS ακόμα — ελέγχονται χειροκίνητα πριν ενεργοποιηθούν."
-                  />
-                  <span style={{ ...muted, fontSize: 18 }}>›</span>
-                </Row>
-              </Link>
-            )}
-            {/* Coverage first: a client is sitting without a professional
-                for a date that is coming, which nothing else on this list
-                is. */}
-            {counts.coverage_needed > 0 && (
-              <Link href="/platform/admin/coverage" style={{ textDecoration: "none" }}>
-                <Row tone="attention">
-                  <RowMain
-                    title={`${counts.coverage_needed} κρατήσεις χωρίς επαγγελματία`}
-                    meta="Ακυρώθηκαν και περιμένουν να αναθέσεις αντικαταστάτη."
-                  />
-                  <span style={{ ...muted, fontSize: 18 }}>›</span>
-                </Row>
-              </Link>
-            )}
-            {counts.pending_approvals > 0 && (
-              <Link href="/platform/admin/approvals" style={{ textDecoration: "none" }}>
-                <Row tone="attention">
-                  <RowMain
-                    title={`${counts.pending_approvals} προφίλ περιμένουν έγκριση`}
-                    meta="Μέχρι να εγκριθούν δεν εμφανίζονται σε καμία αναζήτηση."
-                  />
-                  <span style={{ ...muted, fontSize: 18 }}>›</span>
-                </Row>
-              </Link>
-            )}
-            {counts.open_disputes > 0 && (
-              <Link href="/platform/admin/disputes" style={{ textDecoration: "none" }}>
-                <Row tone="attention">
-                  <RowMain
-                    title={`${counts.open_disputes} ανοιχτές αναφορές ακύρωσης`}
-                    meta="Κάθε μία έχει επηρεάσει την αξιοπιστία κάποιου."
-                  />
-                  <span style={{ ...muted, fontSize: 18 }}>›</span>
-                </Row>
-              </Link>
-            )}
-            {counts.profiles_invisible > 0 && (
-              <Link href="/platform/admin/users?filter=invisible" style={{ textDecoration: "none" }}>
-                <Row tone="attention">
-                  <RowMain
-                    title={`${counts.profiles_invisible} εγκεκριμένοι χωρίς διαθεσιμότητα`}
-                    meta="Εγκρίθηκαν αλλά δεν βγαίνουν σε αναζητήσεις — μάλλον δεν το ξέρουν."
-                  />
-                  <span style={{ ...muted, fontSize: 18 }}>›</span>
-                </Row>
-              </Link>
-            )}
-            {/* 0078: ζητήθηκε ρητά — μια υπενθύμιση να μην ξεχνιούνται όσοι
-                είναι σε αναστολή επ' αόριστο. */}
-            {counts.suspended_count > 0 && (
-              <Link href="/platform/admin/users?tab=suspended" style={{ textDecoration: "none" }}>
-                <Row tone="attention">
-                  <RowMain
-                    title={`${counts.suspended_count} λογαριασμοί σε αναστολή`}
-                    meta="Σταματημένοι επ' αόριστο — δες αν ήρθε η ώρα να επαναφερθούν."
-                  />
-                  <span style={{ ...muted, fontSize: 18 }}>›</span>
-                </Row>
-              </Link>
-            )}
-          </>
+          rows.map((r) => (
+            <Link key={r.href} href={r.href} style={{ textDecoration: "none" }}>
+              <Row tone="attention">
+                <RowMain title={r.title} meta={r.meta} />
+                <span style={{ ...muted, fontSize: 18 }}>›</span>
+              </Row>
+            </Link>
+          ))
         )}
       </Panel>
 
+      <h2 style={{ ...muted, fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", margin: "26px 2px 10px" }}>
+        Αριθμοί
+      </h2>
       <MetricGrid>
         <Metric
           label="Χρήστες"
@@ -143,7 +126,7 @@ export default function AdminOverview() {
         {/* Χωρίς σύνδεσμο επίτηδες: δεν υπάρχει καμία οθόνη στο admin που να
             δείχνει τα ανοιχτά αιτήματα πελατών ένα προς ένα — θα ήταν ένα
             κουμπί που δεν πάει πουθενά, ακριβώς το πρόβλημα που φτιάχνουμε. */}
-        <Metric label="Ανοιχτά αιτήματα" value={counts.requests_open ?? "—"} hint="σε αναμονή διεκδίκησης" />
+        <Metric label="Ανοιχτά αιτήματα" value={counts.requests_open ?? "—"} hint="περιμένουν επαγγελματία" />
       </MetricGrid>
 
       <MetricGrid>
@@ -174,9 +157,9 @@ export default function AdminOverview() {
         {/* Χωρίς σύνδεσμο για τον ίδιο λόγο: δεν υπάρχει λίστα άκαρπων
             αιτημάτων πουθενά στο admin ακόμα. */}
         <Metric
-          label="Άκαρπα αιτήματα (7 ημ.)"
+          label="Αιτήματα χωρίς απάντηση (7 ημ.)"
           value={counts.requests_unclaimed_7d ?? "—"}
-          hint="κανείς δεν τα διεκδίκησε"
+          hint="έληξαν χωρίς να τα αναλάβει κανείς"
           tone={counts.requests_unclaimed_7d > 0 ? "attention" : "plain"}
         />
       </MetricGrid>
