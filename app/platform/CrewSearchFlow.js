@@ -4,18 +4,17 @@ import { useRouter } from "next/navigation";
 import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
+import { Mark } from "./components/Logo";
 import BackButton from "./components/BackButton";
 import { button, colors, input, label, muted, radius, select, h2 } from "../../lib/platform/theme";
 
 // Progressive disclosure (brief §4): one question on screen at a time, gentle
 // fade/slide between them — never the whole form at once.
 //
-// A dedicated "country" step used to sit here (Greece was, and still is,
-// the only option) — dropped because it asked a question with no real
-// answer to give, just a single button to tap through. The regions table
-// can still grow to more than one country later; that step can come back
-// once there's an actual choice to make, rather than staying as a tap that
-// does nothing today.
+// "country" exists as its own step even though Greece is the only option
+// today — the regions table was always meant to grow beyond one country
+// (see its own seed comment), so the step is there to grow into rather than
+// retrofit later.
 //
 // The "boat" step only makes sense when the search includes skipper: a boat
 // type is what a skipper operates, and hostess (or any future non-skipper
@@ -27,7 +26,7 @@ import { button, colors, input, label, muted, radius, select, h2 } from "../../l
 // asked for here instead, so landing on results means there's nothing left
 // to fill in, just candidates to browse and pick.
 function stepsFor(roles) {
-  const base = ["role", "dates", "region", "port"];
+  const base = ["role", "dates", "country", "region", "port"];
   const withBoat = roles.includes("skipper") ? [...base, "boat"] : base;
   return [...withBoat, "extras"];
 }
@@ -244,6 +243,25 @@ export default function CrewSearchFlow() {
             style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15 }}
           >
             Συνέχεια
+          </button>
+        </div>
+      )}
+
+      {current === "country" && (
+        <div key="country" data-sf-step style={stepWrap}>
+          <StepHeading>Ποια χώρα;</StepHeading>
+          <button
+            type="button"
+            onClick={next}
+            style={{
+              ...option(true),
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <Mark size={22} />
+            Ελλάδα
           </button>
         </div>
       )}
