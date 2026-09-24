@@ -11,6 +11,7 @@ import {
   adminSetTestAccount,
   adminSetStaffAdmin,
   adminDeleteAccount,
+  adminRestoreAccount,
   adminSuspendAccount,
   adminReactivateAccount,
   adminVerifyUser,
@@ -41,7 +42,9 @@ const DELETE_ERRORS = {
   has_pending_activity: "Έχει ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση. Πρέπει να τακτοποιηθούν πρώτα.",
   already_deleted: "Ο λογαριασμός έχει ήδη διαγραφεί.",
   user_not_found: "Δεν βρέθηκε ο λογαριασμός.",
-  cannot_delete_admin: "Λογαριασμός admin δεν μπορεί να διαγραφεί από εδώ.",
+  cannot_delete_admin: "Ο κύριος λογαριασμός διαχειριστή δεν διαγράφεται.",
+  cannot_delete_self: "Δεν μπορείς να διαγράψεις τον δικό σου λογαριασμό από εδώ.",
+  not_deleted: "Ο λογαριασμός δεν είναι διαγραμμένος.",
   cannot_impersonate_admin: "Δεν γίνεται «Σύνδεση ως» πάνω σε λογαριασμό admin.",
   cannot_remove_last_admin: "Δεν μπορείς να αφαιρέσεις τα δικαιώματα admin — είναι ο μόνος admin που έχει απομείνει.",
   cannot_suspend_admin: "Λογαριασμός admin δεν μπορεί να τεθεί σε αναστολή.",
@@ -91,6 +94,7 @@ export default function AdminUserViewPage() {
   const [rejectNote, setRejectNote] = useState("");
   const [notice, setNotice] = useState("");
   const [tempPin, setTempPin] = useState(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   async function load() {
     setBusy(true);
@@ -276,18 +280,63 @@ export default function AdminUserViewPage() {
     }
   }
 
+  // What deleting this account will touch, said before the admin confirms —
+  // open requests get cancelled and refunded; confirmed bookings do not.
+  function deletionImpact() {
+    const today = new Date().toISOString().slice(0, 10);
+    const openReqs = (data?.requests || []).filter((r) => r.status === "open").length;
+    const upcoming = (data?.bookings || []).filter((b) => b.status === "confirmed" && b.end_date >= today).length;
+    const pendingPings = (data?.pings || []).filter((p) => p.status === "pending").length;
+    const lines = [];
+    if (openReqs > 0)
+      lines.push(`${openReqs === 1 ? "Το 1 ανοιχτό αίτημά του ακυρώνεται" : `Τα ${openReqs} ανοιχτά αιτήματά του ακυρώνονται`} και το τέλος επιστρέφεται ως credit.`);
+    if (pendingPings > 0)
+      lines.push(`Αφαιρείται από ${pendingPings === 1 ? "1 αίτημα" : `${pendingPings} αιτήματα`} που περίμεναν απάντησή του.`);
+    if (upcoming > 0)
+      lines.push(`ΠΡΟΣΟΧΗ: ${upcoming === 1 ? "η 1 επιβεβαιωμένη κράτησή του ΔΕΝ ακυρώνεται" : `οι ${upcoming} επιβεβαιωμένες κρατήσεις του ΔΕΝ ακυρώνονται`} — αν χρειάζεται, τακτοποίησέ τες ξεχωριστά.`);
+    return lines;
+  }
+
   async function handleDeleteAccount() {
-    if (
-      !(await confirm(
-        `Οριστική διαγραφή του λογαριασμού ${target.full_name || target.phone_number}; Ανωνυμοποιείται (το ιστορικό κρατήσεων/αξιολογήσεων/οικονομικών παραμένει για τη διατήρηση που ορίζει η πολιτική απορρήτου) και το τηλέφωνο ελευθερώνεται για νέα εγγραφή. Δεν αναστρέφεται.`
-      ))
-    )
+    const name = target.full_name || target.phone_number;
+    const impact = deletionImpact();
+    const ok = await confirm(
+      `${name}: διαγραφή λογαριασμού; Δεν θα μπορεί να συνδεθεί και κρύβεται από την πλατφόρμα. Τίποτα δεν σβήνεται — μπορείς να τον επαναφέρεις από αυτή τη σελίδα όποτε θελήσεις.` +
+        (impact.length ? `\n\n${impact.join("\n")}` : "")
+    );
+    if (!ok) return;
+    setActionBusy(true);
+    setActionError("");
+    setNotice("");
+    try {
+      const res = await adminDeleteAccount(id, deleteReason.trim() || null);
+      setDeleteReason("");
+      await load();
+      setNotice(
+        "Ο λογαριασμός διαγράφηκε." +
+          (res?.cancelled_requests > 0
+            ? ` ${res.cancelled_requests === 1 ? "Ακυρώθηκε 1 ανοιχτό αίτημα" : `Ακυρώθηκαν ${res.cancelled_requests} ανοιχτά αιτήματα`} και επιστράφηκαν ${res.refunded}€ ως credit.`
+            : "") +
+          " Μπορείς να τον επαναφέρεις από κάτω."
+      );
+    } catch (err) {
+      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleRestoreAccount() {
+    const name = target.full_name || target.phone_number;
+    if (!(await confirm(`${name}: επαναφορά λογαριασμού; Θα μπορεί ξανά να συνδέεται και θα ειδοποιηθεί.`, { tone: "primary" })))
       return;
     setActionBusy(true);
     setActionError("");
+    setNotice("");
     try {
-      await adminDeleteAccount(id);
+      await adminRestoreAccount(id);
       await load();
+      setNotice("✓ Ο λογαριασμός επανήλθε και ο χρήστης ειδοποιήθηκε.");
     } catch (err) {
       setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
     } finally {
@@ -324,7 +373,7 @@ export default function AdminUserViewPage() {
           <p style={{ ...muted, fontSize: 12.5, margin: 0 }}>
             Εγγραφή {formatDateTime(target.created_at)}
             {" · "}
-            {target.last_seen_at ? `τελευταία φορά ενεργός ${timeAgo(target.last_seen_at)}` : "δεν έχει μπει ποτέ"}
+            {target.last_seen_at ? `τελευταία φορά μέσα ${timeAgo(target.last_seen_at)}` : "δεν έχει μπει ποτέ"}
           </p>
 
           {notice && (
@@ -667,93 +716,122 @@ export default function AdminUserViewPage() {
           )}
 
           {target.status === "deleted" ? (
-            <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.border}` }}>
-              <span style={badge("neutral")}>Διαγραμμένος λογαριασμός</span>
-            </div>
-          ) : target.status === "suspended" ? (
-            <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
-              <b style={{ fontWeight: 600 }}>Σε αναστολή</b>
+            <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.danger}` }}>
+              <b style={{ fontWeight: 600 }}>Διαγραμμένος λογαριασμός</b>
               <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
-                {target.suspension_reason || "(χωρίς καταγεγραμμένο λόγο)"}
+                {target.deleted_at && <>Διαγράφηκε: {formatDateTime(target.deleted_at)}<br /></>}
+                {target.deletion_reason && <>Λόγος: {target.deletion_reason}<br /></>}
+                Δεν μπορεί να συνδεθεί και δεν φαίνεται πουθενά στην πλατφόρμα. Τίποτα δεν έχει σβηστεί.
               </p>
-              <button style={{ ...button("primary") }} disabled={actionBusy} onClick={handleReactivate}>
-                {actionBusy ? "…" : "Επαναφορά"}
+              <button style={button("primary")} disabled={actionBusy} onClick={handleRestoreAccount}>
+                {actionBusy ? "…" : "Επαναφορά λογαριασμού"}
               </button>
-              {actionError && <p style={{ color: colors.danger, marginTop: 10, fontSize: 13 }}>{actionError}</p>}
             </div>
           ) : (
-            target.role !== "admin" &&
-            !target.is_staff_admin && (
-              <>
+            <>
+              {target.status === "suspended" ? (
                 <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
-                  <b style={{ fontWeight: 600 }}>Αναστολή λογαριασμού</b>
+                  <b style={{ fontWeight: 600 }}>Σε αναστολή</b>
                   <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
-                    Ο λογαριασμός σταματά να λειτουργεί επ' αόριστον (μπλοκάρεται η σύνδεση, κρύβεται από την
-                    αναζήτηση αν είναι επαγγελματίας) — τίποτα δεν χάνεται, και επαναφέρεται με ένα κλικ όποτε
-                    θελήσεις, χωρίς νέα εγγραφή.
+                    {target.suspension_reason || "(χωρίς καταγεγραμμένο λόγο)"}
                   </p>
-                  {showSuspendForm ? (
-                    <form onSubmit={handleSuspend}>
-                      <textarea
-                        required
-                        rows={2}
-                        placeholder="Λόγος αναστολής — θα τον βλέπεις εδώ όταν το ξανακοιτάξεις."
-                        value={suspendReason}
-                        onChange={(e) => setSuspendReason(e.target.value)}
-                        style={{
-                          width: "100%",
-                          fontFamily: "inherit",
-                          fontSize: 13.5,
-                          padding: 8,
-                          borderRadius: 8,
-                          border: `1px solid ${colors.border}`,
-                          marginBottom: 8,
-                          boxSizing: "border-box",
-                        }}
-                      />
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button type="submit" style={{ ...button("primary") }} disabled={actionBusy}>
-                          {actionBusy ? "…" : "Επιβεβαίωση αναστολής"}
-                        </button>
-                        <button
-                          type="button"
-                          style={{ ...button("secondary") }}
-                          onClick={() => {
-                            setShowSuspendForm(false);
-                            setSuspendReason("");
-                            setActionError("");
-                          }}
-                        >
-                          Άκυρο
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <button style={{ ...button("secondary") }} onClick={() => setShowSuspendForm(true)}>
-                      Αναστολή
-                    </button>
-                  )}
+                  <button style={{ ...button("primary") }} disabled={actionBusy} onClick={handleReactivate}>
+                    {actionBusy ? "…" : "Επαναφορά"}
+                  </button>
                 </div>
+              ) : (
+                target.role !== "admin" &&
+                !target.is_staff_admin && (
+                  <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
+                    <b style={{ fontWeight: 600 }}>Αναστολή λογαριασμού</b>
+                    <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
+                      Προσωρινό «πάγωμα»: δεν μπορεί να συνδεθεί και δεν εμφανίζεται σε αναζητήσεις, μέχρι να τον
+                      επαναφέρεις. Βλέπεις τον λόγο σε κάθε λίστα, για να μην ξεχαστεί.
+                    </p>
+                    {showSuspendForm ? (
+                      <form onSubmit={handleSuspend}>
+                        <textarea
+                          required
+                          rows={2}
+                          placeholder="Λόγος αναστολής — θα τον βλέπεις εδώ όταν το ξανακοιτάξεις."
+                          value={suspendReason}
+                          onChange={(e) => setSuspendReason(e.target.value)}
+                          style={{
+                            width: "100%",
+                            fontFamily: "inherit",
+                            fontSize: 13.5,
+                            padding: 8,
+                            borderRadius: 8,
+                            border: `1px solid ${colors.border}`,
+                            marginBottom: 8,
+                            boxSizing: "border-box",
+                          }}
+                        />
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button type="submit" style={{ ...button("primary") }} disabled={actionBusy}>
+                            {actionBusy ? "…" : "Επιβεβαίωση αναστολής"}
+                          </button>
+                          <button
+                            type="button"
+                            style={{ ...button("secondary") }}
+                            onClick={() => {
+                              setShowSuspendForm(false);
+                              setSuspendReason("");
+                              setActionError("");
+                            }}
+                          >
+                            Άκυρο
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <button style={{ ...button("secondary") }} onClick={() => setShowSuspendForm(true)}>
+                        Αναστολή
+                      </button>
+                    )}
+                  </div>
+                )
+              )}
 
+              {/* Any account except the main admin and yourself (0087). */}
+              {target.role !== "admin" && target.id !== userRow?.id && (
                 <div style={{ ...card, marginTop: 12, borderLeft: `3px solid ${colors.danger}` }}>
                   <b style={{ fontWeight: 600 }}>Διαγραφή λογαριασμού</b>
                   <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
-                    Ο λογαριασμός κρύβεται από την πλατφόρμα — όνομα, email, τηλέφωνο και ιστορικό (κρατήσεις,
-                    αξιολογήσεις, οικονομικά) παραμένουν ως έχουν. Αν ξαναγραφτεί με το ίδιο τηλέφωνο, παίρνει πίσω
-                    τον ίδιο λογαριασμό με την ίδια αξιολόγηση — δεν ξεκινάει καθαρός.
+                    Ο λογαριασμός κρύβεται από την πλατφόρμα και δεν μπορεί να συνδεθεί. Τίποτα δεν σβήνεται
+                    (ιστορικό, αξιολογήσεις, υπόλοιπο) — μπορείς να τον επαναφέρεις από εδώ όποτε θελήσεις.
+                    Τα ανοιχτά του αιτήματα ακυρώνονται με επιστροφή χρημάτων.
                   </p>
+                  {deletionImpact().some((l) => l.startsWith("ΠΡΟΣΟΧΗ")) && (
+                    <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 10px" }}>
+                      {deletionImpact().find((l) => l.startsWith("ΠΡΟΣΟΧΗ"))}
+                    </p>
+                  )}
+                  <input
+                    value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value)}
+                    placeholder="Λόγος (προαιρετικό — θα τον βλέπεις αν τον ξανανοίξεις)"
+                    style={{
+                      width: "100%",
+                      padding: "8px 10px",
+                      fontSize: 13,
+                      fontFamily: "inherit",
+                      borderRadius: 8,
+                      border: `1px solid ${colors.border}`,
+                      boxSizing: "border-box",
+                      marginBottom: 10,
+                    }}
+                  />
                   <button
                     style={{ ...button("primary"), background: colors.danger, borderColor: colors.danger }}
                     disabled={actionBusy}
                     onClick={handleDeleteAccount}
                   >
-                    {actionBusy ? "…" : "Οριστική διαγραφή"}
+                    {actionBusy ? "…" : "Διαγραφή λογαριασμού"}
                   </button>
                 </div>
-
-                {actionError && <p style={{ color: colors.danger, marginTop: 10, fontSize: 13 }}>{actionError}</p>}
-              </>
-            )
+              )}
+            </>
           )}
         </>
       )}

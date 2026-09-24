@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Toolbar, Row, RowMain, Empty, colors, muted, money, button } from "./ui";
 import { CREW_ROLES, labelForRole } from "../../../lib/platform/roles";
 import {
@@ -89,6 +90,8 @@ export default function OfferComposer({ job = null, onDone }) {
   const [boatTypeId, setBoatTypeId] = useState("");
 
   const [results, setResults] = useState(null);
+  const [doneMsg, setDoneMsg] = useState("");
+  const [confirm, confirmDialog] = useConfirm();
   const [picked, setPicked] = useState([]);
   const [note, setNote] = useState("");
   const [fee, setFee] = useState("");
@@ -161,10 +164,13 @@ export default function OfferComposer({ job = null, onDone }) {
         note,
         expiresHours: Number(expiresHours),
       });
+      const n = picked.length;
+      const msg = `✓ Η πρόταση στάλθηκε σε ${n === 1 ? "1 επαγγελματία" : `${n} επαγγελματίες`}. Όποιος αποδεχτεί πρώτος την παίρνει — θα το δεις στις «Αναθέσεις δουλειάς».`;
       setPicked([]);
       setNote("");
       setResults(null);
-      onDone?.();
+      setDoneMsg(msg);
+      onDone?.(msg);
     } catch (err) {
       setError(message(err));
     } finally {
@@ -176,11 +182,24 @@ export default function OfferComposer({ job = null, onDone }) {
   // already sorted it out on the phone and only need the booking to exist.
   // Nobody is charged, because nobody accepted anything here.
   async function assignDirect(skipperId) {
+    const who = results?.find((r) => r.skipper_id === skipperId);
+    const name = who?.full_name || "Επαγγελματίας";
+    // Writes a confirmed booking straight away, with no acceptance step —
+    // it used to happen on a single tap with nothing said afterwards.
+    if (
+      !(await confirm(
+        `${name}: άμεση ανάθεση; Η κράτηση γράφεται αμέσως ως επιβεβαιωμένη, χωρίς να την αποδεχτεί ο ίδιος και χωρίς χρέωση. Κάν' το μόνο αν το έχετε ήδη κλείσει στο τηλέφωνο.`,
+        { tone: "primary" }
+      ))
+    )
+      return;
     setAssigningId(skipperId);
     setError("");
     try {
       await adminAssignReplacement(job.booking_id, skipperId);
-      onDone?.();
+      const msg = `✓ ${name}: η κράτηση ανατέθηκε και είναι πλέον επιβεβαιωμένη.`;
+      setDoneMsg(msg);
+      onDone?.(msg);
     } catch (err) {
       setError(message(err));
     } finally {
@@ -376,6 +395,10 @@ export default function OfferComposer({ job = null, onDone }) {
           </button>
         </div>
       )}
+      {doneMsg && (
+        <p style={{ color: colors.success, fontSize: 13.5, margin: "12px 0 0", padding: "0 16px 12px" }}>{doneMsg}</p>
+      )}
+      {confirmDialog}
     </>
   );
 }

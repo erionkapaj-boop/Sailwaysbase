@@ -7,11 +7,57 @@ import { useAuth } from "./AuthContext";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
 import PendingReadyBanner from "./components/PendingReadyBanner";
+import { adminOverview } from "../../lib/platform/db";
+import { card } from "../../lib/platform/theme";
 import { button, colors, muted, h2 } from "../../lib/platform/theme";
 
 // The first screen shows only the CTA and the secondary link (brief §4) —
 // no form, no dropdowns, no tagline. The form appears only after the CTA is
 // pressed, and then one step at a time.
+// An admin who lands here (e.g. from the logo) sees the way back to the
+// console and whether anything is waiting — otherwise this page, built for
+// clients, gives no hint that the admin side exists at all.
+function AdminHomeBanner() {
+  const { isAdmin } = useAuth();
+  const [waiting, setWaiting] = useState(null);
+  useEffect(() => {
+    if (!isAdmin) return;
+    adminOverview()
+      .then((c) =>
+        setWaiting(
+          ["pending_verification", "pending_approvals", "pending_secondary_roles", "coverage_needed", "contact_new", "open_disputes"]
+            .reduce((n, k) => n + (Number(c?.[k]) || 0), 0)
+        )
+      )
+      .catch(() => setWaiting(0));
+  }, [isAdmin]);
+  if (!isAdmin) return null;
+  return (
+    <Link
+      href="/platform/admin"
+      style={{
+        ...card,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 12,
+        textAlign: "left",
+        textDecoration: "none",
+        color: colors.ink,
+        marginBottom: 24,
+      }}
+    >
+      <span>
+        <b style={{ fontWeight: 600 }}>Διαχείριση</b>
+        <span style={{ ...muted, display: "block", fontSize: 13, marginTop: 2 }}>
+          {waiting == null ? "…" : waiting === 0 ? "Τίποτα δεν περιμένει εσένα." : `${waiting} περιμένουν εσένα.`}
+        </span>
+      </span>
+      <span style={{ fontSize: 18 }}>›</span>
+    </Link>
+  );
+}
+
 export default function HomeEntry() {
   const t = useTranslations("Home");
   const router = useRouter();
@@ -72,6 +118,7 @@ export default function HomeEntry() {
         </div>
       )}
 
+      <AdminHomeBanner />
       <PendingReadyBanner />
 
       {/* Outline rather than filled: lighter against the warm page, closer to

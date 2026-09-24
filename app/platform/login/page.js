@@ -3,7 +3,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
-import { signInWithPin, checkLoginAllowed, normalizePhone } from "../../../lib/platform/db";
+import { signInWithPin, checkLoginAllowed, normalizePhone, isSignedInAdmin } from "../../../lib/platform/db";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../../lib/platform/pendingDelivery";
 import BackButton from "../components/BackButton";
@@ -30,11 +30,16 @@ function LoginInner() {
       await signInWithPin(phone, pin);
       await refresh();
       // No explicit destination: a search or delivery request left waiting
-      // (e.g. picked before the account was verified) is where they were.
-      router.push(
-        params.get("next") ||
-          (hasPendingBroadcast() ? "/platform/search" : hasPendingDelivery() ? "/platform/delivery" : "/platform")
-      );
+      // (e.g. picked before the account was verified) is where they were;
+      // an admin goes to the console rather than the client home page.
+      const fallback = hasPendingBroadcast()
+        ? "/platform/search"
+        : hasPendingDelivery()
+        ? "/platform/delivery"
+        : (await isSignedInAdmin().catch(() => false))
+        ? "/platform/admin"
+        : "/platform";
+      router.push(params.get("next") || fallback);
     } catch (err) {
       if (err.message === "locked_out") {
         setLockedOut(true);

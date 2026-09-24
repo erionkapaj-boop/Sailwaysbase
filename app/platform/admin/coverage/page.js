@@ -14,6 +14,7 @@ export default function CoveragePage() {
   const [selected, setSelected] = useState(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   async function load() {
     try {
@@ -51,6 +52,20 @@ export default function CoveragePage() {
       counts={counts}
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
+      {notice && (
+        <div
+          style={{
+            background: "#EAF2EE",
+            border: `1px solid ${colors.success}`,
+            borderRadius: 10,
+            padding: "12px 14px",
+            marginBottom: 14,
+            fontSize: 13.5,
+          }}
+        >
+          {notice}
+        </div>
+      )}
 
       <Panel title={`Χρειάζονται ενέργεια (${waiting.length})`} padded={false}>
         {busy && <Empty>Φόρτωση…</Empty>}
@@ -90,8 +105,9 @@ export default function CoveragePage() {
         >
           <OfferComposer
             job={selected}
-            onDone={() => {
+            onDone={(msg) => {
               setSelected(null);
+              setNotice(msg || "");
               load();
               refreshCounts();
             }}

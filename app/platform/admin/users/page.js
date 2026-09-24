@@ -5,8 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import { useAuth } from "../../AuthContext";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
+import { badge } from "../../../../lib/platform/theme";
 import { CREW_ROLES, labelForRole } from "../../../../lib/platform/roles";
-import { adminListAccounts, adminVerifyUser, adminReactivateAccount, loginAsTestAccount } from "../../../../lib/platform/db";
+import { adminListAccounts, adminVerifyUser, adminReactivateAccount, adminRestoreAccount, loginAsTestAccount } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
 import { useConfirm } from "../../components/ConfirmDialog";
 
@@ -150,6 +151,21 @@ function UsersInner() {
     setError("");
     try {
       await adminVerifyUser(u.id);
+      await load();
+      refreshCounts();
+    } catch (err) {
+      setError(err.message || String(err));
+      setBusy(false);
+    }
+  }
+
+  async function handleRestore(u) {
+    if (!(await confirm(`${u.full_name || u.phone_number}: επαναφορά λογαριασμού; Θα μπορεί ξανά να συνδέεται και θα ειδοποιηθεί.`, { tone: "primary" })))
+      return;
+    setBusy(true);
+    setError("");
+    try {
+      await adminRestoreAccount(u.id);
       await load();
       refreshCounts();
     } catch (err) {
@@ -313,7 +329,7 @@ function UsersInner() {
                     {/* The one thing the old list couldn't answer: is this
                         account alive? It decides who you'd hand work to. */}
                     <span style={{ color: u.last_seen_at ? colors.inkSoft : colors.warn }}>
-                      {u.last_seen_at ? `Ενεργός ${timeAgo(u.last_seen_at)}` : "Δεν έχει μπει ποτέ"}
+                      {u.last_seen_at ? `Τελευταία φορά μέσα ${timeAgo(u.last_seen_at)}` : "Δεν έχει μπει ποτέ"}
                     </span>
                     {/* Ο λόγος αναστολής φαίνεται εδώ κατευθείαν — αυτό
                         ζητήθηκε ρητά: να μη χρειάζεται ο admin να ανοίξει το
@@ -349,6 +365,18 @@ function UsersInner() {
               >
                 {u.approval_status && u.approval_status !== "approved" && <Status value={u.approval_status} />}
                 {u.status !== "active" && <Status value={u.status} />}
+                {!u.phone_verified_at && u.role !== "admin" && u.status !== "deleted" && (
+                  <span style={badge("warn")}>Περιμένει επαλήθευση</span>
+                )}
+                {u.status === "deleted" && (
+                  <button
+                    style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
+                    disabled={busy}
+                    onClick={() => handleRestore(u)}
+                  >
+                    Επαναφορά
+                  </button>
+                )}
                 {/* 0075: εγγραφή χωρίς SMS OTP (ή χωρίς επαλήθευση admin
                     ακόμα) — VerificationGate στο PlatformShell.js τον
                     μπλοκάρει παντού μέχρι να πατηθεί αυτό. */}

@@ -64,9 +64,12 @@ language plpgsql security definer set search_path = public as $$
 declare
   v_name text := coalesce(nullif(btrim(new.full_name), ''), (select full_name from users where id = new.user_id));
   -- Ένας επαγγελματίας που επιστρέφει εγκρίνεται «ζωντανεύοντας» το παλιό
-  -- του προφίλ (0037: deleted_at → null, approval_status ήδη 'approved'),
-  -- όχι αλλάζοντας κατάσταση — μετράει κι αυτό ως απόφαση.
-  v_revived boolean := tg_op = 'UPDATE' and old.deleted_at is not null;
+  -- του προφίλ (0037: deleted_at → null, approval_status ήδη 'approved',
+  -- νέο approved_at) — μετράει κι αυτό ως απόφαση. Η επαναφορά από αναστολή
+  -- ή διαγραφή ζωντανεύει επίσης το προφίλ αλλά δεν αγγίζει το approved_at,
+  -- και δεν είναι νέα έγκριση.
+  v_revived boolean := tg_op = 'UPDATE' and old.deleted_at is not null
+                       and new.approved_at is distinct from old.approved_at;
 begin
   if new.deleted_at is not null then return null; end if;
 

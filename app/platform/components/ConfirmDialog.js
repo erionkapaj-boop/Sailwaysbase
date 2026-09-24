@@ -70,7 +70,7 @@ export function useConfirm() {
                 fontFamily: fontSans,
               }}
             >
-              <p style={{ fontSize: 15, color: colors.ink, margin: "0 0 20px", lineHeight: 1.5 }}>{state.message}</p>
+              <p style={{ fontSize: 15, color: colors.ink, margin: "0 0 20px", lineHeight: 1.5, whiteSpace: "pre-line" }}>{state.message}</p>
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 <button type="button" onClick={() => settle(false)} style={button("secondary")}>
                   {state.cancelLabel || "Άκυρο"}
