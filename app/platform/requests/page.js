@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import { listMyBookingRequests, getMyClientProfile, createMissingProfile, departureLabel } from "../../../lib/platform/db";
 import PingsInbox from "../components/PingsInbox";
@@ -8,6 +9,7 @@ import RequestPanel from "../components/RequestPanel";
 import Toast from "../components/Toast";
 import { formatDateTime, formatDate } from "../../../lib/platform/notifications";
 import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
+import SignedOutNotice from "../components/SignedOutNotice";
 
 const REQ_STATUS = {
   matched: ["Βρέθηκε επαγγελματίας", "success"],
@@ -44,7 +46,7 @@ export default function RequestsPage() {
   }, [session]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
-  if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
+  if (!session) return <SignedOutNotice />;
 
   const isProfessional = userRow?.role === "skipper" || isAdmin;
   const openRequests = requests.filter((r) => r.status === "open");
@@ -110,7 +112,16 @@ export default function RequestsPage() {
           <>
             <h2 style={sectionLabel}>Εξερχόμενα αιτήματα ({openRequests.length})</h2>
             {busy && <p style={muted}>Φόρτωση...</p>}
-            {openRequests.length === 0 && !busy && <p style={muted}>Δεν υπάρχουν εκκρεμή αιτήματα αυτή τη στιγμή.</p>}
+            {openRequests.length === 0 && !busy && (
+              <div style={{ ...card, textAlign: "center" }}>
+                <p style={{ ...muted, margin: "0 0 14px" }}>
+                  Εδώ θα δεις τα αιτήματα που έχεις στείλει σε επαγγελματίες, μέχρι κάποιος να τα αναλάβει.
+                </p>
+                <Link href="/platform" style={{ ...button("secondary"), textDecoration: "none" }}>
+                  Βρες πλήρωμα →
+                </Link>
+              </div>
+            )}
             {openRequests.map((r) => (
               <RequestPanel key={r.id} request={r} onChanged={load} onToastMessage={setToast} />
             ))}

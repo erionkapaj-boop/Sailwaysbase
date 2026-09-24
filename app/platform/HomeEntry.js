@@ -1,17 +1,39 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useAuth } from "./AuthContext";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
-import { button, colors, muted } from "../../lib/platform/theme";
+import { button, colors, muted, h2 } from "../../lib/platform/theme";
 
 // The first screen shows only the CTA and the secondary link (brief §4) —
 // no form, no dropdowns, no tagline. The form appears only after the CTA is
 // pressed, and then one step at a time.
 export default function HomeEntry() {
   const t = useTranslations("Home");
+  const router = useRouter();
+  const params = useSearchParams();
+  const { userRow } = useAuth();
   const [started, setStarted] = useState(false);
+
+  // Set once, right after set-pin, for a brand-new client with nothing else
+  // waiting (search/delivery picks take them straight to those pages
+  // instead — see set-pin/page.js). Found in a usability pass: without
+  // this, a fresh signup landed on an empty "Αιτήματα" list with no
+  // explanation of what to do next.
+  //
+  // Read into state once, at mount, rather than straight off params on every
+  // render: the URL is stripped (below) right after, and params.get would
+  // then immediately go back to null, flashing the banner away the instant
+  // it appeared.
+  const [welcome] = useState(() => params.get("welcome") === "1");
+  const firstName = userRow?.full_name?.trim().split(/\s+/)[0] || "";
+  useEffect(() => {
+    if (welcome) router.replace("/platform");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Opening the wizard used to be pure component state — nothing on this
   // one /platform URL ever changed, so the device's own back button/gesture
@@ -41,6 +63,13 @@ export default function HomeEntry() {
       <div style={{ marginBottom: 44 }}>
         <Logo variant="stacked" />
       </div>
+
+      {welcome && firstName && (
+        <div style={{ marginBottom: 36 }}>
+          <p style={{ ...h2, fontSize: 21, margin: "0 0 6px" }}>{t("welcomeTitle", { name: firstName })}</p>
+          <p style={muted}>{t("welcomeSubtitle")}</p>
+        </div>
+      )}
 
       {/* Outline rather than filled: lighter against the warm page, closer to
           the "spare, premium" direction. Hover/active fills it so it still

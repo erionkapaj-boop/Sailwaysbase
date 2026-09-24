@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import { setPin } from "../../../lib/platform/db";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
@@ -11,7 +11,19 @@ import { container, card, h1, muted, button, input, label, colors } from "../../
 const MIN_LENGTH = 6;
 
 export default function SetPinPage() {
+  return (
+    <Suspense fallback={null}>
+      <SetPinInner />
+    </Suspense>
+  );
+}
+
+// useSearchParams() (για ?as=professional, μεταφερμένο από την εγγραφή)
+// χρειάζεται Suspense boundary γύρω του στο app router.
+function SetPinInner() {
   const router = useRouter();
+  const params = useSearchParams();
+  const isProfessional = params.get("as") === "professional";
   const { session, refresh } = useAuth();
 
   const [pin, setPinValue] = useState("");
@@ -45,7 +57,12 @@ export default function SetPinPage() {
         router.push("/platform/delivery");
         return;
       }
-      router.push("/platform/requests");
+      // A brand-new client with nothing pending used to land on an empty
+      // "Αιτήματα" list with no explanation — confusing in a usability pass.
+      // The home page (with a short welcome) is a much clearer first stop; a
+      // professional signup still goes to Αιτήματα, where their own
+      // approval-status banner and inbox live.
+      router.push(isProfessional ? "/platform/requests" : "/platform?welcome=1");
     } catch (err) {
       setError(err.message || String(err));
     } finally {

@@ -26,6 +26,7 @@ import {
 import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { formatDate } from "../../../lib/platform/notifications";
 import { container, card, h1, h2, muted, colors, radius, select, label, button, input } from "../../../lib/platform/theme";
+import SignedOutNotice from "../components/SignedOutNotice";
 
 const MIN_PRICE = 210;
 
@@ -733,7 +734,7 @@ export default function ProfilePage() {
   const { session, profile, userRow, loading, refresh, loadError, isAdmin, role } = useAuth();
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
-  if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
+  if (!session) return <SignedOutNotice />;
 
   const isProfessional = userRow?.role === "skipper" || isAdmin;
   if (!isProfessional) return <ClientIdentityProfile role={role} />;

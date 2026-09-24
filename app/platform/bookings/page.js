@@ -1,12 +1,14 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import { listMyBookingsAsClient, listMyBookingsAsSkipper, listMyDeliveryBookings } from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
 import DeliveryBookingCard from "../components/DeliveryBookingCard";
 import PendingReviewBanner from "../components/PendingReviewBanner";
-import { container, h1, sectionLabel, muted } from "../../../lib/platform/theme";
+import { container, card, h1, sectionLabel, muted, button } from "../../../lib/platform/theme";
+import SignedOutNotice from "../components/SignedOutNotice";
 
 export default function BookingsPage() {
   return (
@@ -50,7 +52,7 @@ function BookingsInner() {
   }, [session, profile?.id]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
-  if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
+  if (!session) return <SignedOutNotice />;
 
   const unreadIds = notifications?.unreadBookingIds ?? [];
 
@@ -90,7 +92,16 @@ function BookingsInner() {
       <div style={{ marginTop: 32 }}>
         <h2 style={sectionLabel}>Ως πελάτης ({clientBookings.length})</h2>
         {busy && <p style={muted}>Φόρτωση...</p>}
-        {!busy && clientBookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
+        {!busy && clientBookings.length === 0 && (
+          <div style={{ ...card, textAlign: "center" }}>
+            <p style={{ ...muted, margin: "0 0 14px" }}>
+              Εδώ θα δεις τις κρατήσεις σου, μόλις κάποιος επαγγελματίας αναλάβει ένα αίτημά σου.
+            </p>
+            <Link href="/platform" style={{ ...button("secondary"), textDecoration: "none" }}>
+              Βρες πλήρωμα →
+            </Link>
+          </div>
+        )}
         {clientBookings.map((b) => (
           <BookingPanel
             key={b.id}

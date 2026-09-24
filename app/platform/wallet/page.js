@@ -5,6 +5,7 @@ import Stars from "../components/Stars";
 import { listMyWalletTransactions, getMyStanding, getMyClientProfile } from "../../../lib/platform/db";
 import { formatDate } from "../../../lib/platform/notifications";
 import { container, card, h1, sectionLabel, muted, badge, colors, money } from "../../../lib/platform/theme";
+import SignedOutNotice from "../components/SignedOutNotice";
 
 const TYPE_LABEL = {
   deposit: "Κατάθεση", request_fee: "Τέλος αιτήματος", claim_fee: "Τέλος διεκδίκησης", refund_credit: "Επιστροφή πίστωσης",
@@ -47,7 +48,7 @@ export default function WalletPage() {
   }, [session, isProfessional]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
-  if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
+  if (!session) return <SignedOutNotice />;
 
   const proHistory = (profile?.completed_bookings_count || 0) + (profile?.cancellation_flag_count || 0);
   const clientHistory = (clientProfile?.completed_bookings_count || 0) + (clientProfile?.cancellation_flag_count || 0);

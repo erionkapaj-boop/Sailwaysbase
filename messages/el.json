@@ -16,7 +16,9 @@
   "Home": {
     "searchCrew": "Αναζήτηση Πληρώματος",
     "boatDelivery": "Μεταφορά Σκάφους →",
-    "professionalSignup": "Είσαι skipper, hostess, cook ή ναύτης; Κάνε εγγραφή →"
+    "professionalSignup": "Είσαι skipper, hostess, cook ή ναύτης; Κάνε εγγραφή →",
+    "welcomeTitle": "Καλώς ήρθες, {name}!",
+    "welcomeSubtitle": "Ξεκίνα βρίσκοντας πλήρωμα για το ταξίδι σου."
   },
   "LanguageSwitcher": {
     "greek": "Ελληνικά",

@@ -16,7 +16,9 @@
   "Home": {
     "searchCrew": "Find Crew",
     "boatDelivery": "Boat Delivery →",
-    "professionalSignup": "Are you a skipper, hostess, cook, or deckhand? Sign up →"
+    "professionalSignup": "Are you a skipper, hostess, cook, or deckhand? Sign up →",
+    "welcomeTitle": "Welcome, {name}!",
+    "welcomeSubtitle": "Start by finding crew for your trip."
   },
   "LanguageSwitcher": {
     "greek": "Greek",

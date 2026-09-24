@@ -143,7 +143,7 @@ function RegisterInner() {
           phoneVerified: false,
         });
         await refresh();
-        router.push("/platform/set-pin");
+        router.push(isProfessional ? "/platform/set-pin?as=professional" : "/platform/set-pin");
       }
     } catch (err) {
       setError(REGISTER_ERRORS[err.message] || err.message || String(err));
@@ -178,7 +178,7 @@ function RegisterInner() {
       await refresh();
       // PIN comes next: the OTP proved identity, the PIN is what they'll use
       // from now on.
-      router.push("/platform/set-pin");
+      router.push(isProfessional ? "/platform/set-pin?as=professional" : "/platform/set-pin");
     } catch (err) {
       setError(REGISTER_ERRORS[err.message] || err.message || String(err));
     } finally {

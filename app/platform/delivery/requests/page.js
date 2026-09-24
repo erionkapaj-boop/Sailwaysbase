@@ -6,6 +6,7 @@ import { labelForRole } from "../../../../lib/platform/roles";
 import { formatDate, formatMoney } from "../../../../lib/platform/notifications";
 import { listMyDeliveryRequests, relistDeliveryRoleRequest, searchDeliveryCandidates } from "../../../../lib/platform/db";
 import { container, card, h1, h2, muted, button, input, colors, money, badge, sectionLabel } from "../../../../lib/platform/theme";
+import SignedOutNotice from "../../components/SignedOutNotice";
 
 const PING_LABEL = {
   pending: ["Αναμονή", colors.inkSoft],
@@ -190,7 +191,7 @@ export default function MyDeliveryRequestsPage() {
   }, [session]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
-  if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
+  if (!session) return <SignedOutNotice />;
 
   return (
     <div style={container}>

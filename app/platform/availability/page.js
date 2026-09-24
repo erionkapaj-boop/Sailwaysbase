@@ -5,6 +5,7 @@ import { listMyBookingsAsSkipper } from "../../../lib/platform/db";
 import MissingProfile from "../skipper/MissingProfile";
 import AvailabilityCalendar from "../skipper/AvailabilityCalendar";
 import { container, h1, muted } from "../../../lib/platform/theme";
+import SignedOutNotice from "../components/SignedOutNotice";
 
 export default function AvailabilityPage() {
   const { session, profile, userRow, loading, refresh, loadError, isAdmin } = useAuth();
@@ -15,7 +16,7 @@ export default function AvailabilityPage() {
   }, [profile?.id]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
-  if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
+  if (!session) return <SignedOutNotice />;
   if (userRow?.role !== "skipper" && !isAdmin)
     return <div style={container}>Αυτή η σελίδα είναι μόνο για επαγγελματίες.</div>;
   if (!profile) return <MissingProfile userRow={userRow} isAdmin={isAdmin} refresh={refresh} loadError={loadError} />;
