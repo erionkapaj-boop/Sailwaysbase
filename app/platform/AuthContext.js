@@ -8,6 +8,7 @@ import {
   getMyNotificationCounts,
   setViewAsUser,
   touchLastSeen,
+  WALLET_EVENT,
 } from "../../lib/platform/db";
 
 const AuthContext = createContext(null);
@@ -127,6 +128,13 @@ export function AuthProvider({ children }) {
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refresh]);
+
+  // Μετά από κάθε κίνηση χρημάτων (db.js → walletChanged) το υπόλοιπο
+  // ξαναδιαβάζεται αμέσως, αντί να μένει αυτό της σύνδεσης.
+  useEffect(() => {
+    window.addEventListener(WALLET_EVENT, refresh);
+    return () => window.removeEventListener(WALLET_EVENT, refresh);
   }, [refresh]);
 
   const startViewAs = useCallback((subject) => {

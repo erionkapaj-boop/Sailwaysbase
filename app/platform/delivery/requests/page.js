@@ -3,8 +3,14 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../AuthContext";
 import BackButton from "../../components/BackButton";
 import { labelForRole } from "../../../../lib/platform/roles";
-import { formatDate, formatMoney } from "../../../../lib/platform/notifications";
-import { listMyDeliveryRequests, relistDeliveryRoleRequest, searchDeliveryCandidates } from "../../../../lib/platform/db";
+import { formatDate, formatDateTime, formatMoney } from "../../../../lib/platform/notifications";
+import {
+  listMyDeliveryRequests,
+  relistDeliveryRoleRequest,
+  searchDeliveryCandidates,
+  cancelDeliveryRoleRequest,
+} from "../../../../lib/platform/db";
+import { useConfirm } from "../../components/ConfirmDialog";
 import { container, card, h1, h2, muted, button, input, colors, money, badge, sectionLabel } from "../../../../lib/platform/theme";
 import SignedOutNotice from "../../components/SignedOutNotice";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
@@ -18,7 +24,8 @@ const PING_LABEL = {
 const ROLE_REQUEST_LABEL = {
   open: "Ανοιχτό",
   filled: "Καλύφθηκε",
-  cancelled: "Ακυρώθηκε",
+  cancelled: "Αποσύρθηκε",
+  expired: "Έληξε — επιστράφηκε το τέλος",
 };
 
 const BOOKING_STATUS_LABEL = { confirmed: "Επιβεβαιωμένη", completed: "Ολοκληρώθηκε", cancelled: "Ακυρώθηκε" };
@@ -32,7 +39,7 @@ const COVER_LABEL = {
 };
 
 const RELIST_ERRORS = {
-  not_open: "Αυτή η θέση δεν είναι πια ανοιχτή.",
+  not_open: "Αυτή η θέση δεν είναι πια ανοιχτή — για νέα αναζήτηση στείλε νέο αίτημα μεταφοράς.",
   invalid_price: "Μη έγκυρη τιμή.",
   no_candidates_selected: "Επίλεξε τουλάχιστον έναν υποψήφιο.",
   invalid_candidate_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος για μεταφορές.",
@@ -124,7 +131,32 @@ function RelistForm({ roleRequest, request, onDone }) {
 
 function RoleRequestRow({ roleRequest, request, onChanged }) {
   const [relisting, setRelisting] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const canRelist = roleRequest.status === "open";
+  const fee = Number(roleRequest.client_fee || 0);
+
+  // Όσο δεν την έχει αναλάβει κανείς, η θέση αποσύρεται με πλήρη επιστροφή
+  // του τέλους (0089) — π.χ. βρήκες άνθρωπο εκτός εφαρμογής.
+  async function withdraw() {
+    const ok = await confirm(
+      `Να αποσυρθεί η θέση ${labelForRole(roleRequest.crew_role)};` +
+        (fee > 0 ? `\n\nΤο τέλος των ${formatMoney(fee)}€ επιστρέφεται στο πορτοφόλι σου.` : ""),
+      { confirmLabel: "Απόσυρση", cancelLabel: "Πίσω" }
+    );
+    if (!ok) return;
+    setBusy(true);
+    setError("");
+    try {
+      await cancelDeliveryRoleRequest(roleRequest.id);
+      onChanged();
+    } catch (err) {
+      setError(RELIST_ERRORS[err.message] || friendlyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div style={{ padding: "12px 0", borderTop: `1px solid ${colors.border}` }}>
@@ -132,7 +164,15 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
         <span style={{ fontWeight: 600 }}>
           {labelForRole(roleRequest.crew_role)} · <span style={money}>{formatMoney(roleRequest.offered_price)}€</span>
         </span>
-        <span style={badge(roleRequest.status === "filled" ? "success" : roleRequest.status === "cancelled" ? "danger" : "neutral")}>
+        <span
+          style={badge(
+            roleRequest.status === "filled"
+              ? "success"
+              : roleRequest.status === "cancelled" || roleRequest.status === "expired"
+              ? "danger"
+              : "neutral"
+          )}
+        >
           {ROLE_REQUEST_LABEL[roleRequest.status] || roleRequest.status}
         </span>
       </div>
@@ -149,15 +189,48 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
 
       {roleRequest.booking && (
         <p style={{ ...muted, fontSize: 13, margin: "8px 0 0" }}>
-          Ανέλαβε:{" "}
-          <span style={{ ...money, color: colors.ink }}>
-            {BOOKING_STATUS_LABEL[roleRequest.booking.status] || roleRequest.booking.status}
-          </span>
+          {roleRequest.booking.status === "cancelled" ? (
+            roleRequest.booking.cancelled_by === "professional" ? (
+              <>
+                Ο επαγγελματίας ακύρωσε — το τέλος{fee > 0 ? ` (${formatMoney(fee)}€)` : ""} επιστράφηκε στο πορτοφόλι σου.
+                Για άλλον άνθρωπο στείλε νέο αίτημα μεταφοράς.
+              </>
+            ) : (
+              "Την ακύρωσες."
+            )
+          ) : (
+            <>
+              Ανέλαβε:{" "}
+              <span style={{ ...money, color: colors.ink }}>
+                {BOOKING_STATUS_LABEL[roleRequest.booking.status] || roleRequest.booking.status}
+              </span>{" "}
+              — στοιχεία επικοινωνίας στις Κρατήσεις.
+            </>
+          )}
         </p>
       )}
 
+      {roleRequest.status === "open" && roleRequest.expires_at && (
+        <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
+          Ισχύει έως {formatDateTime(roleRequest.expires_at)}. Αν δεν την αναλάβει κανείς ως τότε, το τέλος
+          {fee > 0 ? ` (${formatMoney(fee)}€)` : ""} επιστρέφεται αυτόματα στο πορτοφόλι σου.
+        </p>
+      )}
+      {error && <p style={{ color: colors.danger, fontSize: 13, margin: "6px 0 0" }}>{error}</p>}
+      {confirmDialog}
+
       {canRelist && (
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 8, display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
+          {!relisting && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={withdraw}
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 13 }}
+            >
+              {busy ? "…" : "Απόσυρση θέσης"}
+            </button>
+          )}
           {relisting ? (
             <RelistForm roleRequest={roleRequest} request={request} onDone={() => { setRelisting(false); onChanged(); }} />
           ) : (

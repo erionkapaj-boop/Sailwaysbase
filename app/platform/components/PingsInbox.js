@@ -13,7 +13,8 @@ const CLAIM_ERRORS = {
   request_not_open: "Το αίτημα δεν είναι πια ανοιχτό — κάποιος άλλος πρόλαβε ή έληξε.",
   already_resolved: "Έχεις ήδη απαντήσει σε αυτό το αίτημα.",
   date_overlap: "Έχεις ήδη επιβεβαιωμένη κράτηση που επικαλύπτεται με αυτές τις ημερομηνίες.",
-  insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο wallet για το claim fee.",
+  insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο για τη χρέωση αποδοχής. Φόρτωσε υπόλοιπο από το Πορτοφόλι και δοκίμασε ξανά.",
+  not_pinged: "Αυτό το αίτημα δεν απευθύνεται πια σε εσένα.",
   skipper_not_eligible: "Το προφίλ σου δεν είναι εγκεκριμένο.",
   request_expired: "Η πρόταση έληξε.",
   already_covered: "Η δουλειά καλύφθηκε ήδη από κάποιον άλλον.",
@@ -74,7 +75,14 @@ export default function PingsInbox({ skipperId }) {
     }
   }
 
-  const pending = pings.filter((p) => p.status === "pending" && p.booking_requests?.status === "open");
+  // Ένα αίτημα που έληξε μένει «open» μέχρι το νυχτερινό κλείσιμο — δεν
+  // δείχνεται, γιατί η αποδοχή του θα αποτύγχανε ούτως ή άλλως.
+  const pending = pings.filter(
+    (p) =>
+      p.status === "pending" &&
+      p.booking_requests?.status === "open" &&
+      (!p.booking_requests.expires_at || new Date(p.booking_requests.expires_at).getTime() > Date.now())
+  );
 
   return (
     <div>

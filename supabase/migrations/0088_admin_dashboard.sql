@@ -25,6 +25,9 @@
 -- Τα αιτήματα που έληξαν μαρκάρονται expired_unclaimed μία φορά τη νύχτα
 -- (cron), οπότε ένα 'open' με expires_at στο παρελθόν μετράει ήδη ως χαμένο.
 --
+-- Αιτήματα που δεν πληρώθηκαν ποτέ (η αποστολή απέτυχε, π.χ. ανεπαρκές
+-- υπόλοιπο) δεν ήταν ποτέ ενεργά και δεν μετράνε πουθενά.
+--
 -- Μόνο ανάγνωση, security definer με έλεγχο is_admin() — ίδιο μοτίβο με
 -- admin_overview (που μένει ως έχει για τους μετρητές του μενού).
 -- ============================================================================
@@ -70,7 +73,7 @@ begin
         join users u on u.id = br.client_id
         left join ports p on p.id = br.port_id
         left join regions r on r.id = br.region_id
-        where br.status = 'open' and br.origin = 'client'
+        where br.status = 'open' and br.origin = 'client' and br.fee_paid_at is not null
           and br.expires_at > now() and br.expires_at < now() + interval '12 hours'
         union all
         select jsonb_build_object(
@@ -166,7 +169,7 @@ begin
         join users u on u.id = br.client_id
         left join ports p on p.id = br.port_id
         left join regions r on r.id = br.region_id
-        where br.origin = 'client' and br.expires_at > now() - interval '7 days'
+        where br.origin = 'client' and br.fee_paid_at is not null and br.expires_at > now() - interval '7 days'
           and (br.status = 'expired_unclaimed' or (br.status = 'open' and br.expires_at <= now()))
         order by br.expires_at desc
         limit 10
@@ -197,17 +200,17 @@ begin
         ),
         'requests', (select count(*) from booking_requests br
                      where br.origin = 'client' and coalesce(br.crew_role, 'skipper') = rl
-                       and br.created_at > now() - interval '30 days'),
+                       and br.fee_paid_at is not null and br.created_at > now() - interval '30 days'),
         'matched', (select count(*) from booking_requests br
                     where br.origin = 'client' and coalesce(br.crew_role, 'skipper') = rl
                       and br.created_at > now() - interval '30 days' and br.status = 'matched'),
         'lost', (select count(*) from booking_requests br
                  where br.origin = 'client' and coalesce(br.crew_role, 'skipper') = rl
-                   and br.created_at > now() - interval '30 days'
+                   and br.fee_paid_at is not null and br.created_at > now() - interval '30 days'
                    and (br.status = 'expired_unclaimed' or (br.status = 'open' and br.expires_at <= now()))),
         'open', (select count(*) from booking_requests br
                  where br.origin = 'client' and coalesce(br.crew_role, 'skipper') = rl
-                   and br.status = 'open' and br.expires_at > now())
+                   and br.fee_paid_at is not null and br.status = 'open' and br.expires_at > now())
       ) order by array_position(enum_range(null::crew_role), rl))
       from unnest(enum_range(null::crew_role)) as rl
     ),
@@ -220,7 +223,7 @@ begin
                count(*) filter (where br.status = 'expired_unclaimed'
                                   or (br.status = 'open' and br.expires_at <= now())) as l
         from booking_requests br join regions r on r.id = br.region_id
-        where br.origin = 'client' and br.created_at > now() - interval '30 days'
+        where br.origin = 'client' and br.fee_paid_at is not null and br.created_at > now() - interval '30 days'
         group by r.name
       ) t
     ), '[]'::jsonb),
@@ -229,9 +232,10 @@ begin
       'signups', (select count(*) from users where role <> 'admin' and created_at > now() - interval '7 days'),
       'signups_prev', (select count(*) from users where role <> 'admin'
                        and created_at <= now() - interval '7 days' and created_at > now() - interval '14 days'),
-      'requests', (select count(*) from booking_requests where origin = 'client' and created_at > now() - interval '7 days')
+      'requests', (select count(*) from booking_requests where origin = 'client' and fee_paid_at is not null
+                   and created_at > now() - interval '7 days')
                   + (select count(*) from delivery_requests where created_at > now() - interval '7 days'),
-      'requests_prev', (select count(*) from booking_requests where origin = 'client'
+      'requests_prev', (select count(*) from booking_requests where origin = 'client' and fee_paid_at is not null
                         and created_at <= now() - interval '7 days' and created_at > now() - interval '14 days')
                        + (select count(*) from delivery_requests
                           where created_at <= now() - interval '7 days' and created_at > now() - interval '14 days'),

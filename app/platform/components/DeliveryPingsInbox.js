@@ -11,7 +11,7 @@ const ACCEPT_ERRORS = {
   already_resolved: "Έχεις ήδη απαντήσει σε αυτή την προσφορά.",
   expired: "Η προσφορά έληξε.",
   date_overlap: "Έχεις ήδη επιβεβαιωμένη κράτηση ή μεταφορά που επικαλύπτεται με αυτές τις ημερομηνίες.",
-  insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο wallet για τη χρέωση ανάληψης.",
+  insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο για τη χρέωση αποδοχής. Φόρτωσε υπόλοιπο από το Πορτοφόλι και δοκίμασε ξανά.",
   skipper_not_eligible: "Το προφίλ σου δεν είναι εγκεκριμένο.",
 };
 
@@ -40,7 +40,12 @@ export default function DeliveryPingsInbox({ skipperId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skipperId]);
 
-  const pending = rows.filter((r) => r.ping.status === "pending" && r.role_request.status === "open");
+  const pending = rows.filter(
+    (r) =>
+      r.ping.status === "pending" &&
+      r.role_request.status === "open" &&
+      new Date(r.role_request.expires_at).getTime() > Date.now()
+  );
 
   async function handleAccept(roleRequestId) {
     setBusyId(roleRequestId);

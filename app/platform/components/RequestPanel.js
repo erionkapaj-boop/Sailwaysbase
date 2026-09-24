@@ -10,7 +10,7 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 const REQ_STATUS = {
   open: ["Περιμένει απάντηση", "brand"],
   matched: ["Βρέθηκε επαγγελματίας", "success"],
-  expired_unclaimed: ["Δεν βρέθηκε — επιστροφή ως credit", "warn"],
+  expired_unclaimed: ["Δεν βρέθηκε — το τέλος επιστράφηκε", "warn"],
   cancelled: ["Ακυρώθηκε", "danger"],
 };
 

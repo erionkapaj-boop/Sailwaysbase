@@ -14,6 +14,7 @@ import {
   searchSkippers,
   getPlatformSetting,
   createBookingRequest,
+  cancelBookingRequest,
   payAndBroadcast,
 } from "../../../lib/platform/db";
 import {
@@ -50,7 +51,7 @@ const chip = (active) => ({
 });
 
 const BROADCAST_ERRORS = {
-  insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο wallet για το τέλος αιτήματος.",
+  insufficient_wallet: "Δεν φτάνει το υπόλοιπό σου για το τέλος αιτήματος. Φόρτωσε υπόλοιπο από το Πορτοφόλι και ξαναπάτησε Αποστολή.",
   invalid_skipper_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος.",
   no_skippers_selected: "Επίλεξε τουλάχιστον έναν επαγγελματία.",
   already_paid_or_closed: "Αυτό το αίτημα έχει ήδη σταλεί.",
@@ -840,14 +841,27 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
             partySize: Number(filters.partySize),
             privateCabin: filters.privateCabin,
           });
-          await payAndBroadcast(request.id, Array.from(selectionsByRole[role]));
+          try {
+            await payAndBroadcast(request.id, Array.from(selectionsByRole[role]));
+          } catch (err) {
+            // Το αίτημα δημιουργήθηκε αλλά δεν πληρώθηκε ούτε στάλθηκε σε
+            // κανέναν — κλείνει αμέσως, αλλιώς θα έμενε «ανοιχτό» στη λίστα
+            // σου χωρίς να το βλέπει κανείς. Χωρίς χρέωση: δεν πληρώθηκε.
+            cancelBookingRequest(request.id).catch(() => {});
+            throw err;
+          }
           nowSent.add(slotKey);
           setSentSlots(new Set(nowSent));
         }
       }
       setDone(true);
     } catch (err) {
-      setError(BROADCAST_ERRORS[err.message] || friendlyError(err));
+      const sentNow = nowSent.size;
+      const partial =
+        sentNow > 0
+          ? ` Στάλθηκ${sentNow === 1 ? "ε ήδη 1 αίτημα" : `αν ήδη ${sentNow} αιτήματα`} από ${totalSlots} — με νέα Αποστολή φεύγουν μόνο όσα έμειναν, χωρίς δεύτερη χρέωση.`
+          : "";
+      setError((BROADCAST_ERRORS[err.message] || friendlyError(err)) + partial);
     } finally {
       setBusy(false);
     }

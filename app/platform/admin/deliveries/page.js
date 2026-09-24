@@ -6,7 +6,7 @@ import { adminListDeliveryRequests } from "../../../../lib/platform/db";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { formatDate, formatDateTime, formatMoney } from "../../../../lib/platform/notifications";
 
-const ROLE_STATUS_LABEL = { open: "Ανοιχτό", filled: "Καλύφθηκε", cancelled: "Ακυρώθηκε" };
+const ROLE_STATUS_LABEL = { open: "Ανοιχτό", filled: "Καλύφθηκε", cancelled: "Αποσύρθηκε", expired: "Έληξε (επιστράφηκε το τέλος)" };
 const BOOKING_STATUS_LABEL = { confirmed: "Επιβεβαιωμένη", completed: "Ολοκληρώθηκε", cancelled: "Ακυρώθηκε" };
 
 // Πλήρης ορατότητα σε κάθε αίτημα μεταφοράς από τη στιγμή που δημιουργείται
