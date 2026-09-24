@@ -185,7 +185,7 @@ export default function AccountMenu({ items = [], onSignOut, activeHref }) {
                 flexShrink: 0,
               }}
             >
-              Logout
+              Αποσύνδεση
             </button>
           </div>
         </>,

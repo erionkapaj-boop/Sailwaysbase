@@ -4,6 +4,7 @@ import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
 import { listMyWalletTransactions, getMyStanding, getMyClientProfile } from "../../../lib/platform/db";
 import { formatDate } from "../../../lib/platform/notifications";
+import Link from "next/link";
 import { container, card, h1, sectionLabel, muted, badge, colors, money } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
 
@@ -14,16 +15,22 @@ const TYPE_LABEL = {
 // Κρατάει το ίδιο κατώφλι με το reliability_min_history στη βάση (0027).
 const MIN_RELIABILITY_HISTORY = 3;
 
+// title= tooltips never show on a tap — mobile is this app's main surface,
+// so the explanation for the dash needs to be text on the page, not
+// something that only appears on hover.
 function ReliabilityLine({ history, percentage }) {
+  const known = history >= MIN_RELIABILITY_HISTORY && percentage != null;
   return (
-    <b
-      style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}
-      title={
-        history < MIN_RELIABILITY_HISTORY ? "Χρειάζονται τουλάχιστον 3 ολοκληρωμένες ή ακυρωμένες κρατήσεις" : undefined
-      }
-    >
-      {history >= MIN_RELIABILITY_HISTORY && percentage != null ? `${percentage}%` : "—"}
-    </b>
+    <>
+      <b style={{ ...money, fontSize: 14, fontWeight: 600, color: colors.ink, marginLeft: 6 }}>
+        {known ? `${percentage}%` : "—"}
+      </b>
+      {!known && (
+        <span style={{ ...muted, fontSize: 11, display: "block", marginTop: 2 }}>
+          Υπολογίζεται μετά τις πρώτες {MIN_RELIABILITY_HISTORY} κρατήσεις
+        </span>
+      )}
+    </>
   );
 }
 
@@ -61,7 +68,11 @@ export default function WalletPage() {
         <div style={muted}>Διαθέσιμο υπόλοιπο</div>
         <div style={{ ...money, fontSize: 32, fontWeight: 600, marginTop: 6 }}>{userRow?.wallet_balance ?? 0}€</div>
         <p style={{ ...muted, fontSize: 13, margin: "10px 0 0" }}>
-          Για φόρτωση (τραπεζική κατάθεση ή κάρτα) επικοινώνησε με τον admin — πιστώνεται στο υπόλοιπό σου.
+          Για φόρτωση (τραπεζική κατάθεση ή κάρτα){" "}
+          <Link href="/platform/contact" style={{ color: colors.ink, textDecoration: "underline" }}>
+            επικοινώνησε μαζί μας
+          </Link>{" "}
+          — πιστώνεται στο υπόλοιπό σου.
         </p>
         <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
           Ό,τι φορτίζεις μένει εδώ σαν υπόλοιπο, χωρίς λήξη — δεν επιστρέφεται σε τραπεζικό λογαριασμό
@@ -121,7 +132,7 @@ export default function WalletPage() {
         <div style={{ marginTop: 24, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
           <h2 style={sectionLabel}>Ως πελάτης</h2>
           <Stars rating={clientProfile.rating_avg} count={clientProfile.rating_count ?? 0} size={17} />
-          <div style={{ display: "flex", alignItems: "baseline", padding: "10px 2px 0" }}>
+          <div style={{ padding: "10px 2px 0" }}>
             <span style={{ fontSize: 13, color: colors.inkSoft }}>Αξιοπιστία</span>
             <ReliabilityLine history={clientHistory} percentage={clientProfile.reliability_percentage} />
           </div>

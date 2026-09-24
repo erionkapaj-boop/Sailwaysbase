@@ -1,12 +1,14 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import {
   requestPinResetSms,
   confirmPinResetSms,
   requestPinResetEmail,
   confirmPinResetEmail,
+  getOtpEnabled,
 } from "../../../lib/platform/db";
 import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, colors, radius } from "../../../lib/platform/theme";
@@ -37,6 +39,20 @@ export default function ForgotPinPage() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  // SMS OTP isn't wired to a real provider in production yet (see
+  // platform_settings.otp_enabled, 0075) — same flag register/page.js
+  // checks. Offering the SMS tab as if it worked would send someone
+  // through a flow that quietly goes nowhere; email is already known
+  // broken (see requestPinResetEmail's delivered:false). Checked once on
+  // mount rather than assumed, so this keeps working the moment SMS is
+  // actually turned on.
+  const [otpEnabled, setOtpEnabled] = useState(null);
+  useEffect(() => {
+    getOtpEnabled()
+      .then(setOtpEnabled)
+      .catch(() => setOtpEnabled(false));
+  }, []);
 
   async function request(e) {
     e.preventDefault();
@@ -86,6 +102,38 @@ export default function ForgotPinPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (otpEnabled === null) {
+    return (
+      <div style={{ ...container, maxWidth: 460 }}>
+        <BackButton onClick={() => router.back()} />
+        <h1 style={{ ...h1, marginTop: 20 }}>Ξέχασα τον κωδικό</h1>
+      </div>
+    );
+  }
+
+  if (!otpEnabled) {
+    return (
+      <div style={{ ...container, maxWidth: 460 }}>
+        <BackButton onClick={() => router.back()} />
+        <h1 style={{ ...h1, marginTop: 20 }}>Ξέχασα τον κωδικό</h1>
+        <div style={{ ...card, marginTop: 20 }}>
+          <p style={{ margin: "0 0 12px" }}>
+            Η αυτόματη επαναφορά κωδικού δεν είναι ακόμα διαθέσιμη — ούτε με SMS ούτε με email.
+          </p>
+          <p style={{ ...muted, margin: "0 0 16px" }}>
+            Επικοινώνησε μαζί μας και θα σε βοηθήσουμε να μπεις ξανά στον λογαριασμό σου.
+          </p>
+          <Link
+            href="/platform/contact"
+            style={{ ...button("primary"), width: "100%", display: "block", textAlign: "center", textDecoration: "none" }}
+          >
+            Επικοινωνία
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
