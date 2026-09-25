@@ -47,5 +47,12 @@ export async function POST(req) {
   // resets the count of consecutive failures.
   if (target.phone_number) await db.from("login_attempts").insert({ phone: target.phone_number, success: true });
 
+  await db.from("admin_actions").insert({
+    admin_id: admin.id,
+    action_type: "reset_pin",
+    target_user_id: userId,
+    notes: "",
+  });
+
   return Response.json({ phone: target.phone_number, pin });
 }

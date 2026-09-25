@@ -1,167 +1,123 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import AdminShell from "../../AdminShell";
 import { useAuth } from "../../../AuthContext";
-import {
-  adminGetUser,
-  adminGetUserOverview,
-  adminApproveSkipper,
-  adminRejectSkipper,
-  adminSetTestAccount,
-  adminSetStaffAdmin,
-  adminDeleteAccount,
-  adminRestoreAccount,
-  adminSuspendAccount,
-  adminReactivateAccount,
-  adminVerifyUser,
-  adminResetPin,
-  loginAsTestAccount,
-  departureLabel,
-} from "../../../../../lib/platform/db";
-import { computeCrewHighlights, labelForRole } from "../../../../../lib/platform/roles";
-import { STATUS_LABEL, Status, WALLET_TYPE_LABEL, ProCredentials, VERIFY_HINT } from "../../ui";
-import Stat from "../../../components/Stat";
-import Stars from "../../../components/Stars";
 import BackButton from "../../../components/BackButton";
 import { useConfirm } from "../../../components/ConfirmDialog";
-import {
-  container,
-  card,
-  h1,
-  h2,
-  muted,
-  button,
-  badge,
-  colors,
-  money,
-} from "../../../../../lib/platform/theme";
-import { formatDate, formatDateTime, timeAgo } from "../../../../../lib/platform/notifications";
+import { adminAccountDetail, adminVerifyUser, adminResetPin, adminLoginAsUser } from "../../../../../lib/platform/db";
+import { labelForRole } from "../../../../../lib/platform/roles";
+import { formatDateTime, timeAgo } from "../../../../../lib/platform/notifications";
+import { Status, colors, muted, button, money } from "../../ui";
+import { badge } from "../../../../../lib/platform/theme";
+import { TAB_DEFS, TabBar, fieldInput, errorLabel } from "./shared";
+import OverviewTab from "./OverviewTab";
+import ProfileTab from "./ProfileTab";
+import BookingsTab from "./BookingsTab";
+import AvailabilityTab from "./AvailabilityTab";
+import FinanceTab from "./FinanceTab";
+import ActionsTab from "./ActionsTab";
+import HistoryTab from "./HistoryTab";
 
-const DELETE_ERRORS = {
-  has_pending_activity: "Έχει ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση. Πρέπει να τακτοποιηθούν πρώτα.",
-  already_deleted: "Ο λογαριασμός έχει ήδη διαγραφεί.",
-  user_not_found: "Δεν βρέθηκε ο λογαριασμός.",
-  cannot_delete_admin: "Ο κύριος λογαριασμός διαχειριστή δεν διαγράφεται.",
-  cannot_delete_self: "Δεν μπορείς να διαγράψεις τον δικό σου λογαριασμό από εδώ.",
-  not_deleted: "Ο λογαριασμός δεν είναι διαγραμμένος.",
-  cannot_impersonate_admin: "Δεν γίνεται «Σύνδεση ως» πάνω σε λογαριασμό admin.",
-  cannot_remove_last_admin: "Δεν μπορείς να αφαιρέσεις τα δικαιώματα admin από τον μόνο admin που έχει απομείνει.",
-  cannot_suspend_admin: "Λογαριασμός admin δεν μπορεί να τεθεί σε αναστολή.",
-  already_suspended: "Ο λογαριασμός είναι ήδη σε αναστολή.",
-  reason_required: "Χρειάζεται λόγος για την αναστολή.",
-  not_suspended: "Ο λογαριασμός δεν είναι σε αναστολή.",
+const TAB_COMPONENTS = {
+  overview: OverviewTab,
+  profile: ProfileTab,
+  bookings: BookingsTab,
+  availability: AvailabilityTab,
+  finance: FinanceTab,
+  actions: ActionsTab,
+  history: HistoryTab,
 };
 
-function Row({ left, right, tone = "neutral" }) {
+// Ό,τι χρειάζεται προσοχή, σε μία στοίβα ψηλά στη σελίδα — αυτό απαντά αμέσως
+// στο "υπάρχει πρόβλημα;" χωρίς να χρειάζεται ο admin να ψάξει καρτέλα-καρτέλα.
+function IssueRow({ tone, text, onFix, fixLabel, onView }) {
+  const toneColor = tone === "danger" ? colors.danger : colors.warn;
   return (
-    <div style={card}>
-      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-        <span>{left}</span>
-        {right && <span style={badge(tone)}>{STATUS_LABEL[right] || right}</span>}
-      </div>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        padding: "10px 14px",
+        marginBottom: 6,
+        borderRadius: 10,
+        border: `1px solid ${toneColor}33`,
+        background: tone === "danger" ? "#F7EDEB" : "#F7F0E2",
+      }}
+    >
+      <span style={{ fontSize: 13.5, color: colors.ink }}>{text}</span>
+      <span style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        {onFix && (
+          <button type="button" style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }} onClick={onFix}>
+            {fixLabel}
+          </button>
+        )}
+        {onView && (
+          <button type="button" style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }} onClick={onView}>
+            Δες
+          </button>
+        )}
+      </span>
     </div>
   );
 }
 
-function Chips({ items }) {
-  if (!items?.length) return <p style={muted}>—</p>;
-  return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {items.map((t) => (
-        <span key={t} style={{ ...badge("neutral"), fontFamily: "inherit", fontWeight: 400 }}>
-          {t}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-export default function AdminUserViewPage() {
+function AdminUserInner() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { session, userRow, loading, startViewAs } = useAuth();
+  const [confirm, confirmDialog] = useConfirm();
 
-  const [target, setTarget] = useState(null);
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
-  const [actionBusy, setActionBusy] = useState(false);
-  const [actionError, setActionError] = useState("");
-  const [confirm, confirmDialog] = useConfirm();
-  const [suspendReason, setSuspendReason] = useState("");
-  const [showSuspendForm, setShowSuspendForm] = useState(false);
-  const [rejectNote, setRejectNote] = useState("");
-  const [notice, setNotice] = useState("");
-  const [tempPin, setTempPin] = useState(null);
-  const [deleteReason, setDeleteReason] = useState("");
 
-  async function load() {
+  const tabParam = searchParams.get("tab");
+  const [tab, setTab] = useState(TAB_DEFS.some((t) => t.key === tabParam) ? tabParam : "overview");
+
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickError, setQuickError] = useState("");
+  const [tempPin, setTempPin] = useState(null);
+  const [showLoginForm, setShowLoginForm] = useState(false);
+  const [loginReason, setLoginReason] = useState("");
+
+  const load = useCallback(async () => {
     setBusy(true);
+    setError("");
     try {
-      const u = await adminGetUser(id);
-      setTarget(u);
-      if (u) setData(await adminGetUserOverview(id, u.role));
+      setData(await adminAccountDetail(id));
     } catch (err) {
-      setError(err.message || String(err));
+      setError(errorLabel(err));
     } finally {
       setBusy(false);
     }
-  }
+  }, [id]);
 
   useEffect(() => {
     if (!id || (userRow?.role !== "admin" && !userRow?.is_staff_admin)) return;
     load();
-  }, [id, userRow]);
+  }, [id, userRow, load]);
 
-  async function handleApprove() {
-    setActionBusy(true);
-    setActionError("");
-    setNotice("");
-    try {
-      await adminApproveSkipper(id);
-      await load();
-      setNotice("Το προφίλ εγκρίθηκε και εμφανίζεται πλέον στις αναζητήσεις.");
-    } catch (err) {
-      setActionError(err.message || String(err));
-    } finally {
-      setActionBusy(false);
-    }
+  function goTab(key) {
+    setTab(key);
+    setTempPin(null);
+    setShowLoginForm(false);
+    router.replace(`/platform/admin/user/${id}?tab=${key}`, { scroll: false });
   }
 
-  async function handleReject(isRevoke = false) {
-    const name = target.full_name || target.phone_number;
-    const msg = isRevoke
-      ? `${name}: ανάκληση της έγκρισης; Δεν θα εμφανίζεται πλέον σε αναζητήσεις μέχρι να εγκριθεί ξανά.`
-      : `${name}: απόρριψη του προφίλ;`;
-    if (!(await confirm(msg))) return;
-    setActionBusy(true);
-    setActionError("");
-    setNotice("");
-    try {
-      await adminRejectSkipper(id, rejectNote.trim() || null);
-      setRejectNote("");
-      await load();
-      setNotice(isRevoke ? "Η έγκριση ανακλήθηκε." : "Το προφίλ απορρίφθηκε.");
-    } catch (err) {
-      setActionError(err.message || String(err));
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
-  async function handleVerify() {
-    setActionBusy(true);
-    setActionError("");
-    setNotice("");
+  async function handleQuickVerify() {
+    setQuickBusy(true);
+    setQuickError("");
     try {
       await adminVerifyUser(id);
       await load();
-      setNotice("Ο λογαριασμός επαληθεύτηκε και ο χρήστης ειδοποιήθηκε.");
     } catch (err) {
-      setActionError(err.message || String(err));
+      setQuickError(errorLabel(err));
     } finally {
-      setActionBusy(false);
+      setQuickBusy(false);
     }
   }
 
@@ -174,668 +130,197 @@ export default function AdminUserViewPage() {
       ))
     )
       return;
-    setActionBusy(true);
-    setActionError("");
+    setQuickBusy(true);
+    setQuickError("");
     setTempPin(null);
     try {
       const { pin } = await adminResetPin(id);
       setTempPin(pin);
     } catch (err) {
-      setActionError(err.message || String(err));
+      setQuickError(errorLabel(err));
     } finally {
-      setActionBusy(false);
+      setQuickBusy(false);
     }
   }
 
-  async function handleToggleTestAccount() {
-    const name = target.full_name || target.phone_number;
-    if (
-      !target.is_test_account &&
-      !(await confirm(
-        `${name}: να σημειωθεί ως λογαριασμός δοκιμών; Αυτό επιτρέπει «Σύνδεση ως», που αλλάζει τον κωδικό του λογαριασμού. Μόνο για ψεύτικους λογαριασμούς δοκιμών, ποτέ για πραγματικό πελάτη.`
-      ))
-    )
-      return;
-    setActionBusy(true);
-    setActionError("");
-    try {
-      await adminSetTestAccount(id, !target.is_test_account);
-      await load();
-    } catch (err) {
-      setActionError(err.message || String(err));
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
-  async function handleToggleStaffAdmin() {
-    const name = target.full_name || target.phone_number;
-    const ok = await confirm(
-      target.is_staff_admin
-        ? `${name}: αφαίρεση των δικαιωμάτων διαχειριστή;`
-        : `${name}: να δοθούν δικαιώματα διαχειριστή; Θα βλέπει και θα αλλάζει τα πάντα εδώ: χρήστες, χρήματα, ρυθμίσεις. Δώσ' τα μόνο σε άτομο που εμπιστεύεσαι απόλυτα.`
-    );
-    if (!ok) return;
-    setActionBusy(true);
-    setActionError("");
-    try {
-      await adminSetStaffAdmin(id, !target.is_staff_admin);
-      await load();
-    } catch (err) {
-      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
-  async function handleSuspend(e) {
+  async function handleLoginAs(e) {
     e.preventDefault();
-    if (!suspendReason.trim()) {
-      setActionError("Χρειάζεται λόγος για την αναστολή.");
-      return;
-    }
-    setActionBusy(true);
-    setActionError("");
+    setQuickBusy(true);
+    setQuickError("");
     try {
-      await adminSuspendAccount(id, suspendReason);
-      setSuspendReason("");
-      setShowSuspendForm(false);
-      await load();
+      await adminLoginAsUser(id, loginReason.trim());
+      router.push("/platform/requests");
     } catch (err) {
-      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
-    } finally {
-      setActionBusy(false);
+      setQuickError(errorLabel(err));
+      setQuickBusy(false);
     }
   }
 
-  async function handleReactivate() {
-    setActionBusy(true);
-    setActionError("");
-    try {
-      await adminReactivateAccount(id);
-      await load();
-    } catch (err) {
-      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
-  async function handleLoginAs() {
-    if (
-      !(await confirm(
-        `Θα γίνει πραγματική σύνδεση ως ${target.full_name || target.phone_number}. Ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`,
-        { tone: "primary" }
-      ))
-    )
-      return;
-    setActionBusy(true);
-    setActionError("");
-    try {
-      await loginAsTestAccount(id);
-      router.push(target.role === "admin" ? "/platform/admin" : "/platform/requests");
-    } catch (err) {
-      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
-      setActionBusy(false);
-    }
-  }
-
-  // What deleting this account will touch, said before the admin confirms —
-  // open requests get cancelled and refunded; confirmed bookings do not.
-  function deletionImpact() {
-    const today = new Date().toISOString().slice(0, 10);
-    const openReqs = (data?.requests || []).filter((r) => r.status === "open").length;
-    const upcoming = (data?.bookings || []).filter((b) => b.status === "confirmed" && b.end_date >= today).length;
-    const pendingPings = (data?.pings || []).filter((p) => p.status === "pending").length;
-    const lines = [];
-    if (openReqs > 0)
-      lines.push(`${openReqs === 1 ? "Το 1 ανοιχτό αίτημά του ακυρώνεται" : `Τα ${openReqs} ανοιχτά αιτήματά του ακυρώνονται`} και το τέλος επιστρέφεται ως credit.`);
-    if (pendingPings > 0)
-      lines.push(`Αφαιρείται από ${pendingPings === 1 ? "1 αίτημα" : `${pendingPings} αιτήματα`} που περίμεναν απάντησή του.`);
-    if (upcoming > 0)
-      lines.push(`ΠΡΟΣΟΧΗ: ${upcoming === 1 ? "η 1 επιβεβαιωμένη κράτησή του ΔΕΝ ακυρώνεται" : `οι ${upcoming} επιβεβαιωμένες κρατήσεις του ΔΕΝ ακυρώνονται`}. Αν χρειάζεται, τακτοποίησέ τες ξεχωριστά.`);
-    return lines;
-  }
-
-  async function handleDeleteAccount() {
-    const name = target.full_name || target.phone_number;
-    const impact = deletionImpact();
-    const ok = await confirm(
-      `${name}: διαγραφή λογαριασμού; Δεν θα μπορεί να συνδεθεί και κρύβεται από την πλατφόρμα. Τίποτα δεν σβήνεται και μπορείς να τον επαναφέρεις από αυτή τη σελίδα όποτε θελήσεις.` +
-        (impact.length ? `\n\n${impact.join("\n")}` : "")
-    );
-    if (!ok) return;
-    setActionBusy(true);
-    setActionError("");
-    setNotice("");
-    try {
-      const res = await adminDeleteAccount(id, deleteReason.trim() || null);
-      setDeleteReason("");
-      await load();
-      setNotice(
-        "Ο λογαριασμός διαγράφηκε." +
-          (res?.cancelled_requests > 0
-            ? ` ${res.cancelled_requests === 1 ? "Ακυρώθηκε 1 ανοιχτό αίτημα" : `Ακυρώθηκαν ${res.cancelled_requests} ανοιχτά αιτήματα`} και επιστράφηκαν ${res.refunded}€ ως credit.`
-            : "") +
-          " Μπορείς να τον επαναφέρεις από κάτω."
-      );
-    } catch (err) {
-      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
-  async function handleRestoreAccount() {
-    const name = target.full_name || target.phone_number;
-    if (!(await confirm(`${name}: επαναφορά λογαριασμού; Θα μπορεί ξανά να συνδέεται και θα ειδοποιηθεί.`, { tone: "primary" })))
-      return;
-    setActionBusy(true);
-    setActionError("");
-    setNotice("");
-    try {
-      await adminRestoreAccount(id);
-      await load();
-      setNotice("Ο λογαριασμός επανήλθε και ο χρήστης ειδοποιήθηκε.");
-    } catch (err) {
-      setActionError(DELETE_ERRORS[err.message] || err.message || String(err));
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
-  if (loading) return <div style={container}>Φόρτωση…</div>;
-  if (!session) return <div style={container}>Χρειάζεται σύνδεση.</div>;
+  if (loading) return <div style={{ padding: 32, ...muted }}>Φόρτωση…</div>;
+  if (!session) return <div style={{ padding: 32 }}>Χρειάζεται σύνδεση.</div>;
   if (userRow?.role !== "admin" && !userRow?.is_staff_admin)
-    return <div style={container}>Πρόσβαση μόνο για admin.</div>;
+    return <div style={{ padding: 32 }}>Πρόσβαση μόνο για admin.</div>;
+
+  const target = data?.user;
+
+  const problems = [];
+  if (target) {
+    if (!target.phone_verified_at && target.role !== "admin" && target.status !== "deleted")
+      problems.push({ tone: "warn", text: "Περιμένει επαλήθευση λογαριασμού.", onFix: handleQuickVerify, fixLabel: "Επαλήθευση" });
+    if (data.skipper_profile?.approval_status === "pending")
+      problems.push({ tone: "warn", text: "Το προφίλ επαγγελματία περιμένει έγκριση.", view: "actions" });
+    if (data.skipper_profile?.approval_status === "rejected")
+      problems.push({ tone: "warn", text: "Το προφίλ επαγγελματία έχει απορριφθεί.", view: "actions" });
+    if (target.status === "suspended")
+      problems.push({ tone: "danger", text: `Σε αναστολή${target.suspension_reason ? `: ${target.suspension_reason}` : "."}`, view: "actions" });
+    if (target.status === "deleted")
+      problems.push({ tone: "danger", text: `Διαγραμμένος λογαριασμός${target.deletion_reason ? `: ${target.deletion_reason}` : "."}`, view: "actions" });
+    const openDisputes = (data.disputes || []).filter((d) => !d.resolved_at).length;
+    if (openDisputes > 0)
+      problems.push({ tone: "warn", text: `${openDisputes === 1 ? "1 ανοιχτή αναφορά ακύρωσης" : `${openDisputes} ανοιχτές αναφορές ακύρωσης`}.`, view: "overview" });
+    const openFlags = (data.flags || []).filter((f) => !f.resolved_at).length;
+    if (openFlags > 0)
+      problems.push({ tone: "warn", text: `${openFlags === 1 ? "1 σημαία" : `${openFlags} σημαίες`} χρειάζεται έλεγχο.`, view: "overview" });
+    const newMsgs = (data.contact_messages || []).filter((m) => m.status === "new").length;
+    if (newMsgs > 0)
+      problems.push({ tone: "warn", text: `${newMsgs === 1 ? "1 μήνυμα επικοινωνίας" : `${newMsgs} μηνύματα επικοινωνίας`} χωρίς απάντηση.`, view: "overview" });
+  }
+
+  const canViewAs = target && target.role !== "admin" && target.status !== "deleted" && target.status !== "suspended";
+  const canLoginAs =
+    target && target.role !== "admin" && !target.is_staff_admin && target.status !== "deleted" && target.id !== userRow?.id;
+  const canResetPin = target && target.role !== "admin" && target.status !== "deleted";
+
+  const tabs = data
+    ? TAB_DEFS.filter((t) => !t.show || t.show(data)).map((t) => ({ ...t, n: t.count ? t.count(data) : 0 }))
+    : [];
+  // Ένας παλιός σύνδεσμος ?tab=availability πάνω σε λογαριασμό πελάτη (χωρίς
+  // προφίλ επαγγελματία) δεν πρέπει να δείχνει μια καρτέλα που δεν φαίνεται
+  // καν στη μπάρα — πέφτει πίσω στην Επισκόπηση.
+  const activeTab = tabs.some((t) => t.key === tab) ? tab : "overview";
+  const ActiveTab = TAB_COMPONENTS[activeTab] || OverviewTab;
 
   return (
-    <div style={container}>
-      <BackButton href="/platform/admin/users" />
-
-      {busy && !target && <p style={muted}>Φόρτωση…</p>}
-      {error && <p style={{ color: colors.danger }}>{error}</p>}
+    <AdminShell title={target?.full_name || (busy ? "Φόρτωση…" : "(χωρίς όνομα)")} actions={<BackButton href="/platform/admin/users" />}>
+      {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
       {target && (
         <>
-          <h1 style={{ ...h1, marginTop: 14, marginBottom: 6 }}>{target.full_name || "(χωρίς όνομα)"}</h1>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 6 }}>
             <Status value={target.role === "skipper" ? "skipper" : target.role} />
-            {data?.role === "skipper" && data.profile?.role && (
-              <span style={badge("neutral")}>{labelForRole(data.profile.role)}</span>
-            )}
-            <Status value={target.status} />
+            {data.skipper_profile?.role && <span style={badge("neutral")}>{labelForRole(data.skipper_profile.role)}</span>}
+            {target.status !== "active" && <Status value={target.status} />}
+            {!target.phone_verified_at && target.role !== "admin" && <span style={badge("warn")}>Μη επαληθευμένος</span>}
+            {target.is_test_account && <span style={badge("neutral")}>Δοκιμαστικός</span>}
+            {target.is_staff_admin && <span style={badge("brand")}>Staff admin</span>}
           </div>
           <p style={{ ...muted, margin: "0 0 4px" }}>
             <span style={money}>{target.phone_number}</span>
             {target.email ? ` · ${target.email}` : ""}
           </p>
-          <p style={{ ...muted, fontSize: 12.5, margin: 0 }}>
+          <p style={{ ...muted, fontSize: 12.5, margin: "0 0 16px" }}>
             Εγγραφή {formatDateTime(target.created_at)}
             {" · "}
             {target.last_seen_at ? `τελευταία φορά μέσα ${timeAgo(target.last_seen_at)}` : "δεν έχει μπει ποτέ"}
           </p>
 
-          {notice && (
-            <div style={{ ...card, marginTop: 14, borderLeft: `3px solid ${colors.success}` }}>{notice}</div>
-          )}
-          {actionError && <p style={{ color: colors.danger, marginTop: 10, fontSize: 13 }}>{actionError}</p>}
-
-          {/* Pending verification — used to be actionable only from the list,
-              and this page didn't even say the account was waiting. */}
-          {!target.phone_verified_at && target.role !== "admin" && target.status !== "deleted" && (
-            <div style={{ ...card, marginTop: 16, borderLeft: `3px solid ${colors.warn}` }}>
-              <b style={{ fontWeight: 600 }}>Περιμένει επαλήθευση</b>
-              <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>{VERIFY_HINT}</p>
-              <button style={button("primary")} disabled={actionBusy} onClick={handleVerify}>
-                {actionBusy ? "…" : "Επαλήθευση"}
-              </button>
+          {problems.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              {problems.map((p, i) => (
+                <IssueRow key={i} tone={p.tone} text={p.text} onFix={p.onFix} fixLabel={p.fixLabel} onView={p.view ? () => goTab(p.view) : undefined} />
+              ))}
             </div>
           )}
 
-          {target.role !== "admin" && target.status !== "deleted" && target.status !== "suspended" && (
-            <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <button
-                style={button("secondary")}
-                onClick={() => {
-                  startViewAs({ id: target.id, name: target.full_name, phone: target.phone_number, role: target.role });
-                  router.push("/platform/requests");
-                }}
-              >
-                Προβολή ως {target.full_name || target.phone_number}
-              </button>
-              {target.is_test_account && (
-                <button style={button("primary")} disabled={actionBusy} onClick={handleLoginAs}>
-                  Σύνδεση ως {target.full_name || target.phone_number}
-                </button>
-              )}
-              <span style={{ ...muted, fontSize: 12.5, flexBasis: "100%" }}>
-                «Προβολή ως»: βλέπεις τις σελίδες του όπως τις βλέπει ο ίδιος, χωρίς να μπορείς να κάνεις ενέργειες.
-              </span>
-            </div>
-          )}
+          {quickError && <p style={{ color: colors.danger, fontSize: 13, marginBottom: 10 }}>{quickError}</p>}
 
-          {data?.role === "client" && (
-            <>
-              <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap", marginTop: 20 }}>
-                <Stat label="Υπόλοιπο" value={`${data.profile?.wallet_balance ?? 0}€`} />
-                <Link
-                  href={`/platform/admin/finance?phone=${encodeURIComponent(target.phone_number || "")}`}
-                  style={{ alignSelf: "flex-end", fontSize: 12.5, color: colors.ink }}
-                >
-                  Φόρτωση υπολοίπου
-                </Link>
-                <Stat
-                  label="Αξιοπιστία"
-                  value={
-                    data.profile?.reliability_percentage != null
-                      ? `${data.profile.reliability_percentage}%`
-                      : "—"
-                  }
-                />
-                <Stat label="Ολοκληρωμένες" value={data.profile?.completed_bookings_count ?? 0} />
-                <div style={{ flexBasis: "100%" }}>
-                  <Stars rating={data.profile?.rating_avg} count={data.profile?.rating_count ?? 0} />
-                </div>
+          {(canViewAs || canLoginAs || canResetPin) && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                {canViewAs && (
+                  <button
+                    style={button("secondary")}
+                    onClick={() => {
+                      startViewAs({ id: target.id, name: target.full_name, phone: target.phone_number, role: target.role });
+                      router.push("/platform/requests");
+                    }}
+                  >
+                    Προβολή ως
+                  </button>
+                )}
+                {canLoginAs && (
+                  <button
+                    style={button(showLoginForm ? "secondary" : "primary")}
+                    disabled={quickBusy}
+                    onClick={() => {
+                      setShowLoginForm((v) => !v);
+                      setTempPin(null);
+                    }}
+                  >
+                    Σύνδεση ως
+                  </button>
+                )}
+                {canResetPin && (
+                  <button style={button("secondary")} disabled={quickBusy} onClick={handleResetPin}>
+                    Νέος κωδικός
+                  </button>
+                )}
               </div>
 
-              <h2 style={h2}>Αιτήματα ({data.requests.length})</h2>
-              {data.requests.length === 0 && <p style={muted}>Κανένα αίτημα.</p>}
-              {data.requests.map((r) => (
-                <Row
-                  key={r.id}
-                  left={
-                    <>
-                      {departureLabel(r)} · <span style={money}>{formatDate(r.start_date)}</span> →{" "}
-                      <span style={money}>{formatDate(r.end_date)}</span>
-                    </>
-                  }
-                  right={r.status}
-                />
-              ))}
-
-              <h2 style={h2}>Κρατήσεις ({data.bookings.length})</h2>
-              {data.bookings.length === 0 && <p style={muted}>Καμία κράτηση.</p>}
-              {data.bookings.map((b) => (
-                <Row
-                  key={b.id}
-                  left={
-                    <>
-                      {departureLabel(b)} · <span style={money}>{formatDate(b.start_date)}</span> →{" "}
-                      <span style={money}>{formatDate(b.end_date)}</span>
-                    </>
-                  }
-                  right={b.status}
-                  tone={b.status === "confirmed" || b.status === "completed" ? "success" : "neutral"}
-                />
-              ))}
-            </>
-          )}
-
-          {data?.role === "skipper" && !data.profile && (
-            <p style={{ ...muted, marginTop: 20 }}>Δεν υπάρχει προφίλ επαγγελματία για αυτόν τον λογαριασμό.</p>
-          )}
-
-          {data?.role === "skipper" && data.profile && (
-            <>
-              {/* The only action this screen allows — everything else here is
-                  read-only "view as". Approving/rejecting acts on the real
-                  row, not on what the admin happens to be looking at. */}
-              {(data.profile.approval_status === "pending" || data.profile.approval_status === "rejected") && (
-                <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
-                  <b style={{ fontWeight: 600 }}>
-                    {data.profile.approval_status === "pending"
-                      ? "Το προφίλ περιμένει έγκριση"
-                      : "Το προφίλ έχει απορριφθεί"}
-                  </b>
-                  <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
-                    Έλεγξε ότι το δίπλωμα και η εμπειρία ταιριάζουν με την ιδιότητα. Με την έγκριση ο επαγγελματίας
-                    εμφανίζεται στις αναζητήσεις.
+              {showLoginForm && (
+                <form
+                  onSubmit={handleLoginAs}
+                  style={{ marginTop: 10, padding: 14, border: `1px solid ${colors.border}`, borderRadius: 10 }}
+                >
+                  <p style={{ ...muted, fontSize: 12.5, margin: "0 0 8px", lineHeight: 1.5 }}>
+                    Πραγματική σύνδεση ως {target.full_name || target.phone_number} — ο κωδικός του επαναφέρεται αυτόματα και
+                    καταγράφεται στο ιστορικό με τον λόγο παρακάτω.
                   </p>
-                  <ProCredentials profile={data.profile} roleLabel={labelForRole(data.profile.role)} />
-                  <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-                    <button style={button("primary")} disabled={actionBusy} onClick={handleApprove}>
-                      {actionBusy ? "..." : "Έγκριση"}
+                  <input
+                    autoFocus
+                    required
+                    value={loginReason}
+                    onChange={(e) => setLoginReason(e.target.value)}
+                    placeholder="Λόγος (π.χ. «λύση προβλήματος με κράτηση #...»)"
+                    style={{ ...fieldInput, marginBottom: 8 }}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button type="submit" style={button("primary")} disabled={quickBusy}>
+                      {quickBusy ? "…" : "Επιβεβαίωση σύνδεσης"}
                     </button>
-                    {data.profile.approval_status === "pending" && (
-                      <button style={button("secondary")} disabled={actionBusy} onClick={() => handleReject(false)}>
-                        {actionBusy ? "..." : "Απόρριψη"}
-                      </button>
-                    )}
-                  </div>
-                  {data.profile.approval_status === "pending" && (
-                    <input
-                      value={rejectNote}
-                      onChange={(e) => setRejectNote(e.target.value)}
-                      placeholder="Λόγος απόρριψης (προαιρετικό)"
-                      style={{
-                        width: "100%",
-                        marginTop: 10,
-                        padding: "8px 10px",
-                        fontSize: 13,
-                        fontFamily: "inherit",
-                        borderRadius: 8,
-                        border: `1px solid ${colors.border}`,
-                        boxSizing: "border-box",
-                      }}
-                    />
-                  )}
-                </div>
-              )}
-              {data.profile.approval_status === "approved" && (
-                <div style={{ ...card, marginTop: 20 }}>
-                  <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-                    <span style={badge("success")}>Εγκεκριμένο</span>
-                    <button style={button("secondary")} disabled={actionBusy} onClick={() => handleReject(true)}>
-                      {actionBusy ? "..." : "Ανάκληση έγκρισης"}
+                    <button type="button" style={button("secondary")} onClick={() => setShowLoginForm(false)}>
+                      Άκυρο
                     </button>
                   </div>
-                  <ProCredentials profile={data.profile} roleLabel={labelForRole(data.profile.role)} />
-                </div>
+                </form>
               )}
 
-              <div style={{ ...card, display: "flex", gap: 36, flexWrap: "wrap", marginTop: 20 }}>
-                <Stat label="Υπόλοιπο" value={`${data.profile.wallet_balance}€`} />
-                <Link
-                  href={`/platform/admin/finance?phone=${encodeURIComponent(target.phone_number || "")}`}
-                  style={{ alignSelf: "flex-end", fontSize: 12.5, color: colors.ink }}
-                >
-                  Φόρτωση υπολοίπου
-                </Link>
-                <Stat label="Τιμή/ημέρα" value={`${data.profile.price_per_day}€`} />
-                <Stat
-                  label="Βαθμίδα"
-                  value={
-                    data.profile.tier === "high"
-                      ? "Υψηλή"
-                      : data.profile.tier === "low"
-                      ? "Χαμηλή"
-                      : "Μεσαία"
-                  }
-                />
-                <Stat
-                  label="Αξιοπιστία"
-                  value={
-                    data.profile.reliability_percentage != null
-                      ? `${data.profile.reliability_percentage}%`
-                      : "—"
-                  }
-                />
-                <Stat label="Έγκριση" value={STATUS_LABEL[data.profile.approval_status] || data.profile.approval_status} />
-                <div style={{ flexBasis: "100%" }}>
-                  <Stars rating={data.profile.rating_avg} count={data.profile.rating_count ?? 0} />
-                </div>
-              </div>
-
-              <h2 style={h2}>Προφίλ</h2>
-              <div style={card}>
-                <p style={{ ...muted, margin: "0 0 6px" }}>Χαρακτηριστικά που βλέπει ο πελάτης</p>
-                <Chips
-                  items={computeCrewHighlights(data.profile, { languageCount: data.languages.length })}
-                />
-
-                <p style={{ ...muted, margin: "16px 0 6px" }}>Γλώσσες</p>
-                <Chips items={data.languages} />
-
-                <p style={{ ...muted, margin: "16px 0 6px" }}>Τύποι σκαφών</p>
-                <Chips items={data.boatTypes} />
-              </div>
-
-              {/* Positive declarations, so an empty list means "findable
-                  nowhere" — the opposite of what the old blackout view here
-                  claimed. Ports are per window now, not one global list. */}
-              <h2 style={h2}>Διαθεσιμότητα ({data.availability.length})</h2>
-              {data.availability.length === 0 && (
-                <p style={muted}>Καμία δηλωμένη περίοδος, άρα δεν εμφανίζεται σε αναζητήσεις.</p>
-              )}
-              {data.availability.map((w) => (
-                <div key={w.id} style={card}>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>
-                    <span style={money}>{formatDate(w.start_date)}</span> → <span style={money}>{formatDate(w.end_date)}</span>
-                  </div>
-                  <div style={{ marginTop: 8 }}>
-                    <Chips
-                      items={(w.availability_window_regions || []).map((r) => r.regions?.name).filter(Boolean)}
-                    />
-                  </div>
-                </div>
-              ))}
-
-              <h2 style={h2}>Αιτήματα που του στάλθηκαν ({data.pings.length})</h2>
-              {data.pings.length === 0 && <p style={muted}>Κανένα.</p>}
-              {data.pings.map((p) => (
-                <Row
-                  key={p.id}
-                  left={
-                    <>
-                      {departureLabel(p.booking_requests)} ·{" "}
-                      <span style={money}>{formatDate(p.booking_requests?.start_date)}</span> →{" "}
-                      <span style={money}>{formatDate(p.booking_requests?.end_date)}</span>
-                    </>
-                  }
-                  right={p.status}
-                />
-              ))}
-
-              <h2 style={h2}>Κρατήσεις ({data.bookings.length})</h2>
-              {data.bookings.length === 0 && <p style={muted}>Καμία κράτηση.</p>}
-              {data.bookings.map((b) => (
-                <Row
-                  key={b.id}
-                  left={
-                    <>
-                      {departureLabel(b)} · <span style={money}>{formatDate(b.start_date)}</span> →{" "}
-                      <span style={money}>{formatDate(b.end_date)}</span>
-                    </>
-                  }
-                  right={b.status}
-                  tone={b.status === "confirmed" || b.status === "completed" ? "success" : "neutral"}
-                />
-              ))}
-            </>
-          )}
-
-          {data?.wallet?.length > 0 && (
-            <>
-              <h2 style={h2}>Κινήσεις πορτοφολιού</h2>
-              {data.wallet.map((w) => (
-                <Row
-                  key={w.id}
-                  left={
-                    <>
-                      <span style={money}>{formatDate(w.created_at?.slice(0, 10))}</span> · {WALLET_TYPE_LABEL[w.type] || w.type}
-                    </>
-                  }
-                  right={`${w.amount > 0 ? "+" : ""}${w.amount}€`}
-                  tone={w.amount > 0 ? "success" : "neutral"}
-                />
-              ))}
-            </>
-          )}
-
-          {target.role !== "admin" && target.status !== "deleted" && (
-            <div style={{ ...card, marginTop: 28 }}>
-              <b style={{ fontWeight: 600 }}>Κωδικός σύνδεσης</b>
-              <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
-                Αν ο χρήστης ξέχασε τον κωδικό του ή κλειδώθηκε από λάθος προσπάθειες, δώσ' του έναν προσωρινό.
-                Ξεκλειδώνει και τον λογαριασμό.
-              </p>
-              {tempPin ? (
-                <div style={{ padding: "12px 14px", background: "#EAF2EE", borderRadius: 10, fontSize: 13.5 }}>
+              {tempPin && (
+                <div style={{ marginTop: 10, padding: "12px 14px", background: "#EAF2EE", borderRadius: 10, fontSize: 13.5 }}>
                   Προσωρινός κωδικός: <b style={{ ...money, fontSize: 20, letterSpacing: "0.08em" }}>{tempPin}</b>
                   <p style={{ margin: "8px 0 0", lineHeight: 1.5 }}>
-                    Πες τον στον χρήστη τηλεφωνικά (<span style={money}>{target.phone_number}</span>). Μόλις μπει, να
-                    τον αλλάξει από «Το προφίλ μου», «Αλλαγή κωδικού». Δεν θα ξαναεμφανιστεί εδώ.
+                    Πες τον στον χρήστη τηλεφωνικά (<span style={money}>{target.phone_number}</span>). Δεν θα ξαναεμφανιστεί εδώ.
                   </p>
                 </div>
-              ) : (
-                <button style={button("secondary")} disabled={actionBusy} onClick={handleResetPin}>
-                  Νέος προσωρινός κωδικός
-                </button>
               )}
             </div>
           )}
 
-          {/* Moved down from the very top of the page, where a one-tap
-              checkbox granting full admin rights sat above the person's name. */}
-          {target.status !== "deleted" && (
-            <div style={{ ...card, marginTop: 28 }}>
-              <b style={{ fontWeight: 600 }}>Προχωρημένες ρυθμίσεις</b>
-              <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13 }}>Σπάνια χρειάζονται και ζητούν επιβεβαίωση.</p>
-              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(target.is_test_account)}
-                  disabled={actionBusy || target.role === "admin"}
-                  onChange={handleToggleTestAccount}
-                  style={{ marginTop: 3 }}
-                />
-                <span>
-                  Λογαριασμός δοκιμών
-                  <span style={{ ...muted, display: "block", fontSize: 12.5 }}>
-                    Μόνο για ψεύτικους λογαριασμούς. Επιτρέπει «Σύνδεση ως» (αλλάζει τον κωδικό του).
-                  </span>
-                </span>
-              </label>
-              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, cursor: "pointer", marginTop: 12 }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(target.is_staff_admin)}
-                  disabled={actionBusy || target.role === "admin"}
-                  onChange={handleToggleStaffAdmin}
-                  style={{ marginTop: 3 }}
-                />
-                <span>
-                  Δικαιώματα διαχειριστή
-                  <span style={{ ...muted, display: "block", fontSize: 12.5 }}>
-                    Μπαίνει και σε αυτή τη διαχείριση με το ίδιο τηλέφωνο και κωδικό. Μόνο για άτομο εμπιστοσύνης.
-                  </span>
-                </span>
-              </label>
-            </div>
-          )}
-
-          {target.status === "deleted" ? (
-            <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.danger}` }}>
-              <b style={{ fontWeight: 600 }}>Διαγραμμένος λογαριασμός</b>
-              <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
-                {target.deleted_at && <>Διαγράφηκε: {formatDateTime(target.deleted_at)}<br /></>}
-                {target.deletion_reason && <>Λόγος: {target.deletion_reason}<br /></>}
-                Δεν μπορεί να συνδεθεί και δεν φαίνεται πουθενά στην πλατφόρμα. Τίποτα δεν έχει σβηστεί.
-              </p>
-              <button style={button("primary")} disabled={actionBusy} onClick={handleRestoreAccount}>
-                {actionBusy ? "…" : "Επαναφορά λογαριασμού"}
-              </button>
-            </div>
-          ) : (
-            <>
-              {target.status === "suspended" ? (
-                <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
-                  <b style={{ fontWeight: 600 }}>Σε αναστολή</b>
-                  <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
-                    {target.suspension_reason || "(χωρίς καταγεγραμμένο λόγο)"}
-                  </p>
-                  <button style={{ ...button("primary") }} disabled={actionBusy} onClick={handleReactivate}>
-                    {actionBusy ? "…" : "Επαναφορά"}
-                  </button>
-                </div>
-              ) : (
-                target.role !== "admin" &&
-                !target.is_staff_admin && (
-                  <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
-                    <b style={{ fontWeight: 600 }}>Αναστολή λογαριασμού</b>
-                    <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
-                      Προσωρινό «πάγωμα»: δεν μπορεί να συνδεθεί και δεν εμφανίζεται σε αναζητήσεις, μέχρι να τον
-                      επαναφέρεις. Βλέπεις τον λόγο σε κάθε λίστα, για να μην ξεχαστεί.
-                    </p>
-                    {showSuspendForm ? (
-                      <form onSubmit={handleSuspend}>
-                        <textarea
-                          required
-                          rows={2}
-                          placeholder="Λόγος αναστολής"
-                          value={suspendReason}
-                          onChange={(e) => setSuspendReason(e.target.value)}
-                          style={{
-                            width: "100%",
-                            fontFamily: "inherit",
-                            fontSize: 13.5,
-                            padding: 8,
-                            borderRadius: 8,
-                            border: `1px solid ${colors.border}`,
-                            marginBottom: 8,
-                            boxSizing: "border-box",
-                          }}
-                        />
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button type="submit" style={{ ...button("primary") }} disabled={actionBusy}>
-                            {actionBusy ? "…" : "Επιβεβαίωση αναστολής"}
-                          </button>
-                          <button
-                            type="button"
-                            style={{ ...button("secondary") }}
-                            onClick={() => {
-                              setShowSuspendForm(false);
-                              setSuspendReason("");
-                              setActionError("");
-                            }}
-                          >
-                            Άκυρο
-                          </button>
-                        </div>
-                      </form>
-                    ) : (
-                      <button style={{ ...button("secondary") }} onClick={() => setShowSuspendForm(true)}>
-                        Αναστολή
-                      </button>
-                    )}
-                  </div>
-                )
-              )}
-
-              {/* Any account except the main admin and yourself (0087). */}
-              {target.role !== "admin" && target.id !== userRow?.id && (
-                <div style={{ ...card, marginTop: 12, borderLeft: `3px solid ${colors.danger}` }}>
-                  <b style={{ fontWeight: 600 }}>Διαγραφή λογαριασμού</b>
-                  <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5 }}>
-                    Ο λογαριασμός κρύβεται από την πλατφόρμα και δεν μπορεί να συνδεθεί. Τίποτα δεν σβήνεται
-                    (ιστορικό, αξιολογήσεις, υπόλοιπο) και μπορείς να τον επαναφέρεις από εδώ όποτε θελήσεις.
-                    Τα ανοιχτά του αιτήματα ακυρώνονται με επιστροφή χρημάτων.
-                  </p>
-                  {deletionImpact().some((l) => l.startsWith("ΠΡΟΣΟΧΗ")) && (
-                    <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 10px" }}>
-                      {deletionImpact().find((l) => l.startsWith("ΠΡΟΣΟΧΗ"))}
-                    </p>
-                  )}
-                  <input
-                    value={deleteReason}
-                    onChange={(e) => setDeleteReason(e.target.value)}
-                    placeholder="Λόγος (προαιρετικό)"
-                    style={{
-                      width: "100%",
-                      padding: "8px 10px",
-                      fontSize: 13,
-                      fontFamily: "inherit",
-                      borderRadius: 8,
-                      border: `1px solid ${colors.border}`,
-                      boxSizing: "border-box",
-                      marginBottom: 10,
-                    }}
-                  />
-                  <button
-                    style={{ ...button("primary"), background: colors.danger, borderColor: colors.danger }}
-                    disabled={actionBusy}
-                    onClick={handleDeleteAccount}
-                  >
-                    {actionBusy ? "…" : "Διαγραφή λογαριασμού"}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+          <TabBar tabs={tabs} active={activeTab} onChange={goTab} />
+          <ActiveTab data={data} id={id} reload={load} confirm={confirm} onSelectTab={goTab} viewerId={userRow?.id} router={router} />
         </>
       )}
+
+      {busy && !target && <p style={muted}>Φόρτωση…</p>}
       {confirmDialog}
-    </div>
+    </AdminShell>
+  );
+}
+
+export default function AdminUserViewPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminUserInner />
+    </Suspense>
   );
 }

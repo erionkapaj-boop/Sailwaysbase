@@ -7,7 +7,7 @@ import { useAuth } from "../../AuthContext";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { badge } from "../../../../lib/platform/theme";
 import { CREW_ROLES, labelForRole } from "../../../../lib/platform/roles";
-import { adminListAccounts, adminVerifyUser, adminReactivateAccount, adminRestoreAccount, loginAsTestAccount } from "../../../../lib/platform/db";
+import { adminListAccounts, adminVerifyUser, adminReactivateAccount, adminRestoreAccount } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
 import { useConfirm } from "../../components/ConfirmDialog";
 
@@ -182,25 +182,6 @@ function UsersInner() {
       await adminReactivateAccount(u.id);
       await load();
       refreshCounts();
-    } catch (err) {
-      setError(err.message || String(err));
-      setBusy(false);
-    }
-  }
-
-  async function enterLoginAs(u) {
-    if (
-      !(await confirm(
-        `Θα γίνει πραγματική σύνδεση ως ${u.full_name || u.phone_number}. Ο κωδικός PIN του θα επαναφερθεί αυτόματα. Συνέχεια;`,
-        { tone: "primary" }
-      ))
-    )
-      return;
-    setBusy(true);
-    setError("");
-    try {
-      await loginAsTestAccount(u.id);
-      router.push(u.role === "admin" ? "/platform/admin" : "/platform/requests");
     } catch (err) {
       setError(err.message || String(err));
       setBusy(false);
@@ -400,22 +381,6 @@ function UsersInner() {
                     onClick={() => enterViewAs(u)}
                   >
                     Προβολή ως
-                  </button>
-                )}
-                {/* Πραγματική σύνδεση, όχι μόνο ανάγνωση — μόνο για
-                    λογαριασμούς που σημειώθηκαν ρητά ως τεστ (βλ. Στοιχεία).
-                    Ποτέ πάνω σε λογαριασμό admin: θα επανέφερε το PIN ενός
-                    πραγματικού διαχειριστή χωρίς να το ξέρει, και το
-                    αποτέλεσμα («Σύνδεση ως» σε admin) δείχνει ξανά ολόκληρο
-                    το μενού admin — ακριβώς το αντίθετο του σκοπού του
-                    εργαλείου. */}
-                {u.is_test_account && u.role !== "admin" && u.status !== "deleted" && u.status !== "suspended" && (
-                  <button
-                    style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
-                    disabled={busy}
-                    onClick={() => enterLoginAs(u)}
-                  >
-                    Σύνδεση ως
                   </button>
                 )}
                 {/* 0078: επαναφορά με ένα κλικ, χωρίς λόγο (μόνο η αναστολή

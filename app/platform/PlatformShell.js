@@ -234,7 +234,7 @@ function ViewAsBanner() {
 }
 
 // Visible on every screen while signed in as a test account through "Σύνδεση
-// ως" (a real session swap — see loginAsTestAccount), so getting back to
+// ως" (a real session swap — see adminLoginAsUser), so getting back to
 // admin never means remembering the admin PIN again. Reads sessionStorage
 // directly rather than through AuthContext: it has to survive full sign-ins
 // (this account's own, then back to admin's), which reset everything
