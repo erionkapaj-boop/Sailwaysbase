@@ -92,7 +92,7 @@ const CSS = `
 `;
 
 export function CalendarStyles() {
-  return <style>{CSS}</style>;
+  return <style dangerouslySetInnerHTML={{ __html: CSS }} />;
 }
 
 function Chevron({ dir }) {

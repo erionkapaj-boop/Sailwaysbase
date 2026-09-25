@@ -104,7 +104,7 @@ export default function AdminLayout({ children }) {
 
   return (
     <AdminCountsProvider>
-      <style>{SIDEBAR_CSS}</style>
+      <style dangerouslySetInnerHTML={{ __html: SIDEBAR_CSS }} />
       <AdminSidebar />
       {isRecord ? (
         <div className="sf-admin-main">{children}</div>

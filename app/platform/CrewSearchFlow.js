@@ -182,7 +182,7 @@ export default function CrewSearchFlow() {
 
   return (
     <div style={{ maxWidth: 460, width: "100%", margin: "0 auto" }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes sf-step-in {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: none; }
@@ -190,7 +190,7 @@ export default function CrewSearchFlow() {
         @media (prefers-reduced-motion: reduce) {
           [data-sf-step] { animation: none !important; }
         }
-      `}</style>
+      ` }} />
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
         <BackButton onClick={back} />

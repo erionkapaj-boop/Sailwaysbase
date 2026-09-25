@@ -107,7 +107,7 @@ export default function DateField({
               padding: 12,
             }}
           >
-            <style>{`.sf-datesheet{align-items:flex-end}@media(min-width:640px){.sf-datesheet{align-items:center}}`}</style>
+            <style dangerouslySetInnerHTML={{ __html: `.sf-datesheet{align-items:flex-end}@media(min-width:640px){.sf-datesheet{align-items:center}}` }} />
             <div
               role="dialog"
               aria-modal="true"

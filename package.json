@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "check": "node scripts/check-platform.mjs",
-    "prebuild": "node scripts/check-platform.mjs"
+    "prebuild": "node scripts/check-platform.mjs",
+    "test:db": "bash tests/db/run.sh",
+    "test:e2e": "bash tests/e2e/run.sh",
+    "test": "bash tests/db/run.sh && bash tests/e2e/run.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

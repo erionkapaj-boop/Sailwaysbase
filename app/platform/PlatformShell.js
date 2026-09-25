@@ -338,7 +338,7 @@ function SiteFooter() {
 export default function PlatformShell({ children }) {
   return (
     <AuthProvider>
-      <style>{globalStyles}</style>
+      <style dangerouslySetInnerHTML={{ __html: globalStyles }} />
       <div className="platform-scope" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         <ViewAsBanner />
         <NavBar />

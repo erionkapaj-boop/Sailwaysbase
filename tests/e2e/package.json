@@ -1,0 +1,9 @@
+{
+  "name": "skipperfinder-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser tests — kept out of the app's own dependencies so the Vercel build never installs them.",
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
