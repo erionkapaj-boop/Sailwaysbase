@@ -34,7 +34,12 @@ export const SECTIONS = [
   },
   { href: "/platform/admin/messages", label: "Μηνύματα επικοινωνίας", badge: "contact_new" },
   { href: "/platform/admin/disputes", label: "Αναφορές ακύρωσης", badge: "open_disputes" },
-  { href: "/platform/admin/coverage", label: "Κενά από ακυρώσεις", badge: "coverage_needed", heading: "Κρατήσεις & πλήρωμα" },
+  {
+    href: "/platform/admin/replacements",
+    label: "Αντικαταστάσεις",
+    badge: ["coverage_needed", "replacement_awaiting_client"],
+    heading: "Κρατήσεις & πλήρωμα",
+  },
   { href: "/platform/admin/offers", label: "Αναθέσεις δουλειάς" },
   { href: "/platform/admin/bookings", label: "Όλες οι κρατήσεις" },
   { href: "/platform/admin/deliveries", label: "Μεταφορές σκάφους" },

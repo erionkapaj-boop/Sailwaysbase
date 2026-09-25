@@ -460,14 +460,24 @@ function waitingRows(counts) {
 
   return [
     counts.coverage_needed > 0 && {
-      href: "/platform/admin/coverage",
+      href: "/platform/admin/replacements",
       n: counts.coverage_needed,
       title: plural(
         counts.coverage_needed,
         "κράτηση έμεινε χωρίς επαγγελματία",
         "κρατήσεις έμειναν χωρίς επαγγελματία",
       ),
-      meta: "Ο επαγγελματίας ακύρωσε. Βρες αντικαταστάτη πριν το ταξίδι.",
+      meta: "Ο επαγγελματίας ακύρωσε. Στείλε πρόταση σε υποψήφιους αντικαταστάτες.",
+    },
+    counts.replacement_awaiting_client > 0 && {
+      href: "/platform/admin/replacements",
+      n: counts.replacement_awaiting_client,
+      title: plural(
+        counts.replacement_awaiting_client,
+        "αντικατάσταση περιμένει τον πελάτη",
+        "αντικαταστάσεις περιμένουν τον πελάτη",
+      ),
+      meta: "Υπάρχουν υποψήφιοι — δεν χρειάζεται κάτι άλλο από σένα προς το παρόν.",
     },
     pendingTotal > 0 && {
       href: "/platform/admin/approvals",

@@ -19,6 +19,7 @@ import { labelForRole } from "../../../lib/platform/roles";
 import { useConfirm } from "./ConfirmDialog";
 import Avatar from "./Avatar";
 import { friendlyError } from "../../../lib/platform/friendlyError";
+import ReplacementCandidates from "./ReplacementCandidates";
 
 const STATUS_LABEL = {
   confirmed: ["Επιβεβαιωμένη", "success"],
@@ -256,6 +257,9 @@ export default function BookingPanel({
               ? "Ψάχνουμε νέο επαγγελματία και θα σε ειδοποιήσουμε μόλις βρεθεί."
               : "Το τέλος του αιτήματος επιστράφηκε στο πορτοφόλι σου. Ψάχνουμε νέο επαγγελματία και θα σε ειδοποιήσουμε μόλις βρεθεί."}
           </p>
+        )}
+        {viewerRole === "client" && booking.status === "cancelled_by_skipper" && !replacedBy && (
+          <ReplacementCandidates bookingId={booking.id} onChanged={onChanged} />
         )}
         {/* Always visible once revealed — not gated behind expanding the row.
             A confirmed booking's whole point is that both sides can now

@@ -1,7 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
-import { listMyPings, claimBookingRequest, declineBookingRequest, getPlatformSetting, departureLabel } from "../../../lib/platform/db";
+import {
+  listMyPings,
+  claimBookingRequest,
+  declineBookingRequest,
+  respondToReplacementOffer,
+  getPlatformSetting,
+  departureLabel,
+} from "../../../lib/platform/db";
 import Stars from "./Stars";
 import { card, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 import { formatDateTime, formatDate, formatDateRange } from "../../../lib/platform/notifications";
@@ -18,6 +25,7 @@ const CLAIM_ERRORS = {
   skipper_not_eligible: "Το προφίλ σου δεν είναι εγκεκριμένο.",
   request_expired: "Η πρόταση έληξε.",
   already_covered: "Η δουλειά καλύφθηκε ήδη από κάποιον άλλον.",
+  not_a_replacement_offer: "Κάτι δεν πάει καλά με αυτή την πρόταση. Ξαναφόρτωσε τη σελίδα.",
 };
 
 // Πρόταση από τη διαχείριση, όχι αίτημα πελάτη: ήρθε επειδή σε διάλεξαν
@@ -44,11 +52,15 @@ export default function PingsInbox({ skipperId }) {
     getPlatformSetting("skipper_claim_fee").then(setDefaultFee).catch(() => {});
   }, [skipperId]);
 
-  async function handleClaim(requestId) {
+  // Η αντικατάσταση δεν «κλειδώνει» τίποτα στην αποδοχή — μόνο δηλώνει
+  // ενδιαφέρον, διαλέγει ο πελάτης. Κάθε άλλη προέλευση συνεχίζει να δουλεύει
+  // όπως πριν: όποιος διεκδικήσει πρώτος την παίρνει.
+  async function handleClaim(requestId, isReplacement) {
     setBusyId(requestId);
     setError("");
     try {
-      await claimBookingRequest(requestId, skipperId);
+      if (isReplacement) await respondToReplacementOffer(requestId, skipperId, true);
+      else await claimBookingRequest(requestId, skipperId);
       await load();
       refreshNotifications();
     } catch (err) {
@@ -60,11 +72,12 @@ export default function PingsInbox({ skipperId }) {
     }
   }
 
-  async function handleDecline(requestId) {
+  async function handleDecline(requestId, isReplacement) {
     setBusyId(requestId);
     setError("");
     try {
-      await declineBookingRequest(requestId, skipperId);
+      if (isReplacement) await respondToReplacementOffer(requestId, skipperId, false);
+      else await declineBookingRequest(requestId, skipperId);
       await load();
       refreshNotifications();
     } catch (err) {
@@ -95,8 +108,8 @@ export default function PingsInbox({ skipperId }) {
           p={p}
           fee={p.booking_requests.claim_fee_amount != null ? Number(p.booking_requests.claim_fee_amount) : defaultFee}
           busy={busyId === p.booking_requests.id}
-          onClaim={() => handleClaim(p.booking_requests.id)}
-          onDecline={() => handleDecline(p.booking_requests.id)}
+          onClaim={() => handleClaim(p.booking_requests.id, p.booking_requests.origin === "admin_replacement")}
+          onDecline={() => handleDecline(p.booking_requests.id, p.booking_requests.origin === "admin_replacement")}
         />
       ))}
     </div>
@@ -113,6 +126,11 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
   const r = p.booking_requests;
   const cp = r.client_profiles;
   const isOffer = r.origin && r.origin !== "client";
+  const isReplacement = r.origin === "admin_replacement";
+  // Στην αντικατάσταση η αποδοχή δεν κλειδώνει τίποτα — μόνο δηλώνει
+  // ενδιαφέρον. Αν το έχει ήδη κάνει, δεν έχει νόημα να ξαναδείχνονται τα
+  // κουμπιά· περιμένει την επιλογή του πελάτη.
+  const isWaitingAsCandidate = isReplacement && Boolean(p.candidate_at);
 
   return (
     <div
@@ -217,11 +235,18 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
               )}
             </>
           )}
-          {/* Το ποσό δίπλα στην απόφαση, όχι στο πορτοφόλι μετά. */}
+          {/* Το ποσό δίπλα στην απόφαση, όχι στο πορτοφόλι μετά. Στην
+              αντικατάσταση η χρέωση γίνεται μόνο αν σε επιλέξει ο πελάτης,
+              όχι τώρα — διαφορετικό κείμενο για να μην ξεγελάει. */}
           {fee != null && (
             <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
               {Number(fee) === 0 ? (
-                "Χωρίς χρέωση διεκδίκησης."
+                "Χωρίς χρέωση."
+              ) : isReplacement ? (
+                <>
+                  Αν σε επιλέξει ο πελάτης, χρεώνεσαι <span style={{ ...money, color: colors.ink }}>{fee}€</span> τη
+                  στιγμή της επιλογής.
+                </>
               ) : (
                 <>
                   Με τη διεκδίκηση χρεώνεσαι <span style={{ ...money, color: colors.ink }}>{fee}€</span>.
@@ -233,14 +258,20 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
         {/* Declining counts as answering. Without it, the only way to look
             responsive would be to claim everything — exactly the behaviour
             the score should discourage. */}
-        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <button style={button("primary")} disabled={busy} onClick={onClaim}>
-            {busy ? "..." : "Διεκδίκηση"}
-          </button>
-          <button style={button("secondary")} disabled={busy} onClick={onDecline}>
-            Δεν με ενδιαφέρει
-          </button>
-        </div>
+        {isWaitingAsCandidate ? (
+          <p style={{ ...muted, fontSize: 13, color: colors.ink, flexShrink: 0, margin: 0 }}>
+            ✓ Δήλωσες ενδιαφέρον — περιμένεις την επιλογή του πελάτη.
+          </p>
+        ) : (
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <button style={button("primary")} disabled={busy} onClick={onClaim}>
+              {busy ? "..." : isReplacement ? "Δήλωση ενδιαφέροντος" : "Διεκδίκηση"}
+            </button>
+            <button style={button("secondary")} disabled={busy} onClick={onDecline}>
+              Δεν με ενδιαφέρει
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

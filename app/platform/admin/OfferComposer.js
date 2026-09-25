@@ -1,17 +1,10 @@
 "use client";
 import DateField from "../components/calendar/DateField";
 import { useCallback, useEffect, useState } from "react";
-import { useConfirm } from "../components/ConfirmDialog";
 import { Toolbar, Row, RowMain, Empty, colors, muted, money, button } from "./ui";
 import { CREW_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { formatDateRange } from "../../../lib/platform/notifications";
-import {
-  adminSearchAvailability,
-  adminCreateOffer,
-  adminAssignReplacement,
-  adminListSettings,
-  listLookups,
-} from "../../../lib/platform/db";
+import { adminSearchAvailability, adminCreateOffer, adminListSettings, listLookups } from "../../../lib/platform/db";
 
 // Picking people and sending them a job is one action with two starting
 // points — a cancellation that needs covering, and a charter of your own — so
@@ -93,7 +86,6 @@ export default function OfferComposer({ job = null, onDone }) {
 
   const [results, setResults] = useState(null);
   const [doneMsg, setDoneMsg] = useState("");
-  const [confirm, confirmDialog] = useConfirm();
   const [picked, setPicked] = useState([]);
   const [note, setNote] = useState("");
   const [fee, setFee] = useState("");
@@ -101,7 +93,6 @@ export default function OfferComposer({ job = null, onDone }) {
 
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
-  const [assigningId, setAssigningId] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -167,7 +158,9 @@ export default function OfferComposer({ job = null, onDone }) {
         expiresHours: Number(expiresHours),
       });
       const n = picked.length;
-      const msg = `Η πρόταση στάλθηκε σε ${n === 1 ? "1 επαγγελματία" : `${n} επαγγελματίες`}. Όποιος αποδεχτεί πρώτος την παίρνει. Θα το δεις στις «Αναθέσεις δουλειάς».`;
+      const msg = replacing
+        ? `Η πρόταση στάλθηκε σε ${n === 1 ? "1 επαγγελματία" : `${n} επαγγελματίες`}. Όσοι δηλώσουν ενδιαφέρον θα εμφανιστούν ανώνυμα στον πελάτη, που θα διαλέξει ο ίδιος.`
+        : `Η πρόταση στάλθηκε σε ${n === 1 ? "1 επαγγελματία" : `${n} επαγγελματίες`}. Όποιος αποδεχτεί πρώτος την παίρνει. Θα το δεις στις «Αναθέσεις δουλειάς».`;
       setPicked([]);
       setNote("");
       setResults(null);
@@ -177,35 +170,6 @@ export default function OfferComposer({ job = null, onDone }) {
       setError(message(err));
     } finally {
       setSending(false);
-    }
-  }
-
-  // Kept alongside the offer, not replaced by it: this is the case where you
-  // already sorted it out on the phone and only need the booking to exist.
-  // Nobody is charged, because nobody accepted anything here.
-  async function assignDirect(skipperId) {
-    const who = results?.find((r) => r.skipper_id === skipperId);
-    const name = who?.full_name || "Επαγγελματίας";
-    // Writes a confirmed booking straight away, with no acceptance step —
-    // it used to happen on a single tap with nothing said afterwards.
-    if (
-      !(await confirm(
-        `${name}: άμεση ανάθεση; Η κράτηση γράφεται αμέσως ως επιβεβαιωμένη, χωρίς να την αποδεχτεί ο ίδιος και χωρίς χρέωση. Κάν' το μόνο αν το έχετε ήδη κλείσει στο τηλέφωνο.`,
-        { tone: "primary" }
-      ))
-    )
-      return;
-    setAssigningId(skipperId);
-    setError("");
-    try {
-      await adminAssignReplacement(job.booking_id, skipperId);
-      const msg = `${name}: η κράτηση ανατέθηκε και είναι πλέον επιβεβαιωμένη.`;
-      setDoneMsg(msg);
-      onDone?.(msg);
-    } catch (err) {
-      setError(message(err));
-    } finally {
-      setAssigningId(null);
     }
   }
 
@@ -320,16 +284,6 @@ export default function OfferComposer({ job = null, onDone }) {
                 }
               />
             </label>
-            {replacing && (
-              <button
-                style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12, flexShrink: 0 }}
-                disabled={assigningId === s.skipper_id}
-                onClick={() => assignDirect(s.skipper_id)}
-                title="Το έκλεισες στο τηλέφωνο. Γράψε την κράτηση χωρίς χρέωση και χωρίς αποδοχή."
-              >
-                {assigningId === s.skipper_id ? "…" : "Άμεση ανάθεση"}
-              </button>
-            )}
           </Row>
         );
       })}
@@ -375,13 +329,23 @@ export default function OfferComposer({ job = null, onDone }) {
           {/* Said out loud before you send it, because it is the part that
               costs someone money and the part they will ask you about. */}
           <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px" }}>
-            {missingDetails
-              ? "Για να σταλεί η πρόταση χρειάζεται συγκεκριμένο λιμάνι και τύπος σκάφους."
-              : picked.length === 0
-              ? "Διάλεξε ποιοι θα τη λάβουν. Τη δουλειά την παίρνει όποιος αποδεχτεί πρώτος."
-              : feeShown === 0
-              ? `Θα σταλεί σε ${picked.length} άτομα χωρίς χρέωση. Την παίρνει όποιος αποδεχτεί πρώτος.`
-              : `Θα σταλεί σε ${picked.length} άτομα. Όποιος αποδεχτεί πρώτος πληρώνει ${feeShown ?? "—"}€ και οι υπόλοιποι δεν χρεώνονται.`}
+            {missingDetails ? (
+              "Για να σταλεί η πρόταση χρειάζεται συγκεκριμένο λιμάνι και τύπος σκάφους."
+            ) : picked.length === 0 ? (
+              replacing
+                ? "Διάλεξε ποιοι θα τη λάβουν. Ο πελάτης θα διαλέξει από όσους δηλώσουν ενδιαφέρον."
+                : "Διάλεξε ποιοι θα τη λάβουν. Τη δουλειά την παίρνει όποιος αποδεχτεί πρώτος."
+            ) : replacing ? (
+              <>
+                Θα σταλεί σε {picked.length} άτομα. Ο πελάτης θα δει όσους δηλώσουν ενδιαφέρον (ανώνυμα) και θα
+                διαλέξει ο ίδιος — τότε χρεώνεται{" "}
+                {feeShown === 0 ? "χωρίς χρέωση" : `${feeShown ?? "—"}€`} μόνο ο επιλεγμένος.
+              </>
+            ) : feeShown === 0 ? (
+              `Θα σταλεί σε ${picked.length} άτομα χωρίς χρέωση. Την παίρνει όποιος αποδεχτεί πρώτος.`
+            ) : (
+              `Θα σταλεί σε ${picked.length} άτομα. Όποιος αποδεχτεί πρώτος πληρώνει ${feeShown ?? "—"}€ και οι υπόλοιποι δεν χρεώνονται.`
+            )}
           </p>
 
           <button
@@ -396,7 +360,6 @@ export default function OfferComposer({ job = null, onDone }) {
       {doneMsg && (
         <p style={{ color: colors.success, fontSize: 13.5, margin: "12px 0 0", padding: "0 16px 12px" }}>{doneMsg}</p>
       )}
-      {confirmDialog}
     </>
   );
 }
