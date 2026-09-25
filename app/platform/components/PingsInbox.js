@@ -6,6 +6,7 @@ import {
   claimBookingRequest,
   declineBookingRequest,
   respondToReplacementOffer,
+  withdrawReplacementCandidacy,
   getPlatformSetting,
   departureLabel,
 } from "../../../lib/platform/db";
@@ -26,6 +27,7 @@ const CLAIM_ERRORS = {
   request_expired: "Η πρόταση έληξε.",
   already_covered: "Η δουλειά καλύφθηκε ήδη από κάποιον άλλον.",
   not_a_replacement_offer: "Κάτι δεν πάει καλά με αυτή την πρόταση. Ξαναφόρτωσε τη σελίδα.",
+  not_a_candidate: "Δεν είσαι πια υποψήφιος σε αυτή την πρόταση.",
 };
 
 // Πρόταση από τη διαχείριση, όχι αίτημα πελάτη: ήρθε επειδή σε διάλεξαν
@@ -72,6 +74,22 @@ export default function PingsInbox({ skipperId }) {
     }
   }
 
+  async function handleWithdraw(requestId) {
+    setBusyId(requestId);
+    setError("");
+    try {
+      await withdrawReplacementCandidacy(requestId, skipperId);
+      await load();
+      refreshNotifications();
+    } catch (err) {
+      const code = (err.message || "").match(/[a-z_]+/)?.[0];
+      setError(CLAIM_ERRORS[code] || err.message || String(err));
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function handleDecline(requestId, isReplacement) {
     setBusyId(requestId);
     setError("");
@@ -89,13 +107,17 @@ export default function PingsInbox({ skipperId }) {
   }
 
   // Ένα αίτημα που έληξε μένει «open» μέχρι το νυχτερινό κλείσιμο — δεν
-  // δείχνεται, γιατί η αποδοχή του θα αποτύγχανε ούτως ή άλλως.
-  const pending = pings.filter(
-    (p) =>
-      p.status === "pending" &&
-      p.booking_requests?.status === "open" &&
-      (!p.booking_requests.expires_at || new Date(p.booking_requests.expires_at).getTime() > Date.now())
-  );
+  // δείχνεται, γιατί η αποδοχή του θα αποτύγχανε ούτως ή άλλως. Εξαίρεση: ο
+  // υποψήφιος αντικατάστασης, που μένει ορατός όσο ο πελάτης έχει ακόμα
+  // χρόνο να διαλέξει (ώστε να μπορεί και να ανακαλέσει).
+  const now = Date.now();
+  const future = (iso) => !iso || new Date(iso).getTime() > now;
+  const pending = pings.filter((p) => {
+    const r = p.booking_requests;
+    if (p.status !== "pending" || r?.status !== "open") return false;
+    if (r.origin === "admin_replacement" && p.candidate_at) return future(r.client_decide_by);
+    return future(r.expires_at) && (r.origin !== "admin_replacement" || future(r.client_decide_by));
+  });
 
   return (
     <div>
@@ -110,6 +132,7 @@ export default function PingsInbox({ skipperId }) {
           busy={busyId === p.booking_requests.id}
           onClaim={() => handleClaim(p.booking_requests.id, p.booking_requests.origin === "admin_replacement")}
           onDecline={() => handleDecline(p.booking_requests.id, p.booking_requests.origin === "admin_replacement")}
+          onWithdraw={() => handleWithdraw(p.booking_requests.id)}
         />
       ))}
     </div>
@@ -121,7 +144,7 @@ export default function PingsInbox({ skipperId }) {
 // αναζήτησης: ο πελάτης βλέπει την ανάλυση του επαγγελματία πριν διαλέξει,
 // οπότε ο επαγγελματίας πρέπει συμμετρικά να μπορεί να δει την ανάλυση του
 // πελάτη πριν αποφασίσει να διεκδικήσει.
-function PingCard({ p, fee, busy, onClaim, onDecline }) {
+function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const r = p.booking_requests;
   const cp = r.client_profiles;
@@ -164,7 +187,9 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
           <p style={{ ...muted, fontSize: 12, margin: "2px 0 0" }}>Στάλθηκε {formatDateTime(r.created_at)}</p>
           {isOffer ? (
             <p style={{ ...muted, margin: "4px 0 0" }}>
-              Σε επέλεξαν απευθείας για αυτή τη δουλειά.
+              {isReplacement
+                ? "Ο επαγγελματίας του πελάτη ακύρωσε. Αν σε ενδιαφέρει, δήλωσέ το — ο πελάτης διαλέγει ανάμεσα σε όσους δηλώσουν."
+                : "Σε επέλεξαν απευθείας για αυτή τη δουλειά."}
               {r.note && <> «{r.note}»</>}
             </p>
           ) : (
@@ -259,9 +284,19 @@ function PingCard({ p, fee, busy, onClaim, onDecline }) {
             responsive would be to claim everything — exactly the behaviour
             the score should discourage. */}
         {isWaitingAsCandidate ? (
-          <p style={{ ...muted, fontSize: 13, color: colors.ink, flexShrink: 0, margin: 0 }}>
-            ✓ Δήλωσες ενδιαφέρον — περιμένεις την επιλογή του πελάτη.
-          </p>
+          <div style={{ flex: "0 1 300px" }}>
+            <p style={{ fontSize: 13, color: colors.ink, margin: 0 }}>
+              ✓ Δήλωσες ενδιαφέρον — περιμένεις την επιλογή του πελάτη
+              {r.client_decide_by && <> (έως {formatDateTime(r.client_decide_by)})</>}.
+            </p>
+            <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 8px", lineHeight: 1.5 }}>
+              Δεν έχεις χρεωθεί και δεν δεσμεύεσαι: μπορείς να αναλάβεις άλλη δουλειά. Αν κλειστείς αλλού τις ίδιες
+              μέρες, η υποψηφιότητά σου εδώ αποσύρεται αυτόματα.
+            </p>
+            <button style={button("secondary")} disabled={busy} onClick={onWithdraw}>
+              {busy ? "..." : "Ανάκληση διαθεσιμότητας"}
+            </button>
+          </div>
         ) : (
           <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
             <button style={button("primary")} disabled={busy} onClick={onClaim}>

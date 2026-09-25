@@ -36,6 +36,7 @@ export default function BookingPanel({
   autoExpand = false,
   hasUnread = false,
   replacedBy = null,
+  supersededBy = null,
 }) {
   const { refreshNotifications } = useAuth();
   const rootRef = useRef(null);
@@ -108,6 +109,12 @@ export default function BookingPanel({
   }
 
   async function handleCancel() {
+    // Ο επαγγελματίας εξηγεί πάντα γιατί ακυρώνει: ο admin το χρειάζεται για
+    // την αντικατάσταση και για την αναφορά ακύρωσης.
+    if (viewerRole !== "client" && !cancelReason.trim()) {
+      setError("Γράψε τον λόγο της ακύρωσης — είναι υποχρεωτικός.");
+      return;
+    }
     if (
       !(await confirm(
         "Σίγουρα θέλεις να ακυρώσεις; Θα χάσεις το ποσό που έχεις ήδη πληρώσει και θα καταγραφεί flag στο ιστορικό σου."
@@ -253,13 +260,24 @@ export default function BookingPanel({
           <p style={{ margin: "0 18px 12px", fontSize: 13, color: replacedBy ? colors.success : colors.ink, lineHeight: 1.5 }}>
             {replacedBy
               ? "Βρέθηκε αντικαταστάτης. Θα τον δεις στην κράτηση με τις ίδιες ημερομηνίες."
-              : booking.replaces_booking_id
-              ? "Ψάχνουμε νέο επαγγελματία και θα σε ειδοποιήσουμε μόλις βρεθεί."
-              : "Το τέλος του αιτήματος επιστράφηκε στο πορτοφόλι σου. Ψάχνουμε νέο επαγγελματία και θα σε ειδοποιήσουμε μόλις βρεθεί."}
+              : supersededBy
+              ? "Ακύρωσε και ο αντικαταστάτης. Η αναζήτηση συνεχίζεται στην πιο πρόσφατη κράτηση με τις ίδιες ημερομηνίες."
+              : booking.replacement_closed_at
+              ? "Δεν βρέθηκε αντικαταστάτης. Το τέλος του αιτήματος επιστράφηκε στο πορτοφόλι σου."
+              : "Ψάχνουμε αντικαταστάτη — δεν χρειάζεται να πληρώσεις ξανά. Αν τελικά δεν βρεθεί, το τέλος σου επιστρέφεται."}
           </p>
         )}
-        {viewerRole === "client" && booking.status === "cancelled_by_skipper" && !replacedBy && (
-          <ReplacementCandidates bookingId={booking.id} onChanged={onChanged} />
+        {viewerRole === "client" &&
+          booking.status === "cancelled_by_skipper" &&
+          !replacedBy &&
+          !supersededBy &&
+          !booking.replacement_closed_at && (
+          <ReplacementCandidates
+            bookingId={booking.id}
+            startDate={booking.start_date}
+            endDate={booking.end_date}
+            onChanged={onChanged}
+          />
         )}
         {/* Always visible once revealed — not gated behind expanding the row.
             A confirmed booking's whole point is that both sides can now
@@ -383,7 +401,7 @@ export default function BookingPanel({
         <div style={{ marginTop: 10 }}>
           <input
             style={{ ...input, marginBottom: 6 }}
-            placeholder="Λόγος ακύρωσης (προαιρετικό)"
+            placeholder={viewerRole === "client" ? "Λόγος ακύρωσης (προαιρετικό)" : "Λόγος ακύρωσης (υποχρεωτικό)"}
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
           />

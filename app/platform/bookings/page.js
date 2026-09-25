@@ -107,6 +107,7 @@ function BookingsInner() {
             key={b.id}
             booking={b}
             replacedBy={clientBookings.find((x) => x.replaces_booking_id === b.id && x.status !== "cancelled_by_skipper") || null}
+            supersededBy={clientBookings.find((x) => x.replaces_booking_id === b.id && x.status === "cancelled_by_skipper") || null}
             viewerRole="client"
             viewerUserId={userRow.id}
             onChanged={load}

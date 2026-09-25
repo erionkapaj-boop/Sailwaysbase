@@ -10,9 +10,12 @@ import { card, muted, button, badge, colors, money } from "../../../lib/platform
 import Stars from "./Stars";
 import { useConfirm } from "./ConfirmDialog";
 import { friendlyError } from "../../../lib/platform/friendlyError";
+import { formatDateTime } from "../../../lib/platform/notifications";
 
 const SELECT_ERRORS = {
-  request_not_open: "Η επιλογή δεν έγινε — είτε διάλεξες ήδη, είτε ο admin απέσυρε την πρόταση.",
+  request_not_open: "Η επιλογή δεν έγινε — είτε διάλεξες ήδη, είτε η πρόταση έκλεισε.",
+  decision_window_closed: "Πέρασε η προθεσμία επιλογής. Ψάχνουμε ξανά και θα σε ειδοποιήσουμε.",
+  case_closed: "Η αναζήτηση αντικαταστάτη έχει κλείσει.",
   already_covered: "Η κράτηση καλύφθηκε ήδη με άλλον τρόπο.",
   not_a_candidate: "Αυτός δεν είναι πια διαθέσιμος. Διάλεξε από τη λίστα από κάτω.",
   candidate_no_longer_eligible: "Αυτός ο επαγγελματίας δεν είναι πια διαθέσιμος.",
@@ -31,7 +34,7 @@ function identityLine(s) {
 // Κάρτα υποψηφίου αντικαταστάτη — ίδια ανώνυμα στοιχεία με την αναζήτηση
 // (skipper_public): καμία φωτογραφία, όνομα ή τηλέφωνο. Αυτά αποκαλύπτονται
 // μόνο μετά την επιβεβαίωση, ακριβώς όπως σε κάθε άλλη κράτηση.
-function CandidateCard({ s, busy, onSelect }) {
+function CandidateCard({ s, days, busy, onSelect }) {
   const highlights = computeCrewHighlights(s);
   return (
     <div style={{ ...card, marginBottom: 10 }}>
@@ -40,6 +43,11 @@ function CandidateCard({ s, busy, onSelect }) {
           <div style={{ ...money, fontSize: 18, fontWeight: 700 }}>
             {s.price_per_day}€<span style={{ ...muted, fontFamily: "inherit", fontSize: 13, fontWeight: 400 }}> /ημέρα</span>
           </div>
+          {days > 0 && (
+            <div style={{ ...muted, fontSize: 12.5, marginTop: 2 }}>
+              <span style={money}>{Number(s.price_per_day) * days}€</span> για {days} {days === 1 ? "ημέρα" : "ημέρες"}
+            </div>
+          )}
           {identityLine(s) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s)}</div>}
           <div style={{ margin: "8px 0" }}>
             <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
@@ -71,7 +79,13 @@ function CandidateCard({ s, busy, onSelect }) {
 // υπάρχει ανοιχτή πρόταση αντικατάστασης με τουλάχιστον έναν υποψήφιο.
 // Ξεχωριστό component (όχι inline στο BookingPanel) γιατί φέρνει δικά του
 // δεδομένα ασύγχρονα, ανεξάρτητα από το αν η κράτηση είναι ανοιχτή/κλειστή.
-export default function ReplacementCandidates({ bookingId, onChanged }) {
+function tripDays(start, end) {
+  if (!start || !end) return 0;
+  const ms = Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`);
+  return Math.round(ms / 86400000) + 1;
+}
+
+export default function ReplacementCandidates({ bookingId, startDate, endDate, onChanged }) {
   const [offer, setOffer] = useState(null);
   const [candidates, setCandidates] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -126,14 +140,26 @@ export default function ReplacementCandidates({ bookingId, onChanged }) {
         <b style={{ fontWeight: 600, fontSize: 14 }}>
           {candidates.length === 1 ? "Βρέθηκε ένας διαθέσιμος αντικαταστάτης" : `Βρέθηκαν ${candidates.length} διαθέσιμοι αντικαταστάτες`}
         </b>
+        {offer?.client_decide_by && (
+          <p style={{ fontSize: 13, margin: "6px 0 0", color: colors.ink }}>
+            Διάλεξε έως <b style={{ fontWeight: 600 }}>{formatDateTime(offer.client_decide_by)}</b> — μετά οι επιλογές
+            λήγουν και ψάχνουμε ξανά.
+          </p>
+        )}
         <p style={{ ...muted, fontSize: 13, margin: "6px 0 0", lineHeight: 1.5 }}>
-          Δες τις επιλογές — χωρίς όνομα ή τηλέφωνο, όπως και στην αναζήτηση. Μόλις επιβεβαιώσεις έναν, η κράτηση
-          κλειδώνει μαζί του και οι υπόλοιποι σταματούν να είναι διαθέσιμοι για αυτή τη θέση.
+          Δες τις επιλογές — χωρίς όνομα ή τηλέφωνο, όπως και στην αναζήτηση. Δεν πληρώνεις τίποτα επιπλέον. Μόλις
+          επιβεβαιώσεις έναν, η κράτηση κλειδώνει μαζί του και οι υπόλοιποι σταματούν να είναι διαθέσιμοι.
         </p>
       </div>
       {error && <p style={{ color: colors.danger, fontSize: 13, marginBottom: 10 }}>{error}</p>}
       {candidates.map((s) => (
-        <CandidateCard key={s.id} s={s} busy={busyId === s.id} onSelect={() => handleSelect(s.id)} />
+        <CandidateCard
+          key={s.id}
+          s={s}
+          days={tripDays(startDate, endDate)}
+          busy={busyId !== null}
+          onSelect={() => handleSelect(s.id)}
+        />
       ))}
       {confirmDialog}
     </div>

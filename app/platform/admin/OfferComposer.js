@@ -44,7 +44,10 @@ const selectControl = {
 
 const ERRORS = {
   already_covered: "Έχει ήδη καλυφθεί από κάποιον άλλον.",
-  offer_already_open: "Υπάρχει ήδη ανοιχτή πρόταση για αυτή την ακύρωση. Απόσυρέ την πρώτα.",
+  offer_already_open: "Υπάρχει ήδη ανοιχτή πρόταση για αυτό το ταξίδι. Απόσυρέ την πρώτα.",
+  skipper_cancelled_this_trip: "Κάποιος από τους επιλεγμένους έχει ήδη ακυρώσει αυτό το ταξίδι.",
+  not_latest_in_trip: "Το ταξίδι έχει ήδη νεότερη κράτηση — άνοιξε την τρέχουσα υπόθεση.",
+  case_closed: "Η υπόθεση έχει κλείσει οριστικά.",
   skipper_already_booked: "Έχει ήδη κράτηση σε αυτές τις ημερομηνίες.",
   skipper_not_eligible: "Το προφίλ του δεν είναι εγκεκριμένο.",
   invalid_skipper_selection: "Κάποιος από τους επιλεγμένους δεν είναι εγκεκριμένος.",
@@ -115,9 +118,13 @@ export default function OfferComposer({ job = null, onDone }) {
             role,
             startDate,
             endDate,
-            // A replacement is tied to its port; a charter of your own is not
-            // necessarily, so leaving it blank means "anywhere".
+            // A replacement is tied to its place — a curated port for older
+            // bookings, a region for client-made ones — and never goes back to
+            // anyone who already cancelled this same trip. A charter of your
+            // own is not tied anywhere, so leaving it blank means "anywhere".
             portId: (replacing ? job?.port_id : portId) || null,
+            regionId: replacing ? job?.region_id || null : null,
+            excludeTripOf: replacing ? job?.booking_id : null,
           })
         );
       } catch (err) {
@@ -126,7 +133,7 @@ export default function OfferComposer({ job = null, onDone }) {
         setBusy(false);
       }
     },
-    [role, startDate, endDate, portId, replacing, job?.port_id]
+    [role, startDate, endDate, portId, replacing, job?.port_id, job?.region_id, job?.booking_id]
   );
 
   // A cancellation arrives with its dates already known; there is nothing to
@@ -159,7 +166,7 @@ export default function OfferComposer({ job = null, onDone }) {
       });
       const n = picked.length;
       const msg = replacing
-        ? `Η πρόταση στάλθηκε σε ${n === 1 ? "1 επαγγελματία" : `${n} επαγγελματίες`}. Όσοι δηλώσουν ενδιαφέρον θα εμφανιστούν ανώνυμα στον πελάτη, που θα διαλέξει ο ίδιος.`
+        ? `Η πρόταση στάλθηκε σε ${n === 1 ? "1 επαγγελματία" : `${n} επαγγελματίες`}. Όσοι δηλώσουν ενδιαφέρον θα εμφανιστούν ανώνυμα στον πελάτη, που θα έχει 24 ώρες να διαλέξει.`
         : `Η πρόταση στάλθηκε σε ${n === 1 ? "1 επαγγελματία" : `${n} επαγγελματίες`}. Όποιος αποδεχτεί πρώτος την παίρνει. Θα το δεις στις «Αναθέσεις δουλειάς».`;
       setPicked([]);
       setNote("");
@@ -312,7 +319,7 @@ export default function OfferComposer({ job = null, onDone }) {
               />
             </label>
             <label style={{ ...muted, fontSize: 12, flex: "1 1 130px" }}>
-              Ισχύει για
+              {replacing ? "Προθεσμία απάντησης" : "Ισχύει για"}
               <select
                 style={{ ...selectControl, width: "100%", marginTop: 4 }}
                 value={expiresHours}
@@ -337,9 +344,10 @@ export default function OfferComposer({ job = null, onDone }) {
                 : "Διάλεξε ποιοι θα τη λάβουν. Τη δουλειά την παίρνει όποιος αποδεχτεί πρώτος."
             ) : replacing ? (
               <>
-                Θα σταλεί σε {picked.length} άτομα. Ο πελάτης θα δει όσους δηλώσουν ενδιαφέρον (ανώνυμα) και θα
-                διαλέξει ο ίδιος — τότε χρεώνεται{" "}
-                {feeShown === 0 ? "χωρίς χρέωση" : `${feeShown ?? "—"}€`} μόνο ο επιλεγμένος.
+                Θα σταλεί σε {picked.length} άτομα, που έχουν {expiresHours} ώρες να δηλώσουν ενδιαφέρον. Ο πελάτης
+                βλέπει όσους δηλώσουν (ανώνυμα) και έχει 24 ώρες από τον πρώτο για να διαλέξει — τότε χρεώνεται{" "}
+                {feeShown === 0 ? "χωρίς χρέωση" : `${feeShown ?? "—"}€`} μόνο ο επιλεγμένος. Ο πελάτης δεν πληρώνει
+                ξανά.
               </>
             ) : feeShown === 0 ? (
               `Θα σταλεί σε ${picked.length} άτομα χωρίς χρέωση. Την παίρνει όποιος αποδεχτεί πρώτος.`

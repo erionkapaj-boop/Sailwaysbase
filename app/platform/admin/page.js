@@ -467,7 +467,7 @@ function waitingRows(counts) {
         "κράτηση έμεινε χωρίς επαγγελματία",
         "κρατήσεις έμειναν χωρίς επαγγελματία",
       ),
-      meta: "Ο επαγγελματίας ακύρωσε. Στείλε πρόταση σε υποψήφιους αντικαταστάτες.",
+      meta: "Ακύρωση επαγγελματία ή πρόταση που έληξε. Στείλε (νέα) πρόταση ή κλείσε την υπόθεση.",
     },
     counts.replacement_awaiting_client > 0 && {
       href: "/platform/admin/replacements",
@@ -1270,7 +1270,7 @@ function Week({ week }) {
       </div>
       {Number(week.refunds) > 0 && (
         <p style={{ ...muted, fontSize: 12.5, margin: "8px 2px 0" }}>
-          Επιστράφηκαν {formatMoney(week.refunds)}€ σε πελάτες για αιτήματα που δεν βρήκαν επαγγελματία.
+          Επιστράφηκαν {formatMoney(week.refunds)}€ (αιτήματα χωρίς απάντηση, υποθέσεις χωρίς αντικαταστάτη, ακυρώσεις από πελάτες).
         </p>
       )}
     </>
