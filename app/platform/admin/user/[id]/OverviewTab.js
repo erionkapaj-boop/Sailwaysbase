@@ -1,14 +1,33 @@
 "use client";
-import { Panel, MetricGrid, Metric, Empty, colors, muted } from "../../ui";
+import { useState } from "react";
+import Link from "next/link";
+import { Panel, MetricGrid, Metric, Empty, colors, muted, button } from "../../ui";
+import { adminResolveFlag } from "../../../../../lib/platform/db";
 import Stars from "../../../components/Stars";
 import { formatDateTime } from "../../../../../lib/platform/notifications";
-import { EventRow } from "./shared";
+import { EventRow, errorLabel } from "./shared";
 
 // Ό,τι χρειάζεται κανείς να δει πρώτο: τα βασικά νούμερα, τι εκκρεμεί ακριβώς
 // (πέρα από τα «σοβαρά» issues που φαίνονται ήδη ψηλά στη σελίδα) και οι
 // τελευταίες κινήσεις — για να καταλάβει ο admin σε λίγα δευτερόλεπτα πού
 // βρίσκεται ο λογαριασμός, χωρίς να ανοίξει άλλη καρτέλα.
-export default function OverviewTab({ data, onSelectTab }) {
+export default function OverviewTab({ data, onSelectTab, reload }) {
+  const [flagBusy, setFlagBusy] = useState(null);
+  const [flagError, setFlagError] = useState("");
+
+  async function resolveFlag(flagId) {
+    setFlagBusy(flagId);
+    setFlagError("");
+    try {
+      await adminResolveFlag(flagId);
+      await reload();
+    } catch (err) {
+      setFlagError(errorLabel(err));
+    } finally {
+      setFlagBusy(null);
+    }
+  }
+
   const u = data.user;
   const cp = data.client_profile;
   const sp = data.skipper_profile;
@@ -37,11 +56,32 @@ export default function OverviewTab({ data, onSelectTab }) {
 
       {(openDisputes.length > 0 || openFlags.length > 0 || newMsgs.length > 0) && (
         <Panel title="Χρειάζεται προσοχή" padded={false}>
+          {flagError && <p style={{ color: colors.danger, fontSize: 13, margin: 0, padding: "10px 16px" }}>{flagError}</p>}
           {openFlags.map((f) => (
-            <div key={`flag-${f.id}`} style={{ padding: "10px 16px", borderBottom: `1px solid ${colors.border}`, fontSize: 13.5 }}>
-              {f.type === "duplicate_email" ? "Ίδιο email με άλλον λογαριασμό" : f.type}
-              {f.related_name && <span style={muted}> · σχετίζεται με {f.related_name}</span>}
-              <div style={{ ...muted, fontSize: 12, marginTop: 2 }}>{formatDateTime(f.created_at)}</div>
+            <div
+              key={`flag-${f.id}`}
+              style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", padding: "10px 16px", borderBottom: `1px solid ${colors.border}`, fontSize: 13.5 }}
+            >
+              <span style={{ minWidth: 0 }}>
+                {f.type === "duplicate_email" ? "Ίδιο email με άλλον λογαριασμό" : f.type}
+                {f.related_user_id && (
+                  <>
+                    {" · "}
+                    <Link href={`/platform/admin/user/${f.related_user_id}`} style={{ color: colors.ink }}>
+                      {f.related_name || "άλλος λογαριασμός"}
+                    </Link>
+                  </>
+                )}
+                <span style={{ ...muted, display: "block", fontSize: 12, marginTop: 2 }}>{formatDateTime(f.created_at)}</span>
+              </span>
+              <button
+                type="button"
+                style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}
+                disabled={flagBusy === f.id}
+                onClick={() => resolveFlag(f.id)}
+              >
+                {flagBusy === f.id ? "…" : "Εξετάστηκε"}
+              </button>
             </div>
           ))}
           {openDisputes.map((d) => (
@@ -67,10 +107,19 @@ export default function OverviewTab({ data, onSelectTab }) {
             </button>
           ))}
           {newMsgs.map((m) => (
-            <div key={`msg-${m.id}`} style={{ padding: "10px 16px", borderBottom: `1px solid ${colors.border}`, fontSize: 13.5 }}>
-              Μήνυμα επικοινωνίας χωρίς απάντηση
-              <div style={{ ...muted, fontSize: 12, marginTop: 2 }}>{formatDateTime(m.created_at)}</div>
-            </div>
+            <Link
+              key={`msg-${m.id}`}
+              href="/platform/admin/messages"
+              style={{ display: "block", padding: "10px 16px", borderBottom: `1px solid ${colors.border}`, fontSize: 13.5, color: colors.ink, textDecoration: "none" }}
+            >
+              Μήνυμα επικοινωνίας χωρίς απάντηση →
+              {m.message && (
+                <span style={{ ...muted, display: "block", fontSize: 12.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  «{m.message}»
+                </span>
+              )}
+              <span style={{ ...muted, display: "block", fontSize: 12, marginTop: 2 }}>{formatDateTime(m.created_at)}</span>
+            </Link>
           ))}
         </Panel>
       )}

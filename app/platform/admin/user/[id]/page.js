@@ -101,9 +101,10 @@ function AdminUserInner() {
     load();
   }, [id, userRow, load]);
 
+  // Το προσωρινό PIN ΔΕΝ καθαρίζει εδώ: εμφανίζεται μόνο μία φορά, κι ένα
+  // κλικ σε καρτέλα πριν το διαβάσει ο admin θα απαιτούσε νέο reset.
   function goTab(key) {
     setTab(key);
-    setTempPin(null);
     setShowLoginForm(false);
     router.replace(`/platform/admin/user/${id}?tab=${key}`, { scroll: false });
   }
@@ -177,7 +178,7 @@ function AdminUserInner() {
       problems.push({ tone: "danger", text: `Διαγραμμένος λογαριασμός${target.deletion_reason ? `: ${target.deletion_reason}` : "."}`, view: "actions" });
     const openDisputes = (data.disputes || []).filter((d) => !d.resolved_at).length;
     if (openDisputes > 0)
-      problems.push({ tone: "warn", text: `${openDisputes === 1 ? "1 ανοιχτή αναφορά ακύρωσης" : `${openDisputes} ανοιχτές αναφορές ακύρωσης`}.`, view: "overview" });
+      problems.push({ tone: "warn", text: `${openDisputes === 1 ? "1 ανοιχτή αναφορά ακύρωσης" : `${openDisputes} ανοιχτές αναφορές ακύρωσης`}.`, view: "finance" });
     const openFlags = (data.flags || []).filter((f) => !f.resolved_at).length;
     if (openFlags > 0)
       problems.push({ tone: "warn", text: `${openFlags === 1 ? "1 σημαία" : `${openFlags} σημαίες`} χρειάζεται έλεγχο.`, view: "overview" });
@@ -187,8 +188,15 @@ function AdminUserInner() {
   }
 
   const canViewAs = target && target.role !== "admin" && target.status !== "deleted" && target.status !== "suspended";
+  // Ίδιοι κανόνες με το route (impersonate): όχι admin, όχι διαγραμμένος, όχι
+  // σε αναστολή (η σύνδεση θα απορριπτόταν αφού είχε ήδη αλλάξει ο κωδικός).
   const canLoginAs =
-    target && target.role !== "admin" && !target.is_staff_admin && target.status !== "deleted" && target.id !== userRow?.id;
+    target &&
+    target.role !== "admin" &&
+    !target.is_staff_admin &&
+    target.status !== "deleted" &&
+    target.status !== "suspended" &&
+    target.id !== userRow?.id;
   const canResetPin = target && target.role !== "admin" && target.status !== "deleted";
 
   const tabs = data
@@ -202,7 +210,7 @@ function AdminUserInner() {
 
   return (
     <AdminShell
-      title={target?.full_name || (busy ? "Φόρτωση…" : "(χωρίς όνομα)")}
+      title={target ? target.full_name || "(χωρίς όνομα)" : busy ? "Φόρτωση…" : "Λογαριασμός"}
       avatar={target && <Avatar url={target.photo_url} name={target.full_name} size={44} />}
       actions={<BackButton href="/platform/admin/users" />}
     >
@@ -281,9 +289,12 @@ function AdminUserInner() {
                   onSubmit={handleLoginAs}
                   style={{ marginTop: 10, padding: 14, border: `1px solid ${colors.border}`, borderRadius: 10 }}
                 >
-                  <p style={{ ...muted, fontSize: 12.5, margin: "0 0 8px", lineHeight: 1.5 }}>
-                    Πραγματική σύνδεση ως {target.full_name || target.phone_number} — ο κωδικός του επαναφέρεται αυτόματα και
-                    καταγράφεται στο ιστορικό με τον λόγο παρακάτω.
+                  <p style={{ fontSize: 13, margin: "0 0 8px", lineHeight: 1.5, color: colors.ink }}>
+                    Μπαίνεις πραγματικά ως {target.full_name || target.phone_number} και μπορείς να κάνεις ό,τι κι εκείνος.
+                  </p>
+                  <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px", lineHeight: 1.5 }}>
+                    <b style={{ color: colors.warn, fontWeight: 600 }}>Ο τωρινός κωδικός του θα σταματήσει να δουλεύει.</b>{" "}
+                    Μετά θα χρειαστεί να του δώσεις «Νέο κωδικό». Η είσοδος και ο λόγος καταγράφονται στο ιστορικό.
                   </p>
                   <input
                     autoFocus
@@ -307,9 +318,13 @@ function AdminUserInner() {
               {tempPin && (
                 <div style={{ marginTop: 10, padding: "12px 14px", background: "#EAF2EE", borderRadius: 10, fontSize: 13.5 }}>
                   Προσωρινός κωδικός: <b style={{ ...money, fontSize: 20, letterSpacing: "0.08em" }}>{tempPin}</b>
-                  <p style={{ margin: "8px 0 0", lineHeight: 1.5 }}>
-                    Πες τον στον χρήστη τηλεφωνικά (<span style={money}>{target.phone_number}</span>). Δεν θα ξαναεμφανιστεί εδώ.
+                  <p style={{ margin: "8px 0 10px", lineHeight: 1.5 }}>
+                    Πες τον στον χρήστη τηλεφωνικά (<span style={money}>{target.phone_number}</span>). Μόλις μπει, να τον
+                    αλλάξει από «Το προφίλ μου». Δεν θα ξαναεμφανιστεί.
                   </p>
+                  <button type="button" style={{ ...button("secondary"), padding: "5px 12px", fontSize: 12.5 }} onClick={() => setTempPin(null)}>
+                    Το σημείωσα
+                  </button>
                 </div>
               )}
             </div>
@@ -321,6 +336,8 @@ function AdminUserInner() {
       )}
 
       {busy && !target && <p style={muted}>Φόρτωση…</p>}
+      {/* admin_account_detail επιστρέφει null (όχι σφάλμα) για id που δεν υπάρχει. */}
+      {!busy && !error && !target && <p style={muted}>Δεν βρέθηκε ο λογαριασμός.</p>}
       {confirmDialog}
     </AdminShell>
   );

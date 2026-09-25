@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
 
 // A real session swap ("Σύνδεση ως"), not the read-only "Προβολή ως": resets
@@ -16,8 +17,10 @@ import { serviceClient } from "../../../../../lib/platform/serverDb";
 // "forgot PIN") — there is no way to hand back a password nobody, including
 // the admin, ever sees in the clear. Every use is logged to admin_actions
 // with the reason typed in, for exactly this reason.
+// crypto, not Math.random: V8's PRNG is predictable from observed outputs,
+// and this value is (briefly) the account's real password.
 function randomPin() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(randomInt(100000, 1000000));
 }
 
 async function requireAdmin(req, db) {
@@ -52,11 +55,19 @@ export async function POST(req) {
   // already hide for role === "admin"; this is the actual boundary.
   if (target.role === "admin" || target.is_staff_admin) return Response.json({ error: "cannot_impersonate_admin" }, { status: 403 });
   if (target.status === "deleted") return Response.json({ error: "already_deleted" }, { status: 400 });
+  // signInWithPin refuses suspended accounts *after* signing in (and signs
+  // out again) — checking only there meant the PIN was already overwritten
+  // and the admin's own session gone by the time the refusal came.
+  if (target.status === "suspended") return Response.json({ error: "account_suspended" }, { status: 400 });
   if (userId === admin.id) return Response.json({ error: "cannot_impersonate_self" }, { status: 400 });
 
   const pin = randomPin();
   const { error: updErr } = await db.auth.admin.updateUserById(userId, { password: pin });
   if (updErr) return Response.json({ error: updErr.message }, { status: 500 });
+
+  // Same unlock as reset-pin: a person locked out by wrong attempts is exactly
+  // who support signs in as, and signInWithPin checks the lockout first.
+  if (target.phone_number) await db.from("login_attempts").insert({ phone: target.phone_number, success: true });
 
   const reasonText = (reason || "").trim();
   await db.from("admin_actions").insert({

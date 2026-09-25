@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
 
 // A temporary PIN for someone who forgot theirs. SMS reset isn't live in
@@ -7,8 +8,10 @@ import { serviceClient } from "../../../../../lib/platform/serverDb";
 // The admin reads the new PIN to the person over the phone; they sign in and
 // change it from Το προφίλ μου → Αλλαγή κωδικού. Also clears any lockout from
 // wrong attempts. Never on the main admin row itself.
+// crypto, not Math.random: V8's PRNG is predictable from observed outputs,
+// and this value is (briefly) the account's real password.
 function randomPin() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(randomInt(100000, 1000000));
 }
 
 async function requireAdmin(req, db) {

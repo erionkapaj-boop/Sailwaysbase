@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { Panel, MetricGrid, Metric, Row, RowMain, Status, Empty, WALLET_TYPE_LABEL, colors, button } from "../../ui";
 import { adminCreditWallet } from "../../../../../lib/platform/db";
 import { formatDate, formatDateTime } from "../../../../../lib/platform/notifications";
 import { Field, fieldInput, errorLabel } from "./shared";
 
-export default function FinanceTab({ data, id, reload }) {
+export default function FinanceTab({ data, id, reload, confirm }) {
   const u = data.user;
   const wallet = data.wallet || [];
   const disputes = data.disputes || [];
@@ -18,11 +19,21 @@ export default function FinanceTab({ data, id, reload }) {
 
   async function handleCredit(e) {
     e.preventDefault();
+    const value = Number(amount);
+    // Πραγματικά χρήματα: ένα ψηφίο παραπάνω (100 αντί για 10) δεν αναιρείται
+    // από εδώ, οπότε το ποσό διαβάζεται ξανά πριν γίνει.
+    if (
+      !(await confirm(
+        `Πίστωση ${value}€ στο πορτοφόλι του ${u.full_name || u.phone_number}; Νέο υπόλοιπο: ${Number(u.wallet_balance ?? 0) + value}€.`,
+        { tone: "primary", confirmLabel: `Πίστωση ${value}€` }
+      ))
+    )
+      return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      await adminCreditWallet(id, Number(amount), notes.trim());
+      await adminCreditWallet(id, value, notes.trim());
       setAmount("");
       setNotes("");
       await reload();
@@ -38,11 +49,6 @@ export default function FinanceTab({ data, id, reload }) {
     <>
       <MetricGrid>
         <Metric label="Τρέχον υπόλοιπο" value={`${u.wallet_balance ?? 0}€`} />
-        <Metric
-          label="Ιστορικό υπολοίπου"
-          value="→"
-          href={`/platform/admin/finance?phone=${encodeURIComponent(u.phone_number || "")}`}
-        />
       </MetricGrid>
 
       <Panel title="Πίστωση πορτοφολιού" subtitle="Χειροκίνητη πίστωση — π.χ. αποζημίωση για πρόβλημα. Καταγράφεται στο ιστορικό.">
@@ -65,7 +71,15 @@ export default function FinanceTab({ data, id, reload }) {
         {notice && <p style={{ color: colors.success, fontSize: 13 }}>{notice}</p>}
       </Panel>
 
-      <Panel title={`Κινήσεις πορτοφολιού (${wallet.length})`} padded={false}>
+      <Panel
+        title={`Κινήσεις πορτοφολιού (${wallet.length})`}
+        action={
+          <Link href={`/platform/admin/finance?phone=${encodeURIComponent(u.phone_number || "")}`} style={{ fontSize: 12.5, color: colors.ink }}>
+            Στα Οικονομικά
+          </Link>
+        }
+        padded={false}
+      >
         {wallet.length === 0 && <Empty>Καμία κίνηση.</Empty>}
         {wallet.map((w) => (
           <Row key={w.id}>

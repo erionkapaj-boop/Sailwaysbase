@@ -2,6 +2,7 @@
 import { colors, radius, muted, fontSans, badge } from "../../../../../lib/platform/theme";
 import { timeAgo, formatDateTime } from "../../../../../lib/platform/notifications";
 import { describeAuditEvent } from "../../../../../lib/platform/adminAudit";
+import { cssImage } from "../../ui";
 
 // Ένα, ξεκάθαρο σύνολο ενοτήτων αντί για μία μακριά σελίδα (§5 του αιτήματος).
 // `count(data)` γεμίζει το διακριτικό badge δίπλα στο όνομα κάθε καρτέλας·
@@ -158,6 +159,7 @@ export function Field({ label, children }) {
 // γρήγορο «ποιος είναι αυτός» πριν καν διαβάσει κανείς το όνομα.
 export function Avatar({ url, name, size = 40 }) {
   const initial = (name || "?").trim().charAt(0).toUpperCase();
+  const bg = cssImage(url);
   return (
     <span
       aria-hidden="true"
@@ -169,14 +171,14 @@ export function Avatar({ url, name, size = 40 }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: url ? `url(${url}) center/cover` : "#EFEDE8",
+        background: bg || "#EFEDE8",
         color: colors.inkSoft,
         fontSize: size * 0.4,
         fontWeight: 600,
         fontFamily: fontSans,
       }}
     >
-      {!url && initial}
+      {!bg && initial}
     </span>
   );
 }
@@ -231,6 +233,9 @@ export const ERROR_LABEL = {
   invalid_amount: "Το ποσό δεν είναι έγκυρο.",
   invalid_role: "Μη έγκυρος λογαριασμός για πίστωση.",
   no_photo: "Δεν υπάρχει φωτογραφία να αφαιρεθεί.",
+  account_suspended: "Ο λογαριασμός είναι σε αναστολή — δεν γίνεται «Σύνδεση ως». Κάνε πρώτα επαναφορά.",
+  license_taken: "Αυτός ο αριθμός διπλώματος ανήκει ήδη σε άλλον επαγγελματία.",
+  flag_not_found: "Η σημαία έχει ήδη εξεταστεί.",
   not_configured: "Η υπηρεσία δεν είναι διαθέσιμη αυτή τη στιγμή.",
 };
 

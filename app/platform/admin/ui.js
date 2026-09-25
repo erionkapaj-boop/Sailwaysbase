@@ -176,6 +176,26 @@ export function Row({ children, onClick, tone }) {
   return <div style={base}>{children}</div>;
 }
 
+// users.photo_url is written by the account owner themselves (RLS lets them
+// update their own row, and the column isn't guarded), so it's untrusted
+// input on an admin screen: a "javascript:" URL in an <a href> runs in the
+// admin's session on click (React 18 only warns), and a quote or paren breaks
+// out of a CSS url(). Real uploads are always https storage URLs.
+export function safeImageUrl(url) {
+  if (typeof url !== "string") return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" ? parsed.href : null;
+  } catch {
+    return null;
+  }
+}
+
+export function cssImage(url) {
+  const safe = safeImageUrl(url);
+  return safe ? `url(${JSON.stringify(safe)}) center/cover` : null;
+}
+
 // photoUrl is opt-in — only the accounts list passes it today. Every other
 // Row/RowMain caller (bookings, disputes, offers, coverage) is unaffected.
 export function RowMain({ title, meta, photoUrl }) {
@@ -189,7 +209,7 @@ export function RowMain({ title, meta, photoUrl }) {
             height: 32,
             borderRadius: "50%",
             flexShrink: 0,
-            background: photoUrl ? `url(${photoUrl}) center/cover` : "#EFEDE8",
+            background: cssImage(photoUrl) || "#EFEDE8",
           }}
           aria-hidden="true"
         />

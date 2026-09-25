@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { Panel, ProCredentials, colors, muted, button } from "../../ui";
+import Link from "next/link";
+import { Panel, ProCredentials, Status, colors, muted, button, safeImageUrl } from "../../ui";
 import { labelForRole, computeCrewHighlights } from "../../../../../lib/platform/roles";
 import { adminUpdateProfile, adminEditContact, adminClearPhoto } from "../../../../../lib/platform/db";
 import { formatDateTime } from "../../../../../lib/platform/notifications";
@@ -13,6 +14,8 @@ import { InfoGrid, Field, fieldInput, Chips, Hint, errorLabel } from "./shared";
 export default function ProfileTab({ data, id, reload, confirm }) {
   const u = data.user;
   const sp = data.skipper_profile;
+  const photo = safeImageUrl(u.photo_url);
+  const extraRoles = (data.secondary_roles || []).filter((r) => !r.deleted_at);
 
   const [name, setName] = useState(u.full_name || "");
   const [email, setEmail] = useState(u.email || "");
@@ -92,19 +95,28 @@ export default function ProfileTab({ data, id, reload, confirm }) {
       <Panel title="Βασικά στοιχεία">
         {u.photo_url ? (
           <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 18 }}>
-            <a href={u.photo_url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={u.photo_url}
-                alt=""
-                style={{ width: 120, height: 120, borderRadius: 12, objectFit: "cover", display: "block", border: `1px solid ${colors.border}` }}
-              />
-            </a>
+            {photo ? (
+              <a href={photo} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }} title="Άνοιγμα σε πλήρες μέγεθος">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photo}
+                  alt={`Φωτογραφία: ${u.full_name || u.phone_number}`}
+                  style={{ width: 120, height: 120, borderRadius: 12, objectFit: "cover", display: "block", border: `1px solid ${colors.border}` }}
+                />
+              </a>
+            ) : null}
             <div style={{ minWidth: 200, flex: "1 1 220px" }}>
-              <Hint>
-                Η φωτογραφία που βλέπουν οι υπόλοιποι — άνοιξέ τη σε πλήρες μέγεθος για να ελέγξεις αν φαίνεται
-                τηλέφωνο, email, site, QR code ή social media πάνω της: τέτοιο περιεχόμενο παρακάμπτει την πλατφόρμα.
-              </Hint>
+              {photo ? (
+                <Hint>
+                  Η φωτογραφία που βλέπουν οι υπόλοιποι — πάτησέ τη για πλήρες μέγεθος και έλεγξε αν φαίνεται τηλέφωνο,
+                  email, site, QR code ή social media πάνω της: τέτοιο περιεχόμενο παρακάμπτει την πλατφόρμα.
+                </Hint>
+              ) : (
+                <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px", lineHeight: 1.5 }}>
+                  Η φωτογραφία δεν είναι κανονικό ανέβασμα (μη έγκυρη διεύθυνση) και δεν εμφανίζεται για λόγους
+                  ασφαλείας. Αφαίρεσέ τη.
+                </p>
+              )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <input
                   value={photoReason}
@@ -150,6 +162,26 @@ export default function ProfileTab({ data, id, reload, confirm }) {
       {sp && (
         <Panel title="Στοιχεία επαγγελματία">
           <ProCredentials profile={sp} roleLabel={labelForRole(sp.role)} />
+          {extraRoles.length > 0 && (
+            <>
+              <p style={{ ...muted, margin: "16px 0 8px", fontSize: 12.5 }}>Επιπλέον ιδιότητες</p>
+              {extraRoles.map((r) => (
+                <div key={r.id} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6, fontSize: 13.5 }}>
+                  <span style={{ color: colors.ink, fontWeight: 500 }}>{labelForRole(r.role)}</span>
+                  <Status value={r.approval_status} />
+                  <span style={muted}>
+                    {r.price_per_day != null ? `${r.price_per_day}€ / ημέρα` : ""}
+                    {r.years_experience != null ? ` · ${r.years_experience} χρόνια` : ""}
+                  </span>
+                </div>
+              ))}
+              {extraRoles.some((r) => r.approval_status === "pending") && (
+                <Link href="/platform/admin/approvals" style={{ fontSize: 12.5, color: colors.ink }}>
+                  Έγκριση επιπλέον ιδιοτήτων στις Εκκρεμότητες
+                </Link>
+              )}
+            </>
+          )}
         </Panel>
       )}
 
