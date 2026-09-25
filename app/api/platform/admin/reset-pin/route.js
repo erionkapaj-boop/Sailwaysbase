@@ -46,6 +46,10 @@ export async function POST(req) {
   const { error: updErr } = await db.auth.admin.updateUserById(userId, { password: pin });
   if (updErr) return Response.json({ error: updErr.message }, { status: 500 });
 
+  // Temporary by design: the person is asked for their own PIN on the next
+  // sign-in (PinChangeGate). Nobody but them should know it for long.
+  await db.from("users").update({ pin_change_required: true }).eq("id", userId);
+
   // Same unlock the SMS reset performs (clear_login_attempts): a success row
   // resets the count of consecutive failures.
   if (target.phone_number) await db.from("login_attempts").insert({ phone: target.phone_number, success: true });

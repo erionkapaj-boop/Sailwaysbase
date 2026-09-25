@@ -8,7 +8,7 @@ import {
   confirmPinResetSms,
   requestPinResetEmail,
   confirmPinResetEmail,
-  getOtpEnabled,
+  getPinResetChannels,
 } from "../../../lib/platform/db";
 import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, colors, radius } from "../../../lib/platform/theme";
@@ -41,18 +41,18 @@ export default function ForgotPinPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  // SMS OTP isn't wired to a real provider in production yet (see
-  // platform_settings.otp_enabled, 0075) — same flag register/page.js
-  // checks. Offering the SMS tab as if it worked would send someone
-  // through a flow that quietly goes nowhere; email is already known
-  // broken (see requestPinResetEmail's delivered:false). Checked once on
-  // mount rather than assumed, so this keeps working the moment SMS is
-  // actually turned on.
-  const [otpEnabled, setOtpEnabled] = useState(null);
+  // Only channels that really deliver are offered (getPinResetChannels):
+  // a tab for a channel with no provider behind it would send someone
+  // through a flow that quietly goes nowhere. Checked on mount rather than
+  // assumed, so each channel appears the moment it's actually turned on.
+  const [channels, setChannels] = useState(null);
   useEffect(() => {
-    getOtpEnabled()
-      .then(setOtpEnabled)
-      .catch(() => setOtpEnabled(false));
+    getPinResetChannels()
+      .then((c) => {
+        setChannels(c);
+        if (!c.sms && c.email) setChannel("email");
+      })
+      .catch(() => setChannels({ sms: false, email: false }));
   }, []);
 
   async function request(e) {
@@ -65,13 +65,9 @@ export default function ForgotPinPage() {
         await requestPinResetSms(phone);
         setNotice("Σου στείλαμε κωδικό με SMS.");
       } else {
-        const res = await requestPinResetEmail(phone);
-        // Be straight with the user rather than claiming an email was sent:
-        // no provider is configured yet, so nothing actually leaves the server.
+        await requestPinResetEmail(phone);
         setNotice(
-          res?.delivered === false
-            ? "Η αποστολή email δεν είναι ακόμα ενεργή. Χρησιμοποίησε την επαναφορά μέσω SMS."
-            : "Αν υπάρχει λογαριασμός με αυτό το τηλέφωνο, στάλθηκε κωδικός στο email του."
+          "Αν ο λογαριασμός σου έχει δηλωμένο email, σου στείλαμε κωδικό — ισχύει 15 λεπτά. Δεν ήρθε; Έλεγξε τα ανεπιθύμητα ή επικοινώνησε μαζί μας."
         );
       }
       setSent(true);
@@ -105,7 +101,7 @@ export default function ForgotPinPage() {
     }
   }
 
-  if (otpEnabled === null) {
+  if (channels === null) {
     return (
       <div style={{ ...container, maxWidth: 460 }}>
         <BackButton onClick={() => router.back()} />
@@ -114,7 +110,7 @@ export default function ForgotPinPage() {
     );
   }
 
-  if (!otpEnabled) {
+  if (!channels.sms && !channels.email) {
     return (
       <div style={{ ...container, maxWidth: 460 }}>
         <BackButton onClick={() => router.back()} />
@@ -124,7 +120,8 @@ export default function ForgotPinPage() {
             Η αυτόματη επαναφορά κωδικού δεν είναι ακόμα διαθέσιμη.
           </p>
           <p style={{ ...muted, margin: "0 0 16px" }}>
-            Επικοινώνησε μαζί μας και θα σε βοηθήσουμε να μπεις ξανά στον λογαριασμό σου.
+            Γράψε μας από τη φόρμα επικοινωνίας με το τηλέφωνό σου. Θα σου δώσουμε έναν προσωρινό κωδικό για να
+            μπεις, και αμέσως μετά θα ορίσεις δικό σου — κανείς άλλος δεν θα τον ξέρει.
           </p>
           <Link
             href="/platform/contact"
@@ -141,16 +138,26 @@ export default function ForgotPinPage() {
     <div style={{ ...container, maxWidth: 460 }}>
       <BackButton onClick={() => router.back()} />
       <h1 style={{ ...h1, marginTop: 20 }}>Ξέχασα τον κωδικό</h1>
-      <p style={muted}>Επίλεξε πώς θέλεις να επιβεβαιώσεις την ταυτότητά σου.</p>
+      <p style={muted}>
+        {channels.sms && channels.email
+          ? "Επίλεξε πώς θέλεις να επιβεβαιώσεις την ταυτότητά σου."
+          : channels.sms
+          ? "Θα σου στείλουμε κωδικό με SMS στο κινητό σου."
+          : "Θα σου στείλουμε κωδικό στο email που έχεις δηλώσει στον λογαριασμό σου."}
+      </p>
 
-      <div style={{ display: "flex", gap: 8, margin: "20px 0" }}>
-        <button type="button" style={tab(channel === "sms")} onClick={() => { setChannel("sms"); setSent(false); }}>
-          Με SMS
-        </button>
-        <button type="button" style={tab(channel === "email")} onClick={() => { setChannel("email"); setSent(false); }}>
-          Με email
-        </button>
-      </div>
+      {channels.sms && channels.email ? (
+        <div style={{ display: "flex", gap: 8, margin: "20px 0" }}>
+          <button type="button" style={tab(channel === "sms")} onClick={() => { setChannel("sms"); setSent(false); }}>
+            Με SMS
+          </button>
+          <button type="button" style={tab(channel === "email")} onClick={() => { setChannel("email"); setSent(false); }}>
+            Με email
+          </button>
+        </div>
+      ) : (
+        <div style={{ height: 20 }} />
+      )}
 
       <form onSubmit={sent ? confirm : request} style={card}>
         <label style={label} htmlFor="fp-phone">

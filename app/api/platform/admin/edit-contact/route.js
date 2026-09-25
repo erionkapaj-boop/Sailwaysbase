@@ -1,26 +1,13 @@
 import { serviceClient } from "../../../../../lib/platform/serverDb";
+import { normalizePhone, isValidPhone } from "../../../../../lib/platform/phone";
 
-// Corrects a phone number, the one field admin_update_profile (a plain RPC)
-// can't safely touch: phone doubles as the Supabase Auth identity
-// (signInWithPin signs in with { phone, password }), so changing
-// public.users.phone_number alone would desync it from auth.users.phone and
-// lock the person out with their own, unchanged PIN. This route updates
-// both, via service role, in that order — auth identity first, so a failure
-// there never leaves the public row pointing at a phone Auth doesn't
-// recognise.
-//
-// Exists because signup here has no SMS verification step (0075) — a typo'd
-// digit at registration is a real, and until now unfixable, support
-// scenario: the person types their number correctly at login and it doesn't
-// match what the platform captured.
-function normalizePhone(raw) {
-  const digits = (raw || "").replace(/[^\d+]/g, "");
-  if (digits.startsWith("+")) return digits;
-  if (digits.startsWith("0")) return "+30" + digits.slice(1);
-  if (digits.startsWith("30")) return "+" + digits;
-  return "+30" + digits;
-}
-
+// An admin corrects someone's phone number (e.g. a typo at registration —
+// signup has no SMS step while no provider is configured, 0075). Phone
+// doubles as the Supabase Auth identity (signInWithPin signs in with
+// { phone, password }), so both the Auth phone and users.phone_number move
+// together, Auth first — a failure there leaves nothing half-changed. The
+// old number stays in the account's history (user_phones, 0094) and can
+// never be taken by another account.
 async function requireAdmin(req, db) {
   const token = (req.headers.get("authorization") || "").replace(/^Bearer /, "");
   if (!token) return null;
@@ -41,21 +28,34 @@ export async function POST(req) {
   if (!userId || !phone) return Response.json({ error: "missing_fields" }, { status: 400 });
 
   const normalized = normalizePhone(phone);
-  if (!/^\+\d{10,15}$/.test(normalized)) return Response.json({ error: "invalid_phone" }, { status: 400 });
+  if (!isValidPhone(normalized)) return Response.json({ error: "invalid_phone" }, { status: 400 });
 
   const { data: target } = await db.from("users").select("id, role, phone_number").eq("id", userId).maybeSingle();
   if (!target) return Response.json({ error: "not_found" }, { status: 404 });
   if (target.role === "admin") return Response.json({ error: "cannot_edit_admin" }, { status: 403 });
   if (normalized === target.phone_number) return Response.json({ ok: true, unchanged: true });
 
-  const { data: clash } = await db.from("users").select("id").eq("phone_number", normalized).maybeSingle();
-  if (clash) return Response.json({ error: "phone_taken" }, { status: 409 });
+  const { data: owner } = await db.from("user_phones").select("user_id").eq("phone", normalized).maybeSingle();
+  if (owner && owner.user_id !== userId) return Response.json({ error: "phone_taken" }, { status: 409 });
 
-  const { error: authErr } = await db.auth.admin.updateUserById(userId, { phone: normalized });
-  if (authErr) return Response.json({ error: authErr.message }, { status: 500 });
+  // phone_confirm: an unconfirmed Auth phone can't be used with a password
+  // sign-in, which would lock them out right after the "fix".
+  const { error: authErr } = await db.auth.admin.updateUserById(userId, { phone: normalized, phone_confirm: true });
+  if (authErr) {
+    const taken = /already|registered|exists/i.test(authErr.message || "");
+    return Response.json({ error: taken ? "phone_taken" : authErr.message }, { status: taken ? 409 : 500 });
+  }
 
-  const { error: rowErr } = await db.from("users").update({ phone_number: normalized }).eq("id", userId);
-  if (rowErr) return Response.json({ error: rowErr.message }, { status: 500 });
+  const { error: rowErr } = await db.rpc("apply_phone_change", {
+    p_user_id: userId,
+    p_phone: normalized,
+    p_source: "admin",
+    p_actor: admin.id,
+  });
+  if (rowErr) {
+    await db.auth.admin.updateUserById(userId, { phone: target.phone_number, phone_confirm: true });
+    return Response.json({ error: rowErr.message }, { status: 400 });
+  }
 
   await db.from("admin_actions").insert({
     admin_id: admin.id,

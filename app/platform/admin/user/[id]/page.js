@@ -5,12 +5,12 @@ import AdminShell from "../../AdminShell";
 import { useAuth } from "../../../AuthContext";
 import BackButton from "../../../components/BackButton";
 import { useConfirm } from "../../../components/ConfirmDialog";
-import { adminAccountDetail, adminVerifyUser, adminResetPin, adminLoginAsUser } from "../../../../../lib/platform/db";
+import { adminAccountDetail, adminVerifyUser, adminResetPin } from "../../../../../lib/platform/db";
 import { labelForRole } from "../../../../../lib/platform/roles";
 import { formatDateTime, timeAgo } from "../../../../../lib/platform/notifications";
 import { Status, colors, muted, button, money } from "../../ui";
 import { badge } from "../../../../../lib/platform/theme";
-import { TAB_DEFS, TabBar, Avatar, fieldInput, errorLabel } from "./shared";
+import { TAB_DEFS, TabBar, Avatar, errorLabel } from "./shared";
 import OverviewTab from "./OverviewTab";
 import ProfileTab from "./ProfileTab";
 import BookingsTab from "./BookingsTab";
@@ -81,8 +81,6 @@ function AdminUserInner() {
   const [quickBusy, setQuickBusy] = useState(false);
   const [quickError, setQuickError] = useState("");
   const [tempPin, setTempPin] = useState(null);
-  const [showLoginForm, setShowLoginForm] = useState(false);
-  const [loginReason, setLoginReason] = useState("");
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -105,7 +103,6 @@ function AdminUserInner() {
   // κλικ σε καρτέλα πριν το διαβάσει ο admin θα απαιτούσε νέο reset.
   function goTab(key) {
     setTab(key);
-    setShowLoginForm(false);
     router.replace(`/platform/admin/user/${id}?tab=${key}`, { scroll: false });
   }
 
@@ -126,8 +123,8 @@ function AdminUserInner() {
     const name = target.full_name || target.phone_number;
     if (
       !(await confirm(
-        `${name}: νέος προσωρινός κωδικός; Ο τωρινός κωδικός θα σταματήσει να δουλεύει. Χρησιμοποίησέ το μόνο αν σου το ζήτησε ο ίδιος.`,
-        { tone: "primary" }
+        `${name}: προσωρινός κωδικός;\n\nΜόνο αν σου το ζήτησε ο ίδιος επειδή ξέχασε τον κωδικό του. Ο παλιός κωδικός σταματά να δουλεύει, και στην επόμενη είσοδο θα του ζητηθεί να ορίσει δικό του.`,
+        { tone: "primary", confirmLabel: "Δημιουργία προσωρινού" }
       ))
     )
       return;
@@ -137,22 +134,10 @@ function AdminUserInner() {
     try {
       const { pin } = await adminResetPin(id);
       setTempPin(pin);
+      await load();
     } catch (err) {
       setQuickError(errorLabel(err));
     } finally {
-      setQuickBusy(false);
-    }
-  }
-
-  async function handleLoginAs(e) {
-    e.preventDefault();
-    setQuickBusy(true);
-    setQuickError("");
-    try {
-      await adminLoginAsUser(id, loginReason.trim());
-      router.push("/platform/requests");
-    } catch (err) {
-      setQuickError(errorLabel(err));
       setQuickBusy(false);
     }
   }
@@ -182,21 +167,14 @@ function AdminUserInner() {
     const openFlags = (data.flags || []).filter((f) => !f.resolved_at).length;
     if (openFlags > 0)
       problems.push({ tone: "warn", text: `${openFlags === 1 ? "1 σημαία" : `${openFlags} σημαίες`} χρειάζεται έλεγχο.`, view: "overview" });
+    if (target.photo_url && !target.photo_reviewed_at && target.status !== "deleted")
+      problems.push({ tone: "warn", text: "Νέα φωτογραφία περιμένει έλεγχο.", view: "profile" });
     const newMsgs = (data.contact_messages || []).filter((m) => m.status === "new").length;
     if (newMsgs > 0)
       problems.push({ tone: "warn", text: `${newMsgs === 1 ? "1 μήνυμα επικοινωνίας" : `${newMsgs} μηνύματα επικοινωνίας`} χωρίς απάντηση.`, view: "overview" });
   }
 
   const canViewAs = target && target.role !== "admin" && target.status !== "deleted" && target.status !== "suspended";
-  // Ίδιοι κανόνες με το route (impersonate): όχι admin, όχι διαγραμμένος, όχι
-  // σε αναστολή (η σύνδεση θα απορριπτόταν αφού είχε ήδη αλλάξει ο κωδικός).
-  const canLoginAs =
-    target &&
-    target.role !== "admin" &&
-    !target.is_staff_admin &&
-    target.status !== "deleted" &&
-    target.status !== "suspended" &&
-    target.id !== userRow?.id;
   const canResetPin = target && target.role !== "admin" && target.status !== "deleted";
 
   const tabs = data
@@ -223,6 +201,7 @@ function AdminUserInner() {
             {data.skipper_profile?.role && <span style={badge("neutral")}>{labelForRole(data.skipper_profile.role)}</span>}
             {target.status !== "active" && <Status value={target.status} />}
             {!target.phone_verified_at && target.role !== "admin" && <span style={badge("warn")}>Μη επαληθευμένος</span>}
+            {target.pin_change_required && <span style={badge("warn")}>Προσωρινός κωδικός — δεν έχει οριστεί δικός του</span>}
             {target.is_test_account && <span style={badge("neutral")}>Δοκιμαστικός</span>}
             {target.is_staff_admin && <span style={badge("brand")}>Staff admin</span>}
           </div>
@@ -246,7 +225,7 @@ function AdminUserInner() {
 
           {quickError && <p style={{ color: colors.danger, fontSize: 13, marginBottom: 10 }}>{quickError}</p>}
 
-          {(canViewAs || canLoginAs || canResetPin) && (
+          {(canViewAs || canResetPin) && (
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 {canViewAs && (
@@ -260,67 +239,19 @@ function AdminUserInner() {
                     Προβολή ως
                   </button>
                 )}
-                {canLoginAs && (
-                  // Ήθελε (σκόπιμα) το ίδιο οπτικό βάρος με τα άλλα δύο —
-                  // αλλιώς η πιο ευαίσθητη από τις τρεις ενέργειες γινόταν η
-                  // πιο έντονη στο μάτι, με προεπιλογή "primary". Η ένταση
-                  // (primary) φυλάγεται για το πραγματικό submit, μέσα στη
-                  // φόρμα με τον λόγο.
-                  <button
-                    style={button("secondary")}
-                    disabled={quickBusy}
-                    onClick={() => {
-                      setShowLoginForm((v) => !v);
-                      setTempPin(null);
-                    }}
-                  >
-                    Σύνδεση ως
-                  </button>
-                )}
                 {canResetPin && (
                   <button style={button("secondary")} disabled={quickBusy} onClick={handleResetPin}>
-                    Νέος κωδικός
+                    Προσωρινός κωδικός
                   </button>
                 )}
               </div>
-
-              {showLoginForm && (
-                <form
-                  onSubmit={handleLoginAs}
-                  style={{ marginTop: 10, padding: 14, border: `1px solid ${colors.border}`, borderRadius: 10 }}
-                >
-                  <p style={{ fontSize: 13, margin: "0 0 8px", lineHeight: 1.5, color: colors.ink }}>
-                    Μπαίνεις πραγματικά ως {target.full_name || target.phone_number} και μπορείς να κάνεις ό,τι κι εκείνος.
-                  </p>
-                  <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px", lineHeight: 1.5 }}>
-                    <b style={{ color: colors.warn, fontWeight: 600 }}>Ο τωρινός κωδικός του θα σταματήσει να δουλεύει.</b>{" "}
-                    Μετά θα χρειαστεί να του δώσεις «Νέο κωδικό». Η είσοδος και ο λόγος καταγράφονται στο ιστορικό.
-                  </p>
-                  <input
-                    autoFocus
-                    required
-                    value={loginReason}
-                    onChange={(e) => setLoginReason(e.target.value)}
-                    placeholder="Λόγος (π.χ. «λύση προβλήματος με κράτηση #...»)"
-                    style={{ ...fieldInput, marginBottom: 8 }}
-                  />
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button type="submit" style={button("primary")} disabled={quickBusy}>
-                      {quickBusy ? "…" : "Επιβεβαίωση σύνδεσης"}
-                    </button>
-                    <button type="button" style={button("secondary")} onClick={() => setShowLoginForm(false)}>
-                      Άκυρο
-                    </button>
-                  </div>
-                </form>
-              )}
 
               {tempPin && (
                 <div style={{ marginTop: 10, padding: "12px 14px", background: "#EAF2EE", borderRadius: 10, fontSize: 13.5 }}>
                   Προσωρινός κωδικός: <b style={{ ...money, fontSize: 20, letterSpacing: "0.08em" }}>{tempPin}</b>
                   <p style={{ margin: "8px 0 10px", lineHeight: 1.5 }}>
-                    Πες τον στον χρήστη τηλεφωνικά (<span style={money}>{target.phone_number}</span>). Μόλις μπει, να τον
-                    αλλάξει από «Το προφίλ μου». Δεν θα ξαναεμφανιστεί.
+                    Πες τον στον χρήστη τηλεφωνικά (<span style={money}>{target.phone_number}</span>). Με την πρώτη
+                    είσοδο η εφαρμογή θα του ζητήσει να ορίσει δικό του κωδικό. Δεν θα ξαναεμφανιστεί εδώ.
                   </p>
                   <button type="button" style={{ ...button("secondary"), padding: "5px 12px", fontSize: 12.5 }} onClick={() => setTempPin(null)}>
                     Το σημείωσα

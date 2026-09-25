@@ -30,7 +30,7 @@ export const SECTIONS = [
   {
     href: "/platform/admin/approvals",
     label: "Εκκρεμότητες",
-    badge: ["pending_verification", "pending_approvals", "pending_secondary_roles"],
+    badge: ["pending_verification", "pending_approvals", "pending_secondary_roles", "pending_photos"],
   },
   { href: "/platform/admin/messages", label: "Μηνύματα επικοινωνίας", badge: "contact_new" },
   { href: "/platform/admin/disputes", label: "Αναφορές ακύρωσης", badge: "open_disputes" },

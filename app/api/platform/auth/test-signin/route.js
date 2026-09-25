@@ -27,8 +27,8 @@ export async function POST(req) {
   if (createErr) {
     // Already exists — a previous test run, or a soft-deleted/revivable
     // account (0074). Same identity either way; just make sure the fixed
-    // test password still applies (an earlier "Σύνδεση ως" click resets a
-    // test account's password to something random, see admin/impersonate).
+    // test password still applies (e.g. after the tester set their own PIN
+    // at the set-pin step). Reserved test range only — never a real number.
     const { data: row } = await db.from("users").select("id").eq("phone_number", phone).maybeSingle();
     if (row) {
       const { error: updErr } = await db.auth.admin.updateUserById(row.id, { password: TEST_PHONE_PASSWORD });

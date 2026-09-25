@@ -3,19 +3,20 @@ import { useState } from "react";
 import Link from "next/link";
 import { Panel, ProCredentials, Status, colors, muted, button, safeImageUrl } from "../../ui";
 import { labelForRole, computeCrewHighlights } from "../../../../../lib/platform/roles";
-import { adminUpdateProfile, adminEditContact, adminClearPhoto } from "../../../../../lib/platform/db";
-import { formatDateTime } from "../../../../../lib/platform/notifications";
-import { InfoGrid, Field, fieldInput, Chips, Hint, errorLabel } from "./shared";
+import { adminUpdateProfile, adminEditContact, adminClearPhoto, adminApprovePhoto } from "../../../../../lib/platform/db";
+import { formatDate, formatDateTime } from "../../../../../lib/platform/notifications";
+import { InfoGrid, Field, fieldInput, Chips, Hint, errorLabel, badge } from "./shared";
 
 // «Στοιχεία & πρόσβαση»: ό,τι είναι ο λογαριασμός (προφίλ, επικοινωνία) και
-// πώς διορθώνεται όταν κάτι έχει γραφτεί λάθος. Η «Σύνδεση ως» / «Νέος
-// κωδικός» μένουν στις persistent γρήγορες ενέργειες πάνω στη σελίδα — εδώ
-// μένει μόνο η διόρθωση στοιχείων, που χρειάζεται φόρμα.
+// πώς διορθώνεται όταν κάτι έχει γραφτεί λάθος. «Προβολή ως» / «Προσωρινός
+// κωδικός» μένουν στις γρήγορες ενέργειες πάνω στη σελίδα — εδώ μένει μόνο
+// ό,τι χρειάζεται φόρμα.
 export default function ProfileTab({ data, id, reload, confirm }) {
   const u = data.user;
   const sp = data.skipper_profile;
   const photo = safeImageUrl(u.photo_url);
   const extraRoles = (data.secondary_roles || []).filter((r) => !r.deleted_at);
+  const oldPhones = (data.phones || []).filter((p) => p.retired_at);
 
   const [name, setName] = useState(u.full_name || "");
   const [email, setEmail] = useState(u.email || "");
@@ -36,8 +37,21 @@ export default function ProfileTab({ data, id, reload, confirm }) {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState("");
 
+  async function handleApprovePhoto() {
+    setPhotoBusy(true);
+    setPhotoError("");
+    try {
+      await adminApprovePhoto(id);
+      await reload();
+    } catch (err) {
+      setPhotoError(errorLabel(err));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
   async function handleClearPhoto() {
-    if (!(await confirm("Αφαίρεση της φωτογραφίας; Ο χρήστης θα μπορεί να ανεβάσει νέα οποτεδήποτε."))) return;
+    if (!(await confirm("Αφαίρεση της φωτογραφίας; Ο χρήστης ειδοποιείται (με τον λόγο, αν έγραψες) και μπορεί να ανεβάσει νέα."))) return;
     setPhotoBusy(true);
     setPhotoError("");
     try {
@@ -106,6 +120,20 @@ export default function ProfileTab({ data, id, reload, confirm }) {
               </a>
             ) : null}
             <div style={{ minWidth: 200, flex: "1 1 220px" }}>
+              {photo && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
+                  {u.photo_reviewed_at ? (
+                    <span style={badge("success")}>Ελέγχθηκε {formatDate(u.photo_reviewed_at.slice(0, 10))}</span>
+                  ) : (
+                    <>
+                      <span style={badge("warn")}>Περιμένει έλεγχο</span>
+                      <button type="button" style={{ ...button("primary"), padding: "5px 12px", fontSize: 12.5 }} disabled={photoBusy} onClick={handleApprovePhoto}>
+                        Εντάξει
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
               {photo ? (
                 <Hint>
                   Η φωτογραφία που βλέπουν οι υπόλοιποι — πάτησέ τη για πλήρες μέγεθος και έλεγξε αν φαίνεται τηλέφωνο,
@@ -144,6 +172,19 @@ export default function ProfileTab({ data, id, reload, confirm }) {
             ["Εγγραφή", formatDateTime(u.created_at)],
           ]}
         />
+        {oldPhones.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ ...muted, fontSize: 12.5, marginBottom: 6 }}>Προηγούμενα τηλέφωνα (μένουν δεμένα με τον λογαριασμό)</div>
+            {oldPhones.map((p) => (
+              <div key={p.phone} style={{ fontSize: 13, color: colors.ink, marginBottom: 3 }}>
+                <span style={{ fontVariantNumeric: "tabular-nums" }}>{p.phone}</span>
+                <span style={muted}>
+                  {" "}· έως {formatDate(p.retired_at.slice(0, 10))}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </Panel>
 
       {/* Μόνο για επαγγελματίες — για πελάτη αυτή η ενότητα ήταν πάντα άδεια
@@ -219,7 +260,11 @@ export default function ProfileTab({ data, id, reload, confirm }) {
 
       {u.role !== "admin" && (
         <Panel title="Διόρθωση τηλεφώνου" subtitle="Το τηλέφωνο είναι και το αναγνωριστικό σύνδεσης — αλλάζει προσεκτικά.">
-          <Hint>Χρησιμοποίησέ το μόνο αν ο χρήστης δηλώνει ότι έγραψε λάθος αριθμό στην εγγραφή. Δεν στέλνεται SMS επιβεβαίωσης.</Hint>
+          <Hint>
+            Ο χρήστης μπορεί να το αλλάξει και μόνος του από «Το προφίλ μου». Από εδώ μόνο αν δεν μπορεί να μπει (π.χ.
+            λάθος αριθμός στην εγγραφή). Ο κωδικός του δεν αλλάζει· το παλιό τηλέφωνο μένει στο ιστορικό του και δεν
+            μπορεί να το πάρει άλλος λογαριασμός.
+          </Hint>
           <form onSubmit={handlePhone} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <input style={{ ...fieldInput, flex: "1 1 200px" }} value={phone} onChange={(e) => setPhone(e.target.value)} required />
             <button type="submit" style={{ ...button("secondary"), flexShrink: 0 }} disabled={phoneBusy}>

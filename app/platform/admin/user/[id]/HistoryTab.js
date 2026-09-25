@@ -5,7 +5,7 @@ import { EventRow } from "./shared";
 
 // Ένα ενιαίο, χρονολογικό ιστορικό — δημιουργία λογαριασμού, συνδέσεις,
 // αιτήματα/κρατήσεις/μεταφορές, χρήματα, αναφορές, σημαίες και κάθε ενέργεια
-// admin (επαλήθευση, κωδικοί, «Σύνδεση ως», αναστολή, διαγραφή...). Το κείμενο
+// admin (επαλήθευση, κωδικοί, αναστολή, διαγραφή...). Το κείμενο
 // κάθε γραμμής αποφασίζεται στο adminAudit.js, εδώ μόνο η λίστα.
 //
 // Φίλτρα γιατί οι συνδέσεις και οι κινήσεις πορτοφολιού πνίγουν όλα τα άλλα
@@ -20,7 +20,7 @@ const FILTERS = [
     match: (k) => k === "request_sent" || k.startsWith("booking_") || k.startsWith("delivery_") || k === "dispute_reported",
   },
   { key: "money", label: "Χρήματα", match: (k) => k === "wallet_txn" },
-  { key: "access", label: "Συνδέσεις", match: (k) => k.startsWith("login_") || k === "email_reset_requested" },
+  { key: "access", label: "Σύνδεση & τηλέφωνο", match: (k) => k.startsWith("login_") || k === "email_reset_requested" || k === "phone_changed" },
 ];
 
 export default function HistoryTab({ data }) {

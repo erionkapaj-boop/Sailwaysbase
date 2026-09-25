@@ -11,7 +11,7 @@ import MessagesPanel from "./components/MessagesPanel";
 import Avatar from "./components/Avatar";
 import AccountMenu from "./components/AccountMenu";
 import { SECTIONS as ADMIN_SECTIONS, badgeCount, ADMIN_COUNTS_EVENT } from "./admin/AdminShell";
-import { hasStashedAdminSession, returnToAdminSession, adminOverview } from "../../lib/platform/db";
+import { adminOverview } from "../../lib/platform/db";
 import { hasPendingBroadcast } from "../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../lib/platform/pendingDelivery";
 import { nav, colors, fontSans, container, card, h1, muted, button } from "../../lib/platform/theme";
@@ -233,79 +233,6 @@ function ViewAsBanner() {
   );
 }
 
-// Visible on every screen while signed in as a test account through "Σύνδεση
-// ως" (a real session swap — see adminLoginAsUser), so getting back to
-// admin never means remembering the admin PIN again. Reads sessionStorage
-// directly rather than through AuthContext: it has to survive full sign-ins
-// (this account's own, then back to admin's), which reset everything
-// AuthContext tracks about "who is this" but never touch this one stashed
-// value.
-function ReturnToAdminBanner() {
-  const router = useRouter();
-  const { session } = useAuth();
-  const [visible, setVisible] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    setVisible(hasStashedAdminSession());
-  }, [session]);
-
-  if (!visible) return null;
-
-  async function handleReturn() {
-    setBusy(true);
-    try {
-      await returnToAdminSession();
-      router.push("/platform/admin");
-    } catch {
-      // Stashed tokens can expire if the test session ran long — the only
-      // way back at that point is a normal admin sign-in.
-      router.push("/platform/admin/login");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-        background: colors.ink,
-        color: "#fff",
-        padding: "8px 14px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 10,
-        fontSize: 13,
-        fontFamily: fontSans,
-      }}
-    >
-      <span>Συνδεδεμένος ως δοκιμαστικός λογαριασμός</span>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={handleReturn}
-        style={{
-          background: "rgba(255,255,255,0.2)",
-          color: "#fff",
-          border: "1px solid rgba(255,255,255,0.5)",
-          borderRadius: 6,
-          padding: "4px 10px",
-          fontSize: 12,
-          cursor: "pointer",
-          fontFamily: "inherit",
-          flexShrink: 0,
-        }}
-      >
-        {busy ? "…" : "Επιστροφή σε admin"}
-      </button>
-    </div>
-  );
-}
-
 // 0075: an account created without real SMS OTP (no provider configured
 // yet) starts with users.phone_verified_at = null and has to wait for an
 // admin to confirm it's a real person (Χρήστες → «Επαλήθευση») before it
@@ -373,6 +300,33 @@ function VerificationGate({ children }) {
   );
 }
 
+// A temporary PIN from the admin (Ξέχασα τον κωδικό → επικοινωνία) is only a
+// way back in, never meant to stay: until the person picks their own, every
+// page except set-pin itself asks for it first. Skipped while an admin is
+// only viewing as someone (userRow is theirs then, the session isn't).
+function PinChangeGate({ children }) {
+  const { userRow, viewingAs } = useAuth();
+  const pathname = usePathname();
+  if (!userRow?.pin_change_required || viewingAs || pathname.startsWith("/platform/set-pin")) return children;
+  return (
+    <div style={{ ...container, maxWidth: 460 }}>
+      <div style={{ ...card, marginTop: 20, textAlign: "center" }}>
+        <h1 style={{ ...h1, fontSize: 20 }}>Όρισε τον δικό σου κωδικό</h1>
+        <p style={{ ...muted, margin: "10px 0 0", lineHeight: 1.55 }}>
+          Μπήκες με προσωρινό κωδικό από την ομάδα μας. Για την ασφάλειά σου, διάλεξε τώρα έναν δικό σου — τον
+          προσωρινό τον γνωρίζει και κάποιος άλλος.
+        </p>
+        <Link
+          href="/platform/set-pin?change=1&required=1"
+          style={{ ...button("primary"), textDecoration: "none", display: "block", marginTop: 20 }}
+        >
+          Ορισμός κωδικού
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 // Signed in gets the slim app-footer everywhere (client, professional, and
 // admin dashboards alike); signed out — the marketing pages — keeps the full
 // legal footer.
@@ -386,11 +340,12 @@ export default function PlatformShell({ children }) {
     <AuthProvider>
       <style>{globalStyles}</style>
       <div className="platform-scope" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-        <ReturnToAdminBanner />
         <ViewAsBanner />
         <NavBar />
         <div style={{ flex: 1 }}>
-          <VerificationGate>{children}</VerificationGate>
+          <PinChangeGate>
+            <VerificationGate>{children}</VerificationGate>
+          </PinChangeGate>
         </div>
         <SiteFooter />
       </div>

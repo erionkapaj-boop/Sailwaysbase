@@ -19,7 +19,7 @@ import { serviceClient } from "../../../../../lib/platform/serverDb";
 //
 // Authorization lives entirely here, not in the RPC: soft_delete_account is
 // never granted to "authenticated", only reachable via the service-role
-// client below — same trust model as admin/impersonate.
+// client below — same trust model as the other service-role routes (admin/reset-pin).
 async function requireCaller(req, db) {
   const token = (req.headers.get("authorization") || "").replace(/^Bearer /, "");
   if (!token) return null;

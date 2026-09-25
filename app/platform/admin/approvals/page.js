@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
-import { Panel, RowMain, Empty, colors, muted, money, button, ProCredentials, VERIFY_HINT, STATUS_LABEL, waitingFor } from "../ui";
+import { Panel, RowMain, Empty, colors, muted, money, button, ProCredentials, VERIFY_HINT, STATUS_LABEL, waitingFor, safeImageUrl } from "../ui";
 import {
   adminListAccounts,
   adminVerifyUser,
@@ -12,6 +12,9 @@ import {
   adminListPendingSecondaryRoles,
   adminApproveSecondaryRole,
   adminRejectSecondaryRole,
+  adminListPhotosToReview,
+  adminApprovePhoto,
+  adminClearPhoto,
 } from "../../../../lib/platform/db";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { useConfirm } from "../../components/ConfirmDialog";
@@ -49,6 +52,7 @@ export default function PendingPage() {
   const [signups, setSignups] = useState([]);
   const [pros, setPros] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [photos, setPhotos] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
@@ -57,15 +61,17 @@ export default function PendingPage() {
   const [merged, setMerged] = useState(null);
 
   async function load() {
-    const [a, b, c] = await Promise.allSettled([
+    const [a, b, c, d] = await Promise.allSettled([
       adminListAccounts({ pendingVerificationOnly: true, sort: "recent" }),
       adminListPendingSkippers(),
       adminListPendingSecondaryRoles(),
+      adminListPhotosToReview(),
     ]);
     if (a.status === "fulfilled") setSignups(a.value);
     if (b.status === "fulfilled") setPros(b.value);
     if (c.status === "fulfilled") setRoles(c.value);
-    const failed = [a, b, c].find((r) => r.status === "rejected");
+    if (d.status === "fulfilled") setPhotos(d.value);
+    const failed = [a, b, c, d].find((r) => r.status === "rejected");
     if (failed) setError(failed.reason?.message || String(failed.reason));
     setLoaded(true);
   }
@@ -119,7 +125,14 @@ export default function PendingPage() {
     run(r.id, () => adminRejectSecondaryRole(r.id, notes[r.id] || null), `${r.full_name}: η ιδιότητα απορρίφθηκε.`);
   }
 
-  const total = signups.length + pros.length + roles.length;
+  const approvePhoto = (p) => run(`photo-${p.user_id}`, () => adminApprovePhoto(p.user_id), `${p.full_name || "Φωτογραφία"}: εγκρίθηκε.`);
+
+  async function removePhoto(p) {
+    if (!(await confirm(`${p.full_name || "Χρήστης"}: αφαίρεση φωτογραφίας; Ειδοποιείται με τον λόγο και μπορεί να ανεβάσει νέα.`))) return;
+    run(`photo-${p.user_id}`, () => adminClearPhoto(p.user_id, notes[`photo-${p.user_id}`] || ""), `${p.full_name || "Φωτογραφία"}: αφαιρέθηκε.`);
+  }
+
+  const total = signups.length + pros.length + roles.length + photos.length;
 
   return (
     <AdminShell
@@ -266,6 +279,54 @@ export default function PendingPage() {
             />
           </div>
         ))}
+      </Panel>
+      <Panel
+        title={`Φωτογραφίες προς έλεγχο (${photos.length})`}
+        subtitle={
+          photos.length > 0
+            ? "Νέες ή αλλαγμένες φωτογραφίες — φαίνονται ήδη στην εφαρμογή. Πάτα μία για πλήρες μέγεθος και έλεγξε αν δείχνει τηλέφωνο, email, site, social ή QR code."
+            : undefined
+        }
+      >
+        {loaded && photos.length === 0 && <Empty>Καμία φωτογραφία δεν περιμένει έλεγχο.</Empty>}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 14 }}>
+          {photos.map((p) => {
+            const src = safeImageUrl(p.photo_url);
+            const key = `photo-${p.user_id}`;
+            return (
+              <div key={p.user_id} style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, minWidth: 0 }}>
+                {src ? (
+                  <a href={src} target="_blank" rel="noopener noreferrer" title="Άνοιγμα σε πλήρες μέγεθος">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={`Φωτογραφία: ${p.full_name || ""}`} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 8, display: "block" }} />
+                  </a>
+                ) : (
+                  <p style={{ color: colors.danger, fontSize: 12.5, margin: 0 }}>Μη έγκυρη διεύθυνση — αφαίρεσέ τη.</p>
+                )}
+                <Link href={`/platform/admin/user/${p.user_id}`} style={{ display: "block", marginTop: 8, fontSize: 13.5, fontWeight: 500, color: colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.full_name || "(χωρίς όνομα)"}
+                </Link>
+                <div style={{ ...muted, fontSize: 12 }}>
+                  {p.role === "skipper" ? `Επαγγελματίας${p.crew_role ? ` · ${labelForRole(p.crew_role)}` : ""}` : "Πελάτης"}
+                </div>
+                <input
+                  placeholder="Λόγος αφαίρεσης (τον βλέπει ο χρήστης)"
+                  value={notes[key] || ""}
+                  onChange={(e) => setNotes((n) => ({ ...n, [key]: e.target.value }))}
+                  style={{ ...noteInput, marginTop: 8 }}
+                />
+                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                  <button style={{ ...button("primary"), flex: 1, padding: "7px 10px", fontSize: 13 }} disabled={busyId === key} onClick={() => approvePhoto(p)}>
+                    {busyId === key ? "…" : "Εντάξει"}
+                  </button>
+                  <button style={{ ...button("secondary"), flex: 1, padding: "7px 10px", fontSize: 13 }} disabled={busyId === key} onClick={() => removePhoto(p)}>
+                    Αφαίρεση
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </Panel>
       {confirmDialog}
     </AdminShell>

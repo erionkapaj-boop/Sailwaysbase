@@ -24,6 +24,8 @@ import {
   deleteMyAccount,
   signOut,
   becomeProfessional,
+  changeMyPhone,
+  normalizePhone,
 } from "../../../lib/platform/db";
 import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { formatDate, formatDateRange } from "../../../lib/platform/notifications";
@@ -440,9 +442,6 @@ function DeleteAccount() {
   if (!open) {
     return (
       <div style={{ marginTop: 28, textAlign: "center", display: "flex", justifyContent: "center", gap: 20, flexWrap: "wrap" }}>
-        <Link href="/platform/set-pin?change=1" style={{ color: colors.inkSoft, fontSize: 13 }}>
-          Αλλαγή κωδικού
-        </Link>
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -482,6 +481,106 @@ function DeleteAccount() {
         <button type="button" disabled={busy} onClick={() => setOpen(false)} style={button("secondary")}>
           Άκυρο
         </button>
+      </div>
+    </div>
+  );
+}
+
+const PHONE_ERRORS = {
+  phone_taken: "Αυτό το τηλέφωνο ανήκει ή ανήκε σε άλλον λογαριασμό και δεν μπορεί να χρησιμοποιηθεί.",
+  same_phone: "Αυτό είναι ήδη το τηλέφωνό σου.",
+  invalid_phone: "Το τηλέφωνο δεν φαίνεται σωστό. Γράψ' το με τον κωδικό χώρας αν δεν είναι ελληνικό (π.χ. +44…).",
+  wrong_pin: "Ο κωδικός δεν είναι σωστός.",
+  locked_out: "Πολλές λάθος προσπάθειες. Δοκίμασε ξανά σε λίγα λεπτά.",
+  account_not_active: "Ο λογαριασμός σου δεν είναι ενεργός αυτή τη στιγμή.",
+};
+
+// Τηλέφωνο σύνδεσης και κωδικός μαζί: είναι τα δύο πράγματα με τα οποία
+// μπαίνει κανείς, και ήταν πριν διάσπαρτα (το τηλέφωνο «δεν αλλάζει εδώ», ο
+// κωδικός ένα μικρό link δίπλα στη διαγραφή λογαριασμού).
+function AccountAccess() {
+  const { userRow, refresh } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [phoneAgain, setPhoneAgain] = useState("");
+  const [pin, setPinValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  function close() {
+    setOpen(false);
+    setPhone("");
+    setPhoneAgain("");
+    setPinValue("");
+    setError("");
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    // Typed twice on purpose: there's no SMS check yet, and a wrong digit
+    // here would move the account to a number its owner can't sign in with.
+    if (normalizePhone(phone) !== normalizePhone(phoneAgain)) return setError("Τα δύο τηλέφωνα δεν ταιριάζουν.");
+    setBusy(true);
+    try {
+      const res = await changeMyPhone(phone, pin);
+      await refresh();
+      close();
+      setNotice(`Το τηλέφωνό σου άλλαξε σε ${res.phone}. Από εδώ και πέρα συνδέεσαι με αυτό.`);
+    } catch (err) {
+      setError(PHONE_ERRORS[err.message] || friendlyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const row = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" };
+  return (
+    <div style={card}>
+      <h2 style={{ ...h2, fontSize: 17 }}>Σύνδεση &amp; ασφάλεια</h2>
+      {notice && <p style={{ color: colors.success, fontSize: 13.5, margin: "0 0 12px" }}>{notice}</p>}
+
+      <div style={row}>
+        <div>
+          <div style={{ ...muted, fontSize: 13 }}>Τηλέφωνο σύνδεσης</div>
+          <div style={{ fontSize: 15, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>{userRow?.phone_number}</div>
+        </div>
+        {!open && (
+          <button type="button" style={button("secondary")} onClick={() => { setOpen(true); setNotice(""); }}>
+            Αλλαγή
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
+          <p style={{ ...muted, fontSize: 13, margin: "0 0 14px", lineHeight: 1.5 }}>
+            Από εδώ και πέρα θα συνδέεσαι με το νέο τηλέφωνο. Το παλιό μένει συνδεδεμένο με τον λογαριασμό σου και δεν
+            μπορεί να το χρησιμοποιήσει κανείς άλλος.
+          </p>
+          <label style={label} htmlFor="new-phone">Νέο τηλέφωνο</label>
+          <input id="new-phone" required inputMode="tel" autoComplete="tel" placeholder="69XXXXXXXX" style={{ ...input, marginBottom: 14 }} value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <label style={label} htmlFor="new-phone-again">Ξανά το νέο τηλέφωνο</label>
+          <input id="new-phone-again" required inputMode="tel" autoComplete="off" style={{ ...input, marginBottom: 14 }} value={phoneAgain} onChange={(e) => setPhoneAgain(e.target.value)} />
+          <label style={label} htmlFor="current-pin">Ο τωρινός σου κωδικός</label>
+          <input id="current-pin" required type="password" autoComplete="current-password" style={{ ...input, marginBottom: 16 }} value={pin} onChange={(e) => setPinValue(e.target.value)} />
+          {error && <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 12px" }}>{error}</p>}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button type="submit" disabled={busy} style={button("primary")}>{busy ? "…" : "Αλλαγή τηλεφώνου"}</button>
+            <button type="button" disabled={busy} onClick={close} style={button("secondary")}>Άκυρο</button>
+          </div>
+        </form>
+      )}
+
+      <div style={{ ...row, marginTop: 18, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
+        <div>
+          <div style={{ ...muted, fontSize: 13 }}>Κωδικός</div>
+          <div style={{ fontSize: 15, marginTop: 2, letterSpacing: "0.15em" }}>••••••</div>
+        </div>
+        <Link href="/platform/set-pin?change=1" style={{ ...button("secondary"), textDecoration: "none" }}>
+          Αλλαγή κωδικού
+        </Link>
       </div>
     </div>
   );
@@ -726,8 +825,10 @@ function ClientIdentityProfile({ role }) {
         {error && <p style={{ color: colors.danger, marginTop: 10, fontSize: 13 }}>{error}</p>}
       </div>
 
+      <AccountAccess />
+
       <p style={{ ...muted, fontSize: 12.5, marginTop: 4, color: colors.inkSoft }}>
-        Ονοματεπώνυμο και τηλέφωνο έρχονται από την εγγραφή σου και δεν αλλάζουν εδώ.
+        Το ονοματεπώνυμο έρχεται από την εγγραφή σου. Αν χρειάζεται διόρθωση, επικοινώνησε μαζί μας.
       </p>
 
       <BecomeProfessional />
@@ -771,6 +872,7 @@ export default function ProfilePage() {
       <ProfileForm profile={profile} onSaved={refresh} />
       <DeliveryAvailability profile={profile} />
       <SecondaryRoles profile={profile} />
+      <AccountAccess />
       <DeleteAccount />
     </div>
   );

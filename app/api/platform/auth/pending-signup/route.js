@@ -25,6 +25,12 @@ export async function POST(req) {
   if (!phone) return Response.json({ error: "bad_request" }, { status: 400 });
   if (TEST_PHONE_RE.test(phone)) return Response.json({ error: "use_test_signin_instead" }, { status: 403 });
 
+  // 0094: a number that ever belonged to an account stays that account's —
+  // including numbers it has since changed away from.
+  const { data: phoneStatus } = await db.rpc("phone_registration_status", { p_phone: phone });
+  if (phoneStatus === "registered") return Response.json({ error: "phone_already_registered" }, { status: 409 });
+  if (phoneStatus === "previously_used") return Response.json({ error: "phone_previously_used" }, { status: 409 });
+
   const { data: existing } = await db.from("users").select("id, status").eq("phone_number", phone).maybeSingle();
   if (existing && existing.status !== "deleted") {
     return Response.json({ error: "phone_already_registered" }, { status: 409 });

@@ -10,6 +10,7 @@ import {
   testPhoneSignIn,
   pendingSignIn,
   getOtpEnabled,
+  phoneRegistrationStatus,
 } from "../../../lib/platform/db";
 import { CREW_ROLES } from "../../../lib/platform/roles";
 import BackButton from "../components/BackButton";
@@ -65,8 +66,12 @@ const COUNTRY_CODES = [
 // "not_a_test_phone"/"use_test_signin_instead" never reach a real user (the
 // UI itself picks the right path by isTestPhone) — only listed here in case
 // a stale tab races the two.
+const PREVIOUSLY_USED =
+  "Αυτό το τηλέφωνο έχει χρησιμοποιηθεί από άλλον λογαριασμό και δεν μπορεί να δοθεί σε νέα εγγραφή. Αν είναι δικό σου, επικοινώνησε μαζί μας.";
 const REGISTER_ERRORS = {
   phone_already_registered: "Υπάρχει ήδη λογαριασμός με αυτό το τηλέφωνο. Δοκίμασε να συνδεθείς αντί να ξαναγραφτείς.",
+  phone_previously_used: PREVIOUSLY_USED,
+  phone_taken: PREVIOUSLY_USED,
 };
 
 const chip = (active) => ({
@@ -124,6 +129,12 @@ function RegisterInner() {
     setError("");
     setBusy(true);
     try {
+      // Before any SMS or Auth identity: an old number of another account
+      // stays that account's for good (0094). Test numbers are exempt — each
+      // one is by design always the same test account.
+      if (!isTestPhone && (await phoneRegistrationStatus(fullPhone)) === "previously_used") {
+        throw new Error("phone_previously_used");
+      }
       if (isTestPhone) {
         await testPhoneSignIn(fullPhone);
         setStep("otp");
