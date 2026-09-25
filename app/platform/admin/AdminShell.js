@@ -95,7 +95,7 @@ export function useRefreshAdminCounts() {
 // (PlatformShell.js); the counts fetch lives one level up, in
 // app/platform/admin/layout.js, so it survives from one section to the next
 // instead of being re-fetched on every route.
-export default function AdminShell({ title, subtitle, actions, children }) {
+export default function AdminShell({ title, subtitle, avatar, actions, children }) {
   const { session, userRow, loading } = useAuth();
 
   if (loading) return <div style={{ padding: 32, ...muted }}>Φόρτωση…</div>;
@@ -115,20 +115,23 @@ export default function AdminShell({ title, subtitle, actions, children }) {
           marginBottom: 18,
         }}
       >
-        <div>
-          <h1
-            style={{
-              fontFamily: fontSans,
-              fontSize: 22,
-              fontWeight: 600,
-              letterSpacing: "-0.015em",
-              margin: 0,
-              color: colors.ink,
-            }}
-          >
-            {title}
-          </h1>
-          {subtitle && <p style={{ ...muted, fontSize: 13, margin: "5px 0 0" }}>{subtitle}</p>}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+          {avatar}
+          <div style={{ minWidth: 0 }}>
+            <h1
+              style={{
+                fontFamily: fontSans,
+                fontSize: 22,
+                fontWeight: 600,
+                letterSpacing: "-0.015em",
+                margin: 0,
+                color: colors.ink,
+              }}
+            >
+              {title}
+            </h1>
+            {subtitle && <p style={{ ...muted, fontSize: 13, margin: "5px 0 0" }}>{subtitle}</p>}
+          </div>
         </div>
         {actions}
       </header>

@@ -153,6 +153,34 @@ export function Field({ label, children }) {
   );
 }
 
+// Ίδια κυκλική μεταχείριση με το RowMain της λίστας χρηστών — φωτογραφία αν
+// υπάρχει, αλλιώς αρχικά πάνω σε ουδέτερο φόντο. Όχι decoration: είναι το πιο
+// γρήγορο «ποιος είναι αυτός» πριν καν διαβάσει κανείς το όνομα.
+export function Avatar({ url, name, size = 40 }) {
+  const initial = (name || "?").trim().charAt(0).toUpperCase();
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: url ? `url(${url}) center/cover` : "#EFEDE8",
+        color: colors.inkSoft,
+        fontSize: size * 0.4,
+        fontWeight: 600,
+        fontFamily: fontSans,
+      }}
+    >
+      {!url && initial}
+    </span>
+  );
+}
+
 export function Chips({ items }) {
   if (!items?.length) return <p style={{ ...muted, fontSize: 13 }}>—</p>;
   return (
@@ -202,6 +230,7 @@ export const ERROR_LABEL = {
   price_too_low: "Η τιμή/ημέρα είναι κάτω από το επιτρεπτό όριο.",
   invalid_amount: "Το ποσό δεν είναι έγκυρο.",
   invalid_role: "Μη έγκυρος λογαριασμός για πίστωση.",
+  no_photo: "Δεν υπάρχει φωτογραφία να αφαιρεθεί.",
   not_configured: "Η υπηρεσία δεν είναι διαθέσιμη αυτή τη στιγμή.",
 };
 

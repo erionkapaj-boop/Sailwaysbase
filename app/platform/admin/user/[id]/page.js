@@ -10,7 +10,7 @@ import { labelForRole } from "../../../../../lib/platform/roles";
 import { formatDateTime, timeAgo } from "../../../../../lib/platform/notifications";
 import { Status, colors, muted, button, money } from "../../ui";
 import { badge } from "../../../../../lib/platform/theme";
-import { TAB_DEFS, TabBar, fieldInput, errorLabel } from "./shared";
+import { TAB_DEFS, TabBar, Avatar, fieldInput, errorLabel } from "./shared";
 import OverviewTab from "./OverviewTab";
 import ProfileTab from "./ProfileTab";
 import BookingsTab from "./BookingsTab";
@@ -201,7 +201,11 @@ function AdminUserInner() {
   const ActiveTab = TAB_COMPONENTS[activeTab] || OverviewTab;
 
   return (
-    <AdminShell title={target?.full_name || (busy ? "Φόρτωση…" : "(χωρίς όνομα)")} actions={<BackButton href="/platform/admin/users" />}>
+    <AdminShell
+      title={target?.full_name || (busy ? "Φόρτωση…" : "(χωρίς όνομα)")}
+      avatar={target && <Avatar url={target.photo_url} name={target.full_name} size={44} />}
+      actions={<BackButton href="/platform/admin/users" />}
+    >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
       {target && (
@@ -249,8 +253,13 @@ function AdminUserInner() {
                   </button>
                 )}
                 {canLoginAs && (
+                  // Ήθελε (σκόπιμα) το ίδιο οπτικό βάρος με τα άλλα δύο —
+                  // αλλιώς η πιο ευαίσθητη από τις τρεις ενέργειες γινόταν η
+                  // πιο έντονη στο μάτι, με προεπιλογή "primary". Η ένταση
+                  // (primary) φυλάγεται για το πραγματικό submit, μέσα στη
+                  // φόρμα με τον λόγο.
                   <button
-                    style={button(showLoginForm ? "secondary" : "primary")}
+                    style={button("secondary")}
                     disabled={quickBusy}
                     onClick={() => {
                       setShowLoginForm((v) => !v);

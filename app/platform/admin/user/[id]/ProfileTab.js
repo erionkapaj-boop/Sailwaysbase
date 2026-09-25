@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Panel, ProCredentials, colors, muted, button } from "../../ui";
 import { labelForRole, computeCrewHighlights } from "../../../../../lib/platform/roles";
-import { adminUpdateProfile, adminEditContact } from "../../../../../lib/platform/db";
+import { adminUpdateProfile, adminEditContact, adminClearPhoto } from "../../../../../lib/platform/db";
 import { formatDateTime } from "../../../../../lib/platform/notifications";
 import { InfoGrid, Field, fieldInput, Chips, Hint, errorLabel } from "./shared";
 
@@ -10,7 +10,7 @@ import { InfoGrid, Field, fieldInput, Chips, Hint, errorLabel } from "./shared";
 // πώς διορθώνεται όταν κάτι έχει γραφτεί λάθος. Η «Σύνδεση ως» / «Νέος
 // κωδικός» μένουν στις persistent γρήγορες ενέργειες πάνω στη σελίδα — εδώ
 // μένει μόνο η διόρθωση στοιχείων, που χρειάζεται φόρμα.
-export default function ProfileTab({ data, id, reload }) {
+export default function ProfileTab({ data, id, reload, confirm }) {
   const u = data.user;
   const sp = data.skipper_profile;
 
@@ -28,6 +28,25 @@ export default function ProfileTab({ data, id, reload }) {
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [phoneError, setPhoneError] = useState("");
   const [phoneNotice, setPhoneNotice] = useState("");
+
+  const [photoReason, setPhotoReason] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+
+  async function handleClearPhoto() {
+    if (!(await confirm("Αφαίρεση της φωτογραφίας; Ο χρήστης θα μπορεί να ανεβάσει νέα οποτεδήποτε."))) return;
+    setPhotoBusy(true);
+    setPhotoError("");
+    try {
+      await adminClearPhoto(id, photoReason.trim());
+      setPhotoReason("");
+      await reload();
+    } catch (err) {
+      setPhotoError(errorLabel(err));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   async function handleSave(e) {
     e.preventDefault();
@@ -71,6 +90,38 @@ export default function ProfileTab({ data, id, reload }) {
   return (
     <>
       <Panel title="Βασικά στοιχεία">
+        {u.photo_url ? (
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 18 }}>
+            <a href={u.photo_url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={u.photo_url}
+                alt=""
+                style={{ width: 120, height: 120, borderRadius: 12, objectFit: "cover", display: "block", border: `1px solid ${colors.border}` }}
+              />
+            </a>
+            <div style={{ minWidth: 200, flex: "1 1 220px" }}>
+              <Hint>
+                Η φωτογραφία που βλέπουν οι υπόλοιποι — άνοιξέ τη σε πλήρες μέγεθος για να ελέγξεις αν φαίνεται
+                τηλέφωνο, email, site, QR code ή social media πάνω της: τέτοιο περιεχόμενο παρακάμπτει την πλατφόρμα.
+              </Hint>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <input
+                  value={photoReason}
+                  onChange={(e) => setPhotoReason(e.target.value)}
+                  placeholder="Λόγος αφαίρεσης (προαιρετικό)"
+                  style={{ ...fieldInput, flex: "1 1 180px" }}
+                />
+                <button type="button" style={{ ...button("secondary"), flexShrink: 0 }} disabled={photoBusy} onClick={handleClearPhoto}>
+                  {photoBusy ? "…" : "Αφαίρεση φωτογραφίας"}
+                </button>
+              </div>
+              {photoError && <p style={{ color: colors.danger, fontSize: 13, marginTop: 8 }}>{photoError}</p>}
+            </div>
+          </div>
+        ) : (
+          <p style={{ ...muted, fontSize: 13, margin: "0 0 16px" }}>Δεν έχει ανεβάσει φωτογραφία.</p>
+        )}
         <InfoGrid
           items={[
             ["Όνομα", u.full_name || "—"],
@@ -83,18 +134,16 @@ export default function ProfileTab({ data, id, reload }) {
         />
       </Panel>
 
-      {(sp || data.client_profile) && (
+      {/* Μόνο για επαγγελματίες — για πελάτη αυτή η ενότητα ήταν πάντα άδεια
+          (καμία «προβολή» δεν υπάρχει για λογαριασμό πελάτη), απλή σύγχυση. */}
+      {sp && (
         <Panel title="Χαρακτηριστικά προφίλ">
           <p style={{ ...muted, margin: "0 0 6px", fontSize: 12.5 }}>Ό,τι βλέπει ο πελάτης</p>
-          <Chips items={sp ? computeCrewHighlights(sp, { languageCount: data.languages?.length || 0 }) : []} />
-          {sp && (
-            <>
-              <p style={{ ...muted, margin: "16px 0 6px", fontSize: 12.5 }}>Γλώσσες</p>
-              <Chips items={data.languages} />
-              <p style={{ ...muted, margin: "16px 0 6px", fontSize: 12.5 }}>Τύποι σκαφών</p>
-              <Chips items={data.boat_types} />
-            </>
-          )}
+          <Chips items={computeCrewHighlights(sp, { languageCount: data.languages?.length || 0 })} />
+          <p style={{ ...muted, margin: "16px 0 6px", fontSize: 12.5 }}>Γλώσσες</p>
+          <Chips items={data.languages} />
+          <p style={{ ...muted, margin: "16px 0 6px", fontSize: 12.5 }}>Τύποι σκαφών</p>
+          <Chips items={data.boat_types} />
         </Panel>
       )}
 
