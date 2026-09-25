@@ -28,6 +28,7 @@
 -- ----------------------------------------------------------------------------
 alter table users add column if not exists pin_change_required boolean not null default false;
 alter table email_reset_codes add column if not exists failed_attempts int not null default 0;
+alter table users add column if not exists photo_reviewed_at timestamptz;
 
 -- ----------------------------------------------------------------------------
 -- B. Ιστορικό τηλεφώνων
@@ -96,7 +97,11 @@ create trigger trg_users_phone_track after insert or update of phone_number on u
   for each row execute function users_phone_track();
 
 -- Το phone_number μπαίνει στα κλειδωμένα πεδία: είναι η ταυτότητα σύνδεσης
--- και πρέπει να αλλάζει μαζί με το Supabase Auth, όχι μόνο του.
+-- και πρέπει να αλλάζει μαζί με το Supabase Auth, όχι μόνο του. Το ίδιο και
+-- το photo_reviewed_at (C παρακάτω): αλλιώς ο χρήστης θα μπορούσε να
+-- σημειώσει μόνος του τη φωτογραφία του ως «ελέγχθηκε» και να την κρύψει
+-- από την ουρά ελέγχου. (Το trigger του C τρέχει μετά από αυτό και το
+-- μηδενίζει σε κάθε αλλαγή φωτογραφίας.)
 create or replace function guard_users_privileged_columns() returns trigger
 language plpgsql as $$
 begin
@@ -109,6 +114,7 @@ begin
   new.is_staff_admin := old.is_staff_admin;
   new.wallet_balance := old.wallet_balance;
   new.phone_number := old.phone_number;
+  new.photo_reviewed_at := old.photo_reviewed_at;
   return new;
 end;
 $$;
@@ -152,8 +158,6 @@ grant execute on function phone_registration_status(text) to anon, authenticated
 -- ----------------------------------------------------------------------------
 -- C. Φωτογραφία
 -- ----------------------------------------------------------------------------
-alter table users add column if not exists photo_reviewed_at timestamptz;
-
 -- Ό,τι δεν είναι απλό https URL δεν μπορεί να είναι πραγματικό ανέβασμα
 -- (javascript:, data:, εισαγωγικά/παρενθέσεις για CSS injection).
 update users set photo_url = null
