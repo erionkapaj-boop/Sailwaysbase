@@ -164,7 +164,7 @@
 282f216	στήλη	delivery_requests.covers_food	3e6e00
 2843be6	συνάρτηση	search_available_skippers(date,date,uuid,uuid,numeric,text,crew_role,uuid)	1ff109
 28ae862	στήλη	skipper_secondary_roles.rating_avg	490571
-28b59f2	συνάρτηση	admin_credit_wallet(uuid,numeric,text)	342aa5
+28b59f2	συνάρτηση	admin_credit_wallet(uuid,numeric,text)	2dd969
 2952c85	στήλη	users.deletion_reason	1cb251
 297718d	trigger	users.trg_users_phone_guard	6000b7
 299ba05	στήλη	users.nationality_id	ef7c87
@@ -483,6 +483,7 @@
 740d795	περιορισμός	reviews.reviews_rating_variety_check	7589a4
 7422063	στήλη	booking_requests.max_price_filter	490571
 7487caf	κανόνας RLS	wallet_transactions.wallet ledger visible to owner	d20ef1
+74d2148	στήλη	wallet_transactions.created_by	ef7c87
 75896ff	κανόνας RLS	contact_messages.admin reads contact messages	514510
 75d0e59	στήλη	booking_requests.origin	ae91f0
 762663d	στήλη	booking_request_pings.skipper_id	288395
@@ -523,7 +524,7 @@
 8028545	περιορισμός	wallet_transactions.wallet_transactions_user_id_fkey	47e988
 80abcd0	περιορισμός	notifications.notifications_user_id_fkey	e20847
 80b66d7	ευρετήριο	ports_name_key	8eb4f9
-82056f6	enum	wallet_txn_type	ec3107
+82056f6	enum	wallet_txn_type	53c40e
 82076e9	ευρετήριο	delivery_bookings_skipper_idx	18cb23
 8231f11	στήλη	users.photo_url	1cb251
 8260ef2	trigger	messages.aa_block_inactive_caller	ad7831
@@ -729,6 +730,7 @@ bccaf00	ευρετήριο	delivery_bookings_pkey	f010df
 bd1e6e9	στήλη	skipper_secondary_roles.skipper_id	288395
 bd2baec	στήλη	delivery_bookings.cancelled_by	1cb251
 bd5529d	περιορισμός	contact_messages.contact_messages_pkey	4c6419
+bdbb93b	περιορισμός	wallet_transactions.wallet_transactions_created_by_fkey	f2ec41
 be2d990	κανόνας RLS	nationalities.lookups readable by everyone	2fea71
 bf087de	πίνακας (RLS και δικαιώματα)	regions	e3094f
 bfdac2b	στήλη	reviews.rating_hospitality	157db7
@@ -788,6 +790,7 @@ cebaa31	περιορισμός	delivery_bookings.delivery_bookings_client_id_fke
 cec74b6	συνάρτηση	withdraw_replacement_candidacy(uuid,uuid)	ab0fbf
 ceeb818	συνάρτηση	list_my_delivery_bookings()	153e53
 cf84dec	στήλη	bookings.boat_type_id	ef7c87
+cf8cc61	στήλη	wallet_transactions.note	1cb251
 cfd98dc	view	skipper_public	0e1b5d
 cffa516	στήλη	skipper_profiles.price_per_day	6f5e11
 cffbeeb	στήλη	skipper_secondary_roles.rating_avg_presentation	490571
@@ -947,6 +950,7 @@ fc77d56	περιορισμός	delivery_bookings.delivery_bookings_skipper_id_fk
 fcc1831	ευρετήριο	skipper_secondary_roles_skipper_id_role_key	97b9ec
 fcf86bc	στήλη	skipper_secondary_roles.approved_by	ef7c87
 fe4c045	περιορισμός	booking_request_pings.booking_request_pings_booking_request_id_skipper_id_key	7a0a2d
+fee83ae	συνάρτηση	admin_adjust_wallet(uuid,numeric,text)	38f57b
 fefd983	περιορισμός	skipper_boat_types.skipper_boat_types_boat_type_id_fkey	4ddb23
 ff8507a	στήλη	skipper_profiles.rating_avg_professionalism	490571
 ff85772	συνάρτηση	booking_is_active_for_messaging(uuid)	2d90b8

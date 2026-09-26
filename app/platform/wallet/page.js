@@ -13,6 +13,7 @@ const TYPE_LABEL = {
   request_fee: "Τέλος αιτήματος",
   claim_fee: "Χρέωση αποδοχής δουλειάς",
   refund_credit: "Επιστροφή",
+  adjustment: "Διόρθωση υπολοίπου",
 };
 
 // Κρατάει το ίδιο κατώφλι με το reliability_min_history στη βάση (0027).
@@ -162,6 +163,7 @@ export default function WalletPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <span>
               <span style={{ fontSize: 14 }}>{TYPE_LABEL[t.type] || t.type}</span>
+              {t.note && <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>{t.note}</span>}
               <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>{formatDate(t.created_at?.slice(0, 10))}</span>
             </span>
             <span style={badge(t.amount > 0 ? "success" : "neutral")}>{t.amount > 0 ? "+" : ""}{t.amount}€</span>

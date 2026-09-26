@@ -2,7 +2,17 @@
 import { useEffect, useState } from "react";
 import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Metric, MetricGrid, Row, RowMain, Empty, colors, muted, money, button, STATUS_LABEL } from "../ui";
-import { adminFindUserByPhone, adminCreditWallet } from "../../../../lib/platform/db";
+import { adminFindUserByPhone, adminCreditWallet, adminAdjustWallet } from "../../../../lib/platform/db";
+
+// Above this a second «are you sure» — the slip this guards against is an
+// extra zero (1.000€ for 100€).
+const LARGE_AMOUNT = 200;
+
+const ERRORS = {
+  insufficient_wallet: "Το υπόλοιπο δεν φτάνει: μια διόρθωση δεν μπορεί να το κάνει αρνητικό.",
+  reason_required: "Γράψε τον λόγο της διόρθωσης — τον βλέπει και ο χρήστης.",
+  invalid_amount: "Γράψε ένα ποσό μεγαλύτερο από το μηδέν.",
+};
 
 const inputStyle = {
   padding: "8px 11px",
@@ -24,6 +34,7 @@ function Topup({ onDone }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
+  const [mode, setMode] = useState("credit");
 
   async function lookup(value) {
     setError("");
@@ -52,27 +63,67 @@ function Topup({ onDone }) {
     }
   }, []);
 
-  async function credit() {
-    if (!selected || !amount) return;
+  async function submit() {
+    const value = Number(amount);
+    if (!selected || !(value > 0)) {
+      setError(ERRORS.invalid_amount);
+      return;
+    }
+    const correcting = mode === "correct";
+    if (correcting && !note.trim()) {
+      setError(ERRORS.reason_required);
+      return;
+    }
+    const who = selected.full_name || selected.phone_number;
+    if (value > LARGE_AMOUNT) {
+      const verb = correcting ? "Αφαίρεση" : "Πίστωση";
+      if (!window.confirm(`${verb} ${value}€ ${correcting ? "από" : "σε"} ${who}. Σίγουρα;`)) return;
+    }
     setBusy(true);
     setError("");
     try {
-      await adminCreditWallet(selected.id, Number(amount), note || `Χειροκίνητη κατάθεση ${amount}€`);
-      setDone(`${selected.full_name || selected.phone_number}: πιστώθηκαν ${amount}€.`);
+      if (correcting) {
+        const balance = await adminAdjustWallet(selected.id, -value, note.trim());
+        setDone(`${who}: αφαιρέθηκαν ${value}€. Νέο υπόλοιπο ${balance}€.`);
+      } else {
+        await adminCreditWallet(selected.id, value, note || `Χειροκίνητη κατάθεση ${value}€`);
+        setDone(`${who}: πιστώθηκαν ${value}€.`);
+      }
       setAmount("");
       setNote("");
       setSelected(null);
       setResults([]);
       onDone?.();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(ERRORS[err.message] || err.message || String(err));
     } finally {
       setBusy(false);
     }
   }
 
+  const tab = (value, label) => (
+    <button
+      type="button"
+      onClick={() => { setMode(value); setError(""); }}
+      aria-pressed={mode === value}
+      style={{ ...button(mode === value ? "primary" : "secondary"), flex: "1 1 0" }}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, maxWidth: 420 }}>
+        {tab("credit", "Πίστωση")}
+        {tab("correct", "Διόρθωση (αφαίρεση)")}
+      </div>
+      {mode === "correct" && (
+        <p style={{ ...muted, fontSize: 13, marginTop: 0, marginBottom: 12 }}>
+          Για λάθος πίστωση ή άλλο λάθος στο υπόλοιπο. Ο λόγος είναι υποχρεωτικός και εμφανίζεται στο
+          ιστορικό του χρήστη. Το υπόλοιπο δεν μπορεί να γίνει αρνητικό.
+        </p>
+      )}
       <form onSubmit={find} style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <input
           style={{ ...inputStyle, flex: "2 1 200px", minWidth: 0 }}
@@ -104,6 +155,7 @@ function Topup({ onDone }) {
           }}
         >
           {u.full_name || "(χωρίς όνομα)"} · <span style={money}>{u.phone_number}</span> · {STATUS_LABEL[u.role] || u.role}
+          {" · υπόλοιπο "}<span style={money}>{u.wallet_balance ?? 0}€</span>
         </button>
       ))}
 
@@ -112,18 +164,19 @@ function Topup({ onDone }) {
           <input
             style={{ ...inputStyle, flex: "1 1 110px" }}
             type="number"
-            placeholder="Ποσό €"
+            min="0"
+            placeholder={mode === "correct" ? "Ποσό προς αφαίρεση €" : "Ποσό €"}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
           />
           <input
             style={{ ...inputStyle, flex: "2 1 200px" }}
-            placeholder="Αιτιολογία"
+            placeholder={mode === "correct" ? "Λόγος διόρθωσης (υποχρεωτικό)" : "Αιτιολογία"}
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
-          <button style={button("primary")} disabled={busy} onClick={credit}>
-            {busy ? "…" : "Πίστωση"}
+          <button style={button(mode === "correct" ? "danger" : "primary")} disabled={busy} onClick={submit}>
+            {busy ? "…" : mode === "correct" ? "Καταχώριση αφαίρεσης" : "Καταχώριση πίστωσης"}
           </button>
         </div>
       )}
@@ -171,8 +224,8 @@ export default function FinancePage() {
       </Panel>
 
       <Panel
-        title="Φόρτωση υπολοίπου σε χρήστη"
-        subtitle="Όταν κάποιος σού πλήρωσε με τραπεζική κατάθεση ή κάρτα εκτός πλατφόρμας. Βρες τον με το τηλέφωνο, γράψε το ποσό και πάτα «Πίστωση». Καταγράφεται στο ιστορικό του."
+        title="Υπόλοιπο χρήστη"
+        subtitle="Πίστωση: όταν κάποιος σού πλήρωσε με τραπεζική κατάθεση ή κάρτα εκτός πλατφόρμας. Διόρθωση: για λάθος ποσό. Βρες τον με το τηλέφωνο· και τα δύο καταγράφονται στο ιστορικό του."
       >
         <Topup onDone={refreshCounts} />
       </Panel>

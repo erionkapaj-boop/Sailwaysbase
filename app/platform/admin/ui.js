@@ -316,6 +316,7 @@ export const WALLET_TYPE_LABEL = {
   request_fee: "Τέλος αιτήματος",
   claim_fee: "Τέλος διεκδίκησης",
   refund_credit: "Επιστροφή (credit)",
+  adjustment: "Διόρθωση υπολοίπου",
 };
 
 const GENDER_LABEL = { male: "Άνδρας", female: "Γυναίκα", other: "Άλλο" };

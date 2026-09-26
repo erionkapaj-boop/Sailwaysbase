@@ -18,7 +18,7 @@ problems as (
   select 'διπλή κίνηση', u.full_name,
          format('%s × %s (%s€ η καθεμία)', count(*), t.type, min(t.amount))
     from wallet_transactions t join users u on u.id = t.user_id
-   where t.type <> 'deposit'
+   where t.type not in ('deposit', 'adjustment')
    group by u.full_name, t.user_id, t.type, t.related_booking_request_id, t.related_booking_id,
             t.related_delivery_role_request_id, t.related_delivery_booking_id
   having count(*) > 1
