@@ -548,6 +548,7 @@ function AppInner() {
   const [toast, setToast] = useState(null);
   const [tasksBoatFilter, setTasksBoatFilter] = useState("");
   const [cameFromToday, setCameFromToday] = useState(false);
+  const [updateReady, setUpdateReady] = useState(false);
 
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
   // Πλοήγηση από «Σήμερα» → «Εργασίες» με το σκάφος ήδη φιλτραρισμένο — σημειώνουμε ότι ήρθαμε από εκεί,
@@ -576,6 +577,35 @@ function AppInner() {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
+  }, []);
+
+  // Έλεγχος για νέο deployment — χρήσιμο κυρίως για όσους έχουν προσθέσει την εφαρμογή
+  // στην αρχική οθόνη (PWA), αφού εκεί ο browser δεν ξαναφορτώνει μόνος του τη σελίδα
+  // όσο συχνά θα ήθελε κανείς. Ελέγχει κατά το άνοιγμα, κάθε φορά που η εφαρμογή έρχεται
+  // ξανά μπροστά, και ανά τακτά διαστήματα όσο μένει ανοιχτή.
+  useEffect(() => {
+    let knownId = null;
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch("/api/version", { cache: "no-store" });
+        const data = await res.json();
+        if (cancelled || !data.id) return;
+        if (knownId === null) knownId = data.id;
+        else if (data.id !== knownId) setUpdateReady(true);
+      } catch { /* χωρίς δίκτυο — αγνοείται, θα ξαναδοκιμάσει */ }
+    };
+    check();
+    const interval = setInterval(check, 5 * 60 * 1000);
+    const onVisible = () => { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, []);
 
   // Φόρτωση
@@ -1889,6 +1919,12 @@ ${histLines}
       </div>
       <TabBar tabs={tabs} tab={tab} setTab={selectTab} />
       {toast && <div style={{ position: "fixed", bottom: 86, left: "50%", transform: "translateX(-50%)", background: COLORS.navy, color: "#fff", padding: "8px 16px", borderRadius: 12, fontSize: 15, zIndex: 50, maxWidth: "90%" }}>{toast}</div>}
+      {updateReady && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, background: COLORS.amber, color: "#33260C", padding: "10px 12px", display: "flex", justifyContent: "center", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 700, zIndex: 60 }}>
+          🔄 Υπάρχει νέα έκδοση της εφαρμογής
+          <button onClick={() => window.location.reload()} style={{ border: "1.5px solid #3A2600", background: "transparent", color: "#33260C", borderRadius: 8, padding: "4px 10px", fontWeight: 700 }}>Ανανέωση τώρα</button>
+        </div>
+      )}
     </div>
   );
 }
