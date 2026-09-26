@@ -82,6 +82,20 @@ const server = http.createServer(async (req, res) => {
       const c = claimsOf((req.headers.authorization || "").replace(/^Bearer /, ""));
       return c?.sub ? json(res, 200, user(c.sub, c.phone)) : json(res, 401, { msg: "no user" });
     }
+    // auth.admin.createUser (service role only, as in Supabase): a new
+    // identity that then signs in with the test PIN like any other.
+    if (path === "/admin/users" && req.method === "POST") {
+      const c = claimsOf((req.headers.authorization || "").replace(/^Bearer /, ""));
+      if (c?.role !== "service_role") return json(res, 403, { msg: "not allowed" });
+      const digits = String(JSON.parse(body.toString() || "{}").phone || "").replace(/\D/g, "");
+      if (!digits) return json(res, 400, { msg: "phone required" });
+      if (lookup(`select 1 from auth.users where regexp_replace(phone, '\\D', '', 'g') = '${digits}'`)) {
+        return json(res, 422, { msg: "A user with this phone number has already been registered", code: "phone_exists" });
+      }
+      const id = crypto.randomUUID();
+      lookup(`insert into auth.users (id, phone) values ('${id}', '${digits}')`);
+      return json(res, 200, user(id, `+${digits}`));
+    }
     if (path === "/logout") {
       res.writeHead(204, cors);
       return res.end();

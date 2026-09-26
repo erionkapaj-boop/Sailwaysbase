@@ -619,6 +619,7 @@
 9750b62	συνάρτηση	pinged_for_delivery_request(uuid)	1561e9
 97511d5	enum	skipper_tier	b5956e
 9794a09	συνάρτηση	admin_account_detail(uuid)	61ca5a
+97c9067	συνάρτηση	admin_search_availability_all(crew_role,date,date,uuid,uuid,uuid)	187469
 97f883a	συνάρτηση	cancel_delivery_role_request(uuid)	ab8b58
 98ae659	περιορισμός	skipper_secondary_roles.skipper_secondary_roles_price_per_day_check	ec75d8
 98e18ec	κανόνας RLS	delivery_requests.client reads own delivery requests	e6dc78
@@ -692,7 +693,7 @@ aed5869	περιορισμός	delivery_requests.delivery_requests_origin_point_
 aeddf3b	περιορισμός	admin_actions.admin_actions_target_booking_id_fkey	946f3a
 aeef891	περιορισμός	skipper_profiles.skipper_profiles_user_id_key	180ab7
 af54df5	συνάρτηση	my_conversations(uuid)	765264
-af8e2a1	συνάρτηση	admin_search_availability(crew_role,date,date,uuid,uuid,uuid)	fa35bc
+af8e2a1	συνάρτηση	admin_search_availability(crew_role,date,date,uuid,uuid,uuid)	aadd38
 afb8aed	στήλη	contact_messages.created_at	e99486
 aff347a	συνάρτηση	admin_list_pending_secondary_roles()	58ea01
 b00f133	περιορισμός	messages.messages_booking_id_fkey	1b9189

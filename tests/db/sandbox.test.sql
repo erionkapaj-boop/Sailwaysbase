@@ -75,3 +75,22 @@ select pg_temp.check('με πραγματικό τηλέφωνο αλλά σημ
   select 1 from search_available_skippers(current_date + 40, current_date + 42, :'cyclades', :'sailboat') where id = :'TSP'));
 select pg_temp.check('και δεν βλέπει πια πραγματικούς', not exists (
   select 1 from search_available_skippers(current_date + 40, current_date + 42, :'cyclades', :'sailboat') where id <> :'TSP'));
+
+\echo '== αναζήτηση αντικαταστάτη: μόνο από τον κόσμο του πελάτη (0105)'
+select pg_temp.act('authenticated', :'CLIENT');
+select (pay_and_broadcast(:'rreq', array[:'SP_ELENI']::uuid[])).fee_paid_at is not null as paid;
+select pg_temp.act('authenticated', 'a0000000-0000-0000-0000-000000000006');
+select id as realbk from claim_booking_request(:'rreq', :'SP_ELENI') \gset
+select pg_temp.act('postgres');
+select id as testbk from bookings where booking_request_id = :'treq' \gset
+select pg_temp.act('authenticated', :'ADMIN');
+select pg_temp.check('για κράτηση πραγματικού πελάτη: κανένας δοκιμαστικός επαγγελματίας', not exists (
+  select 1 from admin_search_availability('skipper', current_date + 30, current_date + 32, null, :'cyclades', :'realbk')
+   where skipper_id = :'TSP'));
+-- (Σοφία is in the test world too: the admin marked her as a test account above.)
+select pg_temp.check('για δοκιμαστική κράτηση: μόνο δοκιμαστικοί', not exists (
+  select 1 from admin_search_availability('skipper', current_date + 10, current_date + 12, null, :'cyclades', :'testbk')
+   where skipper_id not in (:'TSP', 'b0000000-0000-0000-0000-000000000008')));
+select pg_temp.check('χωρίς ταξίδι ο admin βλέπει και τους δύο κόσμους', exists (
+  select 1 from admin_search_availability('skipper', current_date + 40, current_date + 42, null, :'cyclades')
+   where skipper_id = :'TSP'));

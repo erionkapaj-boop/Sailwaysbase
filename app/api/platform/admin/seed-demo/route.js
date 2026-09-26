@@ -7,8 +7,9 @@ import { serviceClient } from "../../../../../lib/platform/serverDb";
 //
 // Every demo account gets the same PIN and a phone in the reserved
 // +30698000000X test range, so you can sign in as any of them directly
-// (phone + PIN needs no SMS). Re-running is safe: existing accounts are
-// skipped, not duplicated.
+// (phone + PIN needs no SMS). That range is a world of its own (0102): real
+// clients never see these professionals and these clients never reach real
+// ones. Re-running is safe: existing accounts are skipped, not duplicated.
 
 const DEMO_PIN = "123456";
 
@@ -24,8 +25,6 @@ const DEMO_USERS = [
       gender: "Άνδρας",
       tier: "high",
       approval: "approved",
-      wallet: 180,
-      bio: ["islands_expert", "family_friendly"],
       rating: 4.8,
       ratingCount: 24,
       completed: 31,
@@ -43,8 +42,6 @@ const DEMO_USERS = [
       gender: "Γυναίκα",
       tier: "high",
       approval: "approved",
-      wallet: 95,
-      bio: ["diving", "long_range"],
       rating: 4.9,
       ratingCount: 17,
       completed: 19,
@@ -62,8 +59,6 @@ const DEMO_USERS = [
       gender: "Άνδρας",
       tier: "medium",
       approval: "approved",
-      wallet: 40,
-      bio: ["fishing"],
       rating: 4.2,
       ratingCount: 5,
       completed: 6,
@@ -81,8 +76,6 @@ const DEMO_USERS = [
       gender: "Γυναίκα",
       tier: "medium",
       approval: "pending",
-      wallet: 0,
-      bio: ["party"],
       rating: null,
       ratingCount: 0,
       completed: 0,
@@ -100,8 +93,6 @@ const DEMO_USERS = [
       gender: "Άνδρας",
       tier: "low",
       approval: "approved",
-      wallet: 10,
-      bio: ["long_range"],
       rating: 3.1,
       ratingCount: 9,
       completed: 7,
@@ -113,14 +104,14 @@ const DEMO_USERS = [
     name: "Άννα Καραγιάννη",
     email: "a.karagianni@example.com",
     role: "client",
-    client: { wallet: 15, completed: 3, flags: 0, rating: 4.7, ratingCount: 3 },
+    client: { completed: 3, flags: 0, rating: 4.7, ratingCount: 3 },
   },
   {
     phone: "+306980000010",
     name: "Δημήτρης Σταύρου",
     email: "d.stavrou@example.com",
     role: "client",
-    client: { wallet: 0, completed: 1, flags: 2, rating: 3.4, ratingCount: 2 },
+    client: { completed: 1, flags: 2, rating: 3.4, ratingCount: 2 },
   },
 ];
 
@@ -133,6 +124,92 @@ async function requireAdmin(req, db) {
   return row?.role === "admin" || row?.is_staff_admin ? data.user : null;
 }
 
+const GENDER = { Άνδρας: "male", Γυναίκα: "female" };
+const iso = (d) => d.toISOString().slice(0, 10);
+
+// Every step reports its own failure: this used to swallow them, and after
+// the schema moved on (0059 wallet per person, 0081 photo on users, region
+// availability) it quietly created accounts with no profile at all.
+async function createOne(db, u, lookups) {
+  const { data: authUser, error: authErr } = await db.auth.admin.createUser({
+    phone: u.phone,
+    password: DEMO_PIN,
+    phone_confirm: true,
+  });
+  if (authErr || !authUser?.user) throw new Error(`auth: ${authErr?.message || "failed"}`);
+  const id = authUser.user.id;
+
+  // The signup bonus and the client profile come from the database's own
+  // triggers, as for any new account. Test phones are their own world
+  // (0102): demo accounts only ever meet other test accounts.
+  const { error: userErr } = await db.from("users").insert({
+    id,
+    role: u.role,
+    full_name: u.name,
+    email: u.email,
+    phone_number: u.phone,
+    phone_verified_at: new Date().toISOString(),
+    photo_reviewed_at: new Date().toISOString(),
+    status: "active",
+    is_test_account: true,
+  });
+  if (userErr) throw new Error(`users: ${userErr.message}`);
+
+  if (u.role === "client") {
+    const { error } = await db.from("client_profiles").upsert({
+      user_id: id,
+      completed_bookings_count: u.client.completed,
+      cancellation_flag_count: u.client.flags,
+      rating_avg: u.client.rating,
+      rating_count: u.client.ratingCount,
+    });
+    if (error) throw new Error(`client_profiles: ${error.message}`);
+    return;
+  }
+
+  const { data: sp, error: spErr } = await db
+    .from("skipper_profiles")
+    .insert({
+      user_id: id,
+      full_name: u.name,
+      role: "skipper",
+      gender: GENDER[u.skipper.gender] || null,
+      years_experience: u.skipper.years,
+      price_per_day: u.skipper.price,
+      tier: u.skipper.tier,
+      approval_status: u.skipper.approval,
+      approved_at: u.skipper.approval === "approved" ? new Date().toISOString() : null,
+      rating_avg: u.skipper.rating,
+      rating_count: u.skipper.ratingCount,
+      completed_bookings_count: u.skipper.completed,
+      cancellation_flag_count: u.skipper.flags,
+    })
+    .select("id")
+    .single();
+  if (spErr) throw new Error(`skipper_profiles: ${spErr.message}`);
+
+  // Availability for the next year in three regions, and two boat types —
+  // without them a professional never turns up in a search.
+  const today = new Date();
+  const inAYear = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+  const { data: win, error: winErr } = await db
+    .from("availability_windows")
+    .insert({ skipper_id: sp.id, start_date: iso(today), end_date: iso(inAYear) })
+    .select("id")
+    .single();
+  if (winErr) throw new Error(`availability_windows: ${winErr.message}`);
+  const steps = [
+    ["availability_window_regions", lookups.regions.map((r) => ({ window_id: win.id, region_id: r.id }))],
+    ["skipper_boat_types", lookups.boats.map((b) => ({ skipper_id: sp.id, boat_type_id: b.id }))],
+    ["user_languages", lookups.langs.map((l) => ({ user_id: id, language_id: l.id }))],
+  ];
+  for (const [table, rows] of steps) {
+    if (!rows.length) continue;
+    const { error } = await db.from(table).insert(rows);
+    if (error) throw new Error(`${table}: ${error.message}`);
+  }
+}
+
 export async function POST(req) {
   const db = serviceClient();
   if (!db) return Response.json({ error: "not_configured" }, { status: 500 });
@@ -140,105 +217,30 @@ export async function POST(req) {
   const admin = await requireAdmin(req, db);
   if (!admin) return Response.json({ error: "not_admin" }, { status: 403 });
 
+  const [{ data: regions }, { data: boats }, { data: langs }] = await Promise.all([
+    db.from("regions").select("id").limit(3),
+    db.from("boat_types").select("id").limit(2),
+    db.from("languages").select("id").limit(2),
+  ]);
+  const lookups = { regions: regions || [], boats: boats || [], langs: langs || [] };
+
   const created = [];
   const skipped = [];
+  const failed = [];
 
   for (const u of DEMO_USERS) {
-    const { data: existing } = await db
-      .from("users")
-      .select("id")
-      .eq("phone_number", u.phone)
-      .maybeSingle();
+    const { data: existing } = await db.from("users").select("id").eq("phone_number", u.phone).maybeSingle();
     if (existing) {
       skipped.push(u.phone);
       continue;
     }
-
-    const { data: authUser, error: authErr } = await db.auth.admin.createUser({
-      phone: u.phone,
-      password: DEMO_PIN,
-      phone_confirm: true,
-    });
-    if (authErr || !authUser?.user) {
-      skipped.push(`${u.phone} (${authErr?.message || "auth failed"})`);
-      continue;
+    try {
+      await createOne(db, u, lookups);
+      created.push(`${u.phone} — ${u.name} (${u.role})`);
+    } catch (err) {
+      failed.push(`${u.phone} — ${u.name}: ${err.message}`);
     }
-
-    const id = authUser.user.id;
-    await db.from("users").insert({
-      id,
-      role: u.role,
-      full_name: u.name,
-      email: u.email,
-      phone_number: u.phone,
-      phone_verified_at: new Date().toISOString(),
-      status: "active",
-    });
-
-    if (u.role === "client") {
-      await db.from("client_profiles").insert({
-        user_id: id,
-        wallet_balance: u.client.wallet,
-        completed_bookings_count: u.client.completed,
-        cancellation_flag_count: u.client.flags,
-        rating_avg: u.client.rating,
-        rating_count: u.client.ratingCount,
-      });
-    } else {
-      const { data: sp } = await db
-        .from("skipper_profiles")
-        .insert({
-          user_id: id,
-          full_name: u.name,
-          gender: u.skipper.gender,
-          bio: u.skipper.bio,
-          years_experience: u.skipper.years,
-          price_per_day: u.skipper.price,
-          wallet_balance: u.skipper.wallet,
-          tier: u.skipper.tier,
-          approval_status: u.skipper.approval,
-          approved_at: u.skipper.approval === "approved" ? new Date().toISOString() : null,
-          rating_avg: u.skipper.rating,
-          rating_count: u.skipper.ratingCount,
-          completed_bookings_count: u.skipper.completed,
-          cancellation_flag_count: u.skipper.flags,
-        })
-        .select("id")
-        .single();
-
-      // Give each skipper availability and boat types, otherwise they never
-      // turn up in a search and the demo data is useless for testing the flow.
-      if (sp) {
-        const { data: ports } = await db.from("ports").select("id").eq("active", true).limit(4);
-        const { data: boats } = await db.from("boat_types").select("id").limit(2);
-        const { data: langs } = await db.from("languages").select("id").limit(2);
-
-        // An availability window, not skipper_coverage_areas: since migration
-        // 0013 search reads windows, so seeding the old table left every demo
-        // skipper invisible to the very search they exist to exercise.
-        if (ports?.length) {
-          const today = new Date();
-          const inAYear = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
-          const iso = (d) => d.toISOString().slice(0, 10);
-          const { data: win } = await db
-            .from("availability_windows")
-            .insert({ skipper_id: sp.id, start_date: iso(today), end_date: iso(inAYear), all_ports: false })
-            .select("id")
-            .single();
-          if (win)
-            await db
-              .from("availability_window_ports")
-              .insert(ports.map((p) => ({ window_id: win.id, port_id: p.id })));
-        }
-        if (boats?.length)
-          await db.from("skipper_boat_types").insert(boats.map((b) => ({ skipper_id: sp.id, boat_type_id: b.id })));
-        if (langs?.length)
-          await db.from("user_languages").insert(langs.map((l) => ({ user_id: id, language_id: l.id })));
-      }
-    }
-
-    created.push(`${u.phone} — ${u.name} (${u.role})`);
   }
 
-  return Response.json({ ok: true, pin: DEMO_PIN, created, skipped });
+  return Response.json({ ok: failed.length === 0, pin: DEMO_PIN, created, skipped, failed });
 }

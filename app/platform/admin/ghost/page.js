@@ -137,6 +137,14 @@ function GhostInner() {
               </>
             )}
             {seedResult.skipped?.length > 0 && <div style={{ marginTop: 6 }}>Υπήρχαν ήδη: {seedResult.skipped.length}</div>}
+            {seedResult.failed?.length > 0 && (
+              <div style={{ marginTop: 6, color: colors.danger }}>
+                Απέτυχαν {seedResult.failed.length}:
+                {seedResult.failed.map((f) => (
+                  <div key={f} style={{ fontSize: 12.5 }}>{f}</div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </Panel>
