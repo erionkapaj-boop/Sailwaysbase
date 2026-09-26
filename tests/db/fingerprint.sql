@@ -26,6 +26,8 @@ select kind, name, left(md5(def), 12) as h from (
          || ' anon=' || has_function_privilege('anon', p.oid, 'EXECUTE')::text
          || ' auth=' || has_function_privilege('authenticated', p.oid, 'EXECUTE')::text
     from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind in ('f', 'p')
+     -- Extensions' own functions depend on where Supabase installed them, not on our migrations.
+     and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
   union all
   select 'κανόνας RLS', tablename || '.' || policyname,
          cmd || permissive || roles::text || coalesce(qual, '') || '|' || coalesce(with_check, '')
