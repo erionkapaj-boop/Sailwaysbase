@@ -13,7 +13,7 @@ import {
   getBookingCounterpart,
   departureLabel,
 } from "../../../lib/platform/db";
-import { card, muted, button, input, select, badge, colors, money, radius } from "../../../lib/platform/theme";
+import { card, muted, button, input, select, badge, colors, money, radius, tapTarget } from "../../../lib/platform/theme";
 import { formatDateTime, formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { labelForRole } from "../../../lib/platform/roles";
@@ -218,20 +218,27 @@ export default function BookingPanel({
         <div
           style={{
             width: "100%",
+            // The padding counts inside the 100%: without this the header was
+            // 36px wider than the card, which cut off the chevron at every size.
+            boxSizing: "border-box",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            // On a phone a long status («Ακυρώθηκε από τον επαγγελματία»)
+            // drops under the place and dates instead of squeezing them into
+            // a narrow column and pushing the chevron out of the card.
+            flexWrap: "wrap",
             gap: 10,
             padding: "14px 18px",
           }}
         >
-          <span style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
+          <span style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap", flex: "1 1 200px" }}>
             <span style={{ fontSize: 14, fontWeight: 500 }}>{departureLabel(booking)}</span>
             <span style={{ ...money, fontSize: 13, color: colors.inkSoft }}>
               {formatDateRange(booking.start_date, booking.end_date)}
             </span>
           </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: "auto" }}>
             {hasUnread && !expanded && (
               <span
                 aria-label="Νέο μήνυμα"
@@ -319,7 +326,7 @@ export default function BookingPanel({
                 <a
                   href={`tel:${counterpart.phone_number}`}
                   onClick={(e) => e.stopPropagation()}
-                  style={{ ...money, fontSize: 14, marginTop: 2, display: "block", color: colors.ink, textDecoration: "none" }}
+                  style={{ ...money, ...tapTarget, fontSize: 14, color: colors.ink, textDecoration: "none" }}
                 >
                   {counterpart.phone_number}
                 </a>

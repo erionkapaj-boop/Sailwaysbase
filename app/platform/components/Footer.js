@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { colors, muted, money } from "../../../lib/platform/theme";
+import { colors, muted, money, tapTarget } from "../../../lib/platform/theme";
 import { company, field } from "../../../lib/platform/company";
 
 const footerLink = {
+  ...tapTarget,
   fontSize: 13,
   color: colors.inkSoft,
   textDecoration: "none",
@@ -84,7 +85,7 @@ export function AppFooter() {
       style={{
         borderTop: `1px solid ${colors.border}`,
         marginTop: 40,
-        padding: "14px 20px",
+        padding: "4px 20px",
       }}
     >
       <div

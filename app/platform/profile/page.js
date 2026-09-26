@@ -31,7 +31,7 @@ import {
 } from "../../../lib/platform/db";
 import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { formatDate, formatDateRange } from "../../../lib/platform/notifications";
-import { container, card, h1, h2, muted, colors, radius, select, label, button, input } from "../../../lib/platform/theme";
+import { container, card, h1, h2, muted, colors, radius, select, label, button, input, tapTarget } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
@@ -447,7 +447,7 @@ function DeleteAccount() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 13, textDecoration: "underline" }}
+          style={{ ...tapTarget, background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 13, textDecoration: "underline" }}
         >
           Διαγραφή λογαριασμού
         </button>

@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Panel, MetricGrid, Metric, Empty, colors, muted, button } from "../../ui";
 import { adminResolveFlag } from "../../../../../lib/platform/db";
+import { tapTarget } from "../../../../../lib/platform/theme";
 import Stars from "../../../components/Stars";
 import { formatDateTime } from "../../../../../lib/platform/notifications";
 import { EventRow, errorLabel } from "./shared";
@@ -130,7 +131,7 @@ export default function OverviewTab({ data, onSelectTab, reload }) {
           <button
             type="button"
             onClick={() => onSelectTab("history")}
-            style={{ fontSize: 12.5, color: colors.ink, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+            style={{ ...tapTarget, fontSize: 12.5, color: colors.ink, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
           >
             Όλο το ιστορικό
           </button>

@@ -7,7 +7,7 @@ import { signInWithPin, checkLoginAllowed, normalizePhone, isSignedInAdmin } fro
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../../lib/platform/pendingDelivery";
 import BackButton from "../components/BackButton";
-import { container, card, h1, muted, button, input, label, colors } from "../../../lib/platform/theme";
+import { container, card, h1, muted, button, input, label, colors, tapTarget } from "../../../lib/platform/theme";
 
 function LoginInner() {
   const router = useRouter();
@@ -133,7 +133,7 @@ function LoginInner() {
           {error && <p style={{ color: colors.danger, marginTop: 12, marginBottom: 0 }}>{error}</p>}
 
           <div style={{ marginTop: 16 }}>
-            <Link href="/platform/forgot-pin" style={{ ...muted, fontSize: 13, textDecoration: "none" }}>
+            <Link href="/platform/forgot-pin" style={{ ...muted, ...tapTarget, fontSize: 13, textDecoration: "none" }}>
               Ξέχασα τον κωδικό
             </Link>
           </div>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
+import { tapTarget } from "../../../../lib/platform/theme";
 import { adminListCancellationReports, adminResolveReport, departureLabel } from "../../../../lib/platform/db";
 import { timeAgo, formatDate } from "../../../../lib/platform/notifications";
 
@@ -10,7 +11,7 @@ function People({ people }) {
   if (!people?.client && !people?.pro) return null;
   const item = (label, p) =>
     p && (
-      <Link href={`/platform/admin/user/${p.id}`} style={{ color: colors.ink, textDecoration: "underline" }}>
+      <Link href={`/platform/admin/user/${p.id}`} style={{ ...tapTarget, color: colors.ink, textDecoration: "underline" }}>
         {label}: {p.name || "(χωρίς όνομα)"}
       </Link>
     );

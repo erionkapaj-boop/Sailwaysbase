@@ -18,8 +18,11 @@ export default function ProfessionalsBody() {
         </p>
 
         <div style={{ ...card, marginTop: 24 }}>
-          <Link href="/platform/register?as=professional">
-            <button style={{ ...button("primary"), width: "100%" }}>Ξεκίνα την εγγραφή</button>
+          <Link
+            href="/platform/register?as=professional"
+            style={{ ...button("primary"), display: "block", textAlign: "center", textDecoration: "none", boxSizing: "border-box", width: "100%" }}
+          >
+            Ξεκίνα την εγγραφή
           </Link>
           <p style={{ ...muted, fontSize: 13, margin: "14px 0 0" }}>
             Χρειάζεσαι μόνο ονοματεπώνυμο, κινητό και email. Το κινητό επιβεβαιώνεται με SMS.

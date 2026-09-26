@@ -93,8 +93,8 @@ function GhostInner() {
           έναν δοκιμαστικό λογαριασμό (βήμα 2 ή 3 παρακάτω). Σε πραγματικό λογαριασμό δεν γίνεται: θα σήμαινε να
           αλλάξει ο κωδικός του χρήστη.
         </p>
-        <Link href="/platform/admin/users" style={{ textDecoration: "none" }}>
-          <span style={button("primary")}>Άνοιγμα λίστας χρηστών</span>
+        <Link href="/platform/admin/users" style={{ ...button("primary"), display: "inline-block", textDecoration: "none" }}>
+          Άνοιγμα λίστας χρηστών
         </Link>
       </Panel>
 

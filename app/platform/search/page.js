@@ -1324,7 +1324,7 @@ function SearchPageInner() {
             {fieldErrors.departurePoint && (
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
             )}
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, margin: "10px 0 0", cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, margin: "2px 0 0", minHeight: 44, cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={!sameDestination}

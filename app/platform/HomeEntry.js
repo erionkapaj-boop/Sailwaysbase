@@ -8,7 +8,7 @@ import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
 import PendingReadyBanner from "./components/PendingReadyBanner";
 import { adminOverview } from "../../lib/platform/db";
-import { card } from "../../lib/platform/theme";
+import { card, tapTarget } from "../../lib/platform/theme";
 import { button, colors, muted, h2 } from "../../lib/platform/theme";
 
 // The first screen shows only the CTA and the secondary link (brief §4) —
@@ -144,7 +144,7 @@ export default function HomeEntry() {
       <div style={{ marginTop: 22 }}>
         <Link
           href="/platform/delivery"
-          style={{ ...muted, fontSize: 14, color: colors.inkSoft, textDecoration: "none" }}
+          style={{ ...muted, ...tapTarget, fontSize: 14, color: colors.inkSoft, textDecoration: "none" }}
         >
           {t("boatDelivery")}
         </Link>

@@ -28,8 +28,7 @@ import {
   colors,
   money,
   radius,
-  sectionLabel,
-} from "../../../lib/platform/theme";
+  sectionLabel, tapTarget } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const REQUEST_ERRORS = {
@@ -735,7 +734,7 @@ export default function DeliveryPage() {
       {(pickedRoles != null || formValues) && <BackButton onClick={formValues ? backToForm : backToPicker} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
         <h1 style={{ ...h1, marginTop: pickedRoles != null ? 14 : 0 }}>Μεταφορά σκάφους</h1>
-        <Link href="/platform/delivery/requests" style={{ fontSize: 13.5, color: colors.accent, textDecoration: "none" }}>
+        <Link href="/platform/delivery/requests" style={{ ...tapTarget, fontSize: 13.5, color: colors.accent, textDecoration: "none" }}>
           Τα αιτήματά μου
         </Link>
       </div>

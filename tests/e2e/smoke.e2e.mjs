@@ -6,19 +6,9 @@
 import { chromium } from "playwright";
 import { BASE, check, finish, sql } from "./lib.mjs";
 import { TEST_PIN } from "./gateway.mjs";
+import { PUBLIC, EVERYONE, PRO_ONLY, adminPages } from "./pages.mjs";
 
-const PUBLIC = ["/platform/login", "/platform/register", "/platform/forgot-pin", "/platform/about",
-  "/platform/terms", "/platform/privacy", "/platform/contact", "/platform/professionals"];
-const EVERYONE = ["/platform", "/platform/search", "/platform/requests", "/platform/bookings", "/platform/wallet",
-  "/platform/profile", "/platform/delivery", "/platform/delivery/requests", "/platform/contact",
-  "/platform/about", "/platform/professionals"];
-const PRO_ONLY = ["/platform/availability"];
-const client = sql("select id from users where full_name = 'Μαρία Πελάτη'");
-const pro = sql("select id from users where full_name = 'Κώστας Υποψήφιος'");
-const ADMIN = ["/platform/admin", "/platform/admin/approvals", "/platform/admin/messages", "/platform/admin/disputes",
-  "/platform/admin/replacements", "/platform/admin/offers", "/platform/admin/bookings", "/platform/admin/deliveries",
-  "/platform/admin/users", "/platform/admin/finance", "/platform/admin/settings", "/platform/admin/ghost",
-  `/platform/admin/user/${client}`, `/platform/admin/user/${pro}`];
+const ADMIN = adminPages();
 
 // Messages the app shows when something it asked the database for failed.
 const ERROR_TEXT = /Κάτι πήγε στραβά|Something went wrong|Application error/i;
