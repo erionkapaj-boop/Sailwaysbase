@@ -65,3 +65,13 @@ insert into booking_requests (client_id, start_date, end_date, region_id, depart
   values (:'CLIENT', current_date + 30, current_date + 32, :'cyclades', 'Σύρος', 'Σύρος', :'sailboat', 'skipper')
   returning id as rreq \gset
 select pg_temp.expect(format('select pay_and_broadcast(%L, array[%L]::uuid[])', :'rreq', :'TSP'), 'test_account_mismatch');
+
+\echo '== λογαριασμός σημειωμένος από τον admin ως δοκιμαστικός'
+select pg_temp.act('authenticated', :'ADMIN');
+select admin_set_test_account(:'SOFIA', true);
+select pg_temp.act('authenticated', :'SOFIA');
+-- (Other dates: the test skipper is already booked on the ones above.)
+select pg_temp.check('με πραγματικό τηλέφωνο αλλά σημειωμένος: βλέπει τον δοκιμαστικό skipper', exists (
+  select 1 from search_available_skippers(current_date + 40, current_date + 42, :'cyclades', :'sailboat') where id = :'TSP'));
+select pg_temp.check('και δεν βλέπει πια πραγματικούς', not exists (
+  select 1 from search_available_skippers(current_date + 40, current_date + 42, :'cyclades', :'sailboat') where id <> :'TSP'));

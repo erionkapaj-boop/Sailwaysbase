@@ -15,7 +15,8 @@
 --
 -- Τώρα:
 --   1. Κανένας λογαριασμός στη δοκιμαστική σειρά δεν μπορεί να γίνει admin.
---   2. Δοκιμαστικοί και πραγματικοί λογαριασμοί δεν συναντιούνται ποτέ: η
+--   2. Δοκιμαστικοί (δοκιμαστικό τηλέφωνο ή σημειωμένοι από τον admin ως
+--      δοκιμαστικοί) και πραγματικοί λογαριασμοί δεν συναντιούνται ποτέ: η
 --      αναζήτηση δείχνει μόνο επαγγελματίες του ίδιου κόσμου, και η βάση
 --      αρνείται αίτημα, πρόταση ή κράτηση ανάμεσα στους δύο κόσμους — από
 --      όποιον δρόμο κι αν έρθει (και από τον admin).
@@ -27,9 +28,13 @@ language sql immutable as $$
   select coalesce(p_phone ~ '^\+3069800000[0-9]{2}$', false);
 $$;
 
+-- Ο δοκιμαστικός κόσμος: τα δοκιμαστικά τηλέφωνα, και όσους ο admin έχει
+-- σημειώσει ως δοκιμαστικούς (users.is_test_account) — ώστε ένας τέτοιος
+-- λογαριασμός με πραγματικό τηλέφωνο να συνεχίσει να δοκιμάζει με τους
+-- δοκιμαστικούς επαγγελματίες, και μόνο με αυτούς.
 create or replace function in_test_world(p_user_id uuid) returns boolean
 language sql stable security definer set search_path = public as $$
-  select coalesce((select is_test_phone(phone_number) from users where id = p_user_id), false);
+  select coalesce((select is_test_phone(phone_number) or is_test_account from users where id = p_user_id), false);
 $$;
 
 revoke execute on function in_test_world(uuid) from public, anon, authenticated;

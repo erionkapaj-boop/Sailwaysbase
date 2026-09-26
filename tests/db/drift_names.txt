@@ -343,7 +343,7 @@
 511014e	κανόνας RLS	availability_windows.availability windows public read	2fea71
 5139056	ευρετήριο	user_phones_user_idx	39fc83
 514003a	στήλη	skipper_profiles.rating_avg_teamwork	490571
-516d6f2	συνάρτηση	in_test_world(uuid)	2c63f9
+516d6f2	συνάρτηση	in_test_world(uuid)	28e72d
 5176a49	trigger	wallet_transactions.trg_notify_wallet_movement	d0f515
 5181254	στήλη	wallet_transactions.type	e08187
 518222b	συνάρτηση	accept_delivery_role_request(uuid,uuid)	a63ed2
