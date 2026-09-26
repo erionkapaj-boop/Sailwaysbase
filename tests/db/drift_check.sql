@@ -1,5 +1,5 @@
 -- Παραγωγή σε σχέση με τα migrations — μόνο ανάγνωση, δεν αλλάζει τίποτα.
--- Δημιουργήθηκε από το tests/db/drift_check.sh μετά το 0099_block_inactive_accounts.sql.
+-- Δημιουργήθηκε από το tests/db/drift_check.sh μετά το 0100_schedule_jobs_in_database.sql.
 with blob as (select regexp_replace('
 009a4cc867300012a3c8ad783102bfdcd78a48103de1b515930803f0c8ae20847040169b70d339
 0441d1a9811d50478b0670d33904b1d2078a48104baeb76cd240054169504ff810553ce8f0da98
