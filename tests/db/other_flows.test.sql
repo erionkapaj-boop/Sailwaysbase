@@ -55,10 +55,10 @@ select pg_temp.act('postgres');
 select pg_temp.check('ο πελάτης πήρε πίσω το τέλος του', pg_temp.wallet('Μαρία Πελάτη') = :wc1 + :dfee);
 select pg_temp.check('ο επαγγελματίας δεν πήρε πίσω το δικό του', pg_temp.wallet('Γιώργος Υποψήφιος') = :wg0 - 50);
 select pg_temp.check('ο admin ειδοποιήθηκε', exists (select 1 from notifications n join users u on u.id = n.user_id where u.role = 'admin' and n.kind = 'admin_delivery_cancelled'));
--- Open question for the owner: unlike a charter, a professional cancelling a
--- delivery does not count against their reliability. Recorded, not asserted.
-select 'info ακύρωση μεταφοράς μετράει στην αξιοπιστία: ' || (cancellation_flag_count > 0)::text
-  from skipper_profiles where id = :'SP_GIORGOS';
+-- Owner's decision: unlike a charter, cancelling a delivery does not count
+-- against the professional's reliability.
+select pg_temp.check('η ακύρωση μεταφοράς ΔΕΝ μετράει στην αξιοπιστία',
+  (select cancellation_flag_count = 0 from skipper_profiles where id = :'SP_GIORGOS'));
 
 \echo '== μεταφορά: λήξη χωρίς απάντηση'
 select pg_temp.act('authenticated', :'CLIENT');
