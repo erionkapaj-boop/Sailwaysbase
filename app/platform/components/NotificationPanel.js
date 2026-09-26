@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderPanel from "./HeaderPanel";
+import LoadError from "./LoadError";
 import { listMyNotifications, markNotificationsRead } from "../../../lib/platform/db";
 import { describeNotification, timeAgo } from "../../../lib/platform/notifications";
 import { colors, muted } from "../../../lib/platform/theme";
@@ -17,14 +18,15 @@ export default function NotificationPanel({ count = 0, onRead }) {
   const router = useRouter();
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   // Fetched on open, not on mount: the badge already answers "is there
   // anything?", and most page loads never open the panel at all.
   function load() {
     setBusy(true);
     listMyNotifications()
-      .then(setItems)
-      .catch(() => {})
+      .then((rows) => { setItems(rows); setFailed(false); })
+      .catch((err) => { console.error(err); setFailed(true); })
       .finally(() => setBusy(false));
   }
 
@@ -60,7 +62,10 @@ export default function NotificationPanel({ count = 0, onRead }) {
       {(close) => (
         <>
           {busy && items.length === 0 && <p style={{ ...muted, padding: 14, margin: 0 }}>Φόρτωση…</p>}
-          {!busy && items.length === 0 && (
+          {!busy && failed && (
+            <div style={{ padding: 10 }}><LoadError compact what="οι ειδοποιήσεις" onRetry={load} /></div>
+          )}
+          {!busy && !failed && items.length === 0 && (
             <p style={{ ...muted, padding: 14, margin: 0 }}>Καμία ειδοποίηση ακόμα.</p>
           )}
           {items.map((n) => {

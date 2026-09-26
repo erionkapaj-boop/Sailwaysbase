@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderPanel from "./HeaderPanel";
+import LoadError from "./LoadError";
 import { listMyConversations } from "../../../lib/platform/db";
 import { timeAgo, formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { colors, muted, money } from "../../../lib/platform/theme";
@@ -25,12 +26,13 @@ export default function MessagesPanel({ count = 0 }) {
   const router = useRouter();
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   function load() {
     setBusy(true);
     listMyConversations()
-      .then(setItems)
-      .catch(() => {})
+      .then((rows) => { setItems(rows); setFailed(false); })
+      .catch((err) => { console.error(err); setFailed(true); })
       .finally(() => setBusy(false));
   }
 
@@ -39,7 +41,10 @@ export default function MessagesPanel({ count = 0 }) {
       {(close) => (
         <>
           {busy && items.length === 0 && <p style={{ ...muted, padding: 14, margin: 0 }}>Φόρτωση…</p>}
-          {!busy && items.length === 0 && (
+          {!busy && failed && (
+            <div style={{ padding: 10 }}><LoadError compact what="οι συνομιλίες" onRetry={load} /></div>
+          )}
+          {!busy && !failed && items.length === 0 && (
             <p style={{ ...muted, padding: 14, margin: 0 }}>Καμία συνομιλία ακόμα.</p>
           )}
           {items.map((c) => {

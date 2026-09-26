@@ -1,5 +1,6 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
+import LoadError from "../components/LoadError";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../AuthContext";
@@ -28,11 +29,13 @@ function BookingsInner() {
   const [proBookings, setProBookings] = useState([]);
   const [deliveryBookings, setDeliveryBookings] = useState([]);
   const [busy, setBusy] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const isProfessional = userRow?.role === "skipper" || isAdmin;
 
   async function load() {
     setBusy(true);
+    setLoadFailed(false);
     try {
       const [cb, pb, db] = await Promise.all([
         listMyBookingsAsClient(),
@@ -42,6 +45,9 @@ function BookingsInner() {
       setClientBookings(cb);
       setProBookings(pb);
       setDeliveryBookings(db);
+    } catch (err) {
+      console.error(err);
+      setLoadFailed(true);
     } finally {
       setBusy(false);
     }
@@ -60,6 +66,7 @@ function BookingsInner() {
     <div style={container}>
       <h1 style={h1}>Κρατήσεις</h1>
       <PendingReviewBanner bookingsHref="/platform/bookings" />
+      {!busy && loadFailed && <LoadError what="οι κρατήσεις σου" onRetry={load} />}
 
       {deliveryBookings.length > 0 && (
         <div style={{ marginTop: 8 }}>
@@ -74,7 +81,7 @@ function BookingsInner() {
         <div style={{ marginTop: 8 }}>
           <h2 style={sectionLabel}>Ως επαγγελματίας<span style={{ marginLeft: 8, opacity: 0.55 }}>{proBookings.length}</span></h2>
           {busy && <p style={muted}>Φόρτωση...</p>}
-          {!busy && proBookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
+          {!busy && !loadFailed && proBookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
           {proBookings.map((b) => (
             <BookingPanel
               key={b.id}
@@ -92,7 +99,7 @@ function BookingsInner() {
       <div style={{ marginTop: 32 }}>
         <h2 style={sectionLabel}>Ως πελάτης<span style={{ marginLeft: 8, opacity: 0.55 }}>{clientBookings.length}</span></h2>
         {busy && <p style={muted}>Φόρτωση...</p>}
-        {!busy && clientBookings.length === 0 && (
+        {!busy && !loadFailed && clientBookings.length === 0 && (
           <div style={{ ...card, textAlign: "center" }}>
             <p style={{ ...muted, margin: "0 0 14px" }}>
               Εδώ θα δεις τις κρατήσεις σου, μόλις κάποιος επαγγελματίας αναλάβει ένα αίτημά σου.

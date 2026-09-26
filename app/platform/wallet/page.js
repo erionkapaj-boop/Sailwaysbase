@@ -7,6 +7,7 @@ import { formatDate } from "../../../lib/platform/notifications";
 import Link from "next/link";
 import { container, card, h1, sectionLabel, muted, badge, colors, money } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
+import LoadError from "../components/LoadError";
 
 const TYPE_LABEL = {
   deposit: "Κατάθεση",
@@ -48,6 +49,7 @@ export default function WalletPage() {
   const [standing, setStanding] = useState(null);
   const [clientProfile, setClientProfile] = useState(null);
   const [busy, setBusy] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const isProfessional = userRow?.role === "skipper" || isAdmin;
 
@@ -56,9 +58,17 @@ export default function WalletPage() {
   // σύνδεση, που μπορεί να είναι ώρες παλιό.
   // Μία φορά στο άνοιγμα (όχι σε κάθε αλλαγή του session: το refresh το
   // ξαναδημιουργεί και θα έμπαινε σε ατέρμονο κύκλο).
+  function loadTransactions() {
+    setBusy(true);
+    listMyWalletTransactions()
+      .then((rows) => { setTransactions(rows); setLoadFailed(false); })
+      .catch((err) => { console.error(err); setLoadFailed(true); })
+      .finally(() => setBusy(false));
+  }
+
   useEffect(() => {
     refresh();
-    const reload = () => listMyWalletTransactions().then(setTransactions).catch(() => {});
+    const reload = () => loadTransactions();
     window.addEventListener(WALLET_EVENT, reload);
     return () => window.removeEventListener(WALLET_EVENT, reload);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -66,7 +76,7 @@ export default function WalletPage() {
 
   useEffect(() => {
     if (!session) return;
-    listMyWalletTransactions().then(setTransactions).finally(() => setBusy(false));
+    loadTransactions();
     getMyClientProfile().then(setClientProfile).catch(() => {});
     if (isProfessional) getMyStanding().then(setStanding).catch(() => {});
   }, [session, isProfessional]);
@@ -157,7 +167,8 @@ export default function WalletPage() {
 
       <h2 style={{ ...sectionLabel, marginTop: 32 }}>Κινήσεις</h2>
       {busy && <p style={muted}>Φόρτωση...</p>}
-      {!busy && transactions.length === 0 && <p style={muted}>Καμία κίνηση ακόμα.</p>}
+      {!busy && loadFailed && <LoadError what="οι κινήσεις σου" onRetry={loadTransactions} />}
+      {!busy && !loadFailed && transactions.length === 0 && <p style={muted}>Καμία κίνηση ακόμα.</p>}
       {transactions.map((t) => (
         <div key={t.id} style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>

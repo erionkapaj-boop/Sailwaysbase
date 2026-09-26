@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import LoadError from "./LoadError";
 import { useAuth } from "../AuthContext";
 import {
   listMessages,
@@ -46,6 +47,8 @@ export default function BookingPanel({
   const [counterpartAttempt, setCounterpartAttempt] = useState(0);
   const [photoExpanded, setPhotoExpanded] = useState(false);
   const [messages, setMessages] = useState([]);
+  const [threadFailed, setThreadFailed] = useState(false);
+  const [threadAttempt, setThreadAttempt] = useState(0);
   const [newMessage, setNewMessage] = useState("");
   const [reviews, setReviews] = useState([]);
   // Και οι δύο κατευθύνσεις αξιολογούν πλέον σε κατηγορίες — ο πελάτης τον
@@ -81,12 +84,14 @@ export default function BookingPanel({
   // someone actually opens the thread.
   useEffect(() => {
     if (!revealed || !expanded) return;
-    listMessages(booking.id).then(setMessages).catch(() => {});
-    listReviewsForBooking(booking.id).then(setReviews).catch(() => {});
+    setThreadFailed(false);
+    const failed = (err) => { console.error(err); setThreadFailed(true); };
+    listMessages(booking.id).then(setMessages).catch(failed);
+    listReviewsForBooking(booking.id).then(setReviews).catch(failed);
     // Opening the thread is what "reading" it means here — mark it read and
     // let the header bell know, so the badge doesn't wait for a full reload.
     markMessagesRead(booking.id).then(refreshNotifications).catch(() => {});
-  }, [booking.id, expanded]);
+  }, [booking.id, expanded, threadAttempt]);
 
   // Arriving here from the notification bell (?focus=<id>) should land the
   // booking in view already open, not just highlighted somewhere off-screen.
@@ -439,7 +444,10 @@ export default function BookingPanel({
                 </span>
               </div>
             ))}
-            {messages.length === 0 && <p style={muted}>Δεν υπάρχουν μηνύματα ακόμα.</p>}
+            {threadFailed && (
+              <LoadError what="τα μηνύματα και οι αξιολογήσεις" onRetry={() => setThreadAttempt((n) => n + 1)} />
+            )}
+            {!threadFailed && messages.length === 0 && <p style={muted}>Δεν υπάρχουν μηνύματα ακόμα.</p>}
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <input

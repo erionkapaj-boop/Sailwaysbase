@@ -1,5 +1,6 @@
 "use client";
 import Avatar from "../components/Avatar";
+import LoadError from "../components/LoadError";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
@@ -1051,6 +1052,7 @@ function SearchPageInner() {
   // including hydration; the effect below is what actually resolves it.
   const [pending, setPending] = useState(null);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], languages: [], regions: [] });
+  const [lookupsFailed, setLookupsFailed] = useState(false);
   const [filters, setFilters] = useState(incoming);
   // Whether the destination is being kept in sync with the departure point —
   // true for the common same-place ναύλο, false once someone declares a
@@ -1195,8 +1197,15 @@ function SearchPageInner() {
   const supportedRoles = requestedRoles.filter((r) => SUPPORTED_ROLES.includes(r));
   const unsupportedRoles = requestedRoles.filter((r) => !SUPPORTED_ROLES.includes(r));
 
+  function loadLookups() {
+    setLookupsFailed(false);
+    listLookups()
+      .then(setLookups)
+      .catch((err) => { console.error(err); setLookupsFailed(true); });
+  }
+
   useEffect(() => {
-    listLookups().then(setLookups).catch(() => {});
+    loadLookups();
     getPlatformSetting("client_request_fee").then(setFee).catch(() => {});
   }, []);
 
@@ -1223,6 +1232,7 @@ function SearchPageInner() {
       <BackButton onClick={() => setShowFullFilters(true)} />
       <h1 style={{ ...h1, marginTop: 14 }}>Αποτελέσματα</h1>
       <p style={muted}>Δωρεάν, χωρίς δέσμευση. Πληρώνεις μόνο όταν στέλνεις αίτημα.</p>
+      {lookupsFailed && <LoadError what="οι περιοχές και οι τύποι σκαφών" onRetry={loadLookups} />}
 
       {unsupportedRoles.length > 0 && (
         <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>

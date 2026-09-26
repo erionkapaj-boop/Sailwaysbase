@@ -44,3 +44,16 @@
    $$);
    ```
 Με το ίδιο κλειδί ανοίγει και η επαναφορά κωδικού με email («Ξέχασα το PIN»).
+
+## Αυτόματο backup της βάσης (Free πακέτο Supabase)
+Στο Free πακέτο δεν υπάρχουν backups που μπορείς να κατεβάσεις ή να επαναφέρεις.
+- Τι χρειάζεται: στο Supabase → Project Settings → Database → Connection string
+  (URI, «Session pooler»), και να μπει ως secret `SUPABASE_DB_URL` στο GitHub
+  (repo → Settings → Secrets and variables → Actions → New repository secret).
+- Μετά: ένα workflow στο GitHub κάνει αντίγραφο κάθε νύχτα και το κρατά 30 μέρες
+  (θα το ετοιμάσω μόλις μπει το secret).
+
+## Παρακολούθηση σφαλμάτων (προαιρετικό)
+- Τι χρειάζεται: δωρεάν λογαριασμός στο sentry.io → νέο project (Next.js) → DSN.
+- Πού μπαίνει: Vercel → Environment Variables → `NEXT_PUBLIC_SENTRY_DSN`.
+- Μετά: κάθε σφάλμα που βλέπει χρήστης καταγράφεται και σου στέλνει email.

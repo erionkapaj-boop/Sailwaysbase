@@ -6,6 +6,7 @@ import AdminShell from "../AdminShell";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { adminListBookings, departureLabel } from "../../../../lib/platform/db";
+import LoadError from "../../components/LoadError";
 import { formatDate } from "../../../../lib/platform/notifications";
 
 const FILTERS = [
@@ -35,13 +36,18 @@ function BookingsInner() {
   const [all, setAll] = useState([]);
   const [filter, setFilter] = useState(initialFilter);
   const [busy, setBusy] = useState(true);
+  const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
+  function load() {
+    setBusy(true);
+    setFailed(false);
     adminListBookings()
       .then(setAll)
-      .catch(() => {})
+      .catch((err) => { console.error(err); setFailed(true); })
       .finally(() => setBusy(false));
-  }, []);
+  }
+
+  useEffect(load, []);
 
   // Filtering here rather than per-query: the list is capped at 200 rows, and
   // switching a filter should be instant instead of a round trip.
@@ -81,7 +87,8 @@ function BookingsInner() {
         </Toolbar>
 
         {busy && <Empty>Φόρτωση…</Empty>}
-        {!busy && list.length === 0 && <Empty>Καμία κράτηση σε αυτή την κατηγορία.</Empty>}
+        {!busy && failed && <div style={{ padding: 12 }}><LoadError what="οι κρατήσεις" onRetry={load} /></div>}
+        {!busy && !failed && list.length === 0 && <Empty>Καμία κράτηση σε αυτή την κατηγορία.</Empty>}
 
         {list.map((b) => (
           <Row key={b.id}>
