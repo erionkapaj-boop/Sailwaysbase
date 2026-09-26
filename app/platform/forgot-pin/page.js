@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { isWeakPin } from "../../../lib/platform/pin";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../AuthContext";
@@ -15,6 +16,7 @@ import { container, card, h1, muted, button, input, label, colors, radius } from
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const MIN_LENGTH = 6;
+const WEAK_PIN_MESSAGE = "Διάλεξε κάτι λιγότερο προφανές: όχι ίδια ψηφία (000000) ή σειρά (123456).";
 
 const tab = (active) => ({
   flex: 1,
@@ -82,6 +84,7 @@ export default function ForgotPinPage() {
     e.preventDefault();
     setError("");
     if (newPin.length < MIN_LENGTH) return setError(`Ο κωδικός θέλει τουλάχιστον ${MIN_LENGTH} χαρακτήρες.`);
+    if (isWeakPin(newPin)) return setError(WEAK_PIN_MESSAGE);
 
     setBusy(true);
     try {

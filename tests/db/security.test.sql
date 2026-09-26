@@ -29,6 +29,8 @@ where f not in (
   'check_login_rate_limit(p_phone text)',
   'has_future_availability(p_skipper_id uuid)',
   'is_approved_professional(p_user_id uuid)',
+  -- reviews policy (0106): whether a review is about the client of that booking
+  'is_review_of_client(p_booking_id uuid, p_reviewee_id uuid)',
   'phone_registration_status(p_phone text)',
   'skipper_is_search_visible(p_skipper_id uuid)',
   'skipper_profile_id_of(p_user_id uuid)'
@@ -83,7 +85,7 @@ select pg_temp.act('postgres');
 select pg_temp.check('ρόλος/admin/πορτοφόλι/επαλήθευση δεν αλλάζουν από τον ίδιο',
   (select role = 'client' and not is_staff_admin and wallet_balance < 1000 and phone_verified_at is null and photo_reviewed_at is null
    from users where id = :'EVIL'));
-select pg_temp.check('το όνομα αλλάζει κανονικά', (select full_name = 'Νέος Χρήστης' from users where id = :'EVIL'));
+select pg_temp.check('ούτε το όνομα αλλάζει από τον ίδιο (0106)', (select full_name <> 'Νέος Χρήστης' from users where id = :'EVIL'));
 
 select pg_temp.act('authenticated', :'EVIL');
 insert into skipper_profiles (user_id, full_name, price_per_day, approval_status, rating_avg, rating_count, tier)

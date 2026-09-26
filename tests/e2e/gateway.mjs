@@ -87,13 +87,15 @@ const server = http.createServer(async (req, res) => {
     if (path === "/admin/users" && req.method === "POST") {
       const c = claimsOf((req.headers.authorization || "").replace(/^Bearer /, ""));
       if (c?.role !== "service_role") return json(res, 403, { msg: "not allowed" });
-      const digits = String(JSON.parse(body.toString() || "{}").phone || "").replace(/\D/g, "");
+      const payload = JSON.parse(body.toString() || "{}");
+      const digits = String(payload.phone || "").replace(/\D/g, "");
       if (!digits) return json(res, 400, { msg: "phone required" });
       if (lookup(`select 1 from auth.users where regexp_replace(phone, '\\D', '', 'g') = '${digits}'`)) {
         return json(res, 422, { msg: "A user with this phone number has already been registered", code: "phone_exists" });
       }
       const id = crypto.randomUUID();
-      lookup(`insert into auth.users (id, phone) values ('${id}', '${digits}')`);
+      const meta = JSON.stringify(payload.app_metadata || {}).replace(/'/g, "''");
+      lookup(`insert into auth.users (id, phone, raw_app_meta_data) values ('${id}', '${digits}', '${meta}')`);
       return json(res, 200, user(id, `+${digits}`));
     }
     if (path === "/logout") {

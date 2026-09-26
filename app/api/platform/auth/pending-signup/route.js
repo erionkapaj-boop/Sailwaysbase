@@ -38,13 +38,17 @@ export async function POST(req) {
 
   const password = crypto.randomBytes(24).toString("base64url");
 
-  const { error: createErr } = await db.auth.admin.createUser({ phone, password, phone_confirm: true });
+  // The mark complete_registration reads (0106): this identity was never
+  // proven by an SMS code, so the account starts unverified whatever the
+  // browser says. Only the server can set app_metadata.
+  const app_metadata = { signup: "pending" };
+  const { error: createErr } = await db.auth.admin.createUser({ phone, password, phone_confirm: true, app_metadata });
   if (createErr) {
     // Already exists at the Auth layer — the revival case (0074): same
     // phone, a previously soft-deleted row. Reuse that identity by
     // resetting its password to this fresh one instead of failing.
     if (!existing) return Response.json({ error: createErr.message }, { status: 400 });
-    const { error: updErr } = await db.auth.admin.updateUserById(existing.id, { password });
+    const { error: updErr } = await db.auth.admin.updateUserById(existing.id, { password, app_metadata });
     if (updErr) return Response.json({ error: updErr.message }, { status: 400 });
   }
 

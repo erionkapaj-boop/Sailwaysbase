@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
 
 // Self-service (and admin-on-behalf-of) account deletion.
@@ -28,6 +29,25 @@ async function requireCaller(req, db) {
   return data.user;
 }
 
+async function checkPin(db, userId, pin) {
+  if (!pin) return { error: "missing_fields", status: 400 };
+  const { data: me } = await db.from("users").select("phone_number").eq("id", userId).maybeSingle();
+  if (!me?.phone_number) return { error: "not_found", status: 404 };
+  const { data: allowed } = await db.rpc("check_login_rate_limit", { p_phone: me.phone_number });
+  if (allowed === false) return { error: "locked_out", status: 429 };
+  const anon = createClient(process.env.NEXT_PUBLIC_PLATFORM_SUPABASE_URL, process.env.NEXT_PUBLIC_PLATFORM_SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: check, error } = await anon.auth.signInWithPassword({ phone: me.phone_number, password: pin });
+  if (error || check?.user?.id !== userId) {
+    await db.from("login_attempts").insert({ phone: me.phone_number, success: false });
+    return { error: "wrong_pin", status: 400 };
+  }
+  // That sign-in only proved the PIN.
+  await db.auth.admin.signOut(check.session.access_token, "local").catch(() => {});
+  return null;
+}
+
 export async function POST(req) {
   const db = serviceClient();
   if (!db) return Response.json({ error: "not_configured" }, { status: 500 });
@@ -45,6 +65,13 @@ export async function POST(req) {
       return Response.json({ error: "not_admin" }, { status: 403 });
     }
     targetId = body.userId;
+  }
+
+  // Deleting your own account asks for your PIN, like changing your phone or
+  // email: an unlocked phone left on a table must not be enough.
+  if (targetId === caller.id) {
+    const problem = await checkPin(db, caller.id, body.pin);
+    if (problem) return Response.json({ error: problem.error }, { status: problem.status });
   }
 
   const { error: rpcErr } = await db.rpc("soft_delete_account", {

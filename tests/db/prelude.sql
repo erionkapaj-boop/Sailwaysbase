@@ -11,7 +11,13 @@ end $$;
 create schema auth;
 create table auth.users (
   id uuid primary key default gen_random_uuid(),
-  phone text, email text, encrypted_password text, created_at timestamptz default now()
+  phone text, email text, encrypted_password text, created_at timestamptz default now(),
+  raw_app_meta_data jsonb default '{}'::jsonb
+);
+-- Sign-in sessions; deleting a row signs that device out (as in Supabase).
+create table auth.sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users on delete cascade, created_at timestamptz default now()
 );
 create function auth.uid() returns uuid language sql stable as $$
   select coalesce(

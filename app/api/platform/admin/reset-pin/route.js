@@ -1,5 +1,6 @@
 import { randomInt } from "node:crypto";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
+import { isWeakPin } from "../../../../../lib/platform/pin";
 
 // A temporary PIN for someone who forgot theirs. SMS reset isn't live in
 // production (0075), so "Ξέχασα τον κωδικό" sends people to the contact form —
@@ -20,7 +21,13 @@ async function requireAdmin(req, db) {
   const { data, error } = await db.auth.getUser(token);
   if (error || !data?.user) return null;
   const { data: row } = await db.from("users").select("role, is_staff_admin").eq("id", data.user.id).maybeSingle();
-  return row?.role === "admin" || row?.is_staff_admin ? data.user : null;
+  return row?.role === "admin" || row?.is_staff_admin ? { ...data.user, isOwner: row.role === "admin" } : null;
+}
+
+function randomStrongPin() {
+  let pin;
+  do pin = randomPin(); while (isWeakPin(pin));
+  return pin;
 }
 
 export async function POST(req) {
@@ -35,20 +42,25 @@ export async function POST(req) {
 
   const { data: target } = await db
     .from("users")
-    .select("id, role, phone_number, status")
+    .select("id, role, is_staff_admin, phone_number, status")
     .eq("id", userId)
     .maybeSingle();
   if (!target) return Response.json({ error: "not_found" }, { status: 404 });
   if (target.role === "admin") return Response.json({ error: "cannot_reset_admin" }, { status: 403 });
+  // A staff admin never resets another staff admin's PIN (or their own) —
+  // only the owner manages staff.
+  if (target.is_staff_admin && !admin.isOwner) return Response.json({ error: "cannot_reset_admin" }, { status: 403 });
   if (target.status === "deleted") return Response.json({ error: "already_deleted" }, { status: 400 });
 
-  const pin = randomPin();
+  const pin = randomStrongPin();
   const { error: updErr } = await db.auth.admin.updateUserById(userId, { password: pin });
   if (updErr) return Response.json({ error: updErr.message }, { status: 500 });
 
   // Temporary by design: the person is asked for their own PIN on the next
   // sign-in (PinChangeGate). Nobody but them should know it for long.
   await db.from("users").update({ pin_change_required: true }).eq("id", userId);
+  // Anyone still signed in with the old PIN is signed out.
+  await db.rpc("revoke_user_sessions", { p_user_id: userId });
 
   // Same unlock the SMS reset performs (clear_login_attempts): a success row
   // resets the count of consecutive failures.

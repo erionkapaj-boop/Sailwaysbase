@@ -72,6 +72,7 @@ const REGISTER_ERRORS = {
   phone_already_registered: "Υπάρχει ήδη λογαριασμός με αυτό το τηλέφωνο. Δοκίμασε να συνδεθείς αντί να ξαναγραφτείς.",
   phone_previously_used: PREVIOUSLY_USED,
   phone_taken: PREVIOUSLY_USED,
+  test_phone_registered: "Αυτό το δοκιμαστικό τηλέφωνο έχει ήδη λογαριασμό. Σύνδεσου με τον κωδικό του από τη «Σύνδεση».",
 };
 
 const chip = (active) => ({

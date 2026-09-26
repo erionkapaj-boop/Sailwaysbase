@@ -1,5 +1,6 @@
 "use client";
 import { Suspense, useState } from "react";
+import { isWeakPin } from "../../../lib/platform/pin";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import { setPin } from "../../../lib/platform/db";
@@ -10,6 +11,7 @@ import { container, card, h1, muted, button, input, label, colors } from "../../
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const MIN_LENGTH = 6;
+const WEAK_PIN_MESSAGE = "Διάλεξε κάτι λιγότερο προφανές: όχι ίδια ψηφία (000000) ή σειρά (123456).";
 
 export default function SetPinPage() {
   return (
@@ -44,6 +46,7 @@ function SetPinInner() {
     e.preventDefault();
     setError("");
     if (pin.length < MIN_LENGTH) return setError(`Ο κωδικός θέλει τουλάχιστον ${MIN_LENGTH} χαρακτήρες.`);
+    if (isWeakPin(pin)) return setError(WEAK_PIN_MESSAGE);
     if (pin !== confirm) return setError("Οι δύο κωδικοί δεν ταιριάζουν.");
 
     setBusy(true);

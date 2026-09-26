@@ -29,7 +29,14 @@ export async function POST(req) {
     // account (0074). Same identity either way; just make sure the fixed
     // test password still applies (e.g. after the tester set their own PIN
     // at the set-pin step). Reserved test range only — never a real number.
-    const { data: row } = await db.from("users").select("id").eq("phone_number", phone).maybeSingle();
+    const { data: row } = await db.from("users").select("id, status").eq("phone_number", phone).maybeSingle();
+    // A test account that finished registering has its own PIN now and signs
+    // in through the normal login. Resetting it to the shared password would
+    // let anyone who knows that password (it is in the public bundle) walk
+    // into it.
+    if (row && row.status !== "draft" && row.status !== "deleted") {
+      return Response.json({ error: "test_phone_registered" }, { status: 409 });
+    }
     if (row) {
       const { error: updErr } = await db.auth.admin.updateUserById(row.id, { password: TEST_PHONE_PASSWORD });
       if (updErr) return Response.json({ error: updErr.message }, { status: 400 });

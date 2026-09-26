@@ -414,17 +414,20 @@ const DELETE_ERRORS = {
   has_pending_activity: "Έχεις ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση. Ολοκλήρωσέ τα ή ακύρωσέ τα και δοκίμασε ξανά.",
   already_deleted: "Ο λογαριασμός έχει ήδη διαγραφεί.",
   user_not_found: "Δεν βρέθηκε ο λογαριασμός.",
+  wrong_pin: "Ο κωδικός δεν είναι σωστός.",
+  missing_fields: "Γράψε τον κωδικό σου για να επιβεβαιώσεις.",
+  locked_out: "Πολλές λάθος προσπάθειες. Δοκίμασε ξανά σε λίγα λεπτά.",
 };
 
 // Αυτοεξυπηρέτηση διαγραφής — δικαίωμα που ήδη αναφέρει η πολιτική
 // απορρήτου ("Μπορείς οποτεδήποτε να ζητήσεις διαγραφή"), εδώ πραγματικό
-// κουμπί αντί για αίτημα μέσω φόρμας επικοινωνίας. Το "γράψε ΔΙΑΓΡΑΦΗ" είναι
-// σκόπιμα η πιο απλή δυνατή επιβεβαίωση — αρκεί να μην είναι ένα ακόμα
-// misclick, όχι να είναι δυσανάλογα δύσκολο για κάτι που ο ίδιος ζήτησε.
+// κουμπί αντί για αίτημα μέσω φόρμας επικοινωνίας. Ζητά τον κωδικό (PIN),
+// όπως η αλλαγή τηλεφώνου/email: ένα ξεκλείδωτο κινητό δεν αρκεί για να
+// σβήσει κάποιος τον λογαριασμό σου.
 function DeleteAccount() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
+  const [pin, setPinValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -432,7 +435,7 @@ function DeleteAccount() {
     setError("");
     setBusy(true);
     try {
-      await deleteMyAccount();
+      await deleteMyAccount(pin);
       await signOut();
       router.push("/platform");
     } catch (err) {
@@ -463,18 +466,20 @@ function DeleteAccount() {
         τηλέφωνο, επανέρχεται ο ίδιος λογαριασμός με το ιστορικό και τις αξιολογήσεις σου. Πριν τη διαγραφή
         δεν πρέπει να έχεις ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση.
       </p>
-      <label style={label}>Γράψε «ΔΙΑΓΡΑΦΗ» για να επιβεβαιώσεις</label>
+      <label htmlFor="delete-pin" style={label}>Ο κωδικός σου (PIN), για επιβεβαίωση</label>
       <input
-        type="text"
+        id="delete-pin"
+        type="password"
+        autoComplete="current-password"
         style={{ ...input, maxWidth: 200, marginBottom: 12 }}
-        value={confirmText}
-        onChange={(e) => setConfirmText(e.target.value)}
+        value={pin}
+        onChange={(e) => setPinValue(e.target.value)}
       />
       {error && <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 12px" }}>{error}</p>}
       <div style={{ display: "flex", gap: 10 }}>
         <button
           type="button"
-          disabled={busy || confirmText.trim() !== "ΔΙΑΓΡΑΦΗ"}
+          disabled={busy || pin.length < 6}
           onClick={handleDelete}
           style={{ ...button("primary"), background: colors.danger, borderColor: colors.danger }}
         >

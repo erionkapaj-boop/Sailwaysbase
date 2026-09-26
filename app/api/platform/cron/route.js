@@ -4,7 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 // separate path, separate schedule, touches only the skipper-platform tables.
 export async function GET(req) {
   const auth = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  // No secret configured means nobody may run it — not "everybody may".
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   const db = createClient(

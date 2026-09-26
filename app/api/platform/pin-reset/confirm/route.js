@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
+import { pinProblem } from "../../../../../lib/platform/pin";
 
 // A 6-digit code has a million values; without a cap, 15 minutes is plenty
 // of time to try them all. After this many wrong tries the code is burnt and
@@ -20,7 +21,8 @@ export async function POST(req) {
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
   if (!phone || !code || !newPin) return Response.json({ error: "bad_request" }, { status: 400 });
-  if (newPin.length < 6) return Response.json({ error: "pin_too_short" }, { status: 400 });
+  const problem = pinProblem(newPin);
+  if (problem) return Response.json({ error: problem }, { status: 400 });
 
   const db = serviceClient();
   if (!db) return Response.json({ error: "not_configured" }, { status: 500 });
@@ -58,6 +60,9 @@ export async function POST(req) {
   await db.from("login_attempts").insert({ phone, success: true });
   // Their own PIN now — a pending temporary one from the admin no longer applies.
   await db.from("users").update({ pin_change_required: false }).eq("id", user.id);
+  // Whoever was signed in with the old PIN (a lost phone, someone who guessed
+  // it) is signed out everywhere.
+  await db.rpc("revoke_user_sessions", { p_user_id: user.id });
 
   return Response.json({ ok: true });
 }
