@@ -1,6 +1,6 @@
 -- One row per schema object in public: (kind, name, short hash of its definition).
--- Hashes use what is stable across Postgres versions (function source, not
--- pg_get_functiondef's layout) and effective anon/authenticated rights rather
+-- Hashes use what is stable across Postgres versions and editors (function
+-- source without whitespace or comments, not pg_get_functiondef's layout) and effective anon/authenticated rights rather
 -- than raw ACLs, which differ between Supabase and plain Postgres.
 select kind, name, left(md5(def), 12) as h from (
   select 'στήλη', c.relname || '.' || a.attname,
@@ -22,7 +22,7 @@ select kind, name, left(md5(def), 12) as h from (
     from pg_index i join pg_class c on c.oid = i.indrelid where c.relnamespace = 'public'::regnamespace
   union all
   select 'συνάρτηση', p.oid::regprocedure::text,
-         p.prosrc || pg_get_function_result(p.oid) || p.prosecdef::text || p.provolatile::text || coalesce(p.proconfig::text, '')
+         regexp_replace(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'), '\s', '', 'g') || pg_get_function_result(p.oid) || p.prosecdef::text || p.provolatile::text || coalesce(p.proconfig::text, '')
          || ' anon=' || has_function_privilege('anon', p.oid, 'EXECUTE')::text
          || ' auth=' || has_function_privilege('authenticated', p.oid, 'EXECUTE')::text
     from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind in ('f', 'p')
