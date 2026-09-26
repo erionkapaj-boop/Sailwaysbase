@@ -199,3 +199,19 @@ select admin_reactivate_account(:'CLIENT');
 select pg_temp.act('authenticated', :'CLIENT');
 select pg_temp.check('μετά την επανενεργοποίηση όλα δουλεύουν ξανά',
   (pay_and_broadcast(:'req3', array[:'SP_ELENI']::uuid[])).fee_paid_at is not null);
+
+\echo '== στοιχεία της άλλης πλευράς, για πολλές κρατήσεις μαζί (0104)'
+select pg_temp.act('authenticated', :'CLIENT');
+select pg_temp.check('ο πελάτης βλέπει τον επαγγελματία της κράτησής του', exists (
+  select 1 from get_booking_counterparts(array[:'bk2']::uuid[]) where user_id = :'KOSTAS'));
+select pg_temp.act('authenticated', :'KOSTAS');
+select pg_temp.check('ο επαγγελματίας βλέπει τον πελάτη', exists (
+  select 1 from get_booking_counterparts(array[:'bk2']::uuid[]) where user_id = :'CLIENT'));
+select pg_temp.act('authenticated', :'NIKOS');
+select pg_temp.check('κάποιος εκτός κράτησης δεν βλέπει τίποτα', not exists (
+  select 1 from get_booking_counterparts(array[:'bk2', :'bk']::uuid[])));
+select pg_temp.act('anon');
+select pg_temp.expect(format('select get_booking_counterparts(array[%L]::uuid[])', :'bk2'), 'permission denied%');
+select pg_temp.expect('select admin_invisible_profiles_count()', 'permission denied%');
+select pg_temp.act('authenticated', :'CLIENT');
+select pg_temp.check('μη-admin: το πλήθος αόρατων προφίλ δεν δίνεται', admin_invisible_profiles_count() is null);

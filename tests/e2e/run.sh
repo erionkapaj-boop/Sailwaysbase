@@ -56,6 +56,8 @@ done
 
 echo "== database"
 bash tests/db/build.sh "$DB"
+# Extra data on top of the seed, e.g. E2E_EXTRA_SQL=tests/perf/scale.sql
+[ -n "${E2E_EXTRA_SQL:-}" ] && psql -X -q -v ON_ERROR_STOP=1 -d "$DB" -f "$E2E_EXTRA_SQL" >/dev/null
 psql -X -q -d "$DB" -v ON_ERROR_STOP=1 <<SQL
 do \$\$ begin
   if not exists (select 1 from pg_roles where rolname = 'authenticator') then
@@ -120,7 +122,8 @@ wait_for "http://localhost:$APP_PORT/platform/login" "the app"
 echo "== browser tests"
 cd tests/e2e
 status=0
-for spec in *.e2e.mjs; do
+# E2E_SPECS picks other specs (paths from tests/e2e), e.g. timing.perf.mjs
+for spec in ${E2E_SPECS:-*.e2e.mjs}; do
   echo "-- $spec"
   PGDATABASE="$DB" APP_URL="http://localhost:$APP_PORT" node "$spec" || status=1
 done

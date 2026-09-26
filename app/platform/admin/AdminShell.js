@@ -75,7 +75,7 @@ export function AdminCountsProvider({ children }) {
   const pathname = usePathname();
   const [counts, setCounts] = useState({});
   const refresh = useCallback(() => {
-    adminOverview().then(setCounts).catch(() => {});
+    adminOverview({ fresh: true }).then(setCounts).catch(() => {});
     window.dispatchEvent(new Event(ADMIN_COUNTS_EVENT));
   }, []);
   useEffect(() => {

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import AdminShell, { useAdminCounts } from "./AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted } from "./ui";
 import { useAuth } from "../AuthContext";
-import { adminDashboard, adminRecentActivity, adminListAccounts } from "../../../lib/platform/db";
+import { adminDashboard, adminRecentActivity, adminListAccounts, adminInvisibleProfilesCount } from "../../../lib/platform/db";
 import { timeAgo, formatDate, formatMoney } from "../../../lib/platform/notifications";
 import { labelForRole } from "../../../lib/platform/roles";
 import { fontSans, radius } from "../../../lib/platform/theme";
@@ -1353,7 +1353,9 @@ function Activity({ activity }) {
 }
 
 export default function AdminOverview() {
-  const counts = useAdminCounts();
+  const menuCounts = useAdminCounts();
+  const [invisible, setInvisible] = useState(0);
+  const counts = { ...menuCounts, profiles_invisible: invisible };
   const { userRow } = useAuth();
   const [dash, setDash] = useState(null);
   const [activity, setActivity] = useState([]);
@@ -1370,6 +1372,9 @@ export default function AdminOverview() {
         .catch(() => setError(true));
       adminRecentActivity(18)
         .then(setActivity)
+        .catch(() => {});
+      adminInvisibleProfilesCount()
+        .then(setInvisible)
         .catch(() => {});
     };
     load();
