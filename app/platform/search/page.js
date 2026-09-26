@@ -925,6 +925,10 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
               <p style={{ fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
                 Την αμοιβή του επαγγελματία την κανονίζεις απευθείας μαζί του.
               </p>
+              <p style={{ fontSize: 12.5, margin: "6px 0 0", lineHeight: 1.5 }}>
+                Αν δεν το αναλάβει κανείς, το τέλος επιστρέφεται. Αν ο επαγγελματίας ακυρώσει αργότερα,
+                ψάχνουμε αντικαταστάτη χωρίς να ξαναπληρώσεις· αν δεν βρεθεί, το τέλος επιστρέφεται.
+              </p>
             </div>
 
             {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}
