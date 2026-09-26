@@ -187,5 +187,4 @@ select pg_temp.check('ο πελάτης ειδοποιήθηκε (2 υποθέσ
 select pg_temp.check('κανένα ταξίδι με 2 επιβεβαιωμένους', not exists (
   select trip_root_id from bookings where status in ('confirmed', 'completed') group by trip_root_id having count(*) > 1));
 select pg_temp.check('κάθε πορτοφόλι συμφωνεί με τις κινήσεις του', not exists (
-  select 1 from users u where u.wallet_balance <> 100 + coalesce((select sum(amount) from wallet_transactions w where w.user_id = u.id), 0)
-    and u.id::text like 'a0000000%' and u.role <> 'admin'));
+  select 1 from users u where u.wallet_balance <> coalesce((select sum(amount) from wallet_transactions w where w.user_id = u.id), 0)));

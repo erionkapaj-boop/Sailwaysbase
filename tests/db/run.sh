@@ -12,7 +12,8 @@
 # Steps, each of which fails the run on any error:
 #   1. build  — all migrations apply cleanly to an empty database
 #   2. reapply — the newest migrations can be pasted a second time safely
-#   3. tests  — each tests/db/*.test.sql runs in its own fresh copy
+#   3. tests  — each tests/db/*.test.sql runs in its own fresh copy, after
+#               which every wallet must still equal the sum of its ledger
 #   4. race   — two clients picking a replacement at the same instant
 set -uo pipefail
 cd "$(dirname "$0")/../.."
@@ -63,6 +64,11 @@ for t in tests/db/*.test.sql; do
   pass=$(grep -c '^ok ' <<<"$out")
   fail=$(grep -c '^FAIL' <<<"$out")
   errs=$(grep -c 'ERROR' <<<"$out")
+  # Whatever the test did, every wallet must still add up.
+  wallet=$(psql -X -At -d "$db" -f tests/db/wallet_check.sql 2>&1 | grep -v '^— σύνολο')
+  if [ -n "$wallet" ]; then
+    fail=$((fail + 1)); out="$out"$'\n'"FAIL wallets do not add up after the test:"$'\n'"$wallet"
+  fi
   if [ "$fail" -eq 0 ] && [ "$errs" -eq 0 ] && [ "$pass" -gt 0 ]; then
     green "ok   $name: $pass checks passed"
   else

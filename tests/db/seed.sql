@@ -42,3 +42,13 @@ insert into users (id, role, phone_number, full_name, status, phone_verified_at,
 insert into skipper_profiles (id,user_id,role,full_name,price_per_day,approval_status,years_experience) values ('b0000000-0000-0000-0000-000000000009','a0000000-0000-0000-0000-000000000009','skipper','Ιόνιος Κέρκυρα',250,'approved',3);
 with w as (insert into availability_windows (skipper_id,start_date,end_date) values ('b0000000-0000-0000-0000-000000000009', current_date, current_date+60) returning id) insert into availability_window_regions select w.id, r.id from w, regions r where r.name='Ιόνιο';
 insert into skipper_boat_types (skipper_id, boat_type_id) select 'b0000000-0000-0000-0000-000000000009', id from boat_types where name='Ιστιοπλοϊκό';
+
+-- The balances above were set directly; record them as deposits so every
+-- balance equals the sum of its ledger, as in production. tests/db/run.sh
+-- checks that this still holds after every test (tests/db/wallet_check.sql).
+alter table wallet_transactions disable trigger trg_notify_wallet_movement;
+insert into wallet_transactions (user_id, type, amount)
+select u.id, 'deposit', u.wallet_balance - coalesce((select sum(amount) from wallet_transactions t where t.user_id = u.id), 0)
+  from users u
+ where u.wallet_balance <> coalesce((select sum(amount) from wallet_transactions t where t.user_id = u.id), 0);
+alter table wallet_transactions enable trigger trg_notify_wallet_movement;
