@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
+import { emailConfig, sendEmail } from "../../../../../lib/platform/email";
 
 const CODE_TTL_MINUTES = 15;
 const MAX_CODES_PER_HOUR = 3;
@@ -8,30 +9,16 @@ function hashCode(code) {
   return crypto.createHash("sha256").update(code).digest("hex");
 }
 
-// Email delivery goes through Resend's HTTP API — the only provider-specific
-// part of the flow. Both variables unset (today's state) means the channel is
-// off: the forgot-PIN page asks GET below and simply doesn't offer email.
-function emailConfig() {
-  const key = process.env.PLATFORM_EMAIL_API_KEY;
-  const from = process.env.PLATFORM_EMAIL_FROM;
-  return key && from ? { key, from } : null;
-}
-
-async function sendCodeEmail({ key, from }, to, code) {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject: "Κωδικός επαναφοράς",
-      text:
-        `Ο κωδικός επαναφοράς σου είναι: ${code}\n\n` +
-        `Ισχύει για ${CODE_TTL_MINUTES} λεπτά. Αν δεν τον ζήτησες εσύ, αγνόησε αυτό το μήνυμα — ` +
-        `ο κωδικός σου δεν αλλάζει χωρίς αυτόν.`,
-    }),
+async function sendCodeEmail(config, to, code) {
+  const status = await sendEmail(config, {
+    to,
+    subject: "Κωδικός επαναφοράς",
+    text:
+      `Ο κωδικός επαναφοράς σου είναι: ${code}\n\n` +
+      `Ισχύει για ${CODE_TTL_MINUTES} λεπτά. Αν δεν τον ζήτησες εσύ, αγνόησε αυτό το μήνυμα — ` +
+      `ο κωδικός σου δεν αλλάζει χωρίς αυτόν.`,
   });
-  return res.ok;
+  return status >= 200 && status < 300;
 }
 
 export async function GET() {

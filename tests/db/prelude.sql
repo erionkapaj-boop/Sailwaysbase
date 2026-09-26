@@ -36,3 +36,8 @@ create function storage.foldername(name text) returns text[] language sql as $$ 
 grant usage on schema auth, storage to anon, authenticated, service_role;
 grant execute on all functions in schema auth to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
+-- Supabase's own defaults: service_role (the server's key) may use everything
+-- in public. Migrations only ever grant to anon/authenticated themselves.
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant all on sequences to service_role;
+alter default privileges in schema public grant execute on functions to service_role;

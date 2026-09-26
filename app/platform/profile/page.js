@@ -25,6 +25,8 @@ import {
   signOut,
   becomeProfessional,
   changeMyPhone,
+  changeMyEmail,
+  setMyEmailNotifications,
   normalizePhone,
 } from "../../../lib/platform/db";
 import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
@@ -495,6 +497,107 @@ const PHONE_ERRORS = {
   account_not_active: "Ο λογαριασμός σου δεν είναι ενεργός αυτή τη στιγμή.",
 };
 
+const EMAIL_ERRORS = {
+  invalid_email: "Το email δεν φαίνεται σωστό.",
+  wrong_pin: "Ο κωδικός δεν είναι σωστός.",
+  locked_out: "Πολλές λάθος προσπάθειες. Δοκίμασε ξανά σε λίγα λεπτά.",
+  account_not_active: "Ο λογαριασμός σου δεν είναι ενεργός αυτή τη στιγμή.",
+};
+
+// Το email κάνει δύο δουλειές: εκεί φτάνουν οι ειδοποιήσεις όταν δεν έχεις
+// ανοιχτή την εφαρμογή, κι εκεί έρχεται ο κωδικός αν ξεχάσεις το PIN — γι'
+// αυτό αλλάζει μόνο με τον κωδικό, όπως το τηλέφωνο.
+function EmailSettings() {
+  const { userRow, refresh } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [pin, setPinValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const on = userRow?.email_notifications !== false;
+
+  function close() {
+    setOpen(false);
+    setEmail("");
+    setPinValue("");
+    setError("");
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      await changeMyEmail(email, pin);
+      await refresh();
+      close();
+      setNotice(email.trim() ? "Το email σου άλλαξε." : "Το email σου αφαιρέθηκε.");
+    } catch (err) {
+      setError(EMAIL_ERRORS[err.message] || friendlyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggle() {
+    setError("");
+    try {
+      await setMyEmailNotifications(!on);
+      await refresh();
+    } catch (err) {
+      setError(friendlyError(err));
+    }
+  }
+
+  const row = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" };
+  return (
+    <div style={card}>
+      <h2 style={{ ...h2, fontSize: 17 }}>Email &amp; ειδοποιήσεις</h2>
+      {notice && <p style={{ color: colors.success, fontSize: 13.5, margin: "0 0 12px" }}>{notice}</p>}
+
+      <div style={row}>
+        <div>
+          <div style={{ ...muted, fontSize: 13 }}>Email</div>
+          <div style={{ fontSize: 15, marginTop: 2 }}>{userRow?.email || "Δεν έχεις δηλώσει email"}</div>
+        </div>
+        {!open && (
+          <button type="button" style={button("secondary")} onClick={() => { setOpen(true); setNotice(""); setEmail(userRow?.email || ""); }}>
+            {userRow?.email ? "Αλλαγή" : "Προσθήκη"}
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
+          <label style={label} htmlFor="new-email">Email</label>
+          <input id="new-email" type="email" inputMode="email" autoComplete="email" style={{ ...input, marginBottom: 14 }} value={email} onChange={(e) => setEmail(e.target.value)} />
+          <label style={label} htmlFor="email-pin">Ο τωρινός σου κωδικός</label>
+          <input id="email-pin" required type="password" autoComplete="current-password" style={{ ...input, marginBottom: 16 }} value={pin} onChange={(e) => setPinValue(e.target.value)} />
+          {error && <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 12px" }}>{error}</p>}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button type="submit" disabled={busy} style={button("primary")}>{busy ? "…" : "Αποθήκευση email"}</button>
+            <button type="button" disabled={busy} onClick={close} style={button("secondary")}>Άκυρο</button>
+          </div>
+        </form>
+      )}
+
+      <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 18, paddingTop: 16, borderTop: `1px solid ${colors.border}`, cursor: userRow?.email ? "pointer" : "default" }}>
+        <input type="checkbox" checked={on && Boolean(userRow?.email)} disabled={!userRow?.email} onChange={toggle} style={{ marginTop: 3 }} />
+        <span>
+          <span style={{ fontSize: 15 }}>Ειδοποιήσεις με email</span>
+          <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 2, lineHeight: 1.5 }}>
+            {userRow?.email
+              ? "Νέα αιτήματα, προτάσεις, ακυρώσεις και προθεσμίες, όταν δεν τα έχεις ήδη δει στην εφαρμογή."
+              : "Πρόσθεσε email για να λαμβάνεις ειδοποιήσεις όταν δεν έχεις ανοιχτή την εφαρμογή."}
+          </span>
+        </span>
+      </label>
+      {!open && error && <p style={{ color: colors.danger, fontSize: 13, margin: "12px 0 0" }}>{error}</p>}
+    </div>
+  );
+}
+
 // Τηλέφωνο σύνδεσης και κωδικός μαζί: είναι τα δύο πράγματα με τα οποία
 // μπαίνει κανείς, και ήταν πριν διάσπαρτα (το τηλέφωνο «δεν αλλάζει εδώ», ο
 // κωδικός ένα μικρό link δίπλα στη διαγραφή λογαριασμού).
@@ -826,6 +929,7 @@ function ClientIdentityProfile({ role }) {
       </div>
 
       <AccountAccess />
+      <EmailSettings />
 
       <p style={{ ...muted, fontSize: 12.5, marginTop: 4, color: colors.inkSoft }}>
         Το ονοματεπώνυμο έρχεται από την εγγραφή σου. Αν χρειάζεται διόρθωση, επικοινώνησε μαζί μας.
@@ -873,6 +977,7 @@ export default function ProfilePage() {
       <DeliveryAvailability profile={profile} />
       <SecondaryRoles profile={profile} />
       <AccountAccess />
+      <EmailSettings />
       <DeleteAccount />
     </div>
   );

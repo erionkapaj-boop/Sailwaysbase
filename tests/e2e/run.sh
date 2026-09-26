@@ -28,7 +28,10 @@ AUTH_PASSWORD="e2e-authenticator"
 pids=()
 
 cleanup() {
-  for p in "${pids[@]}"; do kill "$p" 2>/dev/null || true; done
+  # Each server runs in its own process group (setsid), so this also stops
+  # the children they start — `next start` hands off to a next-server child
+  # that would otherwise keep the port for the next run.
+  for p in "${pids[@]}"; do kill -- "-$p" 2>/dev/null || kill "$p" 2>/dev/null || true; done
   dropdb --if-exists "$DB" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -41,6 +44,15 @@ wait_for() { # wait_for <url> <what>
   echo "timed out waiting for $2" >&2
   exit 1
 }
+
+# A server left over from an earlier run would answer instead of this one,
+# with that run's settings — refuse rather than test the wrong thing.
+for port in "$APP_PORT" "$GATEWAY_PORT" "$POSTGREST_PORT"; do
+  if curl -s -o /dev/null "http://127.0.0.1:$port/"; then
+    echo "port $port is already in use (a leftover server from an earlier run?)" >&2
+    exit 1
+  fi
+done
 
 echo "== database"
 bash tests/db/build.sh "$DB"
@@ -73,13 +85,13 @@ db-anon-role = "anon"
 jwt-secret = "$JWT_SECRET"
 server-port = $POSTGREST_PORT
 CONF
-"$POSTGREST_BIN" "$OUT/postgrest.conf" > "$OUT/postgrest.log" 2>&1 &
+setsid "$POSTGREST_BIN" "$OUT/postgrest.conf" > "$OUT/postgrest.log" 2>&1 &
 pids+=($!)
 wait_for "http://127.0.0.1:$POSTGREST_PORT/" "PostgREST"
 
 echo "== gateway"
 PGDATABASE="$DB" GATEWAY_PORT=$GATEWAY_PORT POSTGREST_URL="http://127.0.0.1:$POSTGREST_PORT" \
-  node tests/e2e/gateway.mjs > "$OUT/gateway.log" 2>&1 &
+  setsid node tests/e2e/gateway.mjs > "$OUT/gateway.log" 2>&1 &
 pids+=($!)
 wait_for "http://127.0.0.1:$GATEWAY_PORT/rest/v1/regions" "gateway"
 
@@ -87,12 +99,20 @@ echo "== app"
 ANON_KEY=$(node -e "import('./tests/e2e/gateway.mjs').then(m => console.log(m.sign({ role: 'anon', exp: 2000000000 })))")
 export NEXT_PUBLIC_PLATFORM_SUPABASE_URL="http://localhost:$GATEWAY_PORT"
 export NEXT_PUBLIC_PLATFORM_SUPABASE_ANON_KEY="$ANON_KEY"
-export PLATFORM_SUPABASE_SERVICE_ROLE_KEY="not-used-in-e2e"
+# Server routes (change-email, notify-email) talk to the database as
+# service_role, through the gateway like the browser does.
+export PLATFORM_SUPABASE_SERVICE_ROLE_KEY=$(node -e "import('./tests/e2e/gateway.mjs').then(m => console.log(m.sign({ role: 'service_role', exp: 2000000000 })))")
+# Email goes to tests/e2e/email.e2e.mjs's stand-in for Resend, never out.
+export PLATFORM_EMAIL_API_KEY="e2e"
+export PLATFORM_EMAIL_FROM="Sailways <noreply@example.com>"
+export PLATFORM_EMAIL_API_URL="http://127.0.0.1:${EMAIL_CAPTURE_PORT:-54392}/emails"
+export EMAIL_CAPTURE_PORT="${EMAIL_CAPTURE_PORT:-54392}"
+export CRON_SECRET="e2e-cron-secret"
 if [ -n "${E2E_DEV:-}" ]; then
-  npx next dev -p "$APP_PORT" > "$OUT/app.log" 2>&1 &
+  setsid npx next dev -p "$APP_PORT" > "$OUT/app.log" 2>&1 &
 else
   npm run build > "$OUT/build.log" 2>&1 || { tail -30 "$OUT/build.log"; exit 1; }
-  npx next start -p "$APP_PORT" > "$OUT/app.log" 2>&1 &
+  setsid npx next start -p "$APP_PORT" > "$OUT/app.log" 2>&1 &
 fi
 pids+=($!)
 wait_for "http://localhost:$APP_PORT/platform/login" "the app"
