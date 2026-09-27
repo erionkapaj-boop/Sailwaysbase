@@ -491,7 +491,7 @@
 6e9975f	περιορισμός	booking_request_pings.booking_request_pings_skipper_id_fkey	5e8aef
 6e99bb3	στήλη	booking_request_pings.sent_at	e99486
 6ebc27c	trigger	wallet_transactions.aa_block_inactive_caller	ad7831
-6f08b2b	συνάρτηση	validate_professional_fields()	b800dc
+6f08b2b	συνάρτηση	validate_professional_fields()	1d1d4f
 7094503	στήλη	booking_requests.client_decide_by	78a481
 70b9203	trigger	delivery_bookings.zz_guard_same_world	966f48
 7179420	κανόνας RLS	skipper_secondary_roles.secondary role owner insert	94f524
@@ -815,7 +815,7 @@ c9d64a9	ευρετήριο	booking_requests_client_idx	255bad
 c9e2d8d	ευρετήριο	email_reset_codes_pkey	2bfdda
 c9e9c71	στήλη	delivery_bookings.covers_travel	3e6e00
 ca3ccdc	συνάρτηση	guard_users_privileged_columns()	0c8874
-ca6e22f	συνάρτηση	guard_secondary_role()	76d907
+ca6e22f	συνάρτηση	guard_secondary_role()	c3bce2
 ca78247	περιορισμός	reviews.reviews_rating_cooking_check	b5307a
 caaa54c	στήλη	skipper_secondary_roles.role	ebe0f7
 cab7b98	περιορισμός	nationalities.nationalities_name_key	6cd240
