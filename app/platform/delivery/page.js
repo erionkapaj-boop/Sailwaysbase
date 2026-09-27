@@ -42,7 +42,7 @@ const ROLE_ERRORS = {
   invalid_price: "Μη έγκυρη τιμή.",
   no_candidates_selected: "Επίλεξε τουλάχιστον έναν υποψήφιο.",
   invalid_candidate_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος για μεταφορές.",
-  insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο wallet για αυτή τη χρέωση.",
+  insufficient_wallet: "Το υπόλοιπό σου δεν επαρκεί για αυτή τη χρέωση.",
   not_owner: "Δεν έχεις πρόσβαση σε αυτό το αίτημα.",
 };
 

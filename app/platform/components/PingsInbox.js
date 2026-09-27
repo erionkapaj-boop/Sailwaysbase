@@ -26,7 +26,7 @@ const CLAIM_ERRORS = {
   skipper_not_eligible: "Το προφίλ σου δεν είναι εγκεκριμένο.",
   request_expired: "Η πρόταση έληξε.",
   already_covered: "Η δουλειά καλύφθηκε ήδη από κάποιον άλλον.",
-  not_a_replacement_offer: "Κάτι δεν πάει καλά με αυτή την πρόταση. Ξαναφόρτωσε τη σελίδα.",
+  not_a_replacement_offer: "Η πρόταση δεν είναι πλέον διαθέσιμη.",
   not_a_candidate: "Δεν είσαι πια υποψήφιος σε αυτή την πρόταση.",
 };
 
@@ -35,7 +35,7 @@ const CLAIM_ERRORS = {
 // σε πολλούς.
 const OFFER_LABEL = {
   admin_direct: "Πρόταση από τη διαχείριση",
-  admin_replacement: "Αντικατάσταση: ο πελάτης έμεινε χωρίς πλήρωμα",
+  admin_replacement: "Αντικατάσταση",
 };
 
 export default function PingsInbox({ skipperId }) {
@@ -303,7 +303,7 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
               {busy ? "..." : isReplacement ? "Δήλωση ενδιαφέροντος" : "Διεκδίκηση"}
             </button>
             <button style={button("secondary")} disabled={busy} onClick={onDecline}>
-              Δεν με ενδιαφέρει
+              Απόρριψη
             </button>
           </div>
         )}

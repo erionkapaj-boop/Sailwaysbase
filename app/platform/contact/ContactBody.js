@@ -76,7 +76,7 @@ export default function ContactBody() {
       setSent(true);
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
-      setError(ERRORS[code] || "Κάτι πήγε στραβά. Δοκίμασε ξανά σε λίγο.");
+      setError(ERRORS[code] || "Η αποστολή δεν ολοκληρώθηκε. Δοκίμασε ξανά.");
     } finally {
       setBusy(false);
     }

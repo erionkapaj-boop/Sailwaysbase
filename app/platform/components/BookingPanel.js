@@ -134,7 +134,7 @@ export default function BookingPanel({
     }
     if (
       !(await confirm(
-        "Ακύρωση της κράτησης; Το ποσό που πλήρωσες δεν επιστρέφεται και η ακύρωση καταγράφεται στο ιστορικό σου."
+        "Ακύρωση της κράτησης; Το ποσό που πλήρωσες δεν επιστρέφεται."
       ))
     )
       return;
@@ -153,7 +153,7 @@ export default function BookingPanel({
   async function handleNoResponse() {
     if (
       !(await confirm(
-        "Ακύρωση λόγω μη απάντησης; Η ακύρωση καταγράφεται στον επαγγελματία. Το τέλος του αιτήματος δεν επιστρέφεται."
+        "Ακύρωση λόγω μη απάντησης; Το τέλος του αιτήματος δεν επιστρέφεται."
       ))
     )
       return;
@@ -457,7 +457,7 @@ export default function BookingPanel({
           ) : (
             <>
               Απάντησε στον πελάτη εδώ μέχρι <b style={{ fontWeight: 600 }}>{formatDateTime(responseState.deadline)}</b>.
-              Αν δεν απαντήσεις, μπορεί να ακυρώσει και η ακύρωση μετράει σε σένα.
+              
             </>
           )}
         </div>

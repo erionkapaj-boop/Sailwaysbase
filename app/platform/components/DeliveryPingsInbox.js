@@ -126,7 +126,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
                 {busyId === role_request.id ? "..." : "Αποδοχή"}
               </button>
               <button style={button("secondary")} disabled={busyId === role_request.id} onClick={() => handleDecline(role_request.id)}>
-                Δεν με ενδιαφέρει
+                Απόρριψη
               </button>
             </div>
           </div>

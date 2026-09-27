@@ -104,7 +104,7 @@ for (const phone of [GIORGOS, KOSTAS, ELENI]) {
 }
 await as(PETROS, async (page) => {
   await go(page, "/platform/requests");
-  await click(page, "Δεν με ενδιαφέρει");
+  await click(page, "Απόρριψη");
   await page.waitForTimeout(2000);
 });
 await as(ELENI, async (page) => {

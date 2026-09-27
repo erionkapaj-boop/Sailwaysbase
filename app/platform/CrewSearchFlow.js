@@ -293,7 +293,7 @@ export default function CrewSearchFlow() {
             ))}
             {lookups.regions.length === 0 && lookupsError && (
               <div>
-                <p style={{ ...muted, color: colors.danger }}>Κάτι πήγε στραβά κατά τη φόρτωση των περιοχών.</p>
+                <p style={{ ...muted, color: colors.danger }}>Οι περιοχές δεν φορτώθηκαν.</p>
                 <button type="button" style={chip(false)} onClick={() => setLookupsAttempt((n) => n + 1)}>
                   Δοκίμασε ξανά
                 </button>
@@ -390,7 +390,7 @@ export default function CrewSearchFlow() {
           ))}
           {lookups.boatTypes.length === 0 && lookupsError && (
             <div>
-              <p style={{ ...muted, color: colors.danger }}>Κάτι πήγε στραβά κατά τη φόρτωση των τύπων σκάφους.</p>
+              <p style={{ ...muted, color: colors.danger }}>Οι τύποι σκάφους δεν φορτώθηκαν.</p>
               <button type="button" style={chip(false)} onClick={() => setLookupsAttempt((n) => n + 1)}>
                 Δοκίμασε ξανά
               </button>

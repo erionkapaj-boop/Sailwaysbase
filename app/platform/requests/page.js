@@ -98,7 +98,7 @@ export default function RequestsPage() {
           {profile?.approval_status === "rejected" && (
             <div style={{ ...card, borderLeft: `3px solid ${colors.danger}` }}>
               <b style={{ fontWeight: 600 }}>Το προφίλ σου απορρίφθηκε.</b>
-              <p style={{ ...muted, margin: "6px 0 0" }}>Ενημέρωσε τα στοιχεία σου και επικοινώνησε με τον admin.</p>
+              <p style={{ ...muted, margin: "6px 0 0" }}>Για πληροφορίες, επικοινώνησε μαζί μας.</p>
             </div>
           )}
           {profile?.approval_status === "approved" && (
