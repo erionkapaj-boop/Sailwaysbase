@@ -13,6 +13,7 @@ const start = daysFromToday(15), end = daysFromToday(18);
 const step = (s) => console.log(`\n== ${s}`);
 
 const maria0 = wallet("Μαρία Πελάτη");
+const claims0 = num(`select count(*) from wallet_transactions where type = 'claim_fee'`);
 
 step("1. Η πελάτισσα ψάχνει και στέλνει αίτημα στον Νίκο");
 await as(MARIA, async (page) => {
@@ -113,7 +114,7 @@ await as(ELENI, async (page) => {
   await page.waitForTimeout(2500);
   check("μετά την ανάκληση δεν μένει τίποτα εκκρεμές", (await text(page)).includes("Δεν υπάρχουν εκκρεμή αιτήματα"));
 });
-check("κανείς υποψήφιος δεν χρεώθηκε για δήλωση ενδιαφέροντος", num(`select count(*) from wallet_transactions where type = 'claim_fee'`) === 1);
+check("κανείς υποψήφιος δεν χρεώθηκε για δήλωση ενδιαφέροντος", num(`select count(*) from wallet_transactions where type = 'claim_fee'`) === claims0 + 1);
 
 step("7. Ο admin παρακολουθεί");
 await as(ADMIN, async (page) => {

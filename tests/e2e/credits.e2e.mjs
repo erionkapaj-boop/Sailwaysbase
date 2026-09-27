@@ -56,6 +56,11 @@ async function searchAndPick(page, from, to, price) {
   await page.waitForTimeout(500);
 }
 
+// Η κατάσταση πριν το σενάριο, για να επανέλθει στο τέλος: τα επόμενα
+// σενάρια (π.χ. αντικατάσταση) περιμένουν καθαρή βάση.
+sql(`drop table if exists e2e_credits_start;
+     create table e2e_credits_start as select id, wallet_balance, now() as t0 from users`);
+
 const maria0 = wallet("Μαρία Πελάτη");
 const nikos0 = wallet("Νίκος Αρχικός");
 
@@ -296,5 +301,45 @@ check("κανένα υπόλοιπο εκτός ισοζυγίου",
          coalesce((select sum(amount) from wallet_transactions t where t.user_id = u.id and t.unit = 'credit'), 0)`) === 0);
 check("κανένα αρνητικό υπόλοιπο", num(`select count(*) from users where wallet_balance < 0`) === 0);
 check("όλα ακέραια credits", num(`select count(*) from wallet_transactions where unit = 'credit' and amount <> round(amount)`) === 0);
+
+// ---------------------------------------------------------------------------
+// Επαναφορά: ό,τι δημιούργησε το σενάριο σβήνεται, τα υπόλοιπα γυρνούν με
+// κίνηση διόρθωσης (το ισοζύγιο μένει σωστό), οι ρυθμίσεις στις αρχικές.
+sql(`
+set session_replication_role = replica;
+with t as (select min(t0) as t0 from e2e_credits_start)
+update wallet_transactions set related_booking_request_id = null, related_booking_id = null,
+       related_delivery_role_request_id = null, related_delivery_booking_id = null
+ where created_at >= (select t0 from t);
+delete from messages where booking_id in (select id from bookings where created_at >= (select min(t0) from e2e_credits_start));
+delete from notifications where created_at >= (select min(t0) from e2e_credits_start);
+delete from bookings where created_at >= (select min(t0) from e2e_credits_start);
+delete from booking_request_pings where booking_request_id in (select id from booking_requests where created_at >= (select min(t0) from e2e_credits_start));
+delete from booking_requests where created_at >= (select min(t0) from e2e_credits_start);
+delete from delivery_bookings where created_at >= (select min(t0) from e2e_credits_start);
+delete from delivery_role_pings where delivery_role_request_id in (select id from delivery_role_requests where created_at >= (select min(t0) from e2e_credits_start));
+delete from delivery_role_requests where created_at >= (select min(t0) from e2e_credits_start);
+delete from delivery_requests where created_at >= (select min(t0) from e2e_credits_start);
+delete from delivery_availability_windows where skipper_id = 'b0000000-0000-0000-0000-000000000004';
+delete from wallet_transactions where user_id::text like 'c3000000%';
+delete from users where id::text like 'c3000000%';
+delete from auth.users where id::text like 'c3000000%';
+set session_replication_role = origin;
+select set_config('platform.trusted', 'true', false);
+insert into wallet_transactions (user_id, type, amount, note)
+  select u.id, 'adjustment', s.wallet_balance - u.wallet_balance, 'Επαναφορά δοκιμής'
+    from users u join e2e_credits_start s on s.id = u.id where u.wallet_balance <> s.wallet_balance;
+update users u set wallet_balance = s.wallet_balance from e2e_credits_start s
+ where s.id = u.id and u.wallet_balance <> s.wallet_balance;
+delete from notifications where created_at >= (select min(t0) from e2e_credits_start);
+update platform_settings set value = 0 where key = 'signup_credits_client';
+update platform_settings set value = 90 where key = 'package_starter_price';
+update platform_settings set value = 1 where key = 'client_request_fee';
+drop table e2e_credits_start;
+`);
+check("επαναφορά: καμία κράτηση ή αίτημα από το σενάριο", num(`select count(*) from bookings`) === 0 && num(`select count(*) from booking_requests`) === 0);
+check("επαναφορά: ισοζύγιο σωστό",
+  num(`select count(*) from users u where u.wallet_balance <>
+         coalesce((select sum(amount) from wallet_transactions t where t.user_id = u.id and t.unit = 'credit'), 0)`) === 0);
 
 finish();
