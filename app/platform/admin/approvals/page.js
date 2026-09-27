@@ -310,7 +310,7 @@ export default function PendingPage() {
                   {p.role === "skipper" ? `Επαγγελματίας${p.crew_role ? ` · ${labelForRole(p.crew_role)}` : ""}` : "Πελάτης"}
                 </div>
                 <input
-                  placeholder="Λόγος αφαίρεσης (τον βλέπει ο χρήστης)"
+                  placeholder="Εσωτερική σημείωση (δεν τη βλέπει ο χρήστης)"
                   value={notes[key] || ""}
                   onChange={(e) => setNotes((n) => ({ ...n, [key]: e.target.value }))}
                   style={{ ...noteInput, marginTop: 8 }}

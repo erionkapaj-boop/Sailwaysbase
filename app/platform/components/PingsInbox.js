@@ -290,8 +290,8 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
               {r.client_decide_by && <> (έως {formatDateTime(r.client_decide_by)})</>}.
             </p>
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 8px", lineHeight: 1.5 }}>
-              Δεν έχεις χρεωθεί και δεν δεσμεύεσαι: μπορείς να αναλάβεις άλλη δουλειά. Αν κλειστείς αλλού τις ίδιες
-              μέρες, η υποψηφιότητά σου εδώ αποσύρεται αυτόματα.
+              Χωρίς χρέωση μέχρι την επιλογή. Αν κλειστείς αλλού τις ίδιες μέρες, η υποψηφιότητά σου αποσύρεται
+              αυτόματα.
             </p>
             <button style={button("secondary")} disabled={busy} onClick={onWithdraw}>
               {busy ? "..." : "Ανάκληση διαθεσιμότητας"}

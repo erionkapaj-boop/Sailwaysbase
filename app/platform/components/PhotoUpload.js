@@ -146,8 +146,7 @@ export default function PhotoUpload({ value, onUploaded }) {
           {busy ? "Ανέβασμα…" : shown ? "Αλλαγή φωτογραφίας" : "Ανέβασμα φωτογραφίας"}
         </button>
         <p style={{ ...muted, fontSize: 12, margin: "8px 0 0", maxWidth: 320, lineHeight: 1.45 }}>
-          Προσαρμόζεται αυτόματα. Χωρίς τηλέφωνο, email, social ή άλλα στοιχεία επικοινωνίας πάνω της — κάθε
-          φωτογραφία ελέγχεται από την ομάδα μας.
+          Προσαρμόζεται αυτόματα.
         </p>
         {error && <p style={{ color: colors.danger, fontSize: 13, margin: "6px 0 0" }}>{error}</p>}
       </div>

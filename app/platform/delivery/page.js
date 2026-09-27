@@ -288,7 +288,7 @@ function RoleBlock({
       {awaitingVerification ? (
         <div style={{ padding: "12px 14px", border: `1px solid ${colors.warn}`, background: "#F7F0E2", borderRadius: radius.md, fontSize: 13.5, lineHeight: 1.5 }}>
           <b style={{ display: "block", fontSize: 14, marginBottom: 4 }}>Ο λογαριασμός σου ελέγχεται</b>
-          Συνήθως ολοκληρώνεται μέσα στην ημέρα. Η φόρμα σου κρατήθηκε και δεν έχεις χρεωθεί.
+          Η φόρμα σου κρατήθηκε.
         </div>
       ) : (
         <button style={button("primary")} disabled={busy || !candidates?.length} onClick={handleSend}>
@@ -490,7 +490,7 @@ function DeliveryForm({ onCreated }) {
         onChange={(e) => setNotes(e.target.value)}
       />
       <p style={{ ...muted, fontSize: 12, margin: "0 0 14px" }}>
-        Χωρίς τηλέφωνο ή email. Τα στοιχεία σας ανταλλάσσονται μετά την επιβεβαίωση.
+        Τα βλέπει ο υποψήφιος πριν αποφασίσει.
       </p>
 
       {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}

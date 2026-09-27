@@ -273,12 +273,11 @@ function VerificationGate({ children }) {
       <div style={{ ...card, marginTop: 20, textAlign: "center" }}>
         <h1 style={{ ...h1, fontSize: 20 }}>Ο λογαριασμός σου ελέγχεται</h1>
         <p style={{ ...muted, margin: "10px 0 0", lineHeight: 1.55 }}>
-          Ελέγχουμε κάθε νέα εγγραφή, συνήθως μέσα στην ημέρα.
-          Δεν χρειάζεται να κάνεις τίποτα άλλο.
+          Η εγγραφή σου είναι σε έλεγχο.
         </p>
         <p style={{ ...muted, margin: "10px 0 0", lineHeight: 1.55 }}>
           Μέχρι τότε μπορείς να ψάχνεις και να διαλέγεις επαγγελματίες· η αποστολή αιτήματος ενεργοποιείται μόλις
-          εγκριθεί ο λογαριασμός σου. Δεν έχεις χρεωθεί τίποτα.
+          εγκριθεί ο λογαριασμός σου.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
           <Link href={resume || "/platform"} style={{ ...button("primary"), textDecoration: "none" }}>
@@ -313,8 +312,7 @@ function PinChangeGate({ children }) {
       <div style={{ ...card, marginTop: 20, textAlign: "center" }}>
         <h1 style={{ ...h1, fontSize: 20 }}>Όρισε τον δικό σου κωδικό</h1>
         <p style={{ ...muted, margin: "10px 0 0", lineHeight: 1.55 }}>
-          Μπήκες με προσωρινό κωδικό από την ομάδα μας. Για την ασφάλειά σου, διάλεξε τώρα έναν δικό σου — τον
-          προσωρινό τον γνωρίζει και κάποιος άλλος.
+          Μπήκες με προσωρινό κωδικό. Όρισε τώρα τον δικό σου.
         </p>
         <Link
           href="/platform/set-pin?change=1&required=1"

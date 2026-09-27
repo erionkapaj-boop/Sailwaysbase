@@ -277,8 +277,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         )}
         {!hasBoatTypes && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
-            Διάλεξε τουλάχιστον έναν τύπο σκάφους παρακάτω. Οι πελάτες ψάχνουν πάντα για συγκεκριμένο
-            σκάφος, οπότε χωρίς αυτό δεν εμφανίζεσαι σε αναζητήσεις.
+            Διάλεξε τουλάχιστον έναν τύπο σκάφους παρακάτω για να εμφανίζεσαι σε αναζητήσεις.
           </p>
         )}
         {!hasAvailability && (
@@ -292,8 +291,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         )}
         {visible && !hasPhoto && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
-            Δεν έχεις φωτογραφία. Εμφανίζεσαι κανονικά, αλλά η κάρτα σου βγαίνει χωρίς πρόσωπο.
-            πρόσθεσε μία παρακάτω.
+            Δεν έχεις φωτογραφία προφίλ. Πρόσθεσε μία παρακάτω.
           </p>
         )}
       </div>
@@ -303,7 +301,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
           <span style={label}>Φωτογραφία</span>
           <PhotoUpload value={form.photo_url} onUploaded={(url) => setField("photo_url", url)} />
           {!form.photo_url && (
-            <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>Απαραίτητη για να εμφανίζεσαι στους πελάτες.</p>
+            <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>Εμφανίζεται στην κάρτα σου.</p>
           )}
         </div>
 

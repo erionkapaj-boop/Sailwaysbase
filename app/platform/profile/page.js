@@ -664,8 +664,7 @@ function AccountAccess() {
       {open && (
         <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
           <p style={{ ...muted, fontSize: 13, margin: "0 0 14px", lineHeight: 1.5 }}>
-            Από εδώ και πέρα θα συνδέεσαι με το νέο τηλέφωνο. Το παλιό μένει συνδεδεμένο με τον λογαριασμό σου και δεν
-            μπορεί να το χρησιμοποιήσει κανείς άλλος.
+            Από εδώ και πέρα θα συνδέεσαι με το νέο τηλέφωνο.
           </p>
           <label style={label} htmlFor="new-phone">Νέο τηλέφωνο</label>
           <input id="new-phone" required inputMode="tel" autoComplete="tel" placeholder="69XXXXXXXX" style={{ ...input, marginBottom: 14 }} value={phone} onChange={(e) => setPhone(e.target.value)} />

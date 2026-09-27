@@ -937,7 +937,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
               <div style={{ padding: "12px 14px", border: `1px solid ${colors.warn}`, background: "#F7F0E2", borderRadius: radius.md }}>
                 <b style={{ display: "block", fontSize: 14, marginBottom: 4 }}>Ο λογαριασμός σου ελέγχεται</b>
                 <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>
-                  Συνήθως ολοκληρώνεται μέσα στην ημέρα. Οι επιλογές σου κρατήθηκαν και δεν έχεις χρεωθεί.
+                  Οι επιλογές σου κρατήθηκαν.
                 </span>
               </div>
             ) : (
@@ -948,7 +948,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
             {!awaitingVerification && <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
               {session
                 ? "Με την αποστολή αποδέχεσαι τη χρέωση και τους"
-                : "Δεν χρεώνεσαι ακόμα. Οι επιλογές σου κρατιούνται μέχρι να συνδεθείς. Με την αποστολή αποδέχεσαι τη χρέωση και τους"}{" "}
+                : "Οι επιλογές σου κρατιούνται μέχρι να συνδεθείς. Με την αποστολή αποδέχεσαι τη χρέωση και τους"}{" "}
               <a
                 href="/platform/terms"
                 target="_blank"

@@ -149,7 +149,7 @@ export default function ProfileTab({ data, id, reload, confirm }) {
                 <input
                   value={photoReason}
                   onChange={(e) => setPhotoReason(e.target.value)}
-                  placeholder="Λόγος αφαίρεσης (προαιρετικό)"
+                  placeholder="Εσωτερική σημείωση (δεν τη βλέπει ο χρήστης)"
                   style={{ ...fieldInput, flex: "1 1 180px" }}
                 />
                 <button type="button" style={{ ...button("secondary"), flexShrink: 0 }} disabled={photoBusy} onClick={handleClearPhoto}>

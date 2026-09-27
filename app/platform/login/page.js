@@ -46,7 +46,7 @@ function LoginInner() {
       } else if (err.message === "account_deleted") {
         setError("Αυτός ο λογαριασμός έχει διαγραφεί. Για να τον ενεργοποιήσεις ξανά, επικοινώνησε μαζί μας.");
       } else if (err.message === "account_suspended") {
-        setError("Ο λογαριασμός αυτός είναι σε αναστολή. Επικοινώνησε μαζί μας αν νομίζεις ότι πρόκειται για λάθος.");
+        setError("Ο λογαριασμός είναι σε αναστολή.");
       } else {
         // Don't say whether the phone or the PIN was wrong — that would tell
         // an attacker which numbers have accounts.
@@ -72,7 +72,7 @@ function LoginInner() {
       <h1 style={{ ...h1, marginTop: 20 }}>Σύνδεση</h1>
       {fromSend && (
         <p style={muted}>
-          Για να σταλεί το αίτημά σου χρειάζεσαι λογαριασμό. Οι επιλογές σου κρατήθηκαν και δεν έχεις χρεωθεί τίποτα.
+          Για να σταλεί το αίτημά σου χρειάζεσαι λογαριασμό. Οι επιλογές σου κρατήθηκαν.
         </p>
       )}
 

@@ -19,10 +19,7 @@ export default function MissingProfile({ refresh, loadError, isAdmin = false }) 
         <h1 style={h1}>Πίνακας επαγγελματία</h1>
         <div style={{ ...card, borderColor: colors.danger }}>
           <b>Δεν ήταν δυνατή η φόρτωση του προφίλ σου.</b>
-          <p style={muted}>Σφάλμα από τη βάση δεδομένων:</p>
-          <p style={{ color: colors.danger, fontFamily: "monospace", fontSize: 13, wordBreak: "break-word" }}>
-            {loadError}
-          </p>
+          
           <button style={button("secondary")} onClick={refresh}>
             Δοκίμασε ξανά
           </button>
@@ -66,8 +63,7 @@ export default function MissingProfile({ refresh, loadError, isAdmin = false }) 
           <>
             <b>Δεν βρέθηκε προφίλ επαγγελματία για τον λογαριασμό σου.</b>
             <p style={muted}>
-              Ο λογαριασμός σου υπάρχει, αλλά η γραμμή προφίλ δεν δημιουργήθηκε (π.χ. λόγω διακοπής κατά την
-              εγγραφή). Πάτα το κουμπί για να τη φτιάξουμε τώρα.
+              Πάτα το κουμπί για να δημιουργηθεί.
             </p>
           </>
         )}
