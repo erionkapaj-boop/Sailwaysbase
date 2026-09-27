@@ -29,7 +29,7 @@ select pg_temp.act('postgres');
 select pg_temp.check('ανώνυμος δεν μπορεί καν να την καλέσει',
   not has_function_privilege('anon', 'admin_adjust_wallet(uuid,numeric,text)', 'EXECUTE'));
 select pg_temp.check('η διόρθωση καταγράφεται στις ενέργειες admin', exists (
-  select 1 from admin_actions where action_type = 'adjust_wallet' and target_user_id = :'SOFIA' and notes like '%(-900€)'));
+  select 1 from admin_actions where action_type = 'adjust_wallet' and target_user_id = :'SOFIA' and notes like '%(-900 credits)'));
 select pg_temp.check('ο χρήστης ειδοποιήθηκε για τη διόρθωση', exists (
   select 1 from notifications where user_id = :'SOFIA' and kind = 'wallet' and data->>'txn_type' = 'adjustment'));
 select pg_temp.act('authenticated', :'ADMIN');

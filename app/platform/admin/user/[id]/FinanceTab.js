@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../../../lib/platform/credits";
 import { useState } from "react";
 import Link from "next/link";
 import { Panel, MetricGrid, Metric, Row, RowMain, Status, Empty, WALLET_TYPE_LABEL, colors, button } from "../../ui";
@@ -20,12 +21,15 @@ export default function FinanceTab({ data, id, reload, confirm }) {
   async function handleCredit(e) {
     e.preventDefault();
     const value = Number(amount);
-    // Πραγματικά χρήματα: ένα ψηφίο παραπάνω (100 αντί για 10) δεν αναιρείται
-    // από εδώ, οπότε το ποσό διαβάζεται ξανά πριν γίνει.
+    if (!Number.isInteger(value) || value <= 0) {
+      setError("Γράψε ακέραιο αριθμό credits, μεγαλύτερο από το μηδέν.");
+      return;
+    }
+    // Ένα ψηφίο παραπάνω δεν αναιρείται από εδώ· ο αριθμός διαβάζεται ξανά.
     if (
       !(await confirm(
-        `Πίστωση ${value}€ στο πορτοφόλι του ${u.full_name || u.phone_number}; Νέο υπόλοιπο: ${Number(u.wallet_balance ?? 0) + value}€.`,
-        { tone: "primary", confirmLabel: `Πίστωση ${value}€` }
+        `Δώρο ${formatCredits(value)} σε ${u.full_name || u.phone_number}; Νέο υπόλοιπο: ${formatCredits(Number(u.wallet_balance ?? 0) + value)}.`,
+        { tone: "primary", confirmLabel: `Δώρο ${formatCredits(value)}` }
       ))
     )
       return;
@@ -33,11 +37,11 @@ export default function FinanceTab({ data, id, reload, confirm }) {
     setError("");
     setNotice("");
     try {
-      await adminCreditWallet(id, value, notes.trim());
+      await adminCreditWallet(id, value, notes.trim() || "Δώρο");
       setAmount("");
       setNotes("");
       await reload();
-      setNotice("Η πίστωση καταχωρήθηκε.");
+      setNotice("Καταχωρήθηκε.");
     } catch (err) {
       setError(errorLabel(err));
     } finally {
@@ -48,14 +52,14 @@ export default function FinanceTab({ data, id, reload, confirm }) {
   return (
     <>
       <MetricGrid>
-        <Metric label="Τρέχον υπόλοιπο" value={`${u.wallet_balance ?? 0}€`} />
+        <Metric label="Credits" value={formatCredits(u.wallet_balance)} />
       </MetricGrid>
 
-      <Panel title="Πίστωση πορτοφολιού" subtitle="Χειροκίνητη πίστωση — π.χ. αποζημίωση για πρόβλημα. Καταγράφεται στο ιστορικό.">
+      <Panel title="Δώρο credits" subtitle="Credits χωρίς πληρωμή, π.χ. αποζημίωση. Για αγορά: Οικονομικά. Καταγράφεται στο ιστορικό.">
         <form onSubmit={handleCredit} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
           <div style={{ flex: "1 1 120px" }}>
-            <Field label="Ποσό (€)">
-              <input style={fieldInput} type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+            <Field label="Credits">
+              <input style={fieldInput} type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} required />
             </Field>
           </div>
           <div style={{ flex: "2 1 220px" }}>
@@ -64,7 +68,7 @@ export default function FinanceTab({ data, id, reload, confirm }) {
             </Field>
           </div>
           <button type="submit" style={{ ...button("primary"), marginBottom: 12 }} disabled={busy}>
-            {busy ? "…" : "Πίστωση"}
+            {busy ? "…" : "Καταχώριση δώρου"}
           </button>
         </form>
         {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
@@ -72,7 +76,7 @@ export default function FinanceTab({ data, id, reload, confirm }) {
       </Panel>
 
       <Panel
-        title={`Κινήσεις πορτοφολιού (${wallet.length})`}
+        title={`Κινήσεις credits (${wallet.length})`}
         action={
           <Link href={`/platform/admin/finance?phone=${encodeURIComponent(u.phone_number || "")}`} style={{ fontSize: 12.5, color: colors.ink }}>
             Στα Οικονομικά
@@ -83,10 +87,19 @@ export default function FinanceTab({ data, id, reload, confirm }) {
         {wallet.length === 0 && <Empty>Καμία κίνηση.</Empty>}
         {wallet.map((w) => (
           <Row key={w.id}>
-            <RowMain title={WALLET_TYPE_LABEL[w.type] || w.type} meta={formatDate(w.created_at?.slice(0, 10))} />
+            <RowMain
+              title={WALLET_TYPE_LABEL[w.type] || w.type}
+              meta={[
+                formatDate(w.created_at?.slice(0, 10)),
+                w.price_eur != null ? `${w.price_eur}€` : null,
+                w.unit === "eur" ? "πριν τα credits" : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            />
             <span style={{ color: w.amount > 0 ? colors.success : colors.ink, fontWeight: 500 }}>
               {w.amount > 0 ? "+" : ""}
-              {w.amount}€
+              {w.unit === "eur" ? `${w.amount}€` : formatCredits(w.amount)}
             </span>
           </Row>
         ))}

@@ -125,14 +125,14 @@ insert into booking_requests (client_id, start_date, end_date, region_id, depart
   returning id as req \gset
 select pg_temp.act('postgres');
 select pg_temp.check('τέλος, πληρωμή, χρέωση skipper, προέλευση, κατάσταση: επιβάλλονται από την πλατφόρμα',
-  (select fee_amount = 15 and fee_paid_at is null and claim_fee_amount is null and origin = 'client' and status = 'open'
+  (select fee_amount = 1 and fee_paid_at is null and claim_fee_amount is null and origin = 'client' and status = 'open'
           and expires_at < now() + interval '7 days' from booking_requests where id = :'req'));
 select pg_temp.act('authenticated', :'CLIENT');
 update booking_requests set fee_amount = 0, claim_fee_amount = 0, status = 'matched' where id = :'req';
 select pg_temp.act('postgres');
-select pg_temp.check('ο πελάτης δεν αλλάζει αίτημα απευθείας', (select fee_amount = 15 and status = 'open' from booking_requests where id = :'req'));
+select pg_temp.check('ο πελάτης δεν αλλάζει αίτημα απευθείας', (select fee_amount = 1 and status = 'open' from booking_requests where id = :'req'));
 select pg_temp.act('authenticated', :'CLIENT');
-select pg_temp.check('η κανονική πληρωμή δουλεύει (15€)', (pay_and_broadcast(:'req', array['b0000000-0000-0000-0000-000000000004']::uuid[])).fee_amount = 15);
+select pg_temp.check('η κανονική πληρωμή δουλεύει (1 credit)', (pay_and_broadcast(:'req', array['b0000000-0000-0000-0000-000000000004']::uuid[])).fee_amount = 1);
 
 \echo '== κριτικές: ο αξιολογούμενος μόνο απαντά'
 select pg_temp.act('authenticated', :'GIORGOS');

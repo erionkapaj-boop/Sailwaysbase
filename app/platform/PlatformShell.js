@@ -89,7 +89,7 @@ function buildMenuItems({ role, isAdmin, adminCounts }) {
   own.push({ href: "/platform/bookings", label: isAdmin ? "Οι κρατήσεις μου" : "Κρατήσεις" });
   if (role === "skipper" || isAdmin) own.push({ href: "/platform/availability", label: "Η διαθεσιμότητά μου" });
   own.push({ href: "/platform/profile", label: "Το προφίλ μου" });
-  own.push({ href: "/platform/wallet", label: "Το πορτοφόλι μου" });
+  own.push({ href: "/platform/wallet", label: "Credits" });
 
   if (!isAdmin) {
     own[0].group = true;

@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../lib/platform/credits";
 import DateField from "../components/calendar/DateField";
 import { useCallback, useEffect, useState } from "react";
 import { Toolbar, Row, RowMain, Empty, colors, muted, money, button } from "./ui";
@@ -308,10 +309,11 @@ export default function OfferComposer({ job = null, onDone }) {
               />
             </label>
             <label style={{ ...muted, fontSize: 12, flex: "1 1 130px" }}>
-              Χρέωση αποδοχής (€)
+              Credits αποδοχής
               <input
                 type="number"
                 min={0}
+                step={1}
                 style={{ ...control, width: "100%", marginTop: 4 }}
                 placeholder={defaultFee != null ? String(defaultFee) : "προεπιλογή"}
                 value={fee}
@@ -346,13 +348,13 @@ export default function OfferComposer({ job = null, onDone }) {
               <>
                 Θα σταλεί σε {picked.length} άτομα, που έχουν {expiresHours} ώρες να δηλώσουν ενδιαφέρον. Ο πελάτης
                 βλέπει όσους δηλώσουν (ανώνυμα) και έχει 24 ώρες από τον πρώτο για να διαλέξει — τότε χρεώνεται{" "}
-                {feeShown === 0 ? "χωρίς χρέωση" : `${feeShown ?? "—"}€`} μόνο ο επιλεγμένος. Ο πελάτης δεν πληρώνει
+                {feeShown === 0 ? "χωρίς χρέωση" : feeShown == null ? "—" : formatCredits(feeShown)} μόνο ο επιλεγμένος. Ο πελάτης δεν πληρώνει
                 ξανά.
               </>
             ) : feeShown === 0 ? (
               `Θα σταλεί σε ${picked.length} άτομα χωρίς χρέωση. Την παίρνει όποιος αποδεχτεί πρώτος.`
             ) : (
-              `Θα σταλεί σε ${picked.length} άτομα. Όποιος αποδεχτεί πρώτος πληρώνει ${feeShown ?? "—"}€ και οι υπόλοιποι δεν χρεώνονται.`
+              `Θα σταλεί σε ${picked.length} άτομα. Όποιος αποδεχτεί πρώτος χρησιμοποιεί ${feeShown == null ? "—" : formatCredits(feeShown)} και οι υπόλοιποι δεν χρεώνονται.`
             )}
           </p>
 

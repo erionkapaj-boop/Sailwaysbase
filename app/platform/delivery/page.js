@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../lib/platform/credits";
 import DateField from "../components/calendar/DateField";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -42,7 +43,7 @@ const ROLE_ERRORS = {
   invalid_price: "Μη έγκυρη τιμή.",
   no_candidates_selected: "Επίλεξε τουλάχιστον έναν υποψήφιο.",
   invalid_candidate_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος για μεταφορές.",
-  insufficient_wallet: "Το υπόλοιπό σου δεν επαρκεί για αυτή τη χρέωση.",
+  insufficient_wallet: "Δεν έχεις αρκετά credits. Απόκτησε credits από τη σελίδα Credits.",
   not_owner: "Δεν έχεις πρόσβαση σε αυτό το αίτημα.",
 };
 
@@ -66,10 +67,8 @@ function estimateFee(settings, role, miles) {
   const base = miles * rate;
   const commission = base * (settings.pct / 100);
   const clientFee = Math.max(settings.minFee, commission - settings.minFee);
-  return round2(clientFee);
-}
-function round2(n) {
-  return Math.round(n * 100) / 100;
+  // Σε credits, όπως τα υπολογίζει η βάση (0110).
+  return Math.ceil(clientFee / Math.max(settings.creditPrice || 50, 1));
 }
 
 // Το εκτιμώμενο εύρος ημερομηνιών ενός αιτήματος — departure_date ± flexible_days
@@ -221,8 +220,8 @@ function RoleBlock({
           {selected.size === 1 ? "υποψήφιο" : "υποψηφίους"}
         </p>
         <p style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>
-          Προσφερόμενη τιμή: <span style={{ ...money, color: colors.ink }}>{formatMoney(sent.offered_price)}€</span> · Χρεώθηκες{" "}
-          <span style={{ ...money, color: colors.ink }}>{formatMoney(sent.client_fee)}€</span> τέλος πλατφόρμας.
+          Προσφερόμενη τιμή: <span style={{ ...money, color: colors.ink }}>{formatMoney(sent.offered_price)}€</span> ·{" "}
+          <span style={{ ...money, color: colors.ink }}>{formatCredits(sent.client_fee)}</span>.
         </p>
       </div>
     );
@@ -266,7 +265,7 @@ function RoleBlock({
 
       {estimate != null && (
         <div style={{ padding: "10px 12px", background: colors.seaGlass, borderRadius: radius.md, marginBottom: 14, fontSize: 13 }}>
-          Τέλος πλατφόρμας: <span style={{ ...money, color: colors.ink }}>{estimate}€</span>. Υπολογίζεται από τα
+          Credits: <span style={{ ...money, color: colors.ink }}>{formatCredits(estimate)}</span>. Υπολογίζονται από τα
           μίλια, όχι από την αμοιβή.
         </div>
       )}
@@ -382,7 +381,7 @@ function DeliveryForm({ onCreated }) {
             placeholder="π.χ. 250"
           />
           <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-            Από αυτήν υπολογίζεται το τέλος πλατφόρμας. Αν δεν την ξέρεις, μέτρησέ τη σε έναν ναυτικό χάρτη ή ρώτα τη
+            Από αυτήν υπολογίζονται τα credits. Αν δεν την ξέρεις, μέτρησέ τη σε έναν ναυτικό χάρτη ή ρώτα τη
             μαρίνα.
           </p>
         </div>
@@ -599,10 +598,11 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
       ...SUPPORTED_ROLES.map((r) => getPlatformSetting(`delivery_${r}_rate_per_mile`)),
       getPlatformSetting("delivery_platform_fee_pct"),
       getPlatformSetting("delivery_min_fee"),
+      getPlatformSetting("credit_price_eur"),
     ]).then((values) => {
       const rates = Object.fromEntries(SUPPORTED_ROLES.map((r, i) => [r, values[i]]));
-      const [pct, minFee] = values.slice(SUPPORTED_ROLES.length);
-      setSettings({ rates, pct, minFee });
+      const [pct, minFee, creditPrice] = values.slice(SUPPORTED_ROLES.length);
+      setSettings({ rates, pct, minFee, creditPrice });
     }).catch(() => {});
   }, []);
 

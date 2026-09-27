@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../../lib/platform/credits";
 import { useCallback, useEffect, useState } from "react";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import OfferComposer from "../OfferComposer";
@@ -84,10 +85,10 @@ function CaseDetail({ bookingId }) {
         Πελάτης: <b style={{ color: colors.ink, fontWeight: 500 }}>{detail.client_name}</b>
         {fee > 0 && (
           <>
-            {" · "}πλήρωσε τέλος <span style={money}>{fee}€</span>
+            {" · "}χρησιμοποίησε <span style={money}>{formatCredits(fee)}</span>
             {refunded > 0 ? (
               <>
-                , επιστράφηκαν <span style={money}>{refunded}€</span>
+                , επιστράφηκαν <span style={money}>{formatCredits(refunded)}</span>
               </>
             ) : detail.new_booking ? (
               " — κάλυψε και την αντικατάσταση, δεν ξαναπλήρωσε"
@@ -119,7 +120,7 @@ function CaseDetail({ bookingId }) {
               {b.confirmed_at && <>Επιβεβαιώθηκε {formatDateTime(b.confirmed_at)}</>}
               {b.charged != null && (
                 <>
-                  {" · "}χρεώθηκε <span style={money}>{b.charged}€</span>
+                  {" · "}χρεώθηκε <span style={money}>{formatCredits(b.charged)}</span>
                 </>
               )}
               {b.cancelled_at && (
@@ -231,7 +232,7 @@ function CloseCase({ c, onClosed, confirm }) {
   async function close() {
     if (
       !(await confirm(
-        "Κλείσιμο της υπόθεσης χωρίς αντικαταστάτη; Ο πελάτης παίρνει πίσω το τέλος που πλήρωσε και ειδοποιείται. Δεν αναιρείται.",
+        "Κλείσιμο της υπόθεσης χωρίς αντικαταστάτη; Ο πελάτης παίρνει πίσω τα credits του και ειδοποιείται. Δεν αναιρείται.",
         { tone: "danger", confirmLabel: "Ναι, κλείσιμο" }
       ))
     )
@@ -251,7 +252,7 @@ function CloseCase({ c, onClosed, confirm }) {
   return (
     <div style={{ padding: "12px 16px", borderTop: `1px solid ${colors.border}`, background: colors.bg }}>
       <div style={{ ...muted, fontSize: 12.5, marginBottom: 6 }}>
-        Αν δεν μπορεί να βρεθεί αντικαταστάτης, κλείσε την υπόθεση — επιστρέφεται στον πελάτη το τέλος του.
+        Αν δεν μπορεί να βρεθεί αντικαταστάτης, κλείσε την υπόθεση — επιστρέφονται στον πελάτη τα credits του.
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input
@@ -482,7 +483,7 @@ export default function ReplacementsPage() {
             rightMeta={
               c.stage === "completed" ? (
                 <>
-                  {" · "}νέος: {c.new_skipper_name} · <span style={money}>{c.charged}€</span>
+                  {" · "}νέος: {c.new_skipper_name} · <span style={money}>{formatCredits(c.charged)}</span>
                   {c.confirmed_at && <> · {timeAgo(c.confirmed_at)}</>}
                 </>
               ) : (
@@ -501,7 +502,7 @@ export default function ReplacementsPage() {
       <p style={{ ...muted, fontSize: 12.5, lineHeight: 1.6 }}>
         Ο πελάτης βλέπει τους υποψήφιους ανώνυμα (ίδια στοιχεία με την αναζήτηση) και διαλέγει μόνος του μέσα σε 24 ώρες
         από τον πρώτο. Χρεώνεται μόνο ο επαγγελματίας που θα επιλεγεί, τη στιγμή της επιλογής. Ο πελάτης δεν πληρώνει
-        ξανά· το τέλος του επιστρέφεται μόνο αν η υπόθεση κλείσει χωρίς αντικαταστάτη.
+        ξανά· τα credits του επιστρέφονται μόνο αν η υπόθεση κλείσει χωρίς αντικαταστάτη.
       </p>
       {confirmDialog}
     </AdminShell>

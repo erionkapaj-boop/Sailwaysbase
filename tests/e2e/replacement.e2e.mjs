@@ -37,7 +37,7 @@ await as(MARIA, async (page) => {
   check("επιβεβαίωση αποστολής", (await text(page)).includes("Το αίτημά σου στάλθηκε"));
 });
 check("το αίτημα πήγε στον Νίκο", num(`select count(*) from booking_request_pings p join skipper_profiles s on s.id = p.skipper_id where s.full_name = 'Νίκος Αρχικός'`) === 1);
-check("χρεώθηκε 15€ τέλος αιτήματος", wallet("Μαρία Πελάτη") === maria0 - 15);
+check("χρησιμοποιήθηκε 1 credit για το αίτημα", wallet("Μαρία Πελάτη") === maria0 - 1);
 
 step("2. Ο Νίκος αποδέχεται");
 await as(NIKOS, async (page) => {
@@ -62,7 +62,7 @@ await as(NIKOS, async (page) => {
   await page.waitForTimeout(2500);
 });
 check("ακυρώθηκε με τον λόγο", sql(`select cancellation_reason from bookings where status = 'cancelled_by_skipper'`) === "Αρρώστησα, δεν μπορώ να βγω.");
-check("η πελάτισσα δεν πήρε επιστροφή (η πλατφόρμα ψάχνει αντικαταστάτη)", wallet("Μαρία Πελάτη") === maria0 - 15);
+check("η πελάτισσα δεν πήρε επιστροφή (η πλατφόρμα ψάχνει αντικαταστάτη)", wallet("Μαρία Πελάτη") === maria0 - 1);
 
 step("4. Η πελάτισσα βλέπει ότι ψάχνουμε αντικαταστάτη");
 await as(MARIA, async (page) => {
@@ -95,7 +95,7 @@ step("6. Υποψήφιοι: 3 δηλώνουν ενδιαφέρον, 1 αρνε
 for (const phone of [GIORGOS, KOSTAS, ELENI]) {
   await as(phone, async (page) => {
     await go(page, "/platform/requests");
-    check(`${phone}: η χρέωση γίνεται μόνο αν τον επιλέξει ο πελάτης`, (await text(page)).includes("Αν σε επιλέξει ο πελάτης, χρεώνεσαι 25€"));
+    check(`${phone}: η χρέωση γίνεται μόνο αν τον επιλέξει ο πελάτης`, (await text(page)).includes("Αν σε επιλέξει ο πελάτης, χρησιμοποιείς 1 credit"));
     await click(page, "Δήλωση ενδιαφέροντος");
     await page.waitForTimeout(2500);
     const t = await text(page);
@@ -129,7 +129,7 @@ step("8. Η πελάτισσα διαλέγει ανώνυμα");
 const kostas0 = wallet("Κώστας Υποψήφιος");
 await as(MARIA, async (page) => {
   await go(page, "/platform/requests");
-  check("η πρόταση του admin δεν φαίνεται ως «δικό της αίτημα»", !(await text(page)).includes("Τέλος 0€"));
+  check("η πρόταση του admin δεν φαίνεται ως «δικό της αίτημα»", !(await text(page)).includes("0 credits"));
   await go(page, "/platform/bookings");
   const t = await text(page);
   check("βλέπει 2 υποψήφιους με προθεσμία", t.includes("Βρέθηκαν 2 διαθέσιμοι αντικαταστάτες") && t.includes("Διάλεξε έως"));
@@ -142,8 +142,8 @@ await as(MARIA, async (page) => {
   check("μετά την επιλογή βλέπει τον νέο skipper", (await text(page)).includes("Κώστας Υποψήφιος"));
 });
 check("ακριβώς ένας νέος επιβεβαιωμένος skipper", num(`select count(*) from bookings where status = 'confirmed'`) === 1);
-check("ο επιλεγμένος χρεώθηκε 25€ μία φορά", wallet("Κώστας Υποψήφιος") === kostas0 - 25);
-check("η πελάτισσα δεν ξαναπλήρωσε", wallet("Μαρία Πελάτη") === maria0 - 15);
+check("ο επιλεγμένος χρησιμοποίησε 1 credit μία φορά", wallet("Κώστας Υποψήφιος") === kostas0 - 1);
+check("η πελάτισσα δεν ξαναπλήρωσε", wallet("Μαρία Πελάτη") === maria0 - 1);
 
 step("9. Ο admin βλέπει την υπόθεση ολοκληρωμένη");
 await as(ADMIN, async (page) => {
@@ -191,7 +191,7 @@ await as(ADMIN, async (page) => {
   check("η υπόθεση έκλεισε", (await text(page)).includes("Η υπόθεση έκλεισε"));
 });
 check("ο υποψήφιος ενημερώθηκε για την απόσυρση", num(`select count(*) from notifications where user_id = 'a0000000-0000-0000-0000-000000000004' and kind = 'replacement_offer_closed'`) === 1);
-check("η πελάτισσα πήρε πίσω τα 15€", wallet("Μαρία Πελάτη") === maria1 + 15);
+check("η πελάτισσα πήρε πίσω το credit", wallet("Μαρία Πελάτη") === maria1 + 1);
 await as(MARIA, async (page) => {
   await go(page, "/platform/bookings");
   check("η πελάτισσα βλέπει ότι δεν βρέθηκε αντικαταστάτης", (await text(page)).includes("Δεν βρέθηκε αντικαταστάτης"));

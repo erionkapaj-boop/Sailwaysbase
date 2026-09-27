@@ -2,16 +2,17 @@
 import { useEffect, useState } from "react";
 import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Metric, MetricGrid, Row, RowMain, Empty, colors, muted, money, button, STATUS_LABEL } from "../ui";
-import { adminFindUserByPhone, adminCreditWallet, adminAdjustWallet } from "../../../../lib/platform/db";
+import { adminFindUserByPhone, adminCreditWallet, adminAdjustWallet, adminRecordPurchase, getCreditOffer } from "../../../../lib/platform/db";
+import { formatCredits, PACKAGES } from "../../../../lib/platform/credits";
 
-// Above this a second «are you sure» — the slip this guards against is an
-// extra zero (1.000€ for 100€).
-const LARGE_AMOUNT = 200;
+// Πάνω από αυτό, δεύτερο «σίγουρα;» — για το επιπλέον μηδενικό.
+const LARGE_CREDITS = 20;
 
 const ERRORS = {
   insufficient_wallet: "Το υπόλοιπο δεν φτάνει: μια διόρθωση δεν μπορεί να το κάνει αρνητικό.",
-  reason_required: "Γράψε τον λόγο της διόρθωσης — τον βλέπει και ο χρήστης.",
-  invalid_amount: "Γράψε ένα ποσό μεγαλύτερο από το μηδέν.",
+  reason_required: "Γράψε τον λόγο της διόρθωσης. Εμφανίζεται στο ιστορικό του χρήστη.",
+  invalid_amount: "Γράψε ακέραιο αριθμό credits, μεγαλύτερο από το μηδέν.",
+  invalid_price: "Γράψε το ποσό σε € που πληρώθηκε.",
 };
 
 const inputStyle = {
@@ -30,11 +31,18 @@ function Topup({ onDone }) {
   const [results, setResults] = useState([]);
   const [selected, setSelected] = useState(null);
   const [amount, setAmount] = useState("");
+  const [price, setPrice] = useState("");
+  const [pkg, setPkg] = useState("");
+  const [offer, setOffer] = useState(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
-  const [mode, setMode] = useState("credit");
+  const [mode, setMode] = useState("purchase");
+
+  useEffect(() => {
+    getCreditOffer().then(setOffer).catch(() => setOffer(null));
+  }, []);
 
   async function lookup(value) {
     setError("");
@@ -53,8 +61,7 @@ function Topup({ onDone }) {
     lookup(phone);
   }
 
-  // Opened from a user's page («Φόρτωση υπολοίπου») with ?phone=… — land
-  // with that person already found and selected.
+  // Από τη σελίδα χρήστη με ?phone=… — ο χρήστης είναι ήδη επιλεγμένος.
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get("phone");
     if (p) {
@@ -63,33 +70,62 @@ function Topup({ onDone }) {
     }
   }, []);
 
+  function choosePackage(key) {
+    setPkg(key);
+    const p = offer?.packages.find((x) => x.key === key);
+    if (p) {
+      setAmount(String(p.credits));
+      setPrice(String(p.price));
+    } else {
+      setAmount("");
+      setPrice("");
+    }
+  }
+
+  function onAmount(value) {
+    setAmount(value);
+    if (mode === "purchase" && pkg === "") {
+      const n = Number(value);
+      setPrice(n > 0 && offer?.creditPrice ? String(n * offer.creditPrice) : "");
+    }
+  }
+
   async function submit() {
     const value = Number(amount);
-    if (!selected || !(value > 0)) {
+    if (!selected || !(value > 0) || !Number.isInteger(value)) {
       setError(ERRORS.invalid_amount);
       return;
     }
-    const correcting = mode === "correct";
-    if (correcting && !note.trim()) {
+    const eur = Number(price);
+    if (mode === "purchase" && (price === "" || !(eur >= 0))) {
+      setError(ERRORS.invalid_price);
+      return;
+    }
+    if (mode === "correct" && !note.trim()) {
       setError(ERRORS.reason_required);
       return;
     }
     const who = selected.full_name || selected.phone_number;
-    if (value > LARGE_AMOUNT) {
-      const verb = correcting ? "Αφαίρεση" : "Πίστωση";
-      if (!window.confirm(`${verb} ${value}€ ${correcting ? "από" : "σε"} ${who}. Σίγουρα;`)) return;
+    if (value > LARGE_CREDITS) {
+      const verb = mode === "correct" ? "Αφαίρεση" : "Πίστωση";
+      if (!window.confirm(`${verb} ${formatCredits(value)} ${mode === "correct" ? "από" : "σε"} ${who}. Σίγουρα;`)) return;
     }
     setBusy(true);
     setError("");
     try {
-      if (correcting) {
+      if (mode === "correct") {
         const balance = await adminAdjustWallet(selected.id, -value, note.trim());
-        setDone(`${who}: αφαιρέθηκαν ${value}€. Νέο υπόλοιπο ${balance}€.`);
+        setDone(`${who}: αφαιρέθηκαν ${formatCredits(value)}. Νέο υπόλοιπο ${formatCredits(balance)}.`);
+      } else if (mode === "purchase") {
+        const balance = await adminRecordPurchase(selected.id, value, eur, note.trim());
+        setDone(`${who}: αγορά ${formatCredits(value)} (${eur}€). Νέο υπόλοιπο ${formatCredits(balance)}.`);
       } else {
-        await adminCreditWallet(selected.id, value, note || `Χειροκίνητη κατάθεση ${value}€`);
-        setDone(`${who}: πιστώθηκαν ${value}€.`);
+        await adminCreditWallet(selected.id, value, note.trim() || "Δώρο");
+        setDone(`${who}: πιστώθηκαν ${formatCredits(value)} δώρο.`);
       }
       setAmount("");
+      setPrice("");
+      setPkg("");
       setNote("");
       setSelected(null);
       setResults([]);
@@ -114,16 +150,17 @@ function Topup({ onDone }) {
 
   return (
     <>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12, maxWidth: 420 }}>
-        {tab("credit", "Πίστωση")}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, maxWidth: 520 }}>
+        {tab("purchase", "Αγορά")}
+        {tab("gift", "Δώρο")}
         {tab("correct", "Διόρθωση (αφαίρεση)")}
       </div>
-      {mode === "correct" && (
-        <p style={{ ...muted, fontSize: 13, marginTop: 0, marginBottom: 12 }}>
-          Για λάθος πίστωση ή άλλο λάθος στο υπόλοιπο. Ο λόγος είναι υποχρεωτικός και εμφανίζεται στο
-          ιστορικό του χρήστη. Το υπόλοιπο δεν μπορεί να γίνει αρνητικό.
-        </p>
-      )}
+      <p style={{ ...muted, fontSize: 13, marginTop: 0, marginBottom: 12 }}>
+        {mode === "purchase" && "Πληρωμή για credits. Το ποσό σε € καταγράφεται στις πωλήσεις."}
+        {mode === "gift" && "Credits χωρίς πληρωμή. Δεν καταγράφονται στις πωλήσεις."}
+        {mode === "correct" &&
+          "Για λάθος πίστωση ή άλλο λάθος στο υπόλοιπο. Ο λόγος είναι υποχρεωτικός και εμφανίζεται στο ιστορικό του χρήστη. Το υπόλοιπο δεν γίνεται αρνητικό."}
+      </p>
       <form onSubmit={find} style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <input
           style={{ ...inputStyle, flex: "2 1 200px", minWidth: 0 }}
@@ -155,28 +192,56 @@ function Topup({ onDone }) {
           }}
         >
           {u.full_name || "(χωρίς όνομα)"} · <span style={money}>{u.phone_number}</span> · {STATUS_LABEL[u.role] || u.role}
-          {" · υπόλοιπο "}<span style={money}>{u.wallet_balance ?? 0}€</span>
+          {" · υπόλοιπο "}<span style={money}>{formatCredits(u.wallet_balance)}</span>
         </button>
       ))}
 
       {selected && (
         <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {mode === "purchase" && (
+            <select
+              style={{ ...inputStyle, flex: "1 1 200px" }}
+              value={pkg}
+              onChange={(e) => choosePackage(e.target.value)}
+              aria-label="Πακέτο"
+            >
+              <option value="">Χωρίς πακέτο</option>
+              {(offer?.packages || []).map((p) => (
+                <option key={p.key} value={p.key}>
+                  {PACKAGES.find((x) => x.key === p.key)?.name || p.key} · {formatCredits(p.credits)} · {p.price}€
+                </option>
+              ))}
+            </select>
+          )}
           <input
             style={{ ...inputStyle, flex: "1 1 110px" }}
             type="number"
-            min="0"
-            placeholder={mode === "correct" ? "Ποσό προς αφαίρεση €" : "Ποσό €"}
+            min="1"
+            step="1"
+            placeholder={mode === "correct" ? "Credits προς αφαίρεση" : "Credits"}
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            disabled={mode === "purchase" && pkg !== ""}
+            onChange={(e) => onAmount(e.target.value)}
           />
+          {mode === "purchase" && (
+            <input
+              style={{ ...inputStyle, flex: "1 1 110px" }}
+              type="number"
+              min="0"
+              placeholder="Ποσό €"
+              value={price}
+              disabled={pkg !== ""}
+              onChange={(e) => setPrice(e.target.value)}
+            />
+          )}
           <input
             style={{ ...inputStyle, flex: "2 1 200px" }}
-            placeholder={mode === "correct" ? "Λόγος διόρθωσης (υποχρεωτικό)" : "Αιτιολογία"}
+            placeholder={mode === "correct" ? "Λόγος διόρθωσης (υποχρεωτικό)" : "Σημείωση"}
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
           <button style={button(mode === "correct" ? "danger" : "primary")} disabled={busy} onClick={submit}>
-            {busy ? "…" : mode === "correct" ? "Καταχώριση αφαίρεσης" : "Καταχώριση πίστωσης"}
+            {busy ? "…" : mode === "correct" ? "Καταχώριση αφαίρεσης" : mode === "purchase" ? "Καταχώριση αγοράς" : "Καταχώριση δώρου"}
           </button>
         </div>
       )}
@@ -197,35 +262,34 @@ export default function FinancePage() {
   return (
     <AdminShell
       title="Οικονομικά"
-      subtitle="Τι κρατά η πλατφόρμα για λογαριασμό χρηστών, τι έχει εισπράξει, και φόρτωση υπολοίπου σε χρήστη."
+      subtitle="Credits στους λογαριασμούς, πωλήσεις και καταχώριση αγοράς."
     >
-      {/* Liabilities and revenue kept visually apart on purpose: the balances
-          below are other people's money the platform is holding, not income,
-          and an operator reading them as the same figure is the mistake this
-          screen exists to prevent. */}
-      <Panel title="Υπόλοιπα χρηστών" padded={false}>
+      {/* Τα credits στους λογαριασμούς είναι προπληρωμένη υπηρεσία που
+          οφείλεται ακόμα, όχι έσοδα — γι' αυτό χωριστά από τις πωλήσεις. */}
+      <Panel title="Credits χρηστών" padded={false}>
         <div style={{ padding: 16 }}>
           <MetricGrid min={160}>
-            {/* Ένα πορτοφόλι ανά άνθρωπο πια, όχι ανά ρόλο — δεν έχει νόημα να
-                σπάει σε "πελάτες"/"επαγγελματίες". */}
-            <Metric label="Σύνολο" value={`${live.wallet_total ?? 0}€`} hint="χρήματα χρηστών, όχι έσοδα" />
+            <Metric label="Σε λογαριασμούς" value={formatCredits(live.wallet_total)} hint="προπληρωμένα, αχρησιμοποίητα" />
+            <Metric label="Χρησιμοποιήθηκαν (30 ημ.)" value={formatCredits(live.fees_30d)} />
+            <Metric label="Χρησιμοποιήθηκαν συνολικά" value={formatCredits(live.fees_all_time)} />
+            <Metric label="Επιστροφές (30 ημ.)" value={formatCredits(live.refunds_30d)} />
           </MetricGrid>
         </div>
       </Panel>
 
-      <Panel title="Έσοδα πλατφόρμας" padded={false}>
+      <Panel title="Πωλήσεις" padded={false}>
         <div style={{ padding: 16 }}>
           <MetricGrid min={160}>
-            <Metric label="Τέλη (30 ημ.)" value={`${live.fees_30d ?? 0}€`} />
-            <Metric label="Τέλη συνολικά" value={`${live.fees_all_time ?? 0}€`} />
-            <Metric label="Επιστροφές (30 ημ.)" value={`${live.refunds_30d ?? 0}€`} hint="άκαρπα αιτήματα" />
+            <Metric label="30 ημέρες" value={`${live.sales_eur_30d ?? 0}€`} />
+            <Metric label="Credits που πουλήθηκαν (30 ημ.)" value={formatCredits(live.credits_sold_30d)} />
+            <Metric label="Συνολικά" value={`${live.sales_eur_all_time ?? 0}€`} />
           </MetricGrid>
         </div>
       </Panel>
 
       <Panel
-        title="Υπόλοιπο χρήστη"
-        subtitle="Πίστωση: όταν κάποιος σού πλήρωσε με τραπεζική κατάθεση ή κάρτα εκτός πλατφόρμας. Διόρθωση: για λάθος ποσό. Βρες τον με το τηλέφωνο· και τα δύο καταγράφονται στο ιστορικό του."
+        title="Credits χρήστη"
+        subtitle="Αγορά: πληρωμή με τραπεζική κατάθεση ή κάρτα εκτός πλατφόρμας. Δώρο: χωρίς πληρωμή. Διόρθωση: για λάθος. Αναζήτηση με το τηλέφωνο· όλα καταγράφονται στο ιστορικό του."
       >
         <Topup onDone={refreshCounts} />
       </Panel>

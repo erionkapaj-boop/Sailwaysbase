@@ -9,7 +9,7 @@ import { timeAgo } from "../../../../lib/platform/notifications";
 const TOPIC_LABEL = {
   general: "Γενική ερώτηση",
   booking: "Κράτηση / αίτημα",
-  payment: "Χρέωση / πορτοφόλι",
+  payment: "Χρέωση / credits",
   report: "Αναφορά",
   privacy: "Προσωπικά δεδομένα",
   other: "Άλλο",

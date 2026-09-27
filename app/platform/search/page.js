@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../lib/platform/credits";
 import TrustLine from "../components/TrustLine";
 import Avatar from "../components/Avatar";
 import LoadError from "../components/LoadError";
@@ -54,7 +55,7 @@ const chip = (active) => ({
 });
 
 const BROADCAST_ERRORS = {
-  insufficient_wallet: "Δεν φτάνει το υπόλοιπό σου για το τέλος αιτήματος. Φόρτωσε υπόλοιπο από το Πορτοφόλι και ξαναπάτησε Αποστολή.",
+  insufficient_wallet: "Δεν έχεις αρκετά credits. Απόκτησε credits από τη σελίδα Credits.",
   invalid_skipper_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος.",
   no_skippers_selected: "Επίλεξε τουλάχιστον έναν επαγγελματία.",
   already_paid_or_closed: "Αυτό το αίτημα έχει ήδη σταλεί.",
@@ -867,8 +868,8 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
               </p>
             )}
             <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 16px" }}>
-              Θα σε ειδοποιήσουμε μόλις κάποιος το αποδεχτεί. Αν δεν το αναλάβει κανείς εγκαίρως, το τέλος
-              επιστρέφεται αυτόματα στο πορτοφόλι σου.
+              Θα σε ειδοποιήσουμε μόλις κάποιος το αποδεχτεί. Αν δεν το αναλάβει κανείς εγκαίρως, τα credits
+              επιστρέφονται αυτόματα.
             </p>
             <button style={button("primary")} onClick={() => router.push("/platform/requests")}>
               Παρακολούθηση αιτήματος
@@ -921,20 +922,19 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
 
             <div style={{ padding: "12px 14px", background: colors.seaGlass, borderRadius: radius.md, margin: "10px 0 14px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                <span style={{ fontSize: 14 }}>Τέλος πλατφόρμας</span>
-                <span style={{ ...money, fontSize: 18, fontWeight: 700 }}>{totalFee != null ? `${totalFee}€` : ""}</span>
+                <span style={{ fontSize: 14 }}>Credits</span>
+                <span style={{ ...money, fontSize: 18, fontWeight: 700 }}>{totalFee != null ? formatCredits(totalFee) : ""}</span>
               </div>
               {fee != null && (
                 <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-                  {fee}€ ανά θέση, ανεξάρτητα από το πόσους διάλεξες.
+                  {formatCredits(fee)} ανά θέση, ανεξάρτητα από το πόσους διάλεξες.
                 </p>
               )}
               <p style={{ fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
                 Την αμοιβή του επαγγελματία την κανονίζεις απευθείας μαζί του.
               </p>
               <p style={{ fontSize: 12.5, margin: "6px 0 0", lineHeight: 1.5 }}>
-                Αν δεν το αναλάβει κανείς, το τέλος επιστρέφεται. Αν ο επαγγελματίας ακυρώσει αργότερα,
-                ψάχνουμε αντικαταστάτη χωρίς να ξαναπληρώσεις· αν δεν βρεθεί, το τέλος επιστρέφεται.
+                Αν δεν το αναλάβει κανείς, τα credits επιστρέφονται. Αν ο επαγγελματίας ακυρώσει αργότερα, η αναζήτηση αντικαταστάτη γίνεται χωρίς νέα χρέωση· αν δεν βρεθεί, τα credits επιστρέφονται.
               </p>
             </div>
 
@@ -1023,7 +1023,7 @@ function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, f
           {totalFee != null && (
             <>
               {" · "}
-              <span style={money}>{totalFee}€</span>
+              <span style={money}>{formatCredits(totalFee)}</span>
             </>
           )}
         </span>

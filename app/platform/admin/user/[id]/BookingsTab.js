@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../../../lib/platform/credits";
 import { Panel, Row, RowMain, Status, Empty } from "../../ui";
 import { labelForRole } from "../../../../../lib/platform/roles";
 import { formatDateRange, formatDate } from "../../../../../lib/platform/notifications";
@@ -36,7 +37,7 @@ export default function BookingsTab({ data }) {
             items={data.requests}
             render={(r) => (
               <Row key={r.id}>
-                <RowMain title={crewLine(r)} meta={r.fee_amount != null ? `Τέλος: ${r.fee_amount}€` : undefined} />
+                <RowMain title={crewLine(r)} meta={r.fee_amount != null ? `Credits: ${r.fee_amount}` : undefined} />
                 <Status value={r.status} />
               </Row>
             )}

@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../../../lib/platform/credits";
 import { useState } from "react";
 import Link from "next/link";
 import { Panel, MetricGrid, Metric, Empty, colors, muted, button } from "../../ui";
@@ -41,7 +42,7 @@ export default function OverviewTab({ data, onSelectTab, reload }) {
   return (
     <>
       <MetricGrid>
-        <Metric label="Υπόλοιπο πορτοφολιού" value={`${u.wallet_balance ?? 0}€`} />
+        <Metric label="Credits" value={formatCredits(u.wallet_balance)} />
         {cp && <Metric label="Αξιοπιστία" value={cp.reliability_percentage != null ? `${cp.reliability_percentage}%` : "—"} />}
         {cp && <Metric label="Ολοκληρωμένες κρατήσεις" value={cp.completed_bookings_count ?? 0} />}
         {sp && <Metric label="Τιμή / ημέρα" value={`${sp.price_per_day}€`} />}

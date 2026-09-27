@@ -47,6 +47,11 @@ select pg_temp.check('δοκιμαστικός πελάτης: βλέπει μό
 select pg_temp.expect('select search_available_skippers_all(current_date, current_date, null, null)', 'permission denied%');
 
 \echo '== ούτε αίτημα ούτε κράτηση ανάμεσα στους δύο κόσμους'
+select pg_temp.act('postgres');
+-- credits για να πληρώσουν (οι πελάτες δεν παίρνουν δώρο εγγραφής, 0110)
+update users set wallet_balance = wallet_balance + 5 where id in (:'TCLIENT', :'TPRO');
+insert into wallet_transactions (user_id, type, amount) values (:'TCLIENT', 'deposit', 5), (:'TPRO', 'deposit', 5);
+select pg_temp.act('authenticated', :'TCLIENT');
 insert into booking_requests (client_id, start_date, end_date, region_id, departure_point, arrival_point, boat_type_id, crew_role)
   values (:'TCLIENT', current_date + 10, current_date + 12, :'cyclades', 'Σύρος', 'Σύρος', :'sailboat', 'skipper')
   returning id as treq \gset

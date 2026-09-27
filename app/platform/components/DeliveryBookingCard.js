@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { getDeliveryBookingCounterpart, cancelDeliveryBooking } from "../../../lib/platform/db";
 import { useConfirm } from "./ConfirmDialog";
@@ -35,12 +36,12 @@ export default function DeliveryBookingCard({ booking: initial }) {
   // Ίδιος κανόνας με τις κρατήσεις πληρώματος (0089): όποιος ακυρώνει χάνει
   // τη δική του χρέωση, η άλλη πλευρά παίρνει πίσω τη δική της.
   async function doCancel() {
-    const fee = formatMoney(booking.professional_fee_amount);
+    const fee = formatCredits(booking.professional_fee_amount);
     const ok = await confirm(
       "Να ακυρωθεί η μεταφορά;\n\n" +
         (iAmPro
-          ? `Η χρέωση αποδοχής (${fee}€) δεν επιστρέφεται. Ο πελάτης ειδοποιείται και παίρνει πίσω το τέλος του.`
-          : "Το τέλος πλατφόρμας που πλήρωσες δεν επιστρέφεται. Ο επαγγελματίας ειδοποιείται και παίρνει πίσω τη δική του χρέωση."),
+          ? `Τα credits της ανάληψης (${fee}) δεν επιστρέφονται. Ο πελάτης ειδοποιείται και παίρνει πίσω τα δικά του.`
+          : "Τα credits που χρησιμοποίησες δεν επιστρέφονται. Ο επαγγελματίας ειδοποιείται και παίρνει πίσω τα δικά του."),
       { confirmLabel: "Ακύρωση μεταφοράς", cancelLabel: "Πίσω" }
     );
     if (!ok) return;

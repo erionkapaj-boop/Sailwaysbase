@@ -22,7 +22,7 @@ import {
 const TOPICS = [
   { value: "general", label: "Γενική ερώτηση" },
   { value: "booking", label: "Πρόβλημα με κράτηση ή αίτημα" },
-  { value: "payment", label: "Χρέωση, πορτοφόλι ή επιστροφή" },
+  { value: "payment", label: "Χρέωση, credits ή επιστροφή" },
   { value: "report", label: "Αναφορά χρήστη ή περιεχομένου" },
   { value: "privacy", label: "Προσωπικά δεδομένα (ΓΚΠΔ)" },
   { value: "other", label: "Άλλο" },

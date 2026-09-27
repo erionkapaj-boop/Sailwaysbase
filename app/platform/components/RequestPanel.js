@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { listRequestPings, withdrawPing, cancelBookingRequest, departureLabel } from "../../../lib/platform/db";
 import { labelForRole } from "../../../lib/platform/roles";
@@ -10,7 +11,7 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 const REQ_STATUS = {
   open: ["Περιμένει απάντηση", "brand"],
   matched: ["Βρέθηκε επαγγελματίας", "success"],
-  expired_unclaimed: ["Έληξε, το τέλος επιστράφηκε", "warn"],
+  expired_unclaimed: ["Έληξε, τα credits επιστράφηκαν", "warn"],
   cancelled: ["Ακυρώθηκε", "danger"],
 };
 
@@ -51,10 +52,10 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
     const remaining = pings.filter((p) => p.status === "pending").length;
     if (
       !(await confirm(
-        `Σίγουρα θέλεις να αφαιρέσεις ${ping.skipper_profiles?.full_name || "αυτόν τον υποψήφιο"} από το αίτημα; ` +
+        `Αφαίρεση ${ping.skipper_profiles?.full_name || "αυτού του υποψηφίου"} από το αίτημα; ` +
           (remaining > 1
-            ? "Η χρέωση δεν αλλάζει. Το αίτημα μένει ανοιχτό για τους υπόλοιπους."
-            : "Είναι ο τελευταίος που περιμένει απάντηση· η χρέωση δεν επιστρέφεται με την αφαίρεση. Αν θέλεις τα χρήματα πίσω, ακύρωσε ολόκληρο το αίτημα.")
+            ? "Τα credits δεν αλλάζουν. Το αίτημα μένει ανοιχτό για τους υπόλοιπους."
+            : "Είναι ο τελευταίος που περιμένει απάντηση. Με την αφαίρεση τα credits δεν επιστρέφονται· επιστρέφονται με ακύρωση ολόκληρου του αιτήματος.")
       ))
     )
       return;
@@ -73,7 +74,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
   async function handleCancelRequest() {
     const refundNote =
       request.fee_paid_at && request.fee_amount > 0
-        ? `\n\nΤα ${request.fee_amount}€ του τέλους επιστρέφονται στο πορτοφόλι σου.`
+        ? `\n\nΕπιστρέφονται ${formatCredits(request.fee_amount)}.`
         : "";
     if (!(await confirm(`Να ακυρωθεί όλο το αίτημα;${refundNote}`))) return;
     setBusyId("__all__");
@@ -81,7 +82,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
     try {
       await cancelBookingRequest(request.id);
       if (request.fee_paid_at && request.fee_amount > 0) {
-        onToastMessage?.(`Επιστράφηκαν ${request.fee_amount}€ στο πορτοφόλι σου.`);
+        onToastMessage?.(`Επιστράφηκαν ${formatCredits(request.fee_amount)}.`);
       }
       onChanged?.();
     } catch (err) {
@@ -128,10 +129,10 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
         </div>
         <p style={{ ...muted, margin: "6px 0 0" }}>
           <span style={money}>{formatDateRange(request.start_date, request.end_date)}</span>
-          {" · Τέλος "}
-          <span style={{ ...money, color: colors.ink }}>{request.fee_amount}€</span>
           {" · "}
-          {request.fee_paid_at ? "Πληρώθηκε" : "Δεν πληρώθηκε"}
+          <span style={{ ...money, color: colors.ink }}>{formatCredits(request.fee_amount)}</span>
+          {" · "}
+          {request.fee_paid_at ? "χρησιμοποιήθηκαν" : "εκκρεμούν"}
         </p>
         <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>
           Στάλθηκε {formatDateTime(request.created_at)}

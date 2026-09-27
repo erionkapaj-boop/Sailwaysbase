@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import {
@@ -21,7 +22,7 @@ const CLAIM_ERRORS = {
   request_not_open: "Το αίτημα έκλεισε. Το ανέλαβε κάποιος άλλος ή έληξε.",
   already_resolved: "Έχεις ήδη απαντήσει σε αυτό το αίτημα.",
   date_overlap: "Έχεις ήδη επιβεβαιωμένη κράτηση που επικαλύπτεται με αυτές τις ημερομηνίες.",
-  insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο για τη χρέωση αποδοχής. Φόρτωσε υπόλοιπο από το Πορτοφόλι και δοκίμασε ξανά.",
+  insufficient_wallet: "Δεν έχεις αρκετά credits. Απόκτησε credits από τη σελίδα Credits.",
   not_pinged: "Αυτό το αίτημα δεν απευθύνεται πια σε εσένα.",
   skipper_not_eligible: "Το προφίλ σου δεν είναι εγκεκριμένο.",
   request_expired: "Η πρόταση έληξε.",
@@ -269,12 +270,12 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
                 "Χωρίς χρέωση."
               ) : isReplacement ? (
                 <>
-                  Αν σε επιλέξει ο πελάτης, χρεώνεσαι <span style={{ ...money, color: colors.ink }}>{fee}€</span> τη
+                  Αν σε επιλέξει ο πελάτης, χρησιμοποιείς <span style={{ ...money, color: colors.ink }}>{formatCredits(fee)}</span> τη
                   στιγμή της επιλογής.
                 </>
               ) : (
                 <>
-                  Με τη διεκδίκηση χρεώνεσαι <span style={{ ...money, color: colors.ink }}>{fee}€</span>.
+                  Με τη διεκδίκηση χρησιμοποιείς <span style={{ ...money, color: colors.ink }}>{formatCredits(fee)}</span>.
                 </>
               )}
             </p>

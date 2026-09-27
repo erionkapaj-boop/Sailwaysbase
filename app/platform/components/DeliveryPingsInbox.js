@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import { listMyDeliveryPings, acceptDeliveryRoleRequest, declineDeliveryRoleRequest } from "../../../lib/platform/db";
@@ -11,7 +12,7 @@ const ACCEPT_ERRORS = {
   already_resolved: "Έχεις ήδη απαντήσει σε αυτή την προσφορά.",
   expired: "Η προσφορά έληξε.",
   date_overlap: "Έχεις ήδη επιβεβαιωμένη κράτηση ή μεταφορά που επικαλύπτεται με αυτές τις ημερομηνίες.",
-  insufficient_wallet: "Δεν έχεις αρκετό υπόλοιπο για τη χρέωση αποδοχής. Φόρτωσε υπόλοιπο από το Πορτοφόλι και δοκίμασε ξανά.",
+  insufficient_wallet: "Δεν έχεις αρκετά credits. Απόκτησε credits από τη σελίδα Credits.",
   skipper_not_eligible: "Το προφίλ σου δεν είναι εγκεκριμένο.",
 };
 
@@ -118,7 +119,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
               Προσφερόμενη τιμή: <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{formatMoney(role_request.offered_price)}€</span>
             </p>
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              Με την ανάληψη χρεώνεσαι <span style={{ ...money, color: colors.ink }}>{formatMoney(role_request.professional_fee)}€</span> τέλος πλατφόρμας.
+              Με την ανάληψη χρησιμοποιείς <span style={{ ...money, color: colors.ink }}>{formatCredits(role_request.professional_fee)}</span>.
             </p>
 
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>

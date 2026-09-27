@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
-import { listMyWalletTransactions, getMyClientProfile, WALLET_EVENT } from "../../../lib/platform/db";
+import { listMyWalletTransactions, getMyClientProfile, getCreditOffer, WALLET_EVENT } from "../../../lib/platform/db";
+import { formatCredits, PACKAGES } from "../../../lib/platform/credits";
 import { formatDate } from "../../../lib/platform/notifications";
 import Link from "next/link";
 import { container, card, h1, sectionLabel, muted, badge, colors, money } from "../../../lib/platform/theme";
@@ -10,11 +11,12 @@ import SignedOutNotice from "../components/SignedOutNotice";
 import LoadError from "../components/LoadError";
 
 const TYPE_LABEL = {
-  deposit: "Κατάθεση",
-  request_fee: "Τέλος αιτήματος",
-  claim_fee: "Χρέωση αποδοχής δουλειάς",
-  refund_credit: "Επιστροφή",
-  adjustment: "Διόρθωση υπολοίπου",
+  purchase: "Αγορά credits",
+  deposit: "Πίστωση credits",
+  request_fee: "Credits για αίτημα",
+  claim_fee: "Credits για ανάληψη",
+  refund_credit: "Επιστροφή credits",
+  adjustment: "Διόρθωση credits",
 };
 
 // Ένα υπόλοιπο, ένα ενιαίο ιστορικό κινήσεων — αλλά η αξιοπιστία/βαθμολογία
@@ -25,6 +27,7 @@ export default function WalletPage() {
   const { session, profile, userRow, isAdmin, loading, refresh } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [clientProfile, setClientProfile] = useState(null);
+  const [offer, setOffer] = useState(null);
   const [busy, setBusy] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -55,6 +58,7 @@ export default function WalletPage() {
     if (!session) return;
     loadTransactions();
     getMyClientProfile().then(setClientProfile).catch(() => {});
+    getCreditOffer().then(setOffer).catch(() => {});
   }, [session, isProfessional]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
@@ -62,23 +66,43 @@ export default function WalletPage() {
 
   return (
     <div style={container}>
-      <h1 style={h1}>Το πορτοφόλι μου</h1>
+      <h1 style={h1}>Credits</h1>
 
       <div style={card}>
-        <div style={muted}>Διαθέσιμο υπόλοιπο</div>
-        <div style={{ ...money, fontSize: 32, fontWeight: 600, marginTop: 6 }}>{userRow?.wallet_balance ?? 0}€</div>
-        <p style={{ ...muted, fontSize: 13, margin: "10px 0 0" }}>
-          Για φόρτωση με κατάθεση ή κάρτα,{" "}
-          <Link href="/platform/contact" style={{ color: colors.ink, textDecoration: "underline" }}>
-            επικοινώνησε μαζί μας
-          </Link>
-          .
-        </p>
+        <div style={muted}>Διαθέσιμα</div>
+        <div style={{ ...money, fontSize: 32, fontWeight: 600, marginTop: 6 }}>{formatCredits(userRow?.wallet_balance ?? 0)}</div>
         <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
-          Το υπόλοιπο δεν λήγει και χρησιμοποιείται μόνο μέσα στην εφαρμογή. Δεν εξαργυρώνεται σε
-          τραπεζικό λογαριασμό.
+          Ένα credit αντιστοιχεί σε ένα ματς. Τα credits δεν λήγουν.
         </p>
       </div>
+
+      {offer && (
+        <div style={{ marginTop: 24 }}>
+          <h2 style={sectionLabel}>Πακέτα</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+            {offer.creditPrice != null && (
+              <div style={{ ...card, margin: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>1 credit</div>
+                <div style={{ ...money, fontSize: 22, fontWeight: 700, marginTop: 6 }}>{offer.creditPrice}€</div>
+              </div>
+            )}
+            {offer.packages.map((p) => (
+              <div key={p.key} style={{ ...card, margin: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{PACKAGES.find((x) => x.key === p.key)?.name}</div>
+                <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>{formatCredits(p.credits)}</div>
+                <div style={{ ...money, fontSize: 22, fontWeight: 700, marginTop: 6 }}>{p.price}€</div>
+              </div>
+            ))}
+          </div>
+          <p style={{ ...muted, fontSize: 13, margin: "12px 0 0" }}>
+            Για αγορά,{" "}
+            <Link href="/platform/contact" style={{ color: colors.ink, textDecoration: "underline" }}>
+              επικοινώνησε μαζί μας
+            </Link>
+            .
+          </p>
+        </div>
+      )}
 
       {isProfessional && profile && (
         <div style={{ marginTop: 24 }}>
@@ -108,7 +132,7 @@ export default function WalletPage() {
               {t.note && <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>{t.note}</span>}
               <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>{formatDate(t.created_at?.slice(0, 10))}</span>
             </span>
-            <span style={badge(t.amount > 0 ? "success" : "neutral")}>{t.amount > 0 ? "+" : ""}{t.amount}€</span>
+            <span style={badge(t.amount > 0 ? "success" : "neutral")}>{t.amount > 0 ? "+" : ""}{formatCredits(t.amount)}</span>
           </div>
         </div>
       ))}

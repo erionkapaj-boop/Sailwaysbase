@@ -312,11 +312,12 @@ export function Status({ value }) {
 }
 
 export const WALLET_TYPE_LABEL = {
-  deposit: "Κατάθεση",
-  request_fee: "Τέλος αιτήματος",
-  claim_fee: "Τέλος διεκδίκησης",
-  refund_credit: "Επιστροφή (credit)",
-  adjustment: "Διόρθωση υπολοίπου",
+  purchase: "Αγορά",
+  deposit: "Πίστωση",
+  request_fee: "Αίτημα",
+  claim_fee: "Ανάληψη",
+  refund_credit: "Επιστροφή",
+  adjustment: "Διόρθωση",
 };
 
 const GENDER_LABEL = { male: "Άνδρας", female: "Γυναίκα", other: "Άλλο" };

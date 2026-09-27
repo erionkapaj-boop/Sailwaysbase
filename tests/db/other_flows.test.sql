@@ -26,7 +26,7 @@ select (create_delivery_role_request(:'dr', 'skipper', 900, array[:'SP_GIORGOS',
 select pg_temp.act('postgres');
 select client_fee as dfee, professional_fee as pfee from delivery_role_requests where id = :'rr' \gset
 select pg_temp.check('ο πελάτης πλήρωσε το τέλος μεταφοράς (' || :dfee || '€)', pg_temp.wallet('Μαρία Πελάτη') = :wc0 - :dfee);
-select pg_temp.check('ελάχιστο τέλος 50€ και για τις δύο πλευρές σε μικρή απόσταση', :dfee = 50 and :pfee = 50);
+select pg_temp.check('μικρή απόσταση: 1 credit και για τις δύο πλευρές (ελάχιστο 50€ / τιμή credit 50€)', :dfee = 1 and :pfee = 1);
 
 select pg_temp.act('authenticated', :'ELENI');
 select pg_temp.expect(format('select accept_delivery_role_request(%L, %L)', :'rr', :'SP_ELENI'), 'not_pinged');
@@ -37,7 +37,7 @@ select (accept_delivery_role_request(:'rr', :'SP_GIORGOS')).id as db1 \gset
 select pg_temp.act('authenticated', :'KOSTAS');
 select pg_temp.expect(format('select accept_delivery_role_request(%L, %L)', :'rr', :'SP_KOSTAS'), 'not_open');
 select pg_temp.act('postgres');
-select pg_temp.check('ο επαγγελματίας πλήρωσε 50€ με την αποδοχή', pg_temp.wallet('Γιώργος Υποψήφιος') = :wg0 - 50);
+select pg_temp.check('ο επαγγελματίας πλήρωσε 1 credit με την αποδοχή', pg_temp.wallet('Γιώργος Υποψήφιος') = :wg0 - 1);
 select pg_temp.check('ο πελάτης ειδοποιήθηκε', exists (select 1 from notifications where user_id = :'CLIENT' and kind = 'delivery_accepted'));
 select pg_temp.check('ο άλλος υποψήφιος έκλεισε', (select status = 'declined' from delivery_role_pings where delivery_role_request_id = :'rr' and skipper_id = :'SP_KOSTAS'));
 
@@ -53,7 +53,7 @@ select pg_temp.act('authenticated', :'GIORGOS');
 select (cancel_delivery_booking(:'db1', 'Άλλαξαν τα σχέδια')).status;
 select pg_temp.act('postgres');
 select pg_temp.check('ο πελάτης πήρε πίσω το τέλος του', pg_temp.wallet('Μαρία Πελάτη') = :wc1 + :dfee);
-select pg_temp.check('ο επαγγελματίας δεν πήρε πίσω το δικό του', pg_temp.wallet('Γιώργος Υποψήφιος') = :wg0 - 50);
+select pg_temp.check('ο επαγγελματίας δεν πήρε πίσω το δικό του', pg_temp.wallet('Γιώργος Υποψήφιος') = :wg0 - 1);
 select pg_temp.check('ο admin ειδοποιήθηκε', exists (select 1 from notifications n join users u on u.id = n.user_id where u.role = 'admin' and n.kind = 'admin_delivery_cancelled'));
 -- Owner's decision: unlike a charter, cancelling a delivery does not count
 -- against the professional's reliability.
@@ -85,7 +85,7 @@ select pg_temp.wallet('Μαρία Πελάτη') as wc3 \gset
 select pg_temp.act('authenticated', :'CLIENT');
 select (cancel_booking(:'bk', 'Άλλαξαν τα σχέδια')).status;
 select pg_temp.act('postgres');
-select pg_temp.check('ο επαγγελματίας παίρνει πίσω τη χρέωσή του', pg_temp.wallet('Ελένη Υποψήφια') = :we0 + 25);
+select pg_temp.check('ο επαγγελματίας παίρνει πίσω τη χρέωσή του', pg_temp.wallet('Ελένη Υποψήφια') = :we0 + 1);
 select pg_temp.check('ο πελάτης δεν παίρνει πίσω το τέλος (ακύρωσε ο ίδιος)', pg_temp.wallet('Μαρία Πελάτη') = :wc3);
 select pg_temp.check('καταγράφεται στην αξιοπιστία του πελάτη', (select cancellation_flag_count = 1 from client_profiles where user_id = :'CLIENT'));
 select pg_temp.check('ο επαγγελματίας ειδοποιήθηκε', exists (select 1 from notifications where user_id = :'ELENI' and kind = 'booking_cancelled'));

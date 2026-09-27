@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -1141,7 +1142,7 @@ function LostList({ lost }) {
       {open && (
         <div style={{ padding: "0 16px 6px 35px" }}>
           <p style={{ ...muted, fontSize: 12.5, margin: "0 0 6px" }}>
-            Ο πελάτης πήρε πίσω το τέλος του. Ένα τηλέφωνο τώρα μπορεί να τον κρατήσει.
+            Ο πελάτης πήρε πίσω τα credits του. Ένα τηλέφωνο τώρα μπορεί να τον κρατήσει.
           </p>
           {lost.map((l) => (
             <div
@@ -1212,9 +1213,9 @@ function Week({ week }) {
       href: "/platform/admin/bookings",
     },
     {
-      label: "Έσοδα",
-      v: week.fees,
-      p: week.fees_prev,
+      label: "Πωλήσεις",
+      v: week.sales_eur,
+      p: week.sales_eur_prev,
       money: true,
       href: "/platform/admin/finance",
     },
@@ -1270,7 +1271,7 @@ function Week({ week }) {
       </div>
       {Number(week.refunds) > 0 && (
         <p style={{ ...muted, fontSize: 12.5, margin: "8px 2px 0" }}>
-          Επιστράφηκαν {formatMoney(week.refunds)}€ (αιτήματα χωρίς απάντηση, υποθέσεις χωρίς αντικαταστάτη, ακυρώσεις από πελάτες).
+          Επιστράφηκαν {formatCredits(week.refunds)} (αιτήματα χωρίς απάντηση, υποθέσεις χωρίς αντικαταστάτη, ακυρώσεις από πελάτες).
         </p>
       )}
     </>

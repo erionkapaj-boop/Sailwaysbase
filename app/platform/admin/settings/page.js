@@ -21,30 +21,48 @@ const inputStyle = (dirty) => ({
 // sentence saying what moving it actually does.
 const SETTING_META = {
   // --- Χρεώσεις ---
+  credit_price_eur: {
+    group: "credits",
+    label: "Τιμή ενός credit",
+    unit: "€",
+    help: "Τιμή αγοράς ενός credit χωρίς πακέτο. Με αυτήν μετατρέπεται σε credits το κόστος των μεταφορών σκάφους.",
+  },
+  package_starter_credits: { group: "credits", label: "Starter: credits", unit: "credits", help: "" },
+  package_starter_price: { group: "credits", label: "Starter: τιμή", unit: "€", help: "" },
+  package_professional_credits: { group: "credits", label: "Professional: credits", unit: "credits", help: "" },
+  package_professional_price: { group: "credits", label: "Professional: τιμή", unit: "€", help: "" },
+  package_pro_credits: { group: "credits", label: "Pro: credits", unit: "credits", help: "" },
+  package_pro_price: { group: "credits", label: "Pro: τιμή", unit: "€", help: "" },
+  signup_credits_professional: {
+    group: "credits",
+    label: "Δώρο εγγραφής, επαγγελματίες",
+    unit: "credits",
+    help: "Πιστώνεται με την επαλήθευση του λογαριασμού.",
+  },
+  signup_credits_client: {
+    group: "credits",
+    label: "Δώρο εγγραφής, πελάτες",
+    unit: "credits",
+    help: "Πιστώνεται με την επαλήθευση του λογαριασμού. 0: κανένα δώρο.",
+  },
   client_request_fee: {
     group: "fees",
-    label: "Τέλος αιτήματος πελάτη",
-    unit: "€",
-    help: "Χρεώνεται όταν ο πελάτης στέλνει αίτημα, ανά θέση. Επιστρέφεται ως credit αν κανείς δεν το αναλάβει.",
+    label: "Αίτημα πελάτη",
+    unit: "credits",
+    help: "Ανά θέση, όταν ο πελάτης στέλνει αίτημα. Επιστρέφονται αν κανείς δεν το αναλάβει. 0: δωρεάν για τους πελάτες.",
   },
   skipper_claim_fee: {
     group: "fees",
-    label: "Τέλος αποδοχής επαγγελματία",
-    unit: "€",
-    help: "Χρεώνεται στον επαγγελματία με ελληνικό κινητό (+30) τη στιγμή που αναλαμβάνει ένα αίτημα.",
-  },
-  skipper_claim_fee_foreign: {
-    group: "fees",
-    label: "Τέλος αποδοχής, ξένο κινητό",
-    unit: "€",
-    help: "Το ίδιο τέλος για επαγγελματία με κινητό άλλης χώρας (προστασία εγχώριας αγοράς). Μια δική σου ανάθεση με συγκεκριμένο τέλος υπερισχύει.",
+    label: "Ανάληψη από επαγγελματία",
+    unit: "credits",
+    help: "Τη στιγμή που ο επαγγελματίας αναλαμβάνει ένα αίτημα.",
   },
   // --- Χρόνοι λήξης ---
   unclaimed_expiry_hours: {
     group: "expiry",
     label: "Πόσο ισχύει ένα αίτημα πελάτη",
     unit: "ώρες",
-    help: "Μετά από τόσες ώρες χωρίς αποδοχή το αίτημα λήγει και το τέλος επιστρέφεται στον πελάτη ως credit.",
+    help: "Μετά από τόσες ώρες χωρίς αποδοχή το αίτημα λήγει και τα credits επιστρέφονται στον πελάτη.",
   },
   delivery_expiry_hours: {
     group: "expiry",
@@ -87,13 +105,13 @@ const SETTING_META = {
     group: "delivery",
     label: "Ποσοστό προμήθειας",
     unit: "%",
-    help: "Ποσοστό επί (μίλια × βάση ρόλου) που αποτελεί τη συνολική προμήθεια πλατφόρμας ανά θέση.",
+    help: "Ποσοστό επί (μίλια × βάση ρόλου): το συνολικό κόστος ανά θέση σε €, που μετατρέπεται σε credits με την τιμή του credit.",
   },
   delivery_min_fee: {
     group: "delivery",
-    label: "Ελάχιστο τέλος",
+    label: "Ελάχιστο κόστος",
     unit: "€",
-    help: "Το πληρώνει πάντα ο επαγγελματίας όταν αναλαμβάνει· ο πελάτης πληρώνει ό,τι περισσεύει πάνω από αυτό.",
+    help: "Το αντίστοιχο σε credits χρησιμοποιεί ο επαγγελματίας όταν αναλαμβάνει· ο πελάτης το υπόλοιπο, επίσης σε credits.",
   },
   // --- Σύστημα ---
   otp_enabled: {
@@ -179,7 +197,8 @@ const SETTING_META = {
 };
 
 const GROUPS = [
-  { key: "fees", title: "Χρεώσεις" },
+  { key: "credits", title: "Credits και πακέτα" },
+  { key: "fees", title: "Χρεώσεις σε credits" },
   { key: "expiry", title: "Χρόνοι λήξης" },
   { key: "delivery", title: "Μεταφορές σκάφους" },
   { key: "system", title: "Σύστημα" },

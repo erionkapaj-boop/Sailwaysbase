@@ -18,6 +18,7 @@ select id as sailboat from boat_types where name = 'Ιστιοπλοϊκό' \gse
 insert into auth.users (id, phone, raw_app_meta_data)
   values (:'NEWBIE', '306912345678', '{"signup": "pending"}'),
          (:'OTPUSER', '306912345679', '{}');
+update platform_settings set value = 3 where key = 'signup_credits_client';
 select pg_temp.act('authenticated', :'NEWBIE');
 select pg_temp.expect($$select complete_registration('Νέα Πελάτισσα', 'not-an-email', '+306900000001', null, true)$$, 'invalid_email');
 select complete_registration('Νέα Πελάτισσα', 'nea@example.com', '+306900000001', null, true);
@@ -30,17 +31,18 @@ select pg_temp.check('κανένα δώρο πριν την επαλήθευση
 select pg_temp.act('authenticated', :'ADMIN');
 select admin_verify_user(:'NEWBIE');
 select pg_temp.act('postgres');
-select pg_temp.check('το δώρο (50€) δίνεται με την επαλήθευση', (select wallet_balance = 50 and signup_bonus_at is not null from users where id = :'NEWBIE'));
+select pg_temp.check('το δώρο (όσα credits ορίζει η ρύθμιση) δίνεται με την επαλήθευση', (select wallet_balance = 3 and signup_bonus_at is not null from users where id = :'NEWBIE'));
 update users set phone_verified_at = null where id = :'NEWBIE';
 update users set phone_verified_at = now() where id = :'NEWBIE';
-select pg_temp.check('και μόνο μία φορά', (select wallet_balance = 50 from users where id = :'NEWBIE'));
+select pg_temp.check('και μόνο μία φορά', (select wallet_balance = 3 from users where id = :'NEWBIE'));
+update platform_settings set value = 0 where key = 'signup_credits_client';
 
 update platform_settings set value = 1 where key = 'otp_enabled';
 select pg_temp.act('authenticated', :'OTPUSER');
 select complete_registration('Με SMS', null, null, null, false);
 select pg_temp.act('postgres');
-select pg_temp.check('με ανοιχτό OTP και πραγματικό κωδικό: επαληθευμένος αμέσως, με το δώρο',
-  (select phone_verified_at is not null and wallet_balance = 50 from users where id = :'OTPUSER'));
+select pg_temp.check('με ανοιχτό OTP: επαληθευμένος αμέσως· πελάτης χωρίς δώρο (ρύθμιση 0)',
+  (select phone_verified_at is not null and wallet_balance = 0 from users where id = :'OTPUSER'));
 update platform_settings set value = 0 where key = 'otp_enabled';
 
 \echo '== #6 #7 #8 ζωντανός λογαριασμός: όνομα, email, αλλαγή PIN'
@@ -111,7 +113,7 @@ select pg_temp.expect($$select admin_update_setting('delivery_platform_fee_pct',
 select pg_temp.expect($$select admin_update_setting('otp_enabled', 2)$$, 'invalid_value');
 select pg_temp.expect($$select admin_update_setting('unclaimed_expiry_hours', 0)$$, 'invalid_value');
 select admin_update_setting('client_request_fee', 20);
-select admin_update_setting('client_request_fee', 15);
+select admin_update_setting('client_request_fee', 1);
 
 -- =============================================================================
 \echo '== #34 #35 αίτημα: ημερομηνίες και μέγεθος'
@@ -139,7 +141,7 @@ select pg_temp.expect(format('select pay_and_broadcast(%L, array[%L]::uuid[])', 
 select pg_temp.wallet('Μαρία Πελάτη') as wc0 \gset
 select (pay_and_broadcast(:'req', array[:'SP_KOSTAS', :'SP_ELENI']::uuid[])).status is not null;
 select pg_temp.act('postgres');
-select pg_temp.check('χωρίς χρέωση όταν απορρίπτεται, κανονική χρέωση όταν περνάει', pg_temp.wallet('Μαρία Πελάτη') = :wc0 - 15);
+select pg_temp.check('χωρίς χρέωση όταν απορρίπτεται, κανονική χρέωση όταν περνάει', pg_temp.wallet('Μαρία Πελάτη') = :wc0 - 1);
 
 \echo '== #47 οι ειδοποιήσεις «νέο αίτημα» αποσύρονται μαζί με το αίτημα'
 select pg_temp.check('και οι δύο πήραν ειδοποίηση με το αίτημα',

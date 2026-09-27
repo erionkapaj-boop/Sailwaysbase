@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../AuthContext";
 import BackButton from "../../components/BackButton";
@@ -25,7 +26,7 @@ const ROLE_REQUEST_LABEL = {
   open: "Ανοιχτό",
   filled: "Καλύφθηκε",
   cancelled: "Αποσύρθηκε",
-  expired: "Έληξε, το τέλος επιστράφηκε",
+  expired: "Έληξε, τα credits επιστράφηκαν",
 };
 
 const BOOKING_STATUS_LABEL = { confirmed: "Επιβεβαιωμένη", completed: "Ολοκληρώθηκε", cancelled: "Ακυρώθηκε" };
@@ -142,7 +143,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
   async function withdraw() {
     const ok = await confirm(
       `Να αποσυρθεί η θέση ${labelForRole(roleRequest.crew_role)};` +
-        (fee > 0 ? `\n\nΤο τέλος των ${formatMoney(fee)}€ επιστρέφεται στο πορτοφόλι σου.` : ""),
+        (fee > 0 ? `\n\nΕπιστρέφονται ${formatCredits(fee)}.` : ""),
       { confirmLabel: "Απόσυρση", cancelLabel: "Πίσω" }
     );
     if (!ok) return;
@@ -192,7 +193,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
           {roleRequest.booking.status === "cancelled" ? (
             roleRequest.booking.cancelled_by === "professional" ? (
               <>
-                Ο επαγγελματίας ακύρωσε και το τέλος{fee > 0 ? ` των ${formatMoney(fee)}€` : ""} επιστράφηκε στο πορτοφόλι σου.
+                Ο επαγγελματίας ακύρωσε{fee > 0 ? ` και επιστράφηκαν ${formatCredits(fee)}` : ""}.
                 Για άλλον άνθρωπο στείλε νέο αίτημα μεταφοράς.
               </>
             ) : (
@@ -212,8 +213,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
 
       {roleRequest.status === "open" && roleRequest.expires_at && (
         <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
-          Ισχύει έως {formatDateTime(roleRequest.expires_at)}. Αν δεν την αναλάβει κανείς ως τότε, το τέλος
-          {fee > 0 ? ` (${formatMoney(fee)}€)` : ""} επιστρέφεται αυτόματα στο πορτοφόλι σου.
+          Ισχύει έως {formatDateTime(roleRequest.expires_at)}. Αν δεν την αναλάβει κανείς ως τότε, {fee > 0 ? `τα ${formatCredits(fee)} επιστρέφονται` : "δεν υπάρχει χρέωση"} αυτόματα.
         </p>
       )}
       {error && <p style={{ color: colors.danger, fontSize: 13, margin: "6px 0 0" }}>{error}</p>}

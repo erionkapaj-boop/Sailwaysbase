@@ -45,7 +45,8 @@ check("ο πραγματικός πελάτης δεν τους βλέπει π�
 
 await as("6980000009", async (page) => {
   await go(page, "/platform/wallet");
-  check("ο demo πελάτης μπαίνει με PIN και έχει το bonus εγγραφής", (await text(page)).includes("Κατάθεση"));
+  // Δώρο εγγραφής για πελάτες: από τις Ρυθμίσεις, σήμερα 0 (0110).
+  check("ο demo πελάτης μπαίνει με PIN και βλέπει τα credits του", (await text(page)).includes("0 credits"));
 });
 
 finish();

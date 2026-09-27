@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../../lib/platform/credits";
 import { useCallback, useEffect, useState } from "react";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import OfferComposer from "../OfferComposer";
@@ -98,7 +99,7 @@ export default function OffersPage() {
                   {o.claim_fee_amount > 0 ? (
                     <>
                       {" · "}
-                      <span style={money}>{o.claim_fee_amount}€</span> με την αποδοχή
+                      <span style={money}>{formatCredits(o.claim_fee_amount)}</span> με την αποδοχή
                     </>
                   ) : (
                     " · χωρίς χρέωση"

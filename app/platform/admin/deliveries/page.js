@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import { Panel, Empty, colors, muted, money } from "../ui";
@@ -6,7 +7,7 @@ import { adminListDeliveryRequests } from "../../../../lib/platform/db";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { formatDate, formatDateTime, formatMoney } from "../../../../lib/platform/notifications";
 
-const ROLE_STATUS_LABEL = { open: "Ανοιχτό", filled: "Καλύφθηκε", cancelled: "Αποσύρθηκε", expired: "Έληξε (επιστράφηκε το τέλος)" };
+const ROLE_STATUS_LABEL = { open: "Ανοιχτό", filled: "Καλύφθηκε", cancelled: "Αποσύρθηκε", expired: "Έληξε (επιστράφηκαν τα credits)" };
 const BOOKING_STATUS_LABEL = { confirmed: "Επιβεβαιωμένη", completed: "Ολοκληρώθηκε", cancelled: "Ακυρώθηκε" };
 
 // Πλήρης ορατότητα σε κάθε αίτημα μεταφοράς από τη στιγμή που δημιουργείται
@@ -63,8 +64,8 @@ export default function AdminDeliveriesPage() {
                 <span>Προσφορά: <b style={{ color: colors.ink }}>{formatMoney(rr.offered_price)}€</b></span>
                 <span>Βάση προμήθειας: {formatMoney(rr.commission_base)}€</span>
                 <span>Προμήθεια πλατφόρμας: {formatMoney(rr.platform_commission)}€</span>
-                <span>Πελάτης: <b style={{ color: colors.ink }}>{formatMoney(rr.client_fee)}€</b></span>
-                <span>Επαγγελματίας: <b style={{ color: colors.ink }}>{formatMoney(rr.professional_fee)}€</b></span>
+                <span>Πελάτης: <b style={{ color: colors.ink }}>{formatCredits(rr.client_fee)}</b></span>
+                <span>Επαγγελματίας: <b style={{ color: colors.ink }}>{formatCredits(rr.professional_fee)}</b></span>
                 <span style={{ marginLeft: "auto", color: rr.status === "filled" ? colors.success : colors.inkSoft }}>
                   {ROLE_STATUS_LABEL[rr.status] || rr.status}
                 </span>

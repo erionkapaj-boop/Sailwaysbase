@@ -1,4 +1,5 @@
 "use client";
+import { formatCredits } from "../../../../../lib/platform/credits";
 import { useState } from "react";
 import { Panel, ProCredentials, colors, muted, button, VERIFY_HINT } from "../../ui";
 import { badge } from "../../../../../lib/platform/theme";
@@ -96,7 +97,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
     ).length;
     const lines = [];
     if (openReqs > 0)
-      lines.push(`${openReqs === 1 ? "Το 1 ανοιχτό αίτημά του ακυρώνεται" : `Τα ${openReqs} ανοιχτά αιτήματά του ακυρώνονται`} και το τέλος επιστρέφεται ως credit.`);
+      lines.push(`${openReqs === 1 ? "Το 1 ανοιχτό αίτημά του ακυρώνεται" : `Τα ${openReqs} ανοιχτά αιτήματά του ακυρώνονται`} και τα credits επιστρέφονται.`);
     if (pendingPings > 0)
       lines.push(`Αφαιρείται από ${pendingPings === 1 ? "1 αίτημα" : `${pendingPings} αιτήματα`} που περίμεναν απάντησή του.`);
     if (upcoming > 0)
@@ -117,7 +118,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
       setNotice(
         "Ο λογαριασμός διαγράφηκε." +
           (res.cancelled_requests > 0
-            ? ` ${res.cancelled_requests === 1 ? "Ακυρώθηκε 1 ανοιχτό αίτημα" : `Ακυρώθηκαν ${res.cancelled_requests} ανοιχτά αιτήματα`} και επιστράφηκαν ${res.refunded}€ ως credit.`
+            ? ` ${res.cancelled_requests === 1 ? "Ακυρώθηκε 1 ανοιχτό αίτημα" : `Ακυρώθηκαν ${res.cancelled_requests} ανοιχτά αιτήματα`} και επιστράφηκαν ${formatCredits(res.refunded)}.`
             : "") +
           " Μπορείς να τον επαναφέρεις από κάτω."
       );

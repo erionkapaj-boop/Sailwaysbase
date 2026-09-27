@@ -27,7 +27,7 @@ await as("6900002002", async (page) => {
   await page.waitForTimeout(1200);
   body = await text(page);
   check("πορτοφόλι: μετά το «Ξαναδοκίμασε» εμφανίζονται οι κινήσεις",
-    !body.includes("Δεν φορτώθηκαν") && body.includes("Κατάθεση"));
+    !body.includes("Δεν φορτώθηκαν") && body.includes("Πίστωση credits"));
 
   // Bookings
   await failing(page, "/bookings");

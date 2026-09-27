@@ -28,7 +28,7 @@ select pg_temp.expect(format('select cancel_booking(%L, %L)', :'bk1', '  '), 're
 select (cancel_booking(:'bk1', 'Αρρώστησα')).status;
 
 select pg_temp.act('postgres');
-select pg_temp.check('ο πελάτης ΔΕΝ πήρε επιστροφή όταν ακύρωσε ο skipper', pg_temp.wallet('Μαρία Πελάτη') = :w0 - 15);
+select pg_temp.check('ο πελάτης ΔΕΝ πήρε επιστροφή όταν ακύρωσε ο skipper', pg_temp.wallet('Μαρία Πελάτη') = :w0 - 1);
 select pg_temp.check('η ειδοποίηση πελάτη λέει επιστροφή 0',
   (select (data->>'refund')::numeric = 0 from notifications where user_id = :'CLIENT' and kind = 'booking_cancelled' order by created_at desc limit 1));
 
@@ -97,11 +97,11 @@ select pg_temp.act('authenticated', :'CLIENT');
 select (client_select_replacement_candidate(:'off1', :'SP_KOSTAS')).id as rep1 \gset
 select pg_temp.expect(format('select client_select_replacement_candidate(%L, %L)', :'off1', :'SP_KOSTAS'), 'request_not_open');
 select pg_temp.act('postgres');
-select pg_temp.check('ο επιλεγμένος χρεώθηκε 25€ μία φορά', pg_temp.wallet('Κώστας Υποψήφιος') = :wk - 25);
-select pg_temp.check('ο πελάτης δεν χρεώθηκε ξανά', pg_temp.wallet('Μαρία Πελάτη') = :w0 - 15);
+select pg_temp.check('ο επιλεγμένος χρεώθηκε 1 credit μία φορά', pg_temp.wallet('Κώστας Υποψήφιος') = :wk - 1);
+select pg_temp.check('ο πελάτης δεν χρεώθηκε ξανά', pg_temp.wallet('Μαρία Πελάτη') = :w0 - 1);
 select pg_temp.act('authenticated', :'ADMIN');
 select pg_temp.check('υπόθεση ολοκληρώθηκε, με όνομα και χρέωση',
-  (select stage = 'completed' and new_skipper_name = 'Κώστας Υποψήφιος' and charged = 25 from admin_replacement_cases(true) where booking_id = :'bk1'));
+  (select stage = 'completed' and new_skipper_name = 'Κώστας Υποψήφιος' and charged = 1 from admin_replacement_cases(true) where booking_id = :'bk1'));
 select pg_temp.check('δεν εμφανίζεται πια στις ενεργές', not exists (select 1 from admin_replacement_cases(false) where booking_id = :'bk1'));
 select pg_temp.check('dashboard: καμία εκκρεμότητα αντικατάστασης',
   (select (admin_overview()->>'coverage_needed')::int + (admin_overview()->>'coverage_offered')::int = 0));
@@ -163,7 +163,7 @@ select pg_temp.expect(format('select admin_close_replacement_case(%L, %L)', :'re
 select pg_temp.expect(format('select admin_create_offer(array[%L]::uuid[], p_replaces_booking_id := %L)', :'SP_ELENI', :'rep1'), 'case_closed');
 select pg_temp.check('στάδιο: έκλεισε χωρίς αντικαταστάτη', (select stage = 'closed_unfilled' from admin_replacement_cases(true) where booking_id = :'rep1'));
 select pg_temp.act('postgres');
-select pg_temp.check('επιστράφηκαν 15€ στον πελάτη, μία φορά', pg_temp.wallet('Μαρία Πελάτη') = :wc + 15);
+select pg_temp.check('επιστράφηκε 1 credit στον πελάτη, μία φορά', pg_temp.wallet('Μαρία Πελάτη') = :wc + 1);
 
 \echo '== αυτόματο κλείσιμο όταν φτάσει η μέρα του ταξιδιού'
 select pg_temp.act('authenticated', :'CLIENT');
@@ -178,7 +178,7 @@ select pg_temp.act('postgres');
 select pg_temp.wallet('Μαρία Πελάτη') as wd \gset
 update bookings set start_date = current_date, end_date = current_date + 1 where id = :'bk2';
 select expire_stale_booking_requests() >= 1;
-select pg_temp.check('έκλεισε αυτόματα με επιστροφή 15€', pg_temp.wallet('Μαρία Πελάτη') = :wd + 15
+select pg_temp.check('έκλεισε αυτόματα με επιστροφή 1 credit', pg_temp.wallet('Μαρία Πελάτη') = :wd + 1
   and (select replacement_closed_at is not null from bookings where id = :'bk2'));
 select pg_temp.check('ο πελάτης ειδοποιήθηκε (2 υποθέσεις χωρίς αντικαταστάτη)',
   (select count(*) = 2 from notifications where user_id = :'CLIENT' and kind = 'replacement_unfilled'));

@@ -15,7 +15,7 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const REQ_STATUS = {
   matched: ["Βρέθηκε επαγγελματίας", "success"],
-  expired_unclaimed: ["Έληξε, το τέλος επιστράφηκε", "warn"],
+  expired_unclaimed: ["Έληξε, τα credits επιστράφηκαν", "warn"],
   cancelled: ["Ακυρώθηκε", "danger"],
 };
 
