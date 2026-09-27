@@ -188,7 +188,7 @@
 2ad8e06	συνάρτηση	admin_set_contact_message_status(uuid,text,text)	8790b8
 2aeaf8e	κανόνας RLS	skipper_coverage_areas.skipper join owner write	36d87f
 2b156bd	στήλη	booking_requests.client_id	288395
-2ba8fcb	συνάρτηση	notify_booking_completed()	c65d7c
+2ba8fcb	συνάρτηση	notify_booking_completed()	95b433
 2c2596e	πίνακας (RLS και δικαιώματα)	delivery_bookings	e3094f
 2c56355	στήλη	user_languages.user_id	288395
 2c6e4ab	trigger	booking_request_pings.zz_guard_same_world	966f48

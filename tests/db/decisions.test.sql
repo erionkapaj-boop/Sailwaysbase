@@ -125,3 +125,13 @@ select pg_temp.act('postgres');
 update users set is_staff_admin = true where id in (:'SOFIA', :'PETROS');
 select pg_temp.act('authenticated', :'SOFIA');
 select pg_temp.expect(format('select admin_delete_account(%L, %L)', :'PETROS', 'x'), 'cannot_edit_admin');
+
+-- =============================================================================
+\echo '== 0108 η ειδοποίηση ολοκλήρωσης ανοίγει την κράτηση'
+select pg_temp.act('postgres');
+update bookings set start_date = current_date - 5, end_date = current_date - 3 where id = :'bk2';
+select mark_bookings_completed() >= 1;
+select pg_temp.check('ο σύνδεσμος πάει στην κράτηση, όχι σε σελίδα που δεν υπάρχει',
+  (select bool_and(link = '/platform/bookings?focus=' || :'bk2') and count(*) = 2
+     from notifications where kind = 'review_prompt' and link like '%' || :'bk2'));
+select pg_temp.check('και γράφει το μέρος', exists (select 1 from notifications where kind = 'review_prompt' and data ->> 'port' = 'Πάρος'));
