@@ -10,7 +10,6 @@ import {
   testPhoneSignIn,
   pendingSignIn,
   getOtpEnabled,
-  phoneRegistrationStatus,
 } from "../../../lib/platform/db";
 import { CREW_ROLES } from "../../../lib/platform/roles";
 import BackButton from "../components/BackButton";
@@ -66,12 +65,15 @@ const COUNTRY_CODES = [
 // "not_a_test_phone"/"use_test_signin_instead" never reach a real user (the
 // UI itself picks the right path by isTestPhone) — only listed here in case
 // a stale tab races the two.
-const PREVIOUSLY_USED =
-  "Αυτό το τηλέφωνο έχει χρησιμοποιηθεί από άλλον λογαριασμό και δεν μπορεί να δοθεί σε νέα εγγραφή. Αν είναι δικό σου, επικοινώνησε μαζί μας.";
+// One answer for every "this number can't be used" (0107): the page must not
+// reveal whether a number belongs to a live, an old or a deleted account.
+const PHONE_UNAVAILABLE =
+  "Δεν γίνεται εγγραφή με αυτό το τηλέφωνο. Αν έχεις ήδη λογαριασμό, σύνδεσου. Αλλιώς επικοινώνησε μαζί μας.";
 const REGISTER_ERRORS = {
-  phone_already_registered: "Υπάρχει ήδη λογαριασμός με αυτό το τηλέφωνο. Δοκίμασε να συνδεθείς αντί να ξαναγραφτείς.",
-  phone_previously_used: PREVIOUSLY_USED,
-  phone_taken: PREVIOUSLY_USED,
+  phone_unavailable: PHONE_UNAVAILABLE,
+  phone_already_registered: PHONE_UNAVAILABLE,
+  phone_previously_used: PHONE_UNAVAILABLE,
+  phone_taken: PHONE_UNAVAILABLE,
   test_phone_registered: "Αυτό το δοκιμαστικό τηλέφωνο έχει ήδη λογαριασμό. Σύνδεσου με τον κωδικό του από τη «Σύνδεση».",
 };
 
@@ -130,12 +132,8 @@ function RegisterInner() {
     setError("");
     setBusy(true);
     try {
-      // Before any SMS or Auth identity: an old number of another account
-      // stays that account's for good (0094). Test numbers are exempt — each
-      // one is by design always the same test account.
-      if (!isTestPhone && (await phoneRegistrationStatus(fullPhone)) === "previously_used") {
-        throw new Error("phone_previously_used");
-      }
+      // Whether a number is taken is checked only on the server (0107): the
+      // browser no longer gets to ask "does this phone have an account?".
       if (isTestPhone) {
         await testPhoneSignIn(fullPhone);
         setStep("otp");

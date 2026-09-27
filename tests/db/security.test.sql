@@ -26,12 +26,10 @@ from (
 where f not in (
   'admin_coverage_needed()',
   'booking_place(p_departure text, p_port uuid, p_region uuid)',
-  'check_login_rate_limit(p_phone text)',
   'has_future_availability(p_skipper_id uuid)',
   'is_approved_professional(p_user_id uuid)',
   -- reviews policy (0106): whether a review is about the client of that booking
   'is_review_of_client(p_booking_id uuid, p_reviewee_id uuid)',
-  'phone_registration_status(p_phone text)',
   'skipper_is_search_visible(p_skipper_id uuid)',
   'skipper_profile_id_of(p_user_id uuid)'
 );
@@ -59,7 +57,10 @@ select pg_temp.expect(format('select notify_admins(%L, %L, %L)', 'x', '{}', 'htt
 select pg_temp.expect('select mark_bookings_completed()', 'permission denied for function mark_bookings_completed');
 select pg_temp.expect('select expire_stale_booking_requests()', 'permission denied for function expire_stale_booking_requests');
 select pg_temp.expect(format('select clear_login_attempts(%L)', '+306900002003'), 'permission denied for function clear_login_attempts');
-select pg_temp.expect($$insert into login_attempts (phone, success) values ('+306900002003', true)$$, 'new row violates row-level security policy%');
+select pg_temp.expect($$insert into login_attempts (phone, success) values ('+306900002003', true)$$, 'permission denied for table login_attempts');
+-- 0107: κανείς εκτός server δεν γράφει αποτυχίες, άρα κανείς δεν κλειδώνει ξένο τηλέφωνο
+select pg_temp.expect($$insert into login_attempts (phone, success) values ('+306900002003', false)$$, 'permission denied for table login_attempts');
+select pg_temp.expect($$select phone_registration_status('+306900002003')$$, 'permission denied for function phone_registration_status');
 select pg_temp.check('ο ανώνυμος δεν βλέπει χρήστες', (select count(*) = 0 from users));
 select pg_temp.check('ο ανώνυμος δεν βλέπει κρατήσεις ή πορτοφόλια', (select count(*) = 0 from bookings) and (select count(*) = 0 from wallet_transactions));
 

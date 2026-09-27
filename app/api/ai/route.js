@@ -1,9 +1,11 @@
-// Proxy to the Anthropic API for the task app (components/App.jsx), using the
+import { taskDb, whoIs } from "../../../lib/taskApp/server";
+
+// Proxy to the Anthropic API for the team app (components/App.jsx), using the
 // owner's key. It must not be an open relay for the whole internet:
-//   - only pages of this same site may call it (Origin/Referer must match);
+//   - only someone with a valid personal code of the team may call it;
+//   - only pages of this same site (Origin/Referer must match);
 //   - the request size and the answer length are capped, the model is fixed.
-// A script that forges the Origin header can still get through — a real
-// sign-in for the task app is the full fix (docs/AUDIT.md #16, #27).
+// (docs/AUDIT.md #16)
 const MAX_PROMPT_CHARS = 60000;
 const MAX_TOKENS = 2000;
 
@@ -20,6 +22,9 @@ function sameOrigin(req) {
 
 export async function POST(req) {
   if (!sameOrigin(req)) return Response.json({ content: [], error: "forbidden" }, { status: 403 });
+  const db = taskDb();
+  const who = db ? await whoIs(db, req.headers.get("x-app-code")).catch(() => ({})) : {};
+  if (!who.user) return Response.json({ content: [], error: "bad_code" }, { status: 401 });
   try {
     const { prompt, max_tokens } = await req.json();
     if (typeof prompt !== "string" || !prompt.trim() || prompt.length > MAX_PROMPT_CHARS) {

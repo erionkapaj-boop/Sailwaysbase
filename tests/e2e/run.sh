@@ -67,6 +67,12 @@ do \$\$ begin
   end if;
 end \$\$;
 grant anon, authenticated, service_role to authenticator;
+-- The team app's table (components/App.jsx), closed to the public key the way
+-- docs/PENDING.md asks for in production: only the server reaches it.
+create table if not exists kv (key text primary key, value text, updated_at timestamptz default now());
+alter table kv enable row level security;
+revoke all on kv from anon, authenticated;
+grant all on kv to service_role;
 SQL
 
 echo "== postgrest"
@@ -110,6 +116,11 @@ export PLATFORM_EMAIL_FROM="Sailways <noreply@example.com>"
 export PLATFORM_EMAIL_API_URL="http://127.0.0.1:${EMAIL_CAPTURE_PORT:-54392}/emails"
 export EMAIL_CAPTURE_PORT="${EMAIL_CAPTURE_PORT:-54392}"
 export CRON_SECRET="e2e-cron-secret"
+# The team app (/) uses its own Supabase project in production; here the same
+# gateway stands in for it.
+export NEXT_PUBLIC_SUPABASE_URL="http://localhost:$GATEWAY_PORT"
+export NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY"
+export SUPABASE_SERVICE_ROLE_KEY="$PLATFORM_SUPABASE_SERVICE_ROLE_KEY"
 if [ -n "${E2E_DEV:-}" ]; then
   setsid npx next dev -p "$APP_PORT" > "$OUT/app.log" 2>&1 &
 else

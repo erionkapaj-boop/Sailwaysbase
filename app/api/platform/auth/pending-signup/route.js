@@ -28,13 +28,15 @@ export async function POST(req) {
   // 0094: a number that ever belonged to an account stays that account's —
   // including numbers it has since changed away from.
   const { data: phoneStatus } = await db.rpc("phone_registration_status", { p_phone: phone });
-  if (phoneStatus === "registered") return Response.json({ error: "phone_already_registered" }, { status: 409 });
-  if (phoneStatus === "previously_used") return Response.json({ error: "phone_previously_used" }, { status: 409 });
+  // One answer for all three (0107), so this can't be used to learn which
+  // numbers have accounts.
+  const unavailable = () => Response.json({ error: "phone_unavailable" }, { status: 409 });
+  if (phoneStatus === "registered" || phoneStatus === "previously_used") return unavailable();
 
   const { data: existing } = await db.from("users").select("id, status").eq("phone_number", phone).maybeSingle();
-  if (existing && existing.status !== "deleted") {
-    return Response.json({ error: "phone_already_registered" }, { status: 409 });
-  }
+  // A deleted account comes back only with a real SMS code or through an
+  // admin (Χρήστες → Επαναφορά) — never by just knowing the number (0107).
+  if (existing) return unavailable();
 
   const password = crypto.randomBytes(24).toString("base64url");
 
@@ -43,14 +45,7 @@ export async function POST(req) {
   // browser says. Only the server can set app_metadata.
   const app_metadata = { signup: "pending" };
   const { error: createErr } = await db.auth.admin.createUser({ phone, password, phone_confirm: true, app_metadata });
-  if (createErr) {
-    // Already exists at the Auth layer — the revival case (0074): same
-    // phone, a previously soft-deleted row. Reuse that identity by
-    // resetting its password to this fresh one instead of failing.
-    if (!existing) return Response.json({ error: createErr.message }, { status: 400 });
-    const { error: updErr } = await db.auth.admin.updateUserById(existing.id, { password, app_metadata });
-    if (updErr) return Response.json({ error: updErr.message }, { status: 400 });
-  }
+  if (createErr) return unavailable();
 
   return Response.json({ ok: true, password });
 }

@@ -6,8 +6,6 @@ import {
   signInWithPin,
   getMyUserRow,
   signOut,
-  checkLoginAllowed,
-  normalizePhone,
 } from "../../../../lib/platform/db";
 import BackButton from "../../components/BackButton";
 import { container, card, h1, muted, button, input, label, colors } from "../../../../lib/platform/theme";
@@ -26,10 +24,7 @@ export default function AdminLoginPage() {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // Το κλείδωμα δεν λήγει με τον χρόνο: μετράει τις αποτυχίες από την
-  // τελευταία ΕΠΙΤΥΧΙΑ, οπότε τρία λάθη κλειδώνουν μόνιμα. Ο μόνος δρόμος
-  // πίσω είναι νέος κωδικός — και χωρίς αυτόν τον σύνδεσμο ο διαχειριστής
-  // έμενε σε αδιέξοδη οθόνη, κλειδωμένος έξω από την ίδια του την πλατφόρμα.
+  // Όταν το Supabase αρνείται για λίγο (πολλές προσπάθειες από τη συσκευή).
   const [lockedOut, setLockedOut] = useState(false);
 
   async function submit(e) {
@@ -55,9 +50,6 @@ export default function AdminLoginPage() {
         setError("");
       } else {
         setError("Λάθος τηλέφωνο ή κωδικός.");
-        // Δείξε το κλείδωμα στην προσπάθεια που το προκαλεί, όχι στην επόμενη.
-        const stillAllowed = await checkLoginAllowed(normalizePhone(phone));
-        if (!stillAllowed) setLockedOut(true);
       }
     } finally {
       setBusy(false);
@@ -72,12 +64,12 @@ export default function AdminLoginPage() {
         <p style={muted}>Είσοδος διαχειριστή.</p>
 
         {lockedOut ? (
-          // Locks expire after 15 minutes (0085). The forgot-PIN page is no
+          // Supabase's own limit on sign-in attempts (0107). The forgot-PIN page is no
           // help to the admin: with SMS off it only says "contact us".
           <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
-            <b style={{ fontWeight: 600 }}>Κλειδώθηκε για 15 λεπτά</b>
+            <b style={{ fontWeight: 600 }}>Πολλές προσπάθειες</b>
             <p style={{ ...muted, margin: "8px 0 16px" }}>
-              Έγιναν τρεις λάθος προσπάθειες. Περίμενε 15 λεπτά και δοκίμασε ξανά. Αν δεν θυμάσαι τον κωδικό, ένας
+              Έγιναν πολλές προσπάθειες από αυτή τη συσκευή. Περίμενε λίγα λεπτά και δοκίμασε ξανά. Αν δεν θυμάσαι τον κωδικό, ένας
               άλλος διαχειριστής μπορεί να σου δώσει προσωρινό από Χρήστες, Στοιχεία, «Νέος προσωρινός κωδικός».
             </p>
             <button style={button("secondary")} onClick={() => setLockedOut(false)}>

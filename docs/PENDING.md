@@ -58,8 +58,28 @@
 
 ## Όριο προσπαθειών σύνδεσης στο Supabase (docs/AUDIT.md #1, #2)
 - Supabase → Authentication → Rate Limits: το «Sign-ins» ανά IP να είναι
-  χαμηλό (π.χ. 10 ανά 5 λεπτά). Αυτό είναι το πραγματικό φρένο για όποιον
-  δοκιμάζει PIN — το κλείδωμα της εφαρμογής ελέγχεται μόνο στον browser.
+  χαμηλό (π.χ. 10 ανά 5 λεπτά). Από το 0107 αυτό είναι το μόνο φρένο για
+  όποιον δοκιμάζει PIN (το κλείδωμα ανά τηλέφωνο καταργήθηκε).
+
+## Εφαρμογή εργασιών (σελίδα `/`): κλείδωμα δεδομένων (docs/AUDIT.md #27, #28)
+Ο κώδικας περνά ήδη όλα τα δεδομένα από τον server με έλεγχο κωδικού. Για να
+κλείσει εντελώς:
+1. **Vercel → Environment Variables:** `SUPABASE_SERVICE_ROLE_KEY` = το
+   service_role key του Supabase project **της εφαρμογής εργασιών** (όχι της
+   πλατφόρμας). Redeploy.
+2. **Μετά** το βήμα 1, στο SQL Editor εκείνου του project:
+   ```sql
+   alter table kv enable row level security;
+   do $$ declare p record; begin
+     for p in select policyname from pg_policies where schemaname = 'public' and tablename = 'kv' loop
+       execute format('drop policy %I on kv', p.policyname);
+     end loop;
+   end $$;
+   revoke all on kv from anon, authenticated;
+   ```
+3. **Νέοι κωδικοί για όλους:** οι παλιοί ήταν μέσα στον δημόσιο κώδικα και
+   είχαν μόνο 9.000 δυνατούς συνδυασμούς. Διοίκηση → «Χρήστες & ρόλοι» → «↻ νέος» σε
+   κάθε άτομο (και στον δικό σου), και μοίρασέ τους.
 
 ## Αυτόματο backup της βάσης (Free πακέτο Supabase)
 Στο Free πακέτο δεν υπάρχουν backups που μπορείς να κατεβάσεις ή να επαναφέρεις.

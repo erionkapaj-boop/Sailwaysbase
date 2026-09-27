@@ -313,10 +313,16 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         <input
           id="p-name"
           required
-          style={{ ...input, marginBottom: 16 }}
+          style={{ ...input, marginBottom: isApproved && form.full_name.trim() !== (profile.full_name || "").trim() ? 6 : 16 }}
           value={form.full_name}
           onChange={(e) => setField("full_name", e.target.value)}
         />
+        {isApproved && form.full_name.trim() !== (profile.full_name || "").trim() && (
+          <p style={{ ...muted, fontSize: 12, color: colors.warn, margin: "0 0 16px" }}>
+            Με αλλαγή ονόματος το προφίλ πάει ξανά για έλεγχο και δεν εμφανίζεσαι στις αναζητήσεις μέχρι να
+            εγκριθεί.
+          </p>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px,1fr))", gap: 14 }}>
           <div>

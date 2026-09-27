@@ -104,7 +104,7 @@ select (claim_booking_request(:'req2', :'SP_KOSTAS')).id as bk2 \gset
 insert into messages (booking_id, sender_id, content) values (:'bk2', :'KOSTAS', 'Καλησπέρα, τα λέμε στη Νάξο');
 select pg_temp.act('authenticated', :'CLIENT');
 insert into messages (booking_id, sender_id, content) values (:'bk2', :'CLIENT', 'Τέλεια, ευχαριστώ');
-select pg_temp.check('ο πελάτης βλέπει τη συνομιλία', (select count(*) = 2 from messages where booking_id = :'bk2'));
+select pg_temp.check('ο πελάτης βλέπει τη συνομιλία (και το αυτόματο πρώτο μήνυμα)', (select count(*) = 3 and count(*) filter (where auto) = 1 from messages where booking_id = :'bk2'));
 select pg_temp.expect(format($$insert into messages (booking_id, sender_id, content) values (%L, %L, 'ψεύτικο')$$, :'bk2', :'KOSTAS'),
   'new row violates row-level security policy%');
 select pg_temp.act('authenticated', :'ELENI');

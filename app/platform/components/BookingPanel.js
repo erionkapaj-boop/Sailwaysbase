@@ -7,6 +7,8 @@ import {
   sendMessage,
   markMessagesRead,
   cancelBooking,
+  cancelBookingNoResponse,
+  getBookingResponseState,
   submitReview,
   replyToReview,
   listReviewsForBooking,
@@ -61,8 +63,13 @@ export default function BookingPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirm, confirmDialog] = useConfirm();
+  // Προθεσμία απάντησης του επαγγελματία στα μηνύματα (0107).
+  const [responseState, setResponseState] = useState(null);
 
   const isPastEnd = new Date(booking.end_date) < new Date(new Date().toDateString());
+  // Από την ημέρα έναρξης η υπόθεση θεωρείται κλεισμένη: δεν ακυρώνεται (0107).
+  const todayLocal = new Date().toLocaleDateString("sv-SE");
+  const tripStarted = booking.start_date <= todayLocal;
   const revealed = ["confirmed", "completed", "cancelled_by_client", "cancelled_by_skipper"].includes(booking.status);
 
   // Loaded as soon as the booking is revealed, regardless of whether the row
@@ -92,6 +99,11 @@ export default function BookingPanel({
     // let the header bell know, so the badge doesn't wait for a full reload.
     markMessagesRead(booking.id).then(refreshNotifications).catch(() => {});
   }, [booking.id, expanded, threadAttempt]);
+
+  useEffect(() => {
+    if (booking.status !== "confirmed" || !expanded) return;
+    getBookingResponseState(booking.id).then(setResponseState).catch(() => setResponseState(null));
+  }, [booking.id, booking.status, expanded, messages.length]);
 
   // Arriving here from the notification bell (?focus=<id>) should land the
   // booking in view already open, not just highlighted somewhere off-screen.
@@ -130,6 +142,26 @@ export default function BookingPanel({
     setError("");
     try {
       await cancelBooking(booking.id, cancelReason || "Χωρίς αναφερόμενο λόγο");
+      onChanged?.();
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleNoResponse() {
+    if (
+      !(await confirm(
+        "Ο επαγγελματίας δεν απάντησε στα μηνύματα μέσα στην προθεσμία. Η κράτηση ακυρώνεται χωρίς επιβάρυνση στο ιστορικό σου " +
+          "και η ακύρωση μετράει σε εκείνον. Το τέλος του αιτήματος δεν επιστρέφεται: για άλλον επαγγελματία κάνεις νέα αναζήτηση."
+      ))
+    )
+      return;
+    setBusy(true);
+    setError("");
+    try {
+      await cancelBookingNoResponse(booking.id);
       onChanged?.();
     } catch (err) {
       setError(friendlyError(err));
@@ -409,7 +441,37 @@ export default function BookingPanel({
         </p>
       )}
 
-      {booking.status === "confirmed" && (
+      {booking.status === "confirmed" && responseState && !responseState.responded && !tripStarted && (
+        <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: radius.md, background: "#F7F0E2", fontSize: 13.5 }}>
+          {viewerRole === "client" ? (
+            <>
+              Ο επαγγελματίας πρέπει να σου απαντήσει στα μηνύματα εδώ μέχρι{" "}
+              <b style={{ fontWeight: 600 }}>{formatDateTime(responseState.deadline)}</b>. Κράτα την επικοινωνία μέσα
+              στην πλατφόρμα: είναι η απόδειξη ότι μιλήσατε.
+              {responseState.can_cancel_no_response && (
+                <div style={{ marginTop: 8 }}>
+                  <button style={button("danger")} disabled={busy} onClick={handleNoResponse}>
+                    Δεν απάντησε: ακύρωση
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              Απάντησε στον πελάτη εδώ μέχρι <b style={{ fontWeight: 600 }}>{formatDateTime(responseState.deadline)}</b>.
+              Αν δεν απαντήσεις, μπορεί να ακυρώσει και η ακύρωση μετράει σε σένα.
+            </>
+          )}
+        </div>
+      )}
+
+      {booking.status === "confirmed" && tripStarted && (
+        <p style={{ ...muted, fontSize: 12.5, margin: "10px 0 0" }}>
+          Το ταξίδι έχει ξεκινήσει. Η κράτηση δεν ακυρώνεται πια.
+        </p>
+      )}
+
+      {booking.status === "confirmed" && !tripStarted && (
         <div style={{ marginTop: 10 }}>
           <input
             style={{ ...input, marginBottom: 6 }}
@@ -448,6 +510,9 @@ export default function BookingPanel({
                   }}
                 >
                   {m.content}
+                  {m.auto && (
+                    <span style={{ display: "block", fontSize: 11, opacity: 0.7, marginTop: 4 }}>Αυτόματο μήνυμα</span>
+                  )}
                 </span>
               </div>
             ))}

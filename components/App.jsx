@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { storage as winStorage } from "../lib/storage";
+import { storage as winStorage, setAppCode, verifyAppCode, appHeaders } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
 // ---------- Σταθερές ----------
@@ -41,16 +41,25 @@ const T = { caption: 12, small: 13, body: 15, title: 17, heading: 20, display: 2
 const R = { sm: 8, lg: 12, pill: 999 };
 const EASE = "160ms cubic-bezier(0.2, 0, 0, 1)";
 
+// Προσωπικοί κωδικοί: 3 γράμματα από το όνομα + 6 τυχαίοι χαρακτήρες (κρυπτογραφικά τυχαίοι).
+// Ποτέ σταθεροί μέσα στον κώδικα: ό,τι είναι εδώ φαίνεται σε όποιον ανοίξει την εφαρμογή.
+const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const genCode = (name) => {
+  const bytes = new Uint8Array(6);
+  (globalThis.crypto || window.crypto).getRandomValues(bytes);
+  const tail = Array.from(bytes, (b) => CODE_CHARS[b % CODE_CHARS.length]).join("");
+  return (String(name || "").slice(0, 3).toUpperCase().replace(/[^A-ZΑ-Ω]/g, "X")) + "-" + tail;
+};
+
 const SEED_USERS = [
-  { id: "u-owner", name: "Εριόν", role: "owner", profile: "Διαχειριστής εφαρμογής", code: "OWN-7301" },
-  { id: "u-vasilis", name: "Βασίλης", role: "employee", profile: "", code: "VAS-4821" },
-  { id: "u-mitsos", name: "Μήτσος", role: "employee", profile: "", code: "MIT-9354" },
-  { id: "u-fanouris", name: "Φανούρης", role: "employee", profile: "", code: "FAN-2768" },
-  { id: "u-giannis", name: "Γιάννης", role: "employee", profile: "", code: "GIA-5142" },
-  { id: "u-nikol", name: "Νικόλ", role: "employee", profile: "", code: "NIK-8637" },
-  { id: "u-danai", name: "Δανάη", role: "employee", profile: "", code: "DAN-3495" },
+  { id: "u-owner", name: "Εριόν", role: "owner", profile: "Διαχειριστής εφαρμογής", code: genCode("Εριόν") },
+  { id: "u-vasilis", name: "Βασίλης", role: "employee", profile: "", code: genCode("Βασίλης") },
+  { id: "u-mitsos", name: "Μήτσος", role: "employee", profile: "", code: genCode("Μήτσος") },
+  { id: "u-fanouris", name: "Φανούρης", role: "employee", profile: "", code: genCode("Φανούρης") },
+  { id: "u-giannis", name: "Γιάννης", role: "employee", profile: "", code: genCode("Γιάννης") },
+  { id: "u-nikol", name: "Νικόλ", role: "employee", profile: "", code: genCode("Νικόλ") },
+  { id: "u-danai", name: "Δανάη", role: "employee", profile: "", code: genCode("Δανάη") },
 ];
-const genCode = (name) => (name.slice(0, 3).toUpperCase().replace(/[^A-ZΑ-Ω]/g, "X")) + "-" + Math.floor(1000 + Math.random() * 9000);
 
 const SEED_BOATS = [
   ["Λεωνίδας", "Bavaria 50"], ["Λεωνίδας II", "Bavaria 46"], ["Λεωνίδας III", "Bavaria 51"],
@@ -409,7 +418,7 @@ class ErrorBoundary extends React.Component {
 async function askClaude(prompt, maxTokens = 1000) {
   const res = await fetch("/api/ai", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: appHeaders(),
     body: JSON.stringify({ prompt, max_tokens: maxTokens }),
   });
   const data = await res.json();
@@ -493,6 +502,9 @@ const persistQueues = {};
 
 // ---------- Κύρια εφαρμογή ----------
 function AppInner() {
+  // Ο κωδικός ελέγχεται από τον server πριν φορτωθεί οτιδήποτε (docs/AUDIT.md #27, #28).
+  const [authed, setAuthed] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [ready, setReady] = useState(false);
   const [users, setUsers] = useState([]);
   const [boats, setBoats] = useState([]);
@@ -545,8 +557,29 @@ function AppInner() {
     }
   }, []);
 
+  // Είσοδος: κωδικός από link#ΚΩΔΙΚΟΣ ή από τη συσκευή, ελεγμένος από τον server.
+  useEffect(() => {
+    (async () => {
+      const hashCode = (window.location.hash || "").replace("#", "").trim().toUpperCase();
+      let code = hashCode;
+      if (!code) {
+        try { const r = await winStorage.get("my-code", false); code = r ? r.value : ""; } catch { code = ""; }
+      }
+      if (code) {
+        try {
+          await verifyAppCode(code);
+          setAppCode(code);
+          try { await winStorage.set("my-code", code, false); } catch {}
+          setAuthed(true);
+        } catch {}
+      }
+      setAuthChecked(true);
+    })();
+  }, []);
+
   // Φόρτωση
   useEffect(() => {
+    if (!authed) return;
     (async () => {
       let [u, b, t, q, c, cc, ab, nt, bn, am, st, inv, so, pt] = await Promise.all([
         load("app-users", null), load("app-boats", null), load("app-tasks", null),
@@ -558,7 +591,13 @@ function AppInner() {
       u = asArray(u); b = asArray(b); t = asArray(t);
       q = asStringArray(q); c = asStringArray(c); cc = asStringArray(cc);
       ab = asArray(ab); nt = asArray(nt); bn = asArray(bn); am = asArray(am); pt = asArray(pt);
-      if (!u) { u = SEED_USERS; await save("app-users", u); }
+      // Πρώτη εγκατάσταση: ο κωδικός με τον οποίο μπήκες γίνεται ο κωδικός του ιδιοκτήτη.
+      if (!u) {
+        let mine = "";
+        try { const r = await winStorage.get("my-code", false); mine = r ? r.value : ""; } catch {}
+        u = SEED_USERS.map(x => x.role === "owner" && mine ? { ...x, code: mine } : x);
+        await save("app-users", u);
+      }
       // Μετάβαση: προσθήκη προσωπικών κωδικών σε παλιούς χρήστες
       if (u.some(x => !x.code)) { u = u.map(x => x.code ? x : { ...x, code: genCode(x.name) }); await save("app-users", u); }
       // Μετάβαση v3: πλήρη προφίλ ομάδας (συμπληρώνονται μία φορά — μετά επεξεργάσιμα ελεύθερα)
@@ -583,9 +622,9 @@ function AppInner() {
           return x;
         });
         u = [...u,
-          { id: "u-afroditi", name: "Αφροδίτη", role: "manager", profile: "", code: "AFR-6208" },
-          { id: "u-alexandros", name: "Αλέξανδρος", role: "manager", profile: "", code: "ALX-1573" },
-          { id: "u-nikos", name: "Νίκος", role: "manager", profile: "", code: "NKS-7946" },
+          { id: "u-afroditi", name: "Αφροδίτη", role: "manager", profile: "", code: genCode("Αφροδίτη") },
+          { id: "u-alexandros", name: "Αλέξανδρος", role: "manager", profile: "", code: genCode("Αλέξανδρος") },
+          { id: "u-nikos", name: "Νίκος", role: "manager", profile: "", code: genCode("Νίκος") },
         ];
         await save("app-users", u);
       }
@@ -677,11 +716,11 @@ function AppInner() {
           return nx;
         });
         if (!u.some(x => ALIAS[norm(x.name)] === "Martin")) {
-          u = [...u, { id: "u-martin", name: "Martin", role: "employee", lang: "en", code: "MAR-4207", profile: PROFILES["Martin"], humor: HUM["Martin"] }];
+          u = [...u, { id: "u-martin", name: "Martin", role: "employee", lang: "en", code: genCode("Martin"), profile: PROFILES["Martin"], humor: HUM["Martin"] }];
           ch = true;
         }
         if (!u.some(x => ALIAS[norm(x.name)] === "Λεωνίδας")) {
-          u = [...u, { id: "u-leonidas", name: "Λεωνίδας", role: "employee", code: "LEO-8153", profile: PROFILES["Λεωνίδας"], noAutoAssign: true, noStats: true }];
+          u = [...u, { id: "u-leonidas", name: "Λεωνίδας", role: "employee", code: genCode("Λεωνίδας"), profile: PROFILES["Λεωνίδας"], noAutoAssign: true, noStats: true }];
           ch = true;
         }
         if (ch) await save("app-users", u);
@@ -720,7 +759,7 @@ function AppInner() {
       SET = merged; setSettings(merged);
       setReady(true);
     })();
-  }, []);
+  }, [authed]);
 
   // Ασφαλής αποθήκευση με πολλές συσκευές ταυτόχρονα: διαβάζει την πιο πρόσφατη αποθηκευμένη τιμή (άλλη συσκευή)
   // ΑΚΡΙΒΩΣ πριν γράψει. Η εφαρμογή της αλλαγής γίνεται ΠΑΝΤΑ μέσα σε λειτουργική ενημέρωση React
@@ -1072,14 +1111,21 @@ ${AUTO_TASK_TYPES.map((t, i) => `${i}: ${t}`).join("\n")}
 
   const logout = async () => {
     try { await winStorage.delete("my-code", false); } catch {}
+    setAppCode(null);
     setMe(null); setViewAs(null); setTab("today"); setAdminSection("overview");
+    setAuthed(false); setReady(false); setUsers([]);
   };
 
+  const onLogin = async (code) => {
+    setAppCode(code);
+    try { await winStorage.set("my-code", code, false); } catch {}
+    setAuthed(true);
+  };
+
+  if (!authChecked) return <Center><div style={{ color: COLORS.sub }}>Φόρτωση…</div></Center>;
+  if (!authed) return <Login onLogin={onLogin} />;
   if (!ready) return <Center><div style={{ color: COLORS.sub }}>Φόρτωση…</div></Center>;
-  if (!me) return <Login users={users} onPick={async (u) => {
-    setMe(u); setTab("today");
-    try { await winStorage.set("my-code", u.code, false); } catch {}
-  }} />;
+  if (!me) return <Login onLogin={onLogin} />;
 
   const acting = viewAs || me;
   // Τα δικαιώματα (τι κουμπιά βλέπεις) ακολουθούν το άτομο που προβάλλεται (acting), όχι πάντα τον πραγματικό
@@ -1497,10 +1543,9 @@ ${histLines}
   const persistSignoffs = makePersist("app-signoffs", setSignoffs, signoffs);
   // Κλείσιμο σκάφους = αποχώρηση από τη δουλειά για σήμερα — καταγράφεται η ώρα (ορατή στους managers) και
   // στέλνεται αυτόματο «χαιρετισμό» στον Αλέξανδρο, χωρίς καμία επιπλέον ενέργεια από τον υπάλληλο.
-  // Ο Αλέξανδρος αναζητείται δυναμικά (κωδικός ALX-1573) — ποτέ hardcoded internal id, ώστε να μη σπάσει αν
-  // αλλάξει ποτέ ο εσωτερικός κωδικός χρήστη.
+  // Ο Αλέξανδρος αναζητείται δυναμικά (manager με αυτό το όνομα) — ποτέ hardcoded internal id ή κωδικός.
   const recordSignoff = async (boat) => {
-    const alexandros = users.find(u => u.code === "ALX-1573" || (u.role === "manager" && (u.name || "").startsWith("Αλέξανδρ")));
+    const alexandros = users.find(u => u.role === "manager" && (u.name || "").startsWith("Αλέξανδρ"));
     const entry = { id: "so" + Date.now(), userId: acting.id, boatId: boat.id, at: new Date().toISOString() };
     await persistSignoffs(cur => [entry, ...cur]);
     if (alexandros && alexandros.id !== acting.id) {
@@ -1854,13 +1899,25 @@ function TabBar({ tabs, tab, setTab }) {
   );
 }
 
-function Login({ users, onPick }) {
+function Login({ onLogin }) {
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
-  const tryLogin = () => {
-    const u = users.find(x => (x.code || "").toUpperCase() === code.trim().toUpperCase());
-    if (u) onPick(u);
-    else setErr("Ο κωδικός δεν αναγνωρίστηκε. / Code not recognized.");
+  const [busy, setBusy] = useState(false);
+  // Ο έλεγχος γίνεται στον server: ο browser δεν έχει πια τη λίστα με τους κωδικούς.
+  const tryLogin = async () => {
+    const c = code.trim().toUpperCase();
+    if (!c || busy) return;
+    setBusy(true);
+    try {
+      await verifyAppCode(c);
+      await onLogin(c);
+    } catch (e) {
+      setErr(e.message === "too_many_attempts"
+        ? "Πολλές λάθος προσπάθειες. Δοκίμασε ξανά σε λίγα λεπτά. / Too many attempts, try again later."
+        : "Ο κωδικός δεν αναγνωρίστηκε. / Code not recognized.");
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <Center>

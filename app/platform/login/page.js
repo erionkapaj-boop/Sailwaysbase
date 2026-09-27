@@ -3,7 +3,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
-import { signInWithPin, checkLoginAllowed, normalizePhone, isSignedInAdmin } from "../../../lib/platform/db";
+import { signInWithPin, isSignedInAdmin } from "../../../lib/platform/db";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../../lib/platform/pendingDelivery";
 import BackButton from "../components/BackButton";
@@ -44,16 +44,13 @@ function LoginInner() {
       if (err.message === "locked_out") {
         setLockedOut(true);
       } else if (err.message === "account_deleted") {
-        setError("Αυτός ο λογαριασμός έχει διαγραφεί. Κάνε ξανά εγγραφή με το ίδιο τηλέφωνο για να τον ενεργοποιήσεις ξανά.");
+        setError("Αυτός ο λογαριασμός έχει διαγραφεί. Για να τον ενεργοποιήσεις ξανά, επικοινώνησε μαζί μας.");
       } else if (err.message === "account_suspended") {
         setError("Ο λογαριασμός αυτός είναι σε αναστολή. Επικοινώνησε μαζί μας αν νομίζεις ότι πρόκειται για λάθος.");
       } else {
         // Don't say whether the phone or the PIN was wrong — that would tell
         // an attacker which numbers have accounts.
         setError("Λάθος τηλέφωνο ή κωδικός.");
-        // Surface the block on the attempt that causes it, not on the next one.
-        const stillAllowed = await checkLoginAllowed(normalizePhone(phone));
-        if (!stillAllowed) setLockedOut(true);
       }
     } finally {
       setBusy(false);
@@ -80,13 +77,13 @@ function LoginInner() {
       )}
 
       {lockedOut ? (
-        // Locks expire after 15 minutes (0085); until then another attempt
-        // would only be refused, so the form stays hidden behind "retry".
+        // Supabase's own limit on sign-in attempts (0107): until it passes
+        // another attempt would only be refused.
         <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
-          <b style={{ fontWeight: 600 }}>Κλειδώθηκε για 15 λεπτά</b>
+          <b style={{ fontWeight: 600 }}>Πολλές προσπάθειες</b>
           <p style={{ ...muted, margin: "8px 0 16px" }}>
-            Έγιναν τρεις λάθος προσπάθειες. Δοκίμασε ξανά σε 15 λεπτά ή ζήτα βοήθεια αν δεν θυμάσαι τον
-            κωδικό.
+            Έγιναν πολλές προσπάθειες από αυτή τη συσκευή. Δοκίμασε ξανά σε λίγα λεπτά ή ζήτα βοήθεια αν δεν
+            θυμάσαι τον κωδικό.
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button style={button("secondary")} onClick={() => setLockedOut(false)}>
