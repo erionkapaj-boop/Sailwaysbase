@@ -1,5 +1,5 @@
 "use client";
-import { formatCredits } from "../../../../lib/platform/credits";
+import { formatCredits, verbFor } from "../../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../AuthContext";
 import BackButton from "../../components/BackButton";
@@ -143,7 +143,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
   async function withdraw() {
     const ok = await confirm(
       `Να αποσυρθεί η θέση ${labelForRole(roleRequest.crew_role)};` +
-        (fee > 0 ? `\n\nΕπιστρέφονται ${formatCredits(fee)}.` : ""),
+        (fee > 0 ? `\n\n${verbFor(fee, "Επιστρέφεται", "Επιστρέφονται")} ${formatCredits(fee)}.` : ""),
       { confirmLabel: "Απόσυρση", cancelLabel: "Πίσω" }
     );
     if (!ok) return;
@@ -193,7 +193,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
           {roleRequest.booking.status === "cancelled" ? (
             roleRequest.booking.cancelled_by === "professional" ? (
               <>
-                Ο επαγγελματίας ακύρωσε{fee > 0 ? ` και επιστράφηκαν ${formatCredits(fee)}` : ""}.
+                Ο επαγγελματίας ακύρωσε{fee > 0 ? ` και ${verbFor(fee, "επιστράφηκε", "επιστράφηκαν")} ${formatCredits(fee)}` : ""}.
                 Για άλλον άνθρωπο στείλε νέο αίτημα μεταφοράς.
               </>
             ) : (

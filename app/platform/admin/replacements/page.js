@@ -1,5 +1,5 @@
 "use client";
-import { formatCredits } from "../../../../lib/platform/credits";
+import { formatCredits, verbFor } from "../../../../lib/platform/credits";
 import { useCallback, useEffect, useState } from "react";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import OfferComposer from "../OfferComposer";
@@ -88,7 +88,7 @@ function CaseDetail({ bookingId }) {
             {" · "}χρησιμοποίησε <span style={money}>{formatCredits(fee)}</span>
             {refunded > 0 ? (
               <>
-                , επιστράφηκαν <span style={money}>{formatCredits(refunded)}</span>
+                , {verbFor(refunded, "επιστράφηκε", "επιστράφηκαν")} <span style={money}>{formatCredits(refunded)}</span>
               </>
             ) : detail.new_booking ? (
               " — κάλυψε και την αντικατάσταση, δεν ξαναπλήρωσε"

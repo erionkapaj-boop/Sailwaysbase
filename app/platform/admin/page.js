@@ -1,5 +1,5 @@
 "use client";
-import { formatCredits } from "../../../lib/platform/credits";
+import { formatCredits, verbFor } from "../../../lib/platform/credits";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -1271,7 +1271,7 @@ function Week({ week }) {
       </div>
       {Number(week.refunds) > 0 && (
         <p style={{ ...muted, fontSize: 12.5, margin: "8px 2px 0" }}>
-          Επιστράφηκαν {formatCredits(week.refunds)} (αιτήματα χωρίς απάντηση, υποθέσεις χωρίς αντικαταστάτη, ακυρώσεις από πελάτες).
+          {verbFor(week.refunds, "Επιστράφηκε", "Επιστράφηκαν")} {formatCredits(week.refunds)} (αιτήματα χωρίς απάντηση, υποθέσεις χωρίς αντικαταστάτη, ακυρώσεις από πελάτες).
         </p>
       )}
     </>

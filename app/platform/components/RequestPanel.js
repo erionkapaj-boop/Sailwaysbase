@@ -1,5 +1,5 @@
 "use client";
-import { formatCredits } from "../../../lib/platform/credits";
+import { formatCredits, verbFor } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { listRequestPings, withdrawPing, cancelBookingRequest, departureLabel } from "../../../lib/platform/db";
 import { labelForRole } from "../../../lib/platform/roles";
@@ -74,7 +74,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
   async function handleCancelRequest() {
     const refundNote =
       request.fee_paid_at && request.fee_amount > 0
-        ? `\n\nΕπιστρέφονται ${formatCredits(request.fee_amount)}.`
+        ? `\n\n${verbFor(request.fee_amount, "Επιστρέφεται", "Επιστρέφονται")} ${formatCredits(request.fee_amount)}.`
         : "";
     if (!(await confirm(`Να ακυρωθεί όλο το αίτημα;${refundNote}`))) return;
     setBusyId("__all__");
@@ -82,7 +82,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
     try {
       await cancelBookingRequest(request.id);
       if (request.fee_paid_at && request.fee_amount > 0) {
-        onToastMessage?.(`Επιστράφηκαν ${formatCredits(request.fee_amount)}.`);
+        onToastMessage?.(`${verbFor(request.fee_amount, "Επιστράφηκε", "Επιστράφηκαν")} ${formatCredits(request.fee_amount)}.`);
       }
       onChanged?.();
     } catch (err) {
@@ -130,9 +130,17 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
         <p style={{ ...muted, margin: "6px 0 0" }}>
           <span style={money}>{formatDateRange(request.start_date, request.end_date)}</span>
           {" · "}
-          <span style={{ ...money, color: colors.ink }}>{formatCredits(request.fee_amount)}</span>
-          {" · "}
-          {request.fee_paid_at ? "χρησιμοποιήθηκαν" : "εκκρεμούν"}
+          {Number(request.fee_amount) === 0 ? (
+            "χωρίς χρέωση"
+          ) : (
+            <>
+              <span style={{ ...money, color: colors.ink }}>{formatCredits(request.fee_amount)}</span>
+              {" · "}
+              {request.fee_paid_at
+                ? verbFor(request.fee_amount, "χρησιμοποιήθηκε", "χρησιμοποιήθηκαν")
+                : verbFor(request.fee_amount, "εκκρεμεί", "εκκρεμούν")}
+            </>
+          )}
         </p>
         <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>
           Στάλθηκε {formatDateTime(request.created_at)}

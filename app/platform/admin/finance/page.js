@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Metric, MetricGrid, Row, RowMain, Empty, colors, muted, money, button, STATUS_LABEL } from "../ui";
 import { adminFindUserByPhone, adminCreditWallet, adminAdjustWallet, adminRecordPurchase, getCreditOffer } from "../../../../lib/platform/db";
-import { formatCredits, PACKAGES } from "../../../../lib/platform/credits";
+import { formatCredits, PACKAGES, verbFor } from "../../../../lib/platform/credits";
 
 // Πάνω από αυτό, δεύτερο «σίγουρα;» — για το επιπλέον μηδενικό.
 const LARGE_CREDITS = 20;
@@ -115,13 +115,13 @@ function Topup({ onDone }) {
     try {
       if (mode === "correct") {
         const balance = await adminAdjustWallet(selected.id, -value, note.trim());
-        setDone(`${who}: αφαιρέθηκαν ${formatCredits(value)}. Νέο υπόλοιπο ${formatCredits(balance)}.`);
+        setDone(`${who}: ${verbFor(value, "αφαιρέθηκε", "αφαιρέθηκαν")} ${formatCredits(value)}. Νέο υπόλοιπο ${formatCredits(balance)}.`);
       } else if (mode === "purchase") {
         const balance = await adminRecordPurchase(selected.id, value, eur, note.trim());
         setDone(`${who}: αγορά ${formatCredits(value)} (${eur}€). Νέο υπόλοιπο ${formatCredits(balance)}.`);
       } else {
         await adminCreditWallet(selected.id, value, note.trim() || "Δώρο");
-        setDone(`${who}: πιστώθηκαν ${formatCredits(value)} δώρο.`);
+        setDone(`${who}: ${verbFor(value, "πιστώθηκε", "πιστώθηκαν")} ${formatCredits(value)} δώρο.`);
       }
       setAmount("");
       setPrice("");

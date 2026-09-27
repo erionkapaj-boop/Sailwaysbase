@@ -1,5 +1,5 @@
 "use client";
-import { formatCredits } from "../../../../../lib/platform/credits";
+import { formatCredits, verbFor } from "../../../../../lib/platform/credits";
 import { useState } from "react";
 import { Panel, ProCredentials, colors, muted, button, VERIFY_HINT } from "../../ui";
 import { badge } from "../../../../../lib/platform/theme";
@@ -118,7 +118,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
       setNotice(
         "Ο λογαριασμός διαγράφηκε." +
           (res.cancelled_requests > 0
-            ? ` ${res.cancelled_requests === 1 ? "Ακυρώθηκε 1 ανοιχτό αίτημα" : `Ακυρώθηκαν ${res.cancelled_requests} ανοιχτά αιτήματα`} και επιστράφηκαν ${formatCredits(res.refunded)}.`
+            ? ` ${res.cancelled_requests === 1 ? "Ακυρώθηκε 1 ανοιχτό αίτημα" : `Ακυρώθηκαν ${res.cancelled_requests} ανοιχτά αιτήματα`} και ${verbFor(res.refunded, "επιστράφηκε", "επιστράφηκαν")} ${formatCredits(res.refunded)}.`
             : "") +
           " Μπορείς να τον επαναφέρεις από κάτω."
       );

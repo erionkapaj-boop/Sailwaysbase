@@ -15,6 +15,7 @@
 #   3. tests  — each tests/db/*.test.sql runs in its own fresh copy, after
 #               which every wallet must still equal the sum of its ledger
 #   4. race   — two clients picking a replacement at the same instant
+#   5. conversion — euros to credits with open requests (tests/db/conversion)
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -97,6 +98,15 @@ if [ -z "$FILTER" ] || [[ "race" == *"$FILTER"* ]]; then
     red "FAIL race: $confirmed confirmed bookings, $charged charges"; failures=$((failures + 1))
   fi
   rm -f /tmp/sf_race_*.$$
+fi
+
+if [ -z "$FILTER" ] || [[ "conversion" == *"$FILTER"* ]]; then
+  echo "== 5. conversion: euros to credits (0110) with open requests, as in production"
+  if conv=$(bash tests/db/conversion/run.sh 2>&1); then
+    green "ok   conversion: $(grep -c '^ok' <<<"$conv") checks passed"
+  else
+    red "FAIL conversion"; grep -E "^FAIL|ERROR" <<<"$conv" | head -5; failures=$((failures + 1))
+  fi
 fi
 
 echo
