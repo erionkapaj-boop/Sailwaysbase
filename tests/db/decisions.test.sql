@@ -135,3 +135,19 @@ select pg_temp.check('ο σύνδεσμος πάει στην κράτηση, ό
   (select bool_and(link = '/platform/bookings?focus=' || :'bk2') and count(*) = 2
      from notifications where kind = 'review_prompt' and link like '%' || :'bk2'));
 select pg_temp.check('και γράφει το μέρος', exists (select 1 from notifications where kind = 'review_prompt' and data ->> 'port' = 'Πάρος'));
+
+-- =============================================================================
+\echo '== 0109 ποσοστό ανταπόκρισης για την επιλογή'
+select pg_temp.act('anon');
+select pg_temp.check('λιγότερα από 3 αιτήματα: κενό',
+  not exists (select 1 from skipper_response_percentages(array[:'SP_KOSTAS']::uuid[]) where response_percentage is not null));
+select pg_temp.act('postgres');
+insert into booking_requests (id, client_id, start_date, end_date, region_id, departure_point, arrival_point, crew_role, status, fee_paid_at, expires_at)
+select gen_random_uuid(), :'CLIENT', current_date + 50 + g, current_date + 51 + g, :'cyclades', 'x', 'x', 'skipper',
+       'expired_unclaimed', null, now() - interval '1 day'
+  from generate_series(1, 3) g;
+insert into booking_request_pings (booking_request_id, skipper_id, status)
+select id, :'SP_ELENI', 'pending' from booking_requests where status = 'expired_unclaimed' and departure_point = 'x';
+select pg_temp.act('anon');
+select pg_temp.check('με ιστορικό: ποσοστό από 0 έως 100',
+  (select response_percentage between 0 and 100 from skipper_response_percentages(array[:'SP_ELENI']::uuid[])));

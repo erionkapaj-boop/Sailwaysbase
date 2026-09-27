@@ -28,6 +28,8 @@ where f not in (
   'booking_place(p_departure text, p_port uuid, p_region uuid)',
   'has_future_availability(p_skipper_id uuid)',
   'is_approved_professional(p_user_id uuid)',
+  -- 0109: shown next to reliability when choosing; aggregate only, approved profiles only
+  'skipper_response_percentages(p_ids uuid[])',
   -- reviews policy (0106): whether a review is about the client of that booking
   'is_review_of_client(p_booking_id uuid, p_reviewee_id uuid)',
   'skipper_is_search_visible(p_skipper_id uuid)',

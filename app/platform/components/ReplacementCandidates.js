@@ -1,4 +1,5 @@
 "use client";
+import TrustLine from "./TrustLine";
 import { useEffect, useState } from "react";
 import {
   getOpenReplacementOffer,
@@ -52,11 +53,7 @@ function CandidateCard({ s, days, busy, onSelect }) {
           <div style={{ margin: "8px 0" }}>
             <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
           </div>
-          {s.reliability_percentage != null && (
-            <div style={{ ...muted, fontSize: 12.5 }}>
-              <span style={{ ...money, color: colors.ink }}>{s.reliability_percentage}%</span> αξιοπιστία
-            </div>
-          )}
+                    <TrustLine s={s} />
           {highlights.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
               {highlights.map((h) => (

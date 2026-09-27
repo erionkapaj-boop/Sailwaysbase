@@ -1,4 +1,5 @@
 "use client";
+import TrustLine from "../components/TrustLine";
 import Avatar from "../components/Avatar";
 import LoadError from "../components/LoadError";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -221,8 +222,11 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
           </div>
         </div>
 
-        <div style={{ margin: "16px 0" }}>
+                <div style={{ margin: "16px 0" }}>
           <RatingStat s={s} />
+          <div style={{ marginTop: 10 }}>
+            <TrustLine s={s} />
+          </div>
         </div>
 
         {highlights.length > 0 && (
@@ -400,8 +404,11 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
           )}
           {identityLine(s) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s)}</div>}
 
-          <div style={{ margin: "10px 0" }}>
+                    <div style={{ margin: "10px 0" }}>
             <RatingLine s={s} />
+            <div style={{ marginTop: 4 }}>
+              <TrustLine s={s} />
+            </div>
           </div>
 
           {/* Highlights are derived, never self-written — see computeCrewHighlights. */}

@@ -219,6 +219,7 @@
 318d826	περιορισμός	admin_actions.admin_actions_target_user_id_fkey	e17fee
 3192285	ευρετήριο	wallet_transactions_user_idx	63f98b
 31bd005	στήλη	users.is_staff_admin	3e6e00
+31cbace	συνάρτηση	skipper_response_percentages(uuid[])	e07d16
 31d90cd	ευρετήριο	nationalities_pkey	9cd155
 31e66af	στήλη	delivery_requests.created_at	e99486
 31f230b	συνάρτηση	owns_delivery_request(uuid)	77201c
