@@ -239,6 +239,36 @@ $$;
 -- Συναρτήσεις που αλλάζουν (#13 #14 #43 #52, και ο βοηθός διαχειριστή δεν
 -- διαγράφει πια άλλον βοηθό)
 -- ---------------------------------------------------------------------------
+-- Το guard των δεύτερων ιδιοτήτων στέλνει πλέον ειδοποιήσεις (notify_user δεν
+-- ανοίγει στον χρήστη), οπότε τρέχει με τα δικαιώματα της βάσης.
+alter function guard_secondary_role() security definer set search_path = public;
+-- Διόρθωση του 0106: ο έλεγχος ορίων επαγγελματία έσπαγε σε κάθε αλλαγή
+-- δεύτερης ιδιότητας (διάβαζε ημερομηνία γέννησης που εκεί δεν υπάρχει).
+create or replace function validate_professional_fields()
+returns trigger language plpgsql as $$
+begin
+  if (tg_op = 'INSERT' or new.price_per_day is distinct from old.price_per_day)
+     and new.price_per_day > 5000 then
+    raise exception 'price_too_high';
+  end if;
+  if (tg_op = 'INSERT' or new.years_experience is distinct from old.years_experience)
+     and (new.years_experience < 0 or new.years_experience > 70) then
+    raise exception 'invalid_years_experience';
+  end if;
+  -- Μόνο το skipper_profiles έχει ημερομηνία γέννησης· ξεχωριστό if, γιατί το
+  -- plpgsql διαβάζει όλη την έκφραση και θα έσπαγε στις δεύτερες ιδιότητες.
+  if tg_table_name = 'skipper_profiles' then
+    if (tg_op = 'INSERT' or new.date_of_birth is distinct from old.date_of_birth)
+       and new.date_of_birth is not null
+       and (new.date_of_birth > (current_date - interval '18 years')::date
+            or new.date_of_birth < (current_date - interval '100 years')::date) then
+      raise exception 'invalid_date_of_birth';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
 CREATE OR REPLACE FUNCTION public.cancel_booking(p_booking_id uuid, p_reason text)
  RETURNS bookings
  LANGUAGE plpgsql

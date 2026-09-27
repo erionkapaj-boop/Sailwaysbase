@@ -32,6 +32,13 @@ update skipper_profiles set full_name = 'Άλλος Άνθρωπος' where user
 select pg_temp.act('postgres');
 select pg_temp.check('νέο όνομα: κι αυτό σε έλεγχο', (select approval_status = 'pending' from skipper_profiles where id = :'SP_NIKOS'));
 update skipper_profiles set approval_status = 'approved', approved_at = now() where id = :'SP_NIKOS';
+insert into skipper_secondary_roles (skipper_id, role, price_per_day, license_number, approval_status)
+  values (:'SP_NIKOS', 'cook', 250, 'ΜΑΓ-1', 'approved') returning id as role2 \gset
+select pg_temp.act('authenticated', :'NIKOS');
+update skipper_secondary_roles set license_number = 'ΜΑΓ-2' where id = :'role2';
+select pg_temp.act('postgres');
+select pg_temp.check('και σε δεύτερη ιδιότητα: νέο δίπλωμα → ξανά σε έλεγχο',
+  (select approval_status = 'pending' from skipper_secondary_roles where id = :'role2'));
 
 -- =============================================================================
 \echo '== #52 από την ημέρα έναρξης δεν ακυρώνεται τίποτα'

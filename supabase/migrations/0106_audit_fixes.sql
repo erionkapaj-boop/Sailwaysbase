@@ -346,12 +346,15 @@ begin
      and (new.years_experience < 0 or new.years_experience > 70) then
     raise exception 'invalid_years_experience';
   end if;
-  if tg_table_name = 'skipper_profiles'
-     and (tg_op = 'INSERT' or new.date_of_birth is distinct from old.date_of_birth)
-     and new.date_of_birth is not null
-     and (new.date_of_birth > (current_date - interval '18 years')::date
-          or new.date_of_birth < (current_date - interval '100 years')::date) then
-    raise exception 'invalid_date_of_birth';
+  -- Μόνο το skipper_profiles έχει ημερομηνία γέννησης· ξεχωριστό if, γιατί το
+  -- plpgsql διαβάζει όλη την έκφραση και θα έσπαγε στις δεύτερες ιδιότητες.
+  if tg_table_name = 'skipper_profiles' then
+    if (tg_op = 'INSERT' or new.date_of_birth is distinct from old.date_of_birth)
+       and new.date_of_birth is not null
+       and (new.date_of_birth > (current_date - interval '18 years')::date
+            or new.date_of_birth < (current_date - interval '100 years')::date) then
+      raise exception 'invalid_date_of_birth';
+    end if;
   end if;
   return new;
 end;
