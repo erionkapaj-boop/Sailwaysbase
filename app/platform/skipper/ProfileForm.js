@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -223,7 +224,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
       setSaved(true);
       onSaved?.();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }

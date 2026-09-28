@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../lib/platform/friendlyError";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { supabase } from "../../lib/platform/supabaseClient";
 import {
@@ -104,7 +105,7 @@ export function AuthProvider({ children }) {
       // row exists", and conflating the two sent us chasing a phantom missing
       // row while the actual cause was an RLS error on the read.
       console.error("auth refresh failed:", err.message || err);
-      setLoadError(err.message || String(err));
+      setLoadError(friendlyError(err));
       setProfile(null);
     }
     setLoading(false);

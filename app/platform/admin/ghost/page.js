@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminShell, { useAdminCounts } from "../AdminShell";
@@ -49,7 +50,7 @@ function GhostInner() {
       ]);
       setUsed([...active, ...deleted].sort((a, b) => a.phone_number.localeCompare(b.phone_number)));
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     }
   }
   useEffect(() => {
@@ -66,7 +67,7 @@ function GhostInner() {
       setSeedResult(await adminSeedDemoUsers());
       await loadUsed();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setSeeding(false);
     }

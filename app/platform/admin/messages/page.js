@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import Link from "next/link";
@@ -66,7 +67,7 @@ export default function AdminMessagesPage() {
     try {
       setList(await adminListContactMessages());
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -83,7 +84,7 @@ export default function AdminMessagesPage() {
       await load();
       refreshCounts();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusyId(null);
     }

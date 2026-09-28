@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -130,7 +131,7 @@ function UsersInner() {
         })
       );
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -155,7 +156,7 @@ function UsersInner() {
       await load();
       refreshCounts();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
       setBusy(false);
     }
   }
@@ -170,7 +171,7 @@ function UsersInner() {
       await load();
       refreshCounts();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
       setBusy(false);
     }
   }
@@ -183,7 +184,7 @@ function UsersInner() {
       await load();
       refreshCounts();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
       setBusy(false);
     }
   }

@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Metric, MetricGrid, Row, RowMain, Empty, colors, muted, money, button, STATUS_LABEL } from "../ui";
@@ -52,7 +53,7 @@ function Topup({ onDone }) {
       setResults(found);
       if (found.length === 1) setSelected(found[0]);
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     }
   }
 
@@ -131,7 +132,7 @@ function Topup({ onDone }) {
       setResults([]);
       onDone?.();
     } catch (err) {
-      setError(ERRORS[err.message] || err.message || String(err));
+      setError(ERRORS[err.message] || friendlyError(err));
     } finally {
       setBusy(false);
     }

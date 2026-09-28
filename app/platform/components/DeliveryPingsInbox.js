@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
@@ -56,7 +57,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
       await load();
       refreshNotifications();
     } catch (err) {
-      setError(ACCEPT_ERRORS[err.message] || err.message || String(err));
+      setError(ACCEPT_ERRORS[err.message] || friendlyError(err));
       await load();
     } finally {
       setBusyId(null);
@@ -71,7 +72,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
       await load();
       refreshNotifications();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
       await load();
     } finally {
       setBusyId(null);

@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { formatCredits } from "../../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import AdminShell, { useAdminCounts } from "../AdminShell";
@@ -22,7 +23,7 @@ export default function AdminDeliveriesPage() {
   useEffect(() => {
     adminListDeliveryRequests()
       .then(setRows)
-      .catch((err) => setError(err.message || String(err)));
+      .catch((err) => setError(friendlyError(err)));
   }, []);
 
   return (

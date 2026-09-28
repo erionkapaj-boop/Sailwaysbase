@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
@@ -35,7 +36,7 @@ export default function DisputesPage() {
     try {
       setList(await adminListCancellationReports());
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -52,7 +53,7 @@ export default function DisputesPage() {
       await load();
       refreshCounts();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusyId(null);
     }

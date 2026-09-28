@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import {
   listAvailabilityWindows,
@@ -89,7 +90,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
       setWindows(w);
       setBlocks(b);
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     }
   }
   useEffect(() => {
@@ -189,7 +190,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
       await load();
       onChanged?.();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -204,7 +205,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
       await load();
       onChanged?.();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -218,7 +219,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
       onChanged?.();
       setDetail(null);
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -232,7 +233,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
       onChanged?.();
       setDetail(null);
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }

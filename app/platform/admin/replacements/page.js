@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { formatCredits, verbFor } from "../../../../lib/platform/credits";
 import { useCallback, useEffect, useState } from "react";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
@@ -42,7 +43,7 @@ const ERRORS = {
 };
 function message(err) {
   const code = (err.message || "").match(/[a-z_]+/)?.[0];
-  return ERRORS[code] || err.message || String(err);
+  return ERRORS[code] || friendlyError(err);
 }
 
 function recipientState(r) {
@@ -70,7 +71,7 @@ function CaseDetail({ bookingId }) {
   useEffect(() => {
     adminReplacementCaseDetail(bookingId)
       .then(setDetail)
-      .catch((err) => setError(err.message || String(err)));
+      .catch((err) => setError(friendlyError(err)));
   }, [bookingId]);
 
   if (error) return <p style={{ color: colors.danger, fontSize: 13, padding: "12px 16px" }}>{error}</p>;
@@ -291,7 +292,7 @@ export default function ReplacementsPage() {
     try {
       setCases(await adminReplacementCases(false));
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -309,7 +310,7 @@ export default function ReplacementsPage() {
     try {
       setCompleted((await adminReplacementCases(true)).filter((c) => c.stage === "completed" || c.stage === "closed_unfilled"));
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     }
   }
 

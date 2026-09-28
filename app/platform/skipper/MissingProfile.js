@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 import { useState } from "react";
 import { createMissingProfile } from "../../../lib/platform/db";
 import { container, card, h1, muted, button, colors } from "../../../lib/platform/theme";
@@ -35,7 +36,7 @@ export default function MissingProfile({ refresh, loadError, isAdmin = false }) 
       await createMissingProfile("skipper");
       await refresh();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }

@@ -102,6 +102,16 @@ await as(ADMIN, async (page) => {
   check("επιβεβαίωση με νέο υπόλοιπο", (await text(page)).includes("Νέο υπόλοιπο 2 credits"));
 });
 check("2 credits στην πελάτισσα", wallet("Μαρία Πελάτη") === 2);
+await as(ADMIN, async (page) => {
+  await go(page, "/platform/admin/finance");
+  await findUser(page, ADMIN);
+  await page.getByLabel("Πακέτο").selectOption("professional");
+  await click(page, "Καταχώριση αγοράς");
+  await page.waitForTimeout(1200);
+  const t = await text(page);
+  check("στον δικό του λογαριασμό: μήνυμα στα ελληνικά, όχι κωδικός",
+    t.includes("Δεν μπορείς να αλλάξεις τα δικά σου credits") && !t.includes("cannot_credit_self"), t.slice(0, 600));
+});
 check("η αγορά κρατά τα 90€", num(`select count(*) from wallet_transactions where user_id = 'a0000000-0000-0000-0000-000000000002' and type = 'purchase' and amount = 2 and price_eur = 90`) === 1);
 
 step("4. Η πελάτισσα στέλνει δύο αιτήματα (1 credit το καθένα)");

@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import AdminShell from "../AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
@@ -225,7 +226,7 @@ export default function SettingsPage() {
       setList(rows);
       setDrafts(Object.fromEntries(rows.map((r) => [r.key, String(r.value)])));
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     }
   }
   useEffect(() => {
@@ -249,7 +250,7 @@ export default function SettingsPage() {
       setSaved(key);
       await load();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusyKey(null);
     }

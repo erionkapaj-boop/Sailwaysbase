@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 import { formatCredits } from "../../../lib/platform/credits";
 import DateField from "../components/calendar/DateField";
 import { useCallback, useEffect, useState } from "react";
@@ -62,7 +63,7 @@ const ERRORS = {
 
 function message(err) {
   const code = (err.message || "").match(/[a-z_]+/)?.[0];
-  return ERRORS[code] || err.message || String(err);
+  return ERRORS[code] || friendlyError(err);
 }
 
 function Field({ label, basis = "140px", children }) {

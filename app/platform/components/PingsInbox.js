@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../lib/platform/friendlyError";
 import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
@@ -68,7 +69,7 @@ export default function PingsInbox({ skipperId }) {
       refreshNotifications();
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
-      setError(CLAIM_ERRORS[code] || err.message || String(err));
+      setError(CLAIM_ERRORS[code] || friendlyError(err));
       await load();
     } finally {
       setBusyId(null);
@@ -84,7 +85,7 @@ export default function PingsInbox({ skipperId }) {
       refreshNotifications();
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
-      setError(CLAIM_ERRORS[code] || err.message || String(err));
+      setError(CLAIM_ERRORS[code] || friendlyError(err));
       await load();
     } finally {
       setBusyId(null);
@@ -100,7 +101,7 @@ export default function PingsInbox({ skipperId }) {
       await load();
       refreshNotifications();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
       await load();
     } finally {
       setBusyId(null);

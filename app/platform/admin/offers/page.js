@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { formatCredits } from "../../../../lib/platform/credits";
 import { useCallback, useEffect, useState } from "react";
 import AdminShell, { useAdminCounts } from "../AdminShell";
@@ -34,7 +35,7 @@ export default function OffersPage() {
     try {
       setOffers(await adminListOffers(showClosed));
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -50,7 +51,7 @@ export default function OffersPage() {
       await adminCancelOffer(id);
       await load();
     } catch (err) {
-      setError(err.message || String(err));
+      setError(friendlyError(err));
     }
   }
 
