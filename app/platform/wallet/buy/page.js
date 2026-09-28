@@ -39,7 +39,10 @@ export default function BuyCreditsPage() {
   if (!session) return <SignedOutNotice />;
 
   const back = (
-    <Link href="/platform/wallet" style={{ ...muted, fontSize: 14, textDecoration: "none" }}>
+    <Link
+      href="/platform/wallet"
+      style={{ ...muted, fontSize: 14, textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 40, paddingRight: 12 }}
+    >
       ← Credits
     </Link>
   );

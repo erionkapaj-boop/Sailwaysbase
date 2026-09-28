@@ -24,6 +24,7 @@
 07982dc	κανόνας RLS	email_reset_codes.reset codes admin read	514510
 07bac5b	πίνακας (RLS και δικαιώματα)	availability_blocks	e3094f
 07eeb79	στήλη	skipper_secondary_roles.rating_avg_variety	490571
+07f6774	ευρετήριο	credit_purchase_requests_reference_key	5380a4
 0815441	περιορισμός	skipper_coverage_areas.skipper_coverage_areas_port_id_fkey	ca80e0
 084ebaa	κανόνας RLS	admin_actions.admin actions visible to admins	514510
 0852168	στήλη	admin_actions.created_at	e99486
@@ -39,6 +40,7 @@
 0974f5a	περιορισμός	users.users_pkey	4c6419
 09d2921	περιορισμός	booking_requests.booking_requests_replaces_booking_id_fkey	1869a1
 09d4c6c	κανόνας RLS	client_profiles.client updates own profile	7a8f79
+09f905c	περιορισμός	credit_purchase_requests.credit_purchase_requests_handled_by_fkey	eca90a
 0a2e39b	στήλη	admin_actions.id	70d339
 0a58996	στήλη	delivery_bookings.id	70d339
 0a93f8e	ευρετήριο	boat_types_name_key	8e9f18
@@ -89,6 +91,7 @@
 141cd26	στήλη	users.role	6e37a3
 14779d0	κανόνας RLS	delivery_role_requests.delivery role requests visible to owner and pinged	14696b
 1481c92	περιορισμός	delivery_bookings.delivery_bookings_delivery_role_request_id_key	c34a4c
+14b9618	ευρετήριο	credit_purchase_status	a2be66
 14c0d71	περιορισμός	nationalities.nationalities_pkey	4c6419
 14cb0ef	ευρετήριο	booking_requests_pkey	2daf7e
 14fe521	περιορισμός	cancellation_reports.cancellation_reports_resolved_by_fkey	beaacd
@@ -104,6 +107,7 @@
 173cf33	στήλη	notifications.id	70d339
 17682ae	στήλη	email_reset_codes.expires_at	eb6aac
 17ffbb1	περιορισμός	email_reset_codes.email_reset_codes_user_id_fkey	e20847
+181d48e	στήλη	credit_purchase_requests.status	9ab348
 182b135	συνάρτηση	skipper_rank_score(numeric,integer,numeric,numeric)	1730d0
 189b689	στήλη	delivery_bookings.professional_fee_paid_at	e99486
 18a7c5a	στήλη	bookings.crew_role	17e5f3
@@ -117,6 +121,7 @@
 1a4dff5	συνάρτηση	my_standing(uuid)	f55935
 1a8ba76	trigger	delivery_role_pings.aa_block_inactive_caller	ad7831
 1ad8dc9	συνάρτηση	admin_approve_secondary_role(uuid)	a7bb7d
+1b43655	συνάρτηση	request_credit_purchase(text,integer)	c9c1c2
 1b8a21b	περιορισμός	reviews.reviews_booking_id_reviewer_id_key	023cb4
 1bb5866	συνάρτηση	my_skipper_profile_id()	efdc94
 1bc9d34	ευρετήριο	admin_flags_pkey	15df66
@@ -124,11 +129,13 @@
 1c7bc32	κανόνας RLS	languages.lookups readable by everyone	2fea71
 1c8c882	κανόνας RLS	users.user reads own row	dcd457
 1cc6d34	ευρετήριο	messages_booking_idx	9ebbb2
+1d8590b	στήλη	credit_purchase_requests.credits	d84e2b
 1da6cba	περιορισμός	booking_request_pings.booking_request_pings_pkey	4c6419
 1e033be	κανόνας RLS	client_profiles.client reads own profile	d20ef1
 1e81a82	συνάρτηση	guard_client_profile_privileged_columns()	e9815b
 1e9efe8	συνάρτηση	set_booking_request_defaults()	0bfae3
 1ec389b	στήλη	bookings.port_id	ef7c87
+1ef8327	συνάρτηση	admin_cancel_credit_purchase(uuid)	f89657
 1f2d2f9	περιορισμός	booking_requests.booking_requests_created_by_fkey	f2ec41
 1f33689	στήλη	skipper_secondary_roles.id	70d339
 1f6fb63	περιορισμός	delivery_requests.delivery_requests_destination_point_check	57f794
@@ -175,6 +182,7 @@
 2843be6	συνάρτηση	search_available_skippers(date,date,uuid,uuid,numeric,text,crew_role,uuid)	34e535
 28ae862	στήλη	skipper_secondary_roles.rating_avg	490571
 28b59f2	συνάρτηση	admin_credit_wallet(uuid,numeric,text)	2b2b74
+2912b7f	περιορισμός	credit_purchase_requests.credit_purchase_requests_price_eur_check	7ae219
 2952c85	στήλη	users.deletion_reason	1cb251
 297718d	trigger	users.trg_users_phone_guard	6000b7
 299ba05	στήλη	users.nationality_id	ef7c87
@@ -188,8 +196,10 @@
 2ad2457	ευρετήριο	users_last_seen_idx	69e647
 2ad8e06	συνάρτηση	admin_set_contact_message_status(uuid,text,text)	8790b8
 2aeaf8e	κανόνας RLS	skipper_coverage_areas.skipper join owner write	36d87f
+2b10c9a	ευρετήριο	credit_purchase_requests_pkey	649d1c
 2b156bd	στήλη	booking_requests.client_id	288395
 2ba8fcb	συνάρτηση	notify_booking_completed()	95b433
+2bf2b60	ευρετήριο	credit_purchase_one_pending	8d7fc5
 2c2596e	πίνακας (RLS και δικαιώματα)	delivery_bookings	e3094f
 2c56355	στήλη	user_languages.user_id	288395
 2c6e4ab	trigger	booking_request_pings.zz_guard_same_world	966f48
@@ -198,7 +208,7 @@
 2d26dc4	στήλη	booking_requests.arrival_point	1cb251
 2d4c803	enum	skipper_approval_status	c92685
 2d52d5d	στήλη	skipper_availability.end_date	f0da98
-2dc7d1f	συνάρτηση	admin_overview()	dd10b8
+2dc7d1f	συνάρτηση	admin_overview()	9c6ee1
 2dcf71b	στήλη	skipper_secondary_roles.rating_avg_adaptability	490571
 2e1fe4f	στήλη	skipper_profiles.rating_avg_organization	490571
 2e2ffce	περιορισμός	booking_requests.booking_requests_check	792653
@@ -243,6 +253,7 @@
 35c43aa	συνάρτηση	skipper_profile_id_of(uuid)	256b15
 35dcb84	στήλη	client_profiles.rating_avg_consistency	490571
 35ea51f	περιορισμός	delivery_availability_windows.delivery_availability_windows_check	792653
+35f1096	στήλη	credit_purchase_requests.reference	f2a89b
 35f6907	στήλη	availability_blocks.end_date	f0da98
 363a151	στήλη	client_profiles.rating_avg_tidiness	490571
 36405b4	συνάρτηση	is_review_of_client(uuid,uuid)	32a200
@@ -285,6 +296,7 @@
 4039513	στήλη	bookings.booking_request_id	288395
 406805c	στήλη	skipper_coverage_areas.skipper_id	288395
 40e952d	trigger	delivery_role_pings.trg_notify_delivery_relist	fad6ad
+4136ecf	συνάρτηση	cancel_credit_purchase_request(uuid)	51e4ce
 4168605	κανόνας RLS	regions.lookups readable by everyone	2fea71
 41dea99	περιορισμός	delivery_role_requests.delivery_role_requests_delivery_request_id_fkey	a9c953
 42234c2	στήλη	skipper_profiles.gender	1cb251
@@ -368,11 +380,13 @@
 523cf4d	trigger	availability_windows.aa_block_inactive_caller	ad7831
 5284bdd	περιορισμός	boat_types.boat_types_name_key	6cd240
 5317891	trigger	skipper_profiles.trg_notify_skipper_approval_change	09c45a
-534a14f	συνάρτηση	notify_admins(text,jsonb,text)	102523
+534a14f	συνάρτηση	notify_admins(text,jsonb,text)	8c59fc
+5355ef3	περιορισμός	credit_purchase_requests.credit_purchase_requests_status_check	7115c7
 535c196	στήλη	delivery_requests.covers_fuel	3e6e00
 538e012	στήλη	delivery_bookings.covers_tickets	3e6e00
 53a0153	συνάρτηση	can_manage_account(uuid)	3b8b1d
 53a8f03	ευρετήριο	bookings_active_per_request_idx	8f7c16
+53b1606	στήλη	credit_purchase_requests.wallet_transaction_id	ef7c87
 53fab72	στήλη	skipper_secondary_roles.rating_avg_taste	490571
 5401d51	trigger	users.trg_users_track_deletion	78f2f9
 5424bdd	ευρετήριο	notifications_unread_idx	d7c62b
@@ -399,12 +413,15 @@
 57e8b3a	συνάρτηση	admin_set_staff_admin(uuid,boolean)	801f0b
 57f03dd	στήλη	users.pin_change_required	3e6e00
 583aae6	στήλη	reviews.rating_diligence	157db7
+585b2c8	συνάρτηση	notify_owners(text,jsonb,text)	a5090e
 5868506	περιορισμός	reviews.reviews_rating_cleanliness_check	d52060
 5890fcf	περιορισμός	messages.messages_sender_id_fkey	25d565
 58d3b78	στήλη	wallet_transactions.related_delivery_booking_id	ef7c87
 58d876d	περιορισμός	availability_window_regions.availability_window_regions_region_id_fkey	0ebe62
 592991d	enum	user_role	5d410b
+59780a9	στήλη	credit_purchase_requests.price_eur	6f5e11
 597f385	στήλη	booking_requests.closed_reason	1cb251
+598e5c6	στήλη	credit_purchase_requests.user_id	288395
 59e25da	στήλη	skipper_availability.created_at	e99486
 59ee957	στήλη	booking_requests.private_cabin	84e2c6
 5a3d99d	στήλη	wallet_transactions.price_eur	490571
@@ -412,6 +429,7 @@
 5aa4f01	ευρετήριο	delivery_availability_windows_pkey	6234ce
 5b2f0a0	στήλη	wallet_transactions.user_id	288395
 5b8d253	στήλη	bookings.private_cabin	84e2c6
+5c0a4b3	περιορισμός	credit_purchase_requests.credit_purchase_requests_wallet_transaction_id_fkey	7201d8
 5c35508	στήλη	messages.sent_at	e99486
 5cbeea3	στήλη	skipper_profiles.rating_avg_seamanship	490571
 5d51a14	πίνακας (RLS και δικαιώματα)	delivery_role_requests	e3094f
@@ -425,6 +443,7 @@
 5f09ceb	πίνακας (RLS και δικαιώματα)	skipper_coverage_areas	e3094f
 5f66b08	στήλη	reviews.rating_responsibility	157db7
 5fa2a18	συνάρτηση	apply_cancellation_flag()	7d7546
+5fc5cf8	περιορισμός	credit_purchase_requests.credit_purchase_requests_user_id_fkey	e20847
 605943e	trigger	client_profiles.trg_guard_client_profile	9da9c7
 6081f8e	περιορισμός	skipper_boat_types.skipper_boat_types_pkey	f17816
 60b94e9	συνάρτηση	search_available_skippers_all(date,date,uuid,uuid,numeric,text,crew_role,uuid)	9a9e85
@@ -515,6 +534,7 @@
 740d795	περιορισμός	reviews.reviews_rating_variety_check	7589a4
 7422063	στήλη	booking_requests.max_price_filter	490571
 7487caf	κανόνας RLS	wallet_transactions.wallet ledger visible to owner	d20ef1
+74a84f5	πίνακας (RLS και δικαιώματα)	credit_purchase_requests	cb7443
 74d2148	στήλη	wallet_transactions.created_by	ef7c87
 75896ff	κανόνας RLS	contact_messages.admin reads contact messages	514510
 75d0e59	στήλη	booking_requests.origin	ae91f0
@@ -539,6 +559,7 @@
 78d8882	στήλη	booking_requests.closed_at	78a481
 79a407a	στήλη	contact_messages.admin_note	1cb251
 79a54b0	trigger	skipper_secondary_roles.trg_notify_secondary_role_change	8c8297
+79e8512	στήλη	credit_purchase_requests.handled_at	78a481
 7a0b4a0	πίνακας (RLS και δικαιώματα)	nationalities	e3094f
 7a1aab1	κανόνας RLS	delivery_bookings.delivery booking visible to participants	f17a10
 7af02b1	στήλη	users.full_name	1cb251
@@ -574,6 +595,7 @@
 86342fa	στήλη	skipper_secondary_roles.created_at	e99486
 86479e7	συνάρτηση	apply_phone_change(uuid,text,text,uuid)	c6aaa7
 866b6c2	στήλη	reviews.rating_conduct	157db7
+86a30f5	στήλη	credit_purchase_requests.created_at	e99486
 86a3230	συνάρτηση	admin_reactivate_account(uuid)	f4cd9f
 86be961	περιορισμός	users.users_phone_number_key	271f55
 873689f	στήλη	bookings.region_id	ef7c87
@@ -609,6 +631,7 @@
 8e9df49	πίνακας (RLS και δικαιώματα)	admin_actions	e3094f
 8ea6e1c	ευρετήριο	cancellation_reports_open_idx	d1cf22
 8ef7c87	στήλη	skipper_profiles.approved_at	78a481
+8f3c516	περιορισμός	credit_purchase_requests.credit_purchase_requests_credits_check	a12fa9
 8f3f23d	κανόνας RLS	messages.participant sends message	cbae52
 8f74247	περιορισμός	reviews.reviews_rating_hospitality_check	6fba4c
 8f78456	περιορισμός	admin_actions.admin_actions_pkey	4c6419
@@ -632,6 +655,7 @@
 925a571	στήλη	skipper_secondary_roles.rating_avg_professionalism	490571
 929d174	στήλη	delivery_availability_windows.end_date	f0da98
 93672c6	περιορισμός	bookings.bookings_pkey	4c6419
+939a7d7	στήλη	credit_purchase_requests.handled_by	ef7c87
 945bc86	κανόνας RLS	platform_settings.settings public keys readable	c19985
 947fd8f	στήλη	reviews.reply	1cb251
 951bb41	περιορισμός	reviews.reviews_rating_check	db141d
@@ -689,10 +713,12 @@ a4fe776	στήλη	users.signup_bonus_at	78a481
 a5023f2	στήλη	skipper_profiles.rating_avg_presentation	490571
 a522e6e	περιορισμός	skipper_availability.skipper_availability_check	792653
 a5b8676	ευρετήριο	delivery_bookings_delivery_role_request_id_key	2525fa
+a5f7003	περιορισμός	credit_purchase_requests.credit_purchase_requests_reference_key	cac839
 a601ff5	στήλη	bookings.id	70d339
 a68396c	στήλη	delivery_bookings.client_id	288395
 a772f74	περιορισμός	bookings.bookings_boat_type_id_fkey	b7fe98
 a78f9b0	στήλη	bookings.cancellation_lead_days	157db7
+a7bdac4	περιορισμός	credit_purchase_requests.credit_purchase_requests_package_key_check	1ad8a5
 a7d8392	στήλη	skipper_secondary_roles.rating_avg_seamanship	490571
 a7df89a	στήλη	delivery_role_requests.expires_at	eb6aac
 a818293	στήλη	admin_flags.type	768864
@@ -729,6 +755,7 @@ b0a851b	συνάρτηση	respond_to_replacement_offer(uuid,uuid,boolean)	64ae2
 b0c28ab	trigger	booking_requests.zz_retire_request_notifications	805666
 b0d8116	στήλη	skipper_profiles.rating_avg_service	490571
 b19bf3e	ευρετήριο	delivery_role_requests_status_idx	09d721
+b1bfe65	συνάρτηση	admin_complete_credit_purchase(uuid)	310169
 b1dc616	συνάρτηση	validate_text_lengths()	fb8b71
 b1e4286	στήλη	client_profiles.cancellation_flag_count	d27d76
 b283817	στήλη	skipper_secondary_roles.approved_at	78a481
@@ -810,6 +837,7 @@ c5b1251	συνάρτηση	admin_update_profile(uuid,text,text,numeric,text,text
 c603061	περιορισμός	availability_window_regions.availability_window_regions_pkey	4fea5c
 c647798	κανόνας RLS	booking_requests.client reads own requests	88b1b2
 c6b579f	περιορισμός	skipper_availability.skipper_availability_skipper_id_fkey	802e21
+c7da951	συνάρτηση	admin_list_credit_purchases()	d59ea1
 c829e9b	στήλη	client_profiles.rating_count	d27d76
 c89bdd8	περιορισμός	user_languages.user_languages_pkey	15a5df
 c8e06e5	ευρετήριο	delivery_role_requests_pkey	18c9cc
@@ -852,6 +880,7 @@ cffa516	στήλη	skipper_profiles.price_per_day	6f5e11
 cffbeeb	στήλη	skipper_secondary_roles.rating_avg_presentation	490571
 d017f2c	στήλη	users.is_owner	3e6e00
 d044a3d	κανόνας RLS	user_languages.user languages owner write	697840
+d09baa1	στήλη	credit_purchase_requests.package_key	1cb251
 d0ebfa0	στήλη	notifications.user_id	288395
 d0fbcd9	ευρετήριο	skipper_availability_skipper_idx	615d4a
 d2081ea	συνάρτηση	notify_admins_dispute_new()	8bef08
@@ -860,9 +889,11 @@ d2414a8	στήλη	delivery_role_pings.delivery_role_request_id	288395
 d377885	περιορισμός	reviews.reviews_reviewee_id_fkey	cf9194
 d38b72c	ευρετήριο	boat_types_pkey	46c51d
 d3a8c54	στήλη	notifications.link	1cb251
+d3b24c9	στήλη	credit_purchase_requests.id	70d339
 d3d59e1	συνάρτηση	admin_restore_account(uuid)	66a74d
 d406642	περιορισμός	cancellation_reports.cancellation_reports_booking_id_fkey	1b9189
 d430663	στήλη	delivery_requests.date_mode	f2a89b
+d43995b	στήλη	credit_purchase_requests.cancelled_by	1cb251
 d4c5134	κανόνας RLS	cancellation_reports.cancellation report visible to participants	3cd7a8
 d54d79d	περιορισμός	bookings.bookings_skipper_id_fkey	5e8aef
 d581cf2	στήλη	booking_requests.end_date	f0da98
@@ -897,6 +928,7 @@ dc1ad7b	συνάρτηση	admin_approve_skipper(uuid)	2bf29c
 dc3e651	στήλη	cancellation_reports.resolution_note	1cb251
 dc881eb	στήλη	users.phone_verified_at	78a481
 dccf6ad	ευρετήριο	regions_pkey	9ef4bf
+dcf5ad8	περιορισμός	credit_purchase_requests.credit_purchase_requests_cancelled_by_check	2b886c
 dd4a7fa	στήλη	bookings.status	e7d274
 dd7e9b6	στήλη	booking_requests.created_at	e99486
 dd83e95	συνάρτηση	professional_responded(uuid)	ecbc3e
@@ -908,6 +940,7 @@ de552e2	στήλη	skipper_profiles.rating_avg_variety	490571
 de61ed4	ευρετήριο	languages_name_key	f7eeba
 de7a040	στήλη	skipper_coverage_areas.port_id	288395
 ded7df3	ευρετήριο	regions_name_key	12a185
+dee91f0	περιορισμός	credit_purchase_requests.credit_purchase_requests_pkey	4c6419
 df93cce	στήλη	reviews.booking_id	288395
 dfd9663	στήλη	skipper_secondary_roles.approval_status	4ca6fc
 dfff137	περιορισμός	delivery_requests.delivery_requests_client_id_fkey	5f514d
@@ -931,6 +964,7 @@ e491c6b	περιορισμός	availability_windows.availability_windows_skipper
 e4e8074	συνάρτηση	notify_user(uuid,text,jsonb,text)	cf2ce5
 e4eb911	συνάρτηση	relist_delivery_role_request(uuid,numeric,uuid[])	04da59
 e51e1e0	ευρετήριο	client_profiles_pkey	9b7896
+e56da45	κανόνας RLS	credit_purchase_requests.purchase requests own or owner	20f206
 e5c4d6c	πίνακας (RLS και δικαιώματα)	user_phones	e3094f
 e69bc55	ευρετήριο	delivery_requests_client_idx	6a2832
 e6a285c	ευρετήριο	skipper_profiles_license_number_key	486f2e
