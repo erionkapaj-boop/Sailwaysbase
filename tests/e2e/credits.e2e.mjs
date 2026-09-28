@@ -8,9 +8,12 @@ import { as, go, text, click, check, finish, sql, num, pickDay, daysFromToday, i
 
 const ADMIN = "6900002001", MARIA = "6900002002", NIKOS = "6900002003", GIORGOS = "6900002004", ELENI = "6900002006";
 const wallet = (name) => num(`select wallet_balance from users where full_name = '${name}'`);
+// Μόνο οι κινήσεις αυτού του σεναρίου: άλλα σενάρια πριν από αυτό αφήνουν
+// τις δικές τους στο ιστορικό.
+const T0 = sql("select now()");
 const txns = (name, type) =>
   num(`select count(*) from wallet_transactions t join users u on u.id = t.user_id
-       where u.full_name = '${name}' and t.type = '${type}' and t.unit = 'credit'`);
+       where u.full_name = '${name}' and t.type = '${type}' and t.unit = 'credit' and t.created_at >= '${T0}'`);
 const step = (s) => console.log(`\n== ${s}`);
 
 async function findUser(page, phone) {

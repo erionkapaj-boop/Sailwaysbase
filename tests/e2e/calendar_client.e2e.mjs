@@ -18,7 +18,8 @@ const boat = sql(`select id from boat_types where name = 'Ιστιοπλοϊκό
 // ---------------------------------------------------------------------------
 // Κατάσταση πριν: κρατιέται για επαναφορά. Οι άλλοι επαγγελματίες βγαίνουν
 // προσωρινά από το ημερολόγιο, ώστε κάθε αποτέλεσμα να είναι μόνο δικό μας.
-sql(`drop table if exists e2e_cal_w, e2e_cal_r, e2e_cal_b, e2e_cal_t;
+sql(`drop table if exists e2e_cal_w, e2e_cal_r, e2e_cal_b, e2e_cal_t, e2e_cal_u;
+     create table e2e_cal_u as select id, wallet_balance from users;
      create table e2e_cal_w as select * from availability_windows;
      create table e2e_cal_r as select * from availability_window_regions;
      create table e2e_cal_b as select * from availability_blocks;
@@ -214,6 +215,8 @@ update wallet_transactions set related_booking_request_id = null, related_bookin
 delete from bookings where created_at >= (select t0 from e2e_cal_t);
 delete from booking_request_pings where booking_request_id in (select id from booking_requests where created_at >= (select t0 from e2e_cal_t));
 delete from booking_requests where created_at >= (select t0 from e2e_cal_t);
+delete from wallet_transactions where created_at >= (select t0 from e2e_cal_t);
+update users u set wallet_balance = s.wallet_balance from e2e_cal_u s where s.id = u.id and u.wallet_balance <> s.wallet_balance;
 delete from availability_windows; delete from availability_blocks;
 insert into availability_windows select * from e2e_cal_w;
 insert into availability_window_regions select * from e2e_cal_r;
@@ -224,6 +227,6 @@ delete from skipper_profiles where id = '${SP_ANNA}';
 delete from users where id = '${ANNA_UID}';
 delete from auth.users where id = '${ANNA_UID}';
 set session_replication_role = origin;
-drop table e2e_cal_w, e2e_cal_r, e2e_cal_b, e2e_cal_t;`);
+drop table e2e_cal_w, e2e_cal_r, e2e_cal_b, e2e_cal_t, e2e_cal_u;`);
 }
 finish();
