@@ -1,4 +1,5 @@
 "use client";
+import TopUpSheet from "../components/credits/TopUpSheet";
 import { formatCredits } from "../../../lib/platform/credits";
 import TrustLine from "../components/TrustLine";
 import Avatar from "../components/Avatar";
@@ -722,6 +723,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sentSlots, setSentSlots] = useState(new Set());
+  const [topUpNeed, setTopUpNeed] = useState(0);
 
   const { userRow, isAdmin } = useAuth();
   const { activeRoles, positionsFor, slotsFor, totalSlots, totalFee, shortRoles } = computeOrderTotals(
@@ -795,6 +797,13 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
       return;
     }
     setError("");
+    // Όσα credits χρειάζονται για ό,τι δεν έχει φύγει ακόμα· αν δεν φτάνουν,
+    // αγορά επιτόπου αντί για αποτυχία στη μέση της αποστολής.
+    const needNow = (totalSlots - sentSlots.size) * (Number(fee) || 0);
+    if (needNow > Number(userRow?.wallet_balance ?? 0)) {
+      setTopUpNeed(needNow);
+      return;
+    }
     setBusy(true);
     // Each position becomes its own independent request, all broadcast to
     // the same picked candidates — whoever claims one can't also claim
@@ -846,6 +855,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
         sentNow > 0
           ? ` Στάλθηκ${sentNow === 1 ? "ε ήδη 1 αίτημα" : `αν ήδη ${sentNow} αιτήματα`} από ${totalSlots}. Με νέα αποστολή φεύγουν μόνο όσα έμειναν, χωρίς δεύτερη χρέωση.`
           : "";
+      if (err.message === "insufficient_wallet") setTopUpNeed(Math.max(1, (totalSlots - nowSent.size) * (Number(fee) || 1)));
       setError((BROADCAST_ERRORS[err.message] || friendlyError(err)) + partial);
     } finally {
       setBusy(false);
@@ -854,6 +864,12 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
 
   return (
     <div style={{ marginTop: 28 }}>
+      <TopUpSheet
+        open={topUpNeed > 0}
+        need={topUpNeed}
+        balance={Number(userRow?.wallet_balance ?? 0)}
+        onClose={() => setTopUpNeed(0)}
+      />
       <div style={{ ...card, boxShadow: shadow.raised }}>
         {done ? (
           <div>

@@ -1,4 +1,5 @@
 "use client";
+import TopUpSheet from "./credits/TopUpSheet";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
@@ -29,7 +30,9 @@ const COVER_LABEL = {
 // προτάσεις μεταφοράς σκάφους — δικά τους πεδία (διαδρομή, μίλια, τιμή),
 // δικές τους ενέργειες (accept/decline_delivery_role_request), ίδιο ύφος.
 export default function DeliveryPingsInbox({ skipperId }) {
-  const { refreshNotifications } = useAuth();
+  const { refreshNotifications, userRow } = useAuth();
+  const balance = Number(userRow?.wallet_balance ?? 0);
+  const [topUpNeed, setTopUpNeed] = useState(0);
   const [rows, setRows] = useState([]);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
@@ -49,15 +52,20 @@ export default function DeliveryPingsInbox({ skipperId }) {
       new Date(r.role_request.expires_at).getTime() > Date.now()
   );
 
-  async function handleAccept(roleRequestId) {
-    setBusyId(roleRequestId);
+  async function handleAccept(roleRequestId, fee) {
     setError("");
+    if (fee > balance) {
+      setTopUpNeed(fee);
+      return;
+    }
+    setBusyId(roleRequestId);
     try {
       await acceptDeliveryRoleRequest(roleRequestId, skipperId);
       await load();
       refreshNotifications();
     } catch (err) {
-      setError(ACCEPT_ERRORS[err.message] || friendlyError(err));
+      if (err.message === "insufficient_wallet") setTopUpNeed(Math.max(1, Number(fee) || 1));
+      else setError(ACCEPT_ERRORS[err.message] || friendlyError(err));
       await load();
     } finally {
       setBusyId(null);
@@ -124,7 +132,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
             </p>
 
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button style={button("primary")} disabled={busyId === role_request.id} onClick={() => handleAccept(role_request.id)}>
+              <button style={button("primary")} disabled={busyId === role_request.id} onClick={() => handleAccept(role_request.id, Number(role_request.professional_fee) || 0)}>
                 {busyId === role_request.id ? "..." : "Αποδοχή"}
               </button>
               <button style={button("secondary")} disabled={busyId === role_request.id} onClick={() => handleDecline(role_request.id)}>
@@ -134,6 +142,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
           </div>
         );
       })}
+      <TopUpSheet open={topUpNeed > 0} need={topUpNeed} balance={balance} onClose={() => setTopUpNeed(0)} />
     </div>
   );
 }

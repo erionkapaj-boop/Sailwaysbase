@@ -1,39 +1,16 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../AuthContext";
 import SignedOutNotice from "../../components/SignedOutNotice";
-import { getCreditOffer, getMyPendingCreditPurchase, requestCreditPurchase } from "../../../../lib/platform/db";
-import { formatCredits, PACKAGES } from "../../../../lib/platform/credits";
-import { friendlyError } from "../../../../lib/platform/friendlyError";
-import { container, card, h1, muted, colors, money, button, radius, badge } from "../../../../lib/platform/theme";
+import PackagePicker, { PurchaseSummary } from "../../components/credits/PackagePicker";
+import { container, card, h1, muted, button } from "../../../../lib/platform/theme";
 
-const POPULAR = "professional";
-const MAX_CUSTOM = 100;
-
-// Αγορά credits: επιλογή πακέτου (ή αριθμού) και αίτημα. Οι τιμές έρχονται
-// από τις Ρυθμίσεις· το ποσό το υπολογίζει ξανά η βάση. Μέχρι να συνδεθεί
+// Αγορά credits: επιλογή πακέτου (ή αριθμού) και αίτημα. Μέχρι να συνδεθεί
 // πληρωμή, τα credits πιστώνονται με την επιβεβαίωση του διαχειριστή.
 export default function BuyCreditsPage() {
-  const { session, loading, readOnly } = useAuth();
-  const [offer, setOffer] = useState(null);
-  const [pending, setPending] = useState(undefined);
-  const [choice, setChoice] = useState(POPULAR);
-  const [custom, setCustom] = useState(1);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { session, loading } = useAuth();
   const [sent, setSent] = useState(null);
-
-  useEffect(() => {
-    if (!session) return;
-    getCreditOffer()
-      .then((o) => {
-        setOffer(o);
-        if (!o.packages.some((p) => p.key === POPULAR)) setChoice(o.packages[0]?.key || "custom");
-      })
-      .catch((err) => setError(friendlyError(err)));
-    getMyPendingCreditPurchase().then(setPending).catch(() => setPending(null));
-  }, [session]);
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
   if (!session) return <SignedOutNotice />;
@@ -47,192 +24,26 @@ export default function BuyCreditsPage() {
     </Link>
   );
 
-  if (sent) {
-    return (
-      <div style={{ ...container, maxWidth: 560 }}>
-        {back}
-        <h1 style={{ ...h1, marginTop: 12 }}>Το αίτημά σου καταχωρήθηκε</h1>
-        <div style={card}>
-          <div style={{ fontSize: 15 }}>
-            {[sent.package_key && PACKAGES.find((x) => x.key === sent.package_key)?.name, formatCredits(sent.credits), `${sent.price_eur}€`]
-              .filter(Boolean)
-              .join(" · ")}
-          </div>
-          <div style={{ ...muted, fontSize: 13.5, marginTop: 8 }}>
-            Κωδικός αιτήματος <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{sent.reference}</span>
-          </div>
-          <p style={{ ...muted, fontSize: 13.5, margin: "12px 0 0", lineHeight: 1.55 }}>
-            Τα credits πιστώνονται στον λογαριασμό σου με την επιβεβαίωση της πληρωμής.
-          </p>
-        </div>
-        <Link href="/platform/wallet" style={{ ...button("primary"), textDecoration: "none", display: "inline-block" }}>
-          Στα Credits
-        </Link>
-      </div>
-    );
-  }
-
-  const price = offer?.creditPrice;
-  const packages = offer?.packages || [];
-  const customCount = Math.min(MAX_CUSTOM, Math.max(1, Math.floor(Number(custom) || 1)));
-  const selected =
-    choice === "custom"
-      ? { credits: customCount, price: price != null ? customCount * price : null }
-      : packages.find((p) => p.key === choice);
-
-  async function send() {
-    setBusy(true);
-    setError("");
-    try {
-      const row = await requestCreditPurchase(choice, choice === "custom" ? customCount : null);
-      setSent(row);
-    } catch (err) {
-      setError(friendlyError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const option = (key, content) => {
-    const active = choice === key;
-    return (
-      <button
-        key={key}
-        type="button"
-        role="radio"
-        aria-checked={active}
-        onClick={() => setChoice(key)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          width: "100%",
-          textAlign: "left",
-          padding: "16px 18px",
-          marginBottom: 10,
-          background: active ? colors.seaGlass : colors.card,
-          border: `${active ? 2 : 1}px solid ${active ? colors.ink : colors.border}`,
-          borderRadius: radius.lg,
-          cursor: "pointer",
-          fontFamily: "inherit",
-          color: colors.ink,
-        }}
-      >
-        <span
-          aria-hidden="true"
-          style={{
-            flex: "none",
-            width: 18,
-            height: 18,
-            borderRadius: "50%",
-            border: `2px solid ${active ? colors.ink : colors.border}`,
-            boxShadow: active ? `inset 0 0 0 3px ${colors.card}` : "none",
-            background: active ? colors.ink : "transparent",
-          }}
-        />
-        {content}
-      </button>
-    );
-  };
-
   return (
     <div style={{ ...container, maxWidth: 560 }}>
       {back}
-      <h1 style={{ ...h1, marginTop: 12 }}>Αγορά credits</h1>
-
-      {pending === undefined || !offer ? (
-        error ? <p style={{ color: colors.danger, fontSize: 14 }}>{error}</p> : <p style={muted}>Φόρτωση...</p>
-      ) : pending ? (
-        <div style={card}>
-          <div style={{ fontSize: 15 }}>Έχεις ήδη ανοιχτό αίτημα αγοράς ({pending.reference}).</div>
-          <Link href="/platform/wallet" style={{ ...button("secondary"), textDecoration: "none", display: "inline-block", marginTop: 12 }}>
+      {sent ? (
+        <>
+          <h1 style={{ ...h1, marginTop: 12 }}>Το αίτημά σου καταχωρήθηκε</h1>
+          <div style={card}>
+            <PurchaseSummary row={sent} />
+            <p style={{ ...muted, fontSize: 13.5, margin: "12px 0 0", lineHeight: 1.55 }}>
+              Τα credits πιστώνονται στον λογαριασμό σου με την επιβεβαίωση της πληρωμής.
+            </p>
+          </div>
+          <Link href="/platform/wallet" style={{ ...button("primary"), textDecoration: "none", display: "inline-block" }}>
             Στα Credits
           </Link>
-        </div>
+        </>
       ) : (
         <>
-          <div role="radiogroup" aria-label="Πακέτο">
-            {packages.map((p) => {
-              const per = p.price / p.credits;
-              const off = price ? Math.round((1 - per / price) * 100) : 0;
-              return option(
-                p.key,
-                <span style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                  <span>
-                    <span style={{ fontSize: 15, fontWeight: 600 }}>{PACKAGES.find((x) => x.key === p.key)?.name}</span>
-                    {p.key === POPULAR && <span style={{ ...badge("neutral"), marginLeft: 8 }}>Δημοφιλές</span>}
-                    <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 3 }}>
-                      {formatCredits(p.credits)} · {Math.round(per * 100) / 100}€ το credit
-                    </span>
-                  </span>
-                  <span style={{ textAlign: "right" }}>
-                    <span style={{ ...money, fontSize: 18, fontWeight: 700, display: "block" }}>{p.price}€</span>
-                    {off > 0 && <span style={{ fontSize: 12.5, color: colors.success }}>−{off}%</span>}
-                  </span>
-                </span>
-              );
-            })}
-            {price != null &&
-              option(
-                "custom",
-                <span style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <span>
-                    <span style={{ fontSize: 15, fontWeight: 600 }}>Άλλος αριθμός</span>
-                    <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 3 }}>{price}€ το credit</span>
-                  </span>
-                  {choice === "custom" && (
-                    <input
-                      type="number"
-                      min={1}
-                      max={MAX_CUSTOM}
-                      step={1}
-                      value={custom}
-                      aria-label="Αριθμός credits"
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => setCustom(e.target.value)}
-                      style={{
-                        width: 80,
-                        padding: "8px 10px",
-                        fontSize: 15,
-                        fontFamily: "inherit",
-                        border: `1px solid ${colors.border}`,
-                        borderRadius: radius.md,
-                        textAlign: "center",
-                      }}
-                    />
-                  )}
-                </span>
-              )}
-          </div>
-
-          {selected && selected.price != null && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                padding: "16px 2px",
-                marginTop: 6,
-                borderTop: `1px solid ${colors.border}`,
-              }}
-            >
-              <span style={{ fontSize: 15 }}>Σύνολο · {formatCredits(selected.credits)}</span>
-              <span style={{ ...money, fontSize: 22, fontWeight: 700 }}>{selected.price}€</span>
-            </div>
-          )}
-
-          {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 10px" }}>{error}</p>}
-          <button
-            type="button"
-            style={{ ...button("primary"), width: "100%", padding: "14px 18px", fontSize: 15 }}
-            disabled={busy || readOnly || !selected}
-            onClick={send}
-          >
-            {busy ? "…" : "Αποστολή αιτήματος"}
-          </button>
-          <p style={{ ...muted, fontSize: 12.5, margin: "12px 0 0", lineHeight: 1.5, textAlign: "center" }}>
-            Τα credits πιστώνονται με την επιβεβαίωση της πληρωμής. Δεν λήγουν.
-          </p>
+          <h1 style={{ ...h1, marginTop: 12 }}>Αγορά credits</h1>
+          <PackagePicker onSent={setSent} />
         </>
       )}
     </div>

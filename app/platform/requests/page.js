@@ -1,4 +1,5 @@
 "use client";
+import LowCreditsBanner from "../components/credits/LowCreditsBanner";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../AuthContext";
@@ -103,6 +104,7 @@ export default function RequestsPage() {
           )}
           {profile?.approval_status === "approved" && (
             <>
+              <LowCreditsBanner />
               <PingsInbox skipperId={profile.id} />
               <DeliveryPingsInbox skipperId={profile.id} />
             </>

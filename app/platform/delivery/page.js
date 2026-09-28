@@ -1,4 +1,5 @@
 "use client";
+import TopUpSheet from "../components/credits/TopUpSheet";
 import { formatCredits } from "../../../lib/platform/credits";
 import DateField from "../components/calendar/DateField";
 import { useEffect, useRef, useState } from "react";
@@ -163,6 +164,9 @@ function RoleBlock({
   const [error, setError] = useState("");
   const [sent, setSent] = useState(null);
   const [restoredNotice] = useState(Boolean(initialPrice));
+  const [topUpNeed, setTopUpNeed] = useState(0);
+  const { userRow } = useAuth();
+  const balance = Number(userRow?.wallet_balance ?? 0);
 
   useEffect(() => {
     searchDeliveryCandidates(role, startDate, endDate).then(setCandidates).catch(() => setCandidates([]));
@@ -194,6 +198,11 @@ function RoleBlock({
       onAuthRequired(Number(price), Array.from(selected));
       return;
     }
+    // Αν τα credits δεν φτάνουν, αγορά επιτόπου· τίποτα δεν έχει σταλεί ακόμα.
+    if (session && estimate != null && estimate > balance) {
+      setTopUpNeed(estimate);
+      return;
+    }
     setBusy(true);
     try {
       let requestId = deliveryRequestId;
@@ -206,7 +215,8 @@ function RoleBlock({
       setSent(row);
       onSent?.(row);
     } catch (err) {
-      setError(REQUEST_ERRORS[err.message] || ROLE_ERRORS[err.message] || friendlyError(err));
+      if (err.message === "insufficient_wallet") setTopUpNeed(Math.max(1, Number(estimate) || 1));
+      else setError(REQUEST_ERRORS[err.message] || ROLE_ERRORS[err.message] || friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -229,6 +239,7 @@ function RoleBlock({
 
   return (
     <div style={card}>
+      <TopUpSheet open={topUpNeed > 0} need={topUpNeed} balance={balance} onClose={() => setTopUpNeed(0)} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
         <h3 style={{ ...h2, fontSize: 16, margin: "0 0 10px" }}>
           {labelForRole(role)}

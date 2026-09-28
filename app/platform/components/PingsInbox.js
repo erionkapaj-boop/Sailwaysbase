@@ -1,4 +1,5 @@
 "use client";
+import TopUpSheet from "./credits/TopUpSheet";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
@@ -41,7 +42,10 @@ const OFFER_LABEL = {
 };
 
 export default function PingsInbox({ skipperId }) {
-  const { refreshNotifications } = useAuth();
+  const { refreshNotifications, userRow } = useAuth();
+  const balance = Number(userRow?.wallet_balance ?? 0);
+  // Όταν τα credits δεν φτάνουν: αγορά επιτόπου, χωρίς να φύγεις από εδώ.
+  const [topUpNeed, setTopUpNeed] = useState(0);
   const [pings, setPings] = useState([]);
   const [defaultFee, setDefaultFee] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -59,9 +63,14 @@ export default function PingsInbox({ skipperId }) {
   // Η αντικατάσταση δεν «κλειδώνει» τίποτα στην αποδοχή — μόνο δηλώνει
   // ενδιαφέρον, διαλέγει ο πελάτης. Κάθε άλλη προέλευση συνεχίζει να δουλεύει
   // όπως πριν: όποιος διεκδικήσει πρώτος την παίρνει.
-  async function handleClaim(requestId, isReplacement) {
-    setBusyId(requestId);
+  async function handleClaim(requestId, isReplacement, fee) {
     setError("");
+    // Η διεκδίκηση χρεώνει τώρα· η δήλωση ενδιαφέροντος σε αντικατάσταση όχι.
+    if (!isReplacement && fee > balance) {
+      setTopUpNeed(fee);
+      return;
+    }
+    setBusyId(requestId);
     try {
       if (isReplacement) await respondToReplacementOffer(requestId, skipperId, true);
       else await claimBookingRequest(requestId, skipperId);
@@ -69,7 +78,8 @@ export default function PingsInbox({ skipperId }) {
       refreshNotifications();
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
-      setError(CLAIM_ERRORS[code] || friendlyError(err));
+      if (code === "insufficient_wallet") setTopUpNeed(Math.max(1, Number(fee) || 1));
+      else setError(CLAIM_ERRORS[code] || friendlyError(err));
       await load();
     } finally {
       setBusyId(null);
@@ -132,11 +142,18 @@ export default function PingsInbox({ skipperId }) {
           p={p}
           fee={p.booking_requests.claim_fee_amount != null ? Number(p.booking_requests.claim_fee_amount) : defaultFee}
           busy={busyId === p.booking_requests.id}
-          onClaim={() => handleClaim(p.booking_requests.id, p.booking_requests.origin === "admin_replacement")}
+          onClaim={() =>
+            handleClaim(
+              p.booking_requests.id,
+              p.booking_requests.origin === "admin_replacement",
+              Number(p.booking_requests.claim_fee_amount != null ? p.booking_requests.claim_fee_amount : defaultFee) || 0
+            )
+          }
           onDecline={() => handleDecline(p.booking_requests.id, p.booking_requests.origin === "admin_replacement")}
           onWithdraw={() => handleWithdraw(p.booking_requests.id)}
         />
       ))}
+      <TopUpSheet open={topUpNeed > 0} need={topUpNeed} balance={balance} onClose={() => setTopUpNeed(0)} />
     </div>
   );
 }
