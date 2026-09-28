@@ -212,13 +212,60 @@ const GROUPS = [
   { key: "other", title: "Άλλες" },
 ];
 
+// Οι τιμές όπως τις βλέπει ο χρήστης στη σελίδα Credits — μόνο όσες έχουν
+// αποθηκευτεί.
+function CreditPreview({ list }) {
+  const v = Object.fromEntries(list.map((r) => [r.key, Number(r.value)]));
+  const price = v.credit_price_eur;
+  const packs = [
+    ["Starter", v.package_starter_credits, v.package_starter_price],
+    ["Professional", v.package_professional_credits, v.package_professional_price],
+    ["Pro", v.package_pro_credits, v.package_pro_price],
+  ].filter(([, c, p]) => c > 0 && p != null);
+  if (price == null) return null;
+  return (
+    <div style={{ padding: "14px 16px", background: colors.seaGlass }}>
+      <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>Όπως το βλέπει ο χρήστης (αποθηκευμένες τιμές)</div>
+      <div style={{ fontSize: 13.5, lineHeight: 1.7 }}>
+        1 credit · {price}€
+        {packs.map(([name, c, p]) => {
+          const per = p / c;
+          const off = price > 0 ? Math.round((1 - per / price) * 100) : 0;
+          return (
+            <div key={name}>
+              {name} · {c} credits · {p}€ <span style={muted}>({Math.round(per * 100) / 100}€ το credit{off > 0 ? `, −${off}%` : ""})</span>
+              {off < 0 && <span style={{ color: colors.danger }}> · ακριβότερο από το μεμονωμένο credit</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [list, setList] = useState([]);
   const [drafts, setDrafts] = useState({});
   const [busyKey, setBusyKey] = useState(null);
   const [error, setError] = useState("");
+  // Σφάλμα ανά ρύθμιση, κάτω από τη δική της γραμμή: στο κινητό ένα μήνυμα
+  // στην κορυφή της σελίδας δεν φαίνεται ποτέ.
+  const [rowErrors, setRowErrors] = useState({});
   const [saved, setSaved] = useState("");
   const [confirm, confirmDialog] = useConfirm();
+
+  const dirtyKeys = list.filter((s) => drafts[s.key] !== undefined && drafts[s.key] !== String(s.value)).map((s) => s.key);
+
+  // Αλλαγές που δεν αποθηκεύτηκαν: ερώτηση πριν φύγεις από τη σελίδα.
+  useEffect(() => {
+    if (dirtyKeys.length === 0) return;
+    const warn = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirtyKeys.length]);
 
   async function load() {
     try {
@@ -233,6 +280,27 @@ export default function SettingsPage() {
     load();
   }, []);
 
+  // Αποθηκεύει μία ρύθμιση χωρίς να αγγίξει τις υπόλοιπες αλλαγές που
+  // εκκρεμούν. Επιστρέφει true αν πέτυχε.
+  async function saveOne(key) {
+    setRowErrors((e) => ({ ...e, [key]: "" }));
+    try {
+      await adminUpdateSetting(key, drafts[key]);
+      setList((rows) => rows.map((r) => (r.key === key ? { ...r, value: Number(drafts[key]) } : r)));
+      return true;
+    } catch (err) {
+      setRowErrors((e) => ({ ...e, [key]: friendlyError(err) }));
+      return false;
+    }
+  }
+
+  async function saveAll() {
+    setBusyKey("__all__");
+    setSaved("");
+    for (const key of dirtyKeys) await saveOne(key);
+    setBusyKey(null);
+  }
+
   async function save(key) {
     if (
       key === "otp_enabled" &&
@@ -243,17 +311,9 @@ export default function SettingsPage() {
     )
       return;
     setBusyKey(key);
-    setError("");
     setSaved("");
-    try {
-      await adminUpdateSetting(key, drafts[key]);
-      setSaved(key);
-      await load();
-    } catch (err) {
-      setError(friendlyError(err));
-    } finally {
-      setBusyKey(null);
-    }
+    if (await saveOne(key)) setSaved(key);
+    setBusyKey(null);
   }
 
   function renderSetting(s) {
@@ -284,6 +344,7 @@ export default function SettingsPage() {
         <span style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
           {field}
           {meta.unit && <span style={{ ...muted, fontSize: 13 }}>{meta.unit}</span>}
+          {dirty && <span style={{ color: colors.warn, fontSize: 12.5 }}>Δεν έχει αποθηκευτεί</span>}
           <button
             style={button(dirty ? "primary" : "secondary")}
             disabled={!dirty || busyKey === s.key}
@@ -292,7 +353,8 @@ export default function SettingsPage() {
             {busyKey === s.key ? "…" : "Αποθήκευση"}
           </button>
         </span>
-        {saved === s.key && <p style={{ color: colors.success, fontSize: 12.5, margin: "8px 0 0" }}>Αποθηκεύτηκε.</p>}
+        {rowErrors[s.key] && <p style={{ color: colors.danger, fontSize: 12.5, margin: "8px 0 0" }}>{rowErrors[s.key]}</p>}
+        {saved === s.key && !dirty && <p style={{ color: colors.success, fontSize: 12.5, margin: "8px 0 0" }}>Αποθηκεύτηκε.</p>}
       </div>
     );
   }
@@ -310,6 +372,7 @@ export default function SettingsPage() {
         const rows = list.filter((s) => (SETTING_META[s.key]?.group || "other") === g.key);
         if (rows.length === 0) return null;
         const body = rows.map((s) => renderSetting(s));
+        if (g.key === "credits") body.push(<CreditPreview key="__preview" list={list} />);
         if (g.collapsed) {
           return (
             <details key={g.key} style={{ marginBottom: 14 }}>
@@ -328,6 +391,47 @@ export default function SettingsPage() {
           </Panel>
         );
       })}
+      {dirtyKeys.length > 0 && (
+        <div
+          style={{
+            position: "sticky",
+            bottom: 12,
+            zIndex: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            padding: "12px 14px",
+            marginTop: 12,
+            background: colors.ink,
+            color: "#fff",
+            borderRadius: 12,
+            boxShadow: "0 6px 24px rgba(22,40,60,0.25)",
+          }}
+        >
+          <span style={{ fontSize: 14 }}>
+            {dirtyKeys.length === 1 ? "1 αλλαγή δεν έχει αποθηκευτεί" : `${dirtyKeys.length} αλλαγές δεν έχουν αποθηκευτεί`}
+          </span>
+          <span style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              style={{ ...button("secondary"), background: "transparent", color: "#fff", borderColor: "rgba(255,255,255,0.4)" }}
+              onClick={() => setDrafts(Object.fromEntries(list.map((r) => [r.key, String(r.value)])))}
+            >
+              Αναίρεση
+            </button>
+            <button
+              type="button"
+              style={{ ...button("primary"), background: "#fff", color: colors.ink, borderColor: "#fff" }}
+              disabled={busyKey === "__all__"}
+              onClick={saveAll}
+            >
+              {busyKey === "__all__" ? "…" : "Αποθήκευση όλων"}
+            </button>
+          </span>
+        </div>
+      )}
       {confirmDialog}
     </AdminShell>
   );
