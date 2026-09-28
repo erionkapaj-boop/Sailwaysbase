@@ -156,6 +156,7 @@
 22520ad	συνάρτηση	admin_soft_delete_skipper(uuid,text)	c7b976
 2253968	trigger	messages.ab_validate_text_lengths	19473a
 225fe3b	συνάρτηση	admin_list_offers(boolean)	489674
+2271073	συνάρτηση	set_availability_period(date,date,uuid[],crew_role,uuid)	15fe63
 22f72e3	στήλη	skipper_boat_types.boat_type_id	288395
 23211d9	trigger	cancellation_reports.aa_block_inactive_caller	ad7831
 2342c0c	συνάρτηση	has_future_availability(uuid)	570972

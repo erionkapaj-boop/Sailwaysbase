@@ -167,7 +167,8 @@ export function MonthGrid({ month, dayProps, onLeave }) {
           if (!d) return <div key={`e${i}`} />;
           const key = fmt(d);
           const p = dayProps(key) || {};
-          const tone = TONES[p.tone] || TONES.range;
+          // tone: όνομα από τα TONES, ή έτοιμο αντικείμενο (π.χ. χρώμα περιοχής).
+          const tone = (typeof p.tone === "object" && p.tone) || TONES[p.tone] || TONES.range;
           const col = i % 7;
           const band = p.band || "none";
           const isMonthStart = d.getDate() === 1;
