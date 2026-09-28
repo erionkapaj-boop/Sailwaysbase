@@ -407,6 +407,7 @@ function QuickSearch() {
 }
 
 function QuickActions() {
+  const { isOwner } = useAuth();
   const chip = {
     display: "inline-flex",
     alignItems: "center",
@@ -431,9 +432,11 @@ function QuickActions() {
         scrollbarWidth: "none",
       }}
     >
-      <Link href="/platform/admin/finance" style={chip}>
-        + Φόρτωση υπολοίπου
-      </Link>
+      {isOwner && (
+        <Link href="/platform/admin/finance" style={chip}>
+          + Αγορά credits
+        </Link>
+      )}
       <Link href="/platform/admin/offers" style={chip}>
         + Νέα ανάθεση
       </Link>
@@ -1197,6 +1200,7 @@ function Delta({ now, prev, unit = "" }) {
 }
 
 function Week({ week }) {
+  const { isOwner } = useAuth();
   if (!week) return null;
   const cells = [
     {
@@ -1212,14 +1216,15 @@ function Week({ week }) {
       p: week.bookings_prev,
       href: "/platform/admin/bookings",
     },
-    {
+    // Οι πωλήσεις: μόνο για τον ιδιοκτήτη (0112).
+    isOwner && {
       label: "Πωλήσεις",
       v: week.sales_eur,
       p: week.sales_eur_prev,
       money: true,
       href: "/platform/admin/finance",
     },
-  ];
+  ].filter(Boolean);
   return (
     <>
       <SectionTitle hint="Σε σύγκριση με τις 7 μέρες πριν.">Τελευταίες 7 μέρες</SectionTitle>

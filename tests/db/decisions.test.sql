@@ -120,11 +120,12 @@ select pg_temp.act('authenticated', :'ADMIN');
 select pg_temp.check('η υπόθεση φαίνεται στις αντικαταστάσεις', exists (select 1 from admin_replacement_cases(false) where booking_id = :'bk3'));
 
 -- =============================================================================
-\echo '== βοηθός διαχειριστή δεν διαγράφει άλλον βοηθό'
+\echo '== βοηθός διαχειριστή δεν διαγράφει (μόνο ο ιδιοκτήτης)'
 select pg_temp.act('postgres');
 update users set is_staff_admin = true where id in (:'SOFIA', :'PETROS');
 select pg_temp.act('authenticated', :'SOFIA');
-select pg_temp.expect(format('select admin_delete_account(%L, %L)', :'PETROS', 'x'), 'cannot_edit_admin');
+-- 0112: η διαγραφή είναι μόνο του ιδιοκτήτη.
+select pg_temp.expect(format('select admin_delete_account(%L, %L)', :'PETROS', 'x'), 'owner_only');
 
 -- =============================================================================
 \echo '== 0108 η ειδοποίηση ολοκλήρωσης ανοίγει την κράτηση'

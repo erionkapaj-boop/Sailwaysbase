@@ -1,4 +1,5 @@
 "use client";
+import { useAuth } from "../../../AuthContext";
 import { formatCredits } from "../../../../../lib/platform/credits";
 import { useState } from "react";
 import Link from "next/link";
@@ -8,6 +9,7 @@ import { formatDate, formatDateTime } from "../../../../../lib/platform/notifica
 import { Field, fieldInput, errorLabel } from "./shared";
 
 export default function FinanceTab({ data, id, reload, confirm }) {
+  const { isOwner } = useAuth();
   const u = data.user;
   const wallet = data.wallet || [];
   const disputes = data.disputes || [];
@@ -55,6 +57,7 @@ export default function FinanceTab({ data, id, reload, confirm }) {
         <Metric label="Credits" value={formatCredits(u.wallet_balance)} />
       </MetricGrid>
 
+      {isOwner && (
       <Panel title="Δώρο credits" subtitle="Credits χωρίς πληρωμή, π.χ. αποζημίωση. Για αγορά: Οικονομικά. Καταγράφεται στο ιστορικό.">
         <form onSubmit={handleCredit} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
           <div style={{ flex: "1 1 120px" }}>
@@ -74,13 +77,16 @@ export default function FinanceTab({ data, id, reload, confirm }) {
         {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
         {notice && <p style={{ color: colors.success, fontSize: 13 }}>{notice}</p>}
       </Panel>
+      )}
 
       <Panel
         title={`Κινήσεις credits (${wallet.length})`}
         action={
-          <Link href={`/platform/admin/finance?phone=${encodeURIComponent(u.phone_number || "")}`} style={{ fontSize: 12.5, color: colors.ink }}>
-            Στα Οικονομικά
-          </Link>
+          isOwner && (
+            <Link href={`/platform/admin/finance?phone=${encodeURIComponent(u.phone_number || "")}`} style={{ fontSize: 12.5, color: colors.ink }}>
+              Στα Οικονομικά
+            </Link>
+          )
         }
         padded={false}
       >

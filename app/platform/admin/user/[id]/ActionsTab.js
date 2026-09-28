@@ -1,4 +1,5 @@
 "use client";
+import { useAuth } from "../../../AuthContext";
 import { formatCredits, verbFor } from "../../../../../lib/platform/credits";
 import { useState } from "react";
 import { Panel, ProCredentials, colors, muted, button, VERIFY_HINT } from "../../ui";
@@ -22,6 +23,7 @@ import { Hint, fieldInput, errorLabel } from "./shared";
 // πρόσβαση», που μόνο διορθώνουν. Οι επικίνδυνες ενέργειες περνούν πάντα από
 // confirm(), και ό,τι χρειάζεται λόγο τον ζητά πριν προχωρήσει.
 export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
+  const { isOwner } = useAuth();
   const u = data.user;
   const sp = data.skipper_profile;
 
@@ -206,9 +208,11 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
             {u.deletion_reason && <>Λόγος: {u.deletion_reason}<br /></>}
             Δεν μπορεί να συνδεθεί και δεν φαίνεται πουθενά στην πλατφόρμα. Τίποτα δεν έχει σβηστεί.
           </Hint>
-          <button style={button("primary")} disabled={busy} onClick={handleRestore}>
-            {busy ? "…" : "Επαναφορά λογαριασμού"}
-          </button>
+          {isOwner && (
+            <button style={button("primary")} disabled={busy} onClick={handleRestore}>
+              {busy ? "…" : "Επαναφορά λογαριασμού"}
+            </button>
+          )}
         </Panel>
       ) : (
         <>
@@ -221,6 +225,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
             </Panel>
           ) : (
             u.role !== "admin" &&
+            !u.is_owner &&
             !u.is_staff_admin && (
               <Panel title="Αναστολή λογαριασμού">
                 <Hint>
@@ -262,7 +267,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
             )
           )}
 
-          {u.role !== "admin" && u.id !== viewerId && (
+          {isOwner && u.role !== "admin" && !u.is_owner && u.id !== viewerId && (
             <Panel title="Διαγραφή λογαριασμού">
               <Hint>
                 Ο λογαριασμός κρύβεται από την πλατφόρμα και δεν μπορεί να συνδεθεί. Τίποτα δεν σβήνεται (ιστορικό,
@@ -288,7 +293,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
         </>
       )}
 
-      {u.status !== "deleted" && (
+      {isOwner && u.status !== "deleted" && !u.is_owner && (
         <Panel title="Προχωρημένες ρυθμίσεις" subtitle="Σπάνια χρειάζονται και ζητούν επιβεβαίωση.">
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, cursor: "pointer" }}>
             <input

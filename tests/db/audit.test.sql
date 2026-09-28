@@ -74,10 +74,12 @@ update users set is_staff_admin = true where id = :'SOFIA';
 select pg_temp.act('authenticated', :'SOFIA');
 select pg_temp.expect(format($$select admin_update_profile(%L, 'Admin', 'evil@example.com')$$, :'ADMIN'), 'cannot_edit_admin');
 select pg_temp.expect(format($$select admin_set_staff_admin(%L, true)$$, :'CLIENT'), 'owner_only');
-select pg_temp.expect(format($$select admin_credit_wallet(%L, 100, 'δικά μου')$$, :'SOFIA'), 'cannot_credit_self');
+select pg_temp.expect(format($$select admin_credit_wallet(%L, 100, 'δικά μου')$$, :'SOFIA'), 'owner_only');
 select admin_update_profile(:'CLIENT', :'maria_name', 'maria.new@example.com');
 select pg_temp.act('authenticated', :'ADMIN');
-select pg_temp.expect(format($$select admin_adjust_wallet(%L, 100, 'δικά μου')$$, :'ADMIN'), 'cannot_credit_self');
+-- 0112: ο ιδιοκτήτης μπορεί και στον δικό του λογαριασμό.
+select admin_adjust_wallet(:'ADMIN', 1, 'δικά μου') = 1;
+select admin_adjust_wallet(:'ADMIN', -1, 'επαναφορά') = 0;
 select pg_temp.expect(format($$select admin_update_profile(%L, 'Μαρία', 'not-an-email')$$, :'CLIENT'), 'invalid_email');
 select admin_set_staff_admin(:'SOFIA', false);
 select pg_temp.act('postgres');

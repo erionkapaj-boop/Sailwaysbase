@@ -95,7 +95,7 @@ function AdminUserInner() {
   }, [id]);
 
   useEffect(() => {
-    if (!id || (userRow?.role !== "admin" && !userRow?.is_staff_admin)) return;
+    if (!id || (userRow?.role !== "admin" && !userRow?.is_staff_admin && !userRow?.is_owner)) return;
     load();
   }, [id, userRow, load]);
 
@@ -144,7 +144,7 @@ function AdminUserInner() {
 
   if (loading) return <div style={{ padding: 32, ...muted }}>Φόρτωση…</div>;
   if (!session) return <div style={{ padding: 32 }}>Χρειάζεται σύνδεση.</div>;
-  if (userRow?.role !== "admin" && !userRow?.is_staff_admin)
+  if (userRow?.role !== "admin" && !userRow?.is_staff_admin && !userRow?.is_owner)
     return <div style={{ padding: 32 }}>Πρόσβαση μόνο για admin.</div>;
 
   const target = data?.user;
@@ -203,7 +203,11 @@ function AdminUserInner() {
             {!target.phone_verified_at && target.role !== "admin" && <span style={badge("warn")}>Μη επαληθευμένος</span>}
             {target.pin_change_required && <span style={badge("warn")}>Προσωρινός κωδικός — δεν έχει οριστεί δικός του</span>}
             {target.is_test_account && <span style={badge("neutral")}>Δοκιμαστικός</span>}
-            {target.is_staff_admin && <span style={badge("brand")}>Staff admin</span>}
+            {target.role === "admin" || target.is_owner ? (
+              <span style={badge("brand")}>Ιδιοκτήτης</span>
+            ) : (
+              target.is_staff_admin && <span style={badge("brand")}>Υπάλληλος</span>
+            )}
           </div>
           <p style={{ ...muted, margin: "0 0 4px" }}>
             <span style={money}>{target.phone_number}</span>

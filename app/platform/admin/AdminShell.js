@@ -44,9 +44,10 @@ export const SECTIONS = [
   { href: "/platform/admin/bookings", label: "Όλες οι κρατήσεις" },
   { href: "/platform/admin/deliveries", label: "Μεταφορές σκάφους" },
   { href: "/platform/admin/users", label: "Χρήστες", heading: "Χρήστες & χρήματα" },
-  { href: "/platform/admin/finance", label: "Οικονομικά" },
-  { href: "/platform/admin/settings", label: "Ρυθμίσεις", heading: "Σύστημα" },
-  { href: "/platform/admin/ghost", label: "Δοκιμές (Ghost Mode)" },
+  // ownerOnly: μόνο ο ιδιοκτήτης (0112).
+  { href: "/platform/admin/finance", label: "Οικονομικά", ownerOnly: true },
+  { href: "/platform/admin/settings", label: "Ρυθμίσεις", heading: "Σύστημα", ownerOnly: true },
+  { href: "/platform/admin/ghost", label: "Δοκιμές (Ghost Mode)", ownerOnly: true },
 ];
 
 // Sum of one or several overview counts — a section can stand for more than
@@ -100,13 +101,14 @@ export function useRefreshAdminCounts() {
 // (PlatformShell.js); the counts fetch lives one level up, in
 // app/platform/admin/layout.js, so it survives from one section to the next
 // instead of being re-fetched on every route.
-export default function AdminShell({ title, subtitle, avatar, actions, children }) {
-  const { session, userRow, loading } = useAuth();
+export default function AdminShell({ title, subtitle, avatar, actions, ownerOnly = false, children }) {
+  const { session, userRow, loading, isOwner } = useAuth();
 
   if (loading) return <div style={{ padding: 32, ...muted }}>Φόρτωση…</div>;
   if (!session) return <div style={{ padding: 32 }}>Χρειάζεται σύνδεση.</div>;
-  if (userRow?.role !== "admin" && !userRow?.is_staff_admin)
-    return <div style={{ padding: 32 }}>Πρόσβαση μόνο για admin.</div>;
+  if (userRow?.role !== "admin" && !userRow?.is_staff_admin && !userRow?.is_owner)
+    return <div style={{ padding: 32 }}>Πρόσβαση μόνο για διαχειριστές.</div>;
+  if (ownerOnly && !isOwner) return <div style={{ padding: 32 }}>Πρόσβαση μόνο για τον ιδιοκτήτη.</div>;
 
   return (
     <>

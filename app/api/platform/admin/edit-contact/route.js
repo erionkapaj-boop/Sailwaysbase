@@ -13,8 +13,9 @@ async function requireAdmin(req, db) {
   if (!token) return null;
   const { data, error } = await db.auth.getUser(token);
   if (error || !data?.user) return null;
-  const { data: row } = await db.from("users").select("role, is_staff_admin").eq("id", data.user.id).maybeSingle();
-  return row?.role === "admin" || row?.is_staff_admin ? { ...data.user, isOwner: row.role === "admin" } : null;
+  const { data: row } = await db.from("users").select("role, is_staff_admin, is_owner").eq("id", data.user.id).maybeSingle();
+  const isOwner = row?.role === "admin" || Boolean(row?.is_owner);
+  return isOwner || row?.is_staff_admin ? { ...data.user, isOwner } : null;
 }
 
 export async function POST(req) {
@@ -30,9 +31,9 @@ export async function POST(req) {
   const normalized = normalizePhone(phone);
   if (!isValidPhone(normalized)) return Response.json({ error: "invalid_phone" }, { status: 400 });
 
-  const { data: target } = await db.from("users").select("id, role, is_staff_admin, phone_number").eq("id", userId).maybeSingle();
+  const { data: target } = await db.from("users").select("id, role, is_staff_admin, is_owner, phone_number").eq("id", userId).maybeSingle();
   if (!target) return Response.json({ error: "not_found" }, { status: 404 });
-  if (target.role === "admin") return Response.json({ error: "cannot_edit_admin" }, { status: 403 });
+  if (target.role === "admin" || target.is_owner) return Response.json({ error: "cannot_edit_admin" }, { status: 403 });
   if (target.is_staff_admin && !admin.isOwner) return Response.json({ error: "cannot_edit_admin" }, { status: 403 });
   if (normalized === target.phone_number) return Response.json({ ok: true, unchanged: true });
 

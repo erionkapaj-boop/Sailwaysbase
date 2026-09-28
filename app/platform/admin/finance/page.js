@@ -262,6 +262,7 @@ export default function FinancePage() {
 
   return (
     <AdminShell
+      ownerOnly
       title="Οικονομικά"
       subtitle="Credits στους λογαριασμούς, πωλήσεις και καταχώριση αγοράς."
     >

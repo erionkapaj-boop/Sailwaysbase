@@ -20,8 +20,9 @@ async function requireAdmin(req, db) {
   if (!token) return null;
   const { data, error } = await db.auth.getUser(token);
   if (error || !data?.user) return null;
-  const { data: row } = await db.from("users").select("role, is_staff_admin").eq("id", data.user.id).maybeSingle();
-  return row?.role === "admin" || row?.is_staff_admin ? { ...data.user, isOwner: row.role === "admin" } : null;
+  const { data: row } = await db.from("users").select("role, is_staff_admin, is_owner").eq("id", data.user.id).maybeSingle();
+  const isOwner = row?.role === "admin" || Boolean(row?.is_owner);
+  return isOwner || row?.is_staff_admin ? { ...data.user, isOwner } : null;
 }
 
 function randomStrongPin() {
@@ -42,11 +43,11 @@ export async function POST(req) {
 
   const { data: target } = await db
     .from("users")
-    .select("id, role, is_staff_admin, phone_number, status")
+    .select("id, role, is_staff_admin, is_owner, phone_number, status")
     .eq("id", userId)
     .maybeSingle();
   if (!target) return Response.json({ error: "not_found" }, { status: 404 });
-  if (target.role === "admin") return Response.json({ error: "cannot_reset_admin" }, { status: 403 });
+  if (target.role === "admin" || target.is_owner) return Response.json({ error: "cannot_reset_admin" }, { status: 403 });
   // A staff admin never resets another staff admin's PIN (or their own) —
   // only the owner manages staff.
   if (target.is_staff_admin && !admin.isOwner) return Response.json({ error: "cannot_reset_admin" }, { status: 403 });

@@ -75,6 +75,7 @@ function GhostInner() {
 
   return (
     <AdminShell
+      ownerOnly
       title="Δοκιμές (Ghost Mode)"
       subtitle="Δοκιμή της εφαρμογής από την πλευρά κάθε ρόλου, χωρίς πραγματικούς λογαριασμούς."
       counts={counts}

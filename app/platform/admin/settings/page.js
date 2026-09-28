@@ -299,6 +299,7 @@ export default function SettingsPage() {
 
   return (
     <AdminShell
+      ownerOnly
       title="Ρυθμίσεις"
       subtitle="Ισχύουν αμέσως για κάθε νέα ενέργεια. Δεν αλλάζουν αναδρομικά ό,τι έχει ήδη χρεωθεί."
     >

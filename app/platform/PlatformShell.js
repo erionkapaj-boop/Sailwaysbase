@@ -82,7 +82,7 @@ function AccountNavBar({ name, photoUrl, loading, items, activeHref, onSignOut, 
 // ενότητες μπαίνουν εδώ, σε ομάδες με επικεφαλίδα — ένα μόνο μενού, παντού.
 // Το admin_SECTIONS ζει στο AdminShell.js (χρειάζεται και εκεί, για το ποια
 // σελίδα είναι «ενεργή»), οπότε εισάγεται αντί να ξαναγραφτεί.
-function buildMenuItems({ role, isAdmin, adminCounts }) {
+function buildMenuItems({ role, isAdmin, isOwner, adminCounts }) {
   const items = [{ href: "/platform", label: "Αρχική" }];
   const own = [];
   own.push({ href: "/platform/requests", label: "Αιτήματα" });
@@ -98,7 +98,7 @@ function buildMenuItems({ role, isAdmin, adminCounts }) {
 
   // For an admin the console comes first — it's what they opened the app for
   // — and their own personal pages move to a group of their own at the end.
-  for (const s of ADMIN_SECTIONS)
+  for (const s of ADMIN_SECTIONS.filter((x) => isOwner || !x.ownerOnly))
     items.push({
       href: s.href,
       label: s.label,
@@ -111,7 +111,7 @@ function buildMenuItems({ role, isAdmin, adminCounts }) {
 }
 
 function NavBar() {
-  const { session, userRow, profile, loading, signOut, role, isAdmin, notifications, refreshNotifications } = useAuth();
+  const { session, userRow, profile, loading, signOut, role, isAdmin, isOwner, notifications, refreshNotifications } = useAuth();
   const t = useTranslations("Nav");
   const pathname = usePathname();
   // Δεν διαβάζεται από το AdminCountsContext: αυτό το provider ζει μέσα στο
@@ -135,7 +135,7 @@ function NavBar() {
         name={profile?.full_name || userRow?.full_name || (isAdmin ? "Διαχειριστής" : undefined)}
         photoUrl={profile?.photo_url || userRow?.photo_url}
         loading={loading}
-        items={buildMenuItems({ role, isAdmin, adminCounts })}
+        items={buildMenuItems({ role, isAdmin, isOwner, adminCounts })}
         activeHref={pathname}
         onSignOut={signOut}
         notifications={notifications}

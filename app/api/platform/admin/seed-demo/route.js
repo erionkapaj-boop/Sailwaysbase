@@ -120,8 +120,9 @@ async function requireAdmin(req, db) {
   if (!token) return null;
   const { data, error } = await db.auth.getUser(token);
   if (error || !data?.user) return null;
-  const { data: row } = await db.from("users").select("role, is_staff_admin").eq("id", data.user.id).maybeSingle();
-  return row?.role === "admin" || row?.is_staff_admin ? data.user : null;
+  // Λογαριασμοί επίδειξης: μόνο ο ιδιοκτήτης (0112).
+  const { data: row } = await db.from("users").select("role, is_owner").eq("id", data.user.id).maybeSingle();
+  return row?.role === "admin" || row?.is_owner ? data.user : null;
 }
 
 const GENDER = { Άνδρας: "male", Γυναίκα: "female" };

@@ -68,7 +68,7 @@ export function AuthProvider({ children }) {
           return getMyUserRow();
         })();
         setAdminUserRow(meRow);
-        const allowed = meRow?.role === "admin" || meRow?.is_staff_admin ? subject : null;
+        const allowed = meRow?.role === "admin" || meRow?.is_staff_admin || meRow?.is_owner ? subject : null;
         setViewAsUser(allowed?.id || null);
         setViewingAs(allowed);
 
@@ -178,7 +178,9 @@ export function AuthProvider({ children }) {
         viewingAs,
         startViewAs,
         stopViewAs,
-        isAdmin: adminUserRow?.role === "admin" || Boolean(adminUserRow?.is_staff_admin),
+        isAdmin: adminUserRow?.role === "admin" || Boolean(adminUserRow?.is_staff_admin || adminUserRow?.is_owner),
+        // Ιδιοκτήτης: πλήρης πρόσβαση. Υπάλληλος: μόνο τα καθημερινά (0112).
+        isOwner: adminUserRow?.role === "admin" || Boolean(adminUserRow?.is_owner),
         readOnly: Boolean(viewingAs),
         needsRoleSelection: !!session && !loading && !userRow,
         role: userRow?.role || null,
