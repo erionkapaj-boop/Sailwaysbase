@@ -74,8 +74,38 @@ await as(NIKOS, async (page) => {
   check("η περίοδος άλλαξε, χωρίς διπλή", regionsOn(40) === "Κυκλάδες,Σαρωνικός" &&
     num(`select count(*) from availability_windows where skipper_id = '${SP}' and current_date + 40 between start_date and end_date`) === 1);
 
+  // Απουσία από το ίδιο παράθυρο, πάνω σε δηλωμένο Ιόνιο.
+  await click(page, "+ Νέα περίοδος");
+  await page.waitForTimeout(400);
+  const dlgA = page.getByRole("dialog");
+  await pickIn(page, dlgA, daysFromToday(24));
+  await pickIn(page, dlgA, daysFromToday(26));
+  await dlgA.getByRole("radio", { name: "Απουσία" }).click();
+  await page.waitForTimeout(300);
+  check("απουσία: λέει ποιες μέρες του Ιονίου κλείνουν", (await dlgA.innerText()).includes("Ιόνιο → Απουσία"));
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/absence.png` });
+  await click(page, "Αποθήκευση");
+  await page.waitForTimeout(1500);
+  check("η απουσία μπήκε, το Ιόνιο μένει από κάτω",
+    num(`select count(*) from availability_blocks where skipper_id = '${SP}' and start_date = current_date + 24 and end_date = current_date + 26`) === 1 &&
+    regionsOn(25) === "Ιόνιο");
+  // Ακύρωση της απουσίας από τη λίστα.
+  await page.getByRole("button", { name: /Απουσία/ }).last().click();
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "Ακύρωση απουσίας" }).click();
+  await page.waitForTimeout(1500);
+  check("ακύρωση απουσίας: οι μέρες ξανανοίγουν", num(`select count(*) from availability_blocks where skipper_id = '${SP}'`) === 0);
+
+  // «Όλες» οι περιοχές με ένα πάτημα.
+  await newPeriod(page, 50, 52, []);
+  await page.getByRole("dialog").getByRole("button", { name: "Όλες" }).click();
+  await click(page, "Αποθήκευση");
+  await page.waitForTimeout(1500);
+  check("«Όλες»: όλες οι περιοχές", num(`select count(*) from availability_window_regions wr join availability_windows w on w.id = wr.window_id
+    where w.skipper_id = '${SP}' and w.start_date = current_date + 50`) === num("select count(*) from regions"));
+
   // Διαγραφή περιόδου.
-  await page.getByRole("button", { name: /Κυκλάδες · Σαρωνικός/ }).click();
+  await page.getByRole("button", { name: /Κυκλάδες · Σαρωνικός/ }).first().click();
   await page.waitForTimeout(500);
   await page.getByRole("button", { name: "Διαγραφή περιόδου" }).click();
   await page.waitForTimeout(1500);
@@ -90,6 +120,7 @@ await as(NIKOS, async (page) => {
 
 // Επαναφορά.
 sql(`delete from availability_windows where skipper_id = '${SP}';
+     delete from availability_blocks where skipper_id = '${SP}';
      with src as (select * from json_to_recordset('${saved}'::json) as x(s date, e date, r json)),
      ins as (insert into availability_windows (skipper_id, start_date, end_date) select '${SP}', s, e from src returning id, start_date, end_date)
      insert into availability_window_regions (window_id, region_id)
