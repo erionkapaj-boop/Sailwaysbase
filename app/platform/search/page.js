@@ -869,6 +869,8 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
         need={topUpNeed}
         balance={Number(userRow?.wallet_balance ?? 0)}
         onClose={() => setTopUpNeed(0)}
+        continueLabel="Συνέχεια: Αποστολή αιτημάτων"
+        onContinue={() => handleCheckout()}
       />
       <div style={{ ...card, boxShadow: shadow.raised }}>
         {done ? (

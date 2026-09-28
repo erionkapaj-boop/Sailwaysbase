@@ -32,7 +32,7 @@ const COVER_LABEL = {
 export default function DeliveryPingsInbox({ skipperId }) {
   const { refreshNotifications, userRow } = useAuth();
   const balance = Number(userRow?.wallet_balance ?? 0);
-  const [topUpNeed, setTopUpNeed] = useState(0);
+  const [topUp, setTopUp] = useState(null);
   const [rows, setRows] = useState([]);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
@@ -55,7 +55,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
   async function handleAccept(roleRequestId, fee) {
     setError("");
     if (fee > balance) {
-      setTopUpNeed(fee);
+      setTopUp({ need: fee, roleRequestId, fee });
       return;
     }
     setBusyId(roleRequestId);
@@ -64,7 +64,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
       await load();
       refreshNotifications();
     } catch (err) {
-      if (err.message === "insufficient_wallet") setTopUpNeed(Math.max(1, Number(fee) || 1));
+      if (err.message === "insufficient_wallet") setTopUp({ need: Math.max(1, Number(fee) || 1), roleRequestId, fee });
       else setError(ACCEPT_ERRORS[err.message] || friendlyError(err));
       await load();
     } finally {
@@ -142,7 +142,14 @@ export default function DeliveryPingsInbox({ skipperId }) {
           </div>
         );
       })}
-      <TopUpSheet open={topUpNeed > 0} need={topUpNeed} balance={balance} onClose={() => setTopUpNeed(0)} />
+      <TopUpSheet
+        open={Boolean(topUp)}
+        need={topUp?.need || 0}
+        balance={balance}
+        onClose={() => setTopUp(null)}
+        continueLabel="Συνέχεια: Αποδοχή"
+        onContinue={() => topUp && handleAccept(topUp.roleRequestId, topUp.fee)}
+      />
     </div>
   );
 }

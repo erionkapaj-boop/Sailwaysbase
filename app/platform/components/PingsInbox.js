@@ -45,7 +45,8 @@ export default function PingsInbox({ skipperId }) {
   const { refreshNotifications, userRow } = useAuth();
   const balance = Number(userRow?.wallet_balance ?? 0);
   // Όταν τα credits δεν φτάνουν: αγορά επιτόπου, χωρίς να φύγεις από εδώ.
-  const [topUpNeed, setTopUpNeed] = useState(0);
+  // { need, requestId, fee }: τι περιμένει να συνεχίσει μετά την αγορά.
+  const [topUp, setTopUp] = useState(null);
   const [pings, setPings] = useState([]);
   const [defaultFee, setDefaultFee] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -67,7 +68,7 @@ export default function PingsInbox({ skipperId }) {
     setError("");
     // Η διεκδίκηση χρεώνει τώρα· η δήλωση ενδιαφέροντος σε αντικατάσταση όχι.
     if (!isReplacement && fee > balance) {
-      setTopUpNeed(fee);
+      setTopUp({ need: fee, requestId, fee });
       return;
     }
     setBusyId(requestId);
@@ -78,7 +79,7 @@ export default function PingsInbox({ skipperId }) {
       refreshNotifications();
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
-      if (code === "insufficient_wallet") setTopUpNeed(Math.max(1, Number(fee) || 1));
+      if (code === "insufficient_wallet") setTopUp({ need: Math.max(1, Number(fee) || 1), requestId, fee });
       else setError(CLAIM_ERRORS[code] || friendlyError(err));
       await load();
     } finally {
@@ -153,7 +154,14 @@ export default function PingsInbox({ skipperId }) {
           onWithdraw={() => handleWithdraw(p.booking_requests.id)}
         />
       ))}
-      <TopUpSheet open={topUpNeed > 0} need={topUpNeed} balance={balance} onClose={() => setTopUpNeed(0)} />
+      <TopUpSheet
+        open={Boolean(topUp)}
+        need={topUp?.need || 0}
+        balance={balance}
+        onClose={() => setTopUp(null)}
+        continueLabel="Συνέχεια: Διεκδίκηση"
+        onContinue={() => topUp && handleClaim(topUp.requestId, false, topUp.fee)}
+      />
     </div>
   );
 }

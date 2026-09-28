@@ -239,7 +239,14 @@ function RoleBlock({
 
   return (
     <div style={card}>
-      <TopUpSheet open={topUpNeed > 0} need={topUpNeed} balance={balance} onClose={() => setTopUpNeed(0)} />
+      <TopUpSheet
+        open={topUpNeed > 0}
+        need={topUpNeed}
+        balance={balance}
+        onClose={() => setTopUpNeed(0)}
+        continueLabel="Συνέχεια: Αποστολή"
+        onContinue={() => handleSend()}
+      />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
         <h3 style={{ ...h2, fontSize: 16, margin: "0 0 10px" }}>
           {labelForRole(role)}
