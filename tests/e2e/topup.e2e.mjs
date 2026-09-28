@@ -51,7 +51,8 @@ await as(PETROS, async (page) => {
   const d = await text(page);
   check("το αίτημα αγοράς καταχωρήθηκε χωρίς να φύγει από τη σελίδα",
     d.includes("Το αίτημά σου καταχωρήθηκε") && page.url().endsWith("/platform/requests"), page.url());
-  await click(page, "Εντάξει");
+  check("και περιμένει την πληρωμή", d.includes("Αναμονή επιβεβαίωσης της πληρωμής"));
+  await click(page, "Κλείσιμο");
 });
 check("το αίτημα αγοράς υπάρχει", num(`select count(*) from credit_purchase_requests where user_id = '${PID}' and status = 'pending' and credits = 5`) === 1);
 check("η πρόταση του πελάτη δεν αναλήφθηκε", num(`select count(*) from bookings where client_id = 'a0000000-0000-0000-0000-000000000002' and start_date = current_date + 60`) === 0);
