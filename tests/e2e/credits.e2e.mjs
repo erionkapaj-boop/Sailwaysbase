@@ -286,7 +286,8 @@ step("12. Ο διαχειριστής βλέπει πωλήσεις και κι�
 await as(ADMIN, async (page) => {
   await go(page, "/platform/admin/finance");
   const t = await text(page);
-  check("πωλήσεις 30 ημερών: 440€ (90 + 350)", t.includes("440€"));
+  const sales = num(`select coalesce(sum(price_eur), 0) from wallet_transactions where type = 'purchase' and created_at > now() - interval '30 days'`);
+  check("πωλήσεις 30 ημερών: οι αγορές του σεναρίου (90 + 350) μετράνε", sales >= 440 && t.includes(`${sales}€`));
   check("credits που πουλήθηκαν: 12", t.includes("12 credits"));
   await go(page, "/platform/admin");
   check("η αρχική δείχνει Πωλήσεις", (await text(page)).includes("Πωλήσεις"));

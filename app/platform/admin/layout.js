@@ -1,4 +1,5 @@
 "use client";
+import { useAuth } from "../AuthContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AdminCountsProvider, SECTIONS, badgeCount, useAdminCounts } from "./AdminShell";
@@ -15,9 +16,10 @@ import { colors, muted, radius } from "../../../lib/platform/theme";
 function AdminSidebar() {
   const pathname = usePathname();
   const counts = useAdminCounts();
+  const { isOwner } = useAuth();
   return (
     <nav className="sf-admin-sidebar" aria-label="Διαχείριση">
-      {SECTIONS.map((s) => {
+      {SECTIONS.filter((s) => isOwner || !s.ownerOnly).map((s) => {
         const active = s.exact ? pathname === s.href : pathname === s.href || pathname.startsWith(s.href + "/");
         const n = badgeCount(s.badge, counts);
         return (
