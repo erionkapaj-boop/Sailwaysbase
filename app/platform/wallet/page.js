@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
-import Stars from "../components/Stars";
-import { listMyWalletTransactions, getMyClientProfile, getCreditOffer, WALLET_EVENT } from "../../../lib/platform/db";
+import { listMyWalletTransactions, getMyPendingCreditPurchase, cancelCreditPurchaseRequest, WALLET_EVENT } from "../../../lib/platform/db";
+import { friendlyError } from "../../../lib/platform/friendlyError";
+import { useConfirm } from "../components/ConfirmDialog";
 import { formatCredits, PACKAGES } from "../../../lib/platform/credits";
 import { formatDate } from "../../../lib/platform/notifications";
 import Link from "next/link";
-import { container, card, h1, sectionLabel, muted, badge, colors, money } from "../../../lib/platform/theme";
+import { container, card, h1, sectionLabel, muted, badge, colors, money, button } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
 import LoadError from "../components/LoadError";
 
@@ -19,31 +20,27 @@ const TYPE_LABEL = {
   adjustment: "Διόρθωση credits",
 };
 
-// Ένα υπόλοιπο, ένα ενιαίο ιστορικό κινήσεων — αλλά η αξιοπιστία/βαθμολογία
-// παραμένουν χωριστές ανά καπέλο, γιατί περιγράφουν διαφορετικά πράγματα (πόσο
-// αξιόπιστος είσαι ως επαγγελματίας δεν είναι το ίδιο ερώτημα με το πόσο
-// αξιόπιστος είσαι ως πελάτης).
+// Υπόλοιπο, αγορά, ιστορικό — τίποτα άλλο. Τα πακέτα και οι τιμές ζουν
+// στην οθόνη αγοράς (/platform/wallet/buy), όπου διαλέγεις.
 export default function WalletPage() {
-  const { session, profile, userRow, isAdmin, loading, refresh } = useAuth();
+  const { session, userRow, loading, refresh, readOnly } = useAuth();
   const [transactions, setTransactions] = useState([]);
-  const [clientProfile, setClientProfile] = useState(null);
-  const [offer, setOffer] = useState(null);
+  const [pending, setPending] = useState(null);
   const [busy, setBusy] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
-
-  const isProfessional = userRow?.role === "skipper" || isAdmin;
+  const [cancelling, setCancelling] = useState(false);
+  const [error, setError] = useState("");
+  const [confirm, confirmDialog] = useConfirm();
 
   // Υπόλοιπο και κινήσεις διαβάζονται φρέσκα κάθε φορά που ανοίγει η σελίδα
-  // και μετά από κάθε κίνηση χρημάτων — ποτέ το ποσό που είχε φορτωθεί στη
-  // σύνδεση, που μπορεί να είναι ώρες παλιό.
-  // Μία φορά στο άνοιγμα (όχι σε κάθε αλλαγή του session: το refresh το
-  // ξαναδημιουργεί και θα έμπαινε σε ατέρμονο κύκλο).
+  // και μετά από κάθε κίνηση — ποτέ το ποσό που είχε φορτωθεί στη σύνδεση.
   function loadTransactions() {
     setBusy(true);
     listMyWalletTransactions()
       .then((rows) => { setTransactions(rows); setLoadFailed(false); })
       .catch((err) => { console.error(err); setLoadFailed(true); })
       .finally(() => setBusy(false));
+    getMyPendingCreditPurchase().then(setPending).catch(() => {});
   }
 
   useEffect(() => {
@@ -57,66 +54,65 @@ export default function WalletPage() {
   useEffect(() => {
     if (!session) return;
     loadTransactions();
-    getMyClientProfile().then(setClientProfile).catch(() => {});
-    getCreditOffer().then(setOffer).catch(() => {});
-  }, [session, isProfessional]);
+  }, [session]);
+
+  async function cancelPending() {
+    if (!(await confirm(`Ακύρωση του αιτήματος ${pending.reference};`, { confirmLabel: "Ακύρωση αιτήματος" }))) return;
+    setCancelling(true);
+    setError("");
+    try {
+      await cancelCreditPurchaseRequest(pending.id);
+      setPending(null);
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   if (loading) return <div style={container}>Φόρτωση...</div>;
   if (!session) return <SignedOutNotice />;
+
+  const packName = pending?.package_key ? PACKAGES.find((x) => x.key === pending.package_key)?.name : null;
 
   return (
     <div style={container}>
       <h1 style={h1}>Credits</h1>
 
-      <div style={card}>
-        <div style={muted}>Διαθέσιμα</div>
-        <div style={{ ...money, fontSize: 32, fontWeight: 600, marginTop: 6 }}>{formatCredits(userRow?.wallet_balance ?? 0)}</div>
-        <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
-          Ένα credit αντιστοιχεί σε ένα ματς. Τα credits δεν λήγουν.
-        </p>
-      </div>
-
-      {offer && (
-        <div style={{ marginTop: 24 }}>
-          <h2 style={sectionLabel}>Πακέτα</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-            {offer.creditPrice != null && (
-              <div style={{ ...card, margin: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>1 credit</div>
-                <div style={{ ...money, fontSize: 22, fontWeight: 700, marginTop: 6 }}>{offer.creditPrice}€</div>
-              </div>
-            )}
-            {offer.packages.map((p) => (
-              <div key={p.key} style={{ ...card, margin: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{PACKAGES.find((x) => x.key === p.key)?.name}</div>
-                <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>{formatCredits(p.credits)}</div>
-                <div style={{ ...money, fontSize: 22, fontWeight: 700, marginTop: 6 }}>{p.price}€</div>
-              </div>
-            ))}
-          </div>
-          <p style={{ ...muted, fontSize: 13, margin: "12px 0 0" }}>
-            Για αγορά,{" "}
-            <Link href="/platform/contact" style={{ color: colors.ink, textDecoration: "underline" }}>
-              επικοινώνησε μαζί μας
-            </Link>
-            .
+      <div style={{ ...card, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <div style={muted}>Διαθέσιμα</div>
+          <div style={{ ...money, fontSize: 32, fontWeight: 600, marginTop: 6 }}>{formatCredits(userRow?.wallet_balance ?? 0)}</div>
+          <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
+            Ένα credit αντιστοιχεί σε ένα ματς. Τα credits δεν λήγουν.
           </p>
         </div>
-      )}
+        {!pending && !readOnly && (
+          <Link href="/platform/wallet/buy" style={{ ...button("primary"), textDecoration: "none" }}>
+            Αγορά credits
+          </Link>
+        )}
+      </div>
 
-      {isProfessional && profile && (
-        <div style={{ marginTop: 24 }}>
-          <h2 style={sectionLabel}>Ως επαγγελματίας</h2>
-          <div style={{ padding: "6px 2px" }}>
-            <Stars rating={profile.rating_avg} count={profile.rating_count} size={17} />
+      {pending && (
+        <div style={{ ...card, borderLeft: `3px solid ${colors.accent}` }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>Αίτημα αγοράς σε εκκρεμότητα</div>
+          <div style={{ fontSize: 14, marginTop: 6 }}>
+            {[packName, formatCredits(pending.credits), `${pending.price_eur}€`].filter(Boolean).join(" · ")}
           </div>
-        </div>
-      )}
-
-      {clientProfile && (
-        <div style={{ marginTop: 24, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
-          <h2 style={sectionLabel}>Ως πελάτης</h2>
-          <Stars rating={clientProfile.rating_avg} count={clientProfile.rating_count ?? 0} size={17} />
+          <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>
+            Κωδικός <span style={{ ...money, color: colors.ink }}>{pending.reference}</span> ·{" "}
+            {formatDate(pending.created_at?.slice(0, 10))}
+          </div>
+          <p style={{ ...muted, fontSize: 13, margin: "10px 0 0", lineHeight: 1.5 }}>
+            Τα credits πιστώνονται με την επιβεβαίωση της πληρωμής.
+          </p>
+          {!readOnly && (
+            <button type="button" style={{ ...button("secondary"), marginTop: 12 }} disabled={cancelling} onClick={cancelPending}>
+              {cancelling ? "…" : "Ακύρωση αιτήματος"}
+            </button>
+          )}
+          {error && <p style={{ color: colors.danger, fontSize: 13, margin: "8px 0 0" }}>{error}</p>}
         </div>
       )}
 
@@ -136,6 +132,7 @@ export default function WalletPage() {
           </div>
         </div>
       ))}
+      {confirmDialog}
     </div>
   );
 }

@@ -67,7 +67,7 @@ await as("6900002008", async (page) => {
   check("η χρήστρια βλέπει την αγορά", body.includes("Αγορά credits"));
   check("τη διόρθωση και τον λόγο", body.includes("Διόρθωση credits") && body.includes("Λάθος: ήταν 10 credits"));
   check("και το δώρο με τη σημείωση", body.includes("Αποζημίωση"));
-  check("τα πακέτα με τις τιμές", body.includes("Starter") && body.includes("90€") && body.includes("Pro") && body.includes("350€"));
+  check("η σελίδα Credits χωρίς κουτάκια πακέτων", !body.includes("Starter") && body.includes("Αγορά credits"));
   check("το υπόλοιπο σε credits", body.includes(`${start + 15} credits`));
 });
 

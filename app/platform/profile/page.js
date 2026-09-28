@@ -1,4 +1,5 @@
 "use client";
+import Stars from "../components/Stars";
 import DateField from "../components/calendar/DateField";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -877,6 +878,7 @@ function ClientIdentityProfile({ role }) {
       <h1 style={h1}>Το προφίλ μου</h1>
       <PinChangedNotice />
       {role && role !== "client" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως πελάτης</p>}
+      <MyRatings />
 
       <div style={card}>
         <h2 style={{ ...h2, fontSize: 17 }}>Φωτογραφία</h2>
@@ -962,6 +964,32 @@ function PinChangedNotice() {
   );
 }
 
+// Οι αξιολογήσεις του χρήστη: ως επαγγελματίας (αν είναι) και ως πελάτης.
+function MyRatings({ proProfile }) {
+  const [clientProfile, setClientProfile] = useState(null);
+  useEffect(() => {
+    getMyClientProfile().then(setClientProfile).catch(() => {});
+  }, []);
+  if (!proProfile && !clientProfile) return null;
+  return (
+    <div style={card}>
+      <h2 style={{ ...h2, fontSize: 17 }}>Αξιολογήσεις</h2>
+      {proProfile && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 6 }}>
+          <span style={{ ...muted, fontSize: 13.5, minWidth: 120 }}>Ως επαγγελματίας</span>
+          <Stars rating={proProfile.rating_avg} count={proProfile.rating_count} size={16} />
+        </div>
+      )}
+      {clientProfile && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 10 }}>
+          <span style={{ ...muted, fontSize: 13.5, minWidth: 120 }}>Ως πελάτης</span>
+          <Stars rating={clientProfile.rating_avg} count={clientProfile.rating_count ?? 0} size={16} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { session, profile, userRow, loading, refresh, loadError, isAdmin, role } = useAuth();
 
@@ -977,6 +1005,7 @@ export default function ProfilePage() {
       <h1 style={h1}>Το προφίλ μου</h1>
       <PinChangedNotice />
       {userRow?.role !== "skipper" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως επαγγελματίας</p>}
+      <MyRatings proProfile={profile} />
       <ProfileForm profile={profile} onSaved={refresh} />
       <DeliveryAvailability profile={profile} />
       <SecondaryRoles profile={profile} />

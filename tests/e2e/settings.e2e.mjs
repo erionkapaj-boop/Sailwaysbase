@@ -40,9 +40,9 @@ await as(ADMIN, async (page) => {
 });
 
 await as(MARIA, async (page) => {
-  await go(page, "/platform/wallet");
+  await go(page, "/platform/wallet/buy");
   const t = await text(page);
-  check("η σελίδα Credits δείχνει τις νέες τιμές", t.includes("70€") && t.includes("130€"));
+  check("η αγορά δείχνει τις νέες τιμές", t.includes("70€") && t.includes("130€"));
 });
 
 sql(`update platform_settings set value = 50 where key = 'credit_price_eur';

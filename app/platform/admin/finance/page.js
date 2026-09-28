@@ -3,7 +3,18 @@ import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Metric, MetricGrid, Row, RowMain, Empty, colors, muted, money, button, STATUS_LABEL } from "../ui";
-import { adminFindUserByPhone, adminCreditWallet, adminAdjustWallet, adminRecordPurchase, getCreditOffer } from "../../../../lib/platform/db";
+import {
+  adminFindUserByPhone,
+  adminCreditWallet,
+  adminAdjustWallet,
+  adminRecordPurchase,
+  getCreditOffer,
+  adminListCreditPurchases,
+  adminCompleteCreditPurchase,
+  adminCancelCreditPurchase,
+} from "../../../../lib/platform/db";
+import { useConfirm } from "../../components/ConfirmDialog";
+import { formatDateTime } from "../../../../lib/platform/notifications";
 import { formatCredits, PACKAGES, verbFor } from "../../../../lib/platform/credits";
 
 // Πάνω από αυτό, δεύτερο «σίγουρα;» — για το επιπλέον μηδενικό.
@@ -253,6 +264,67 @@ function Topup({ onDone }) {
   );
 }
 
+// Αιτήματα αγοράς από τους χρήστες: επιβεβαίωση όταν φανεί η πληρωμή.
+function PurchaseRequests({ onDone }) {
+  const [rows, setRows] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const [error, setError] = useState("");
+  const [confirm, confirmDialog] = useConfirm();
+
+  function load() {
+    adminListCreditPurchases().then(setRows).catch((err) => setError(friendlyError(err)));
+  }
+  useEffect(load, []);
+
+  async function act(r, complete) {
+    const who = r.full_name || r.phone_number;
+    const ok = await confirm(
+      complete
+        ? `Επιβεβαίωση πληρωμής ${r.price_eur}€ (${r.reference}); Πιστώνονται ${formatCredits(r.credits)} σε ${who}.`
+        : `Απόρριψη του αιτήματος ${r.reference} (${who});`,
+      { confirmLabel: complete ? "Επιβεβαίωση" : "Απόρριψη", tone: complete ? "primary" : "danger" }
+    );
+    if (!ok) return;
+    setBusyId(r.id);
+    setError("");
+    try {
+      if (complete) await adminCompleteCreditPurchase(r.id);
+      else await adminCancelCreditPurchase(r.id);
+      load();
+      onDone?.();
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (rows === null && !error) return null;
+  return (
+    <Panel title={`Αιτήματα αγοράς${rows?.length ? ` (${rows.length})` : ""}`} padded={false}>
+      {error && <p style={{ color: colors.danger, fontSize: 13, padding: "12px 16px", margin: 0 }}>{error}</p>}
+      {rows?.length === 0 && <Empty>Κανένα αίτημα σε εκκρεμότητα.</Empty>}
+      {rows?.map((r) => (
+        <Row key={r.id}>
+          <RowMain
+            title={`${r.full_name || r.phone_number} · ${formatCredits(r.credits)} · ${r.price_eur}€`}
+            meta={`${r.reference} · ${r.phone_number} · ${formatDateTime(r.created_at)}`}
+          />
+          <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button style={button("primary")} disabled={busyId === r.id} onClick={() => act(r, true)}>
+              Επιβεβαίωση πληρωμής
+            </button>
+            <button style={button("secondary")} disabled={busyId === r.id} onClick={() => act(r, false)}>
+              Απόρριψη
+            </button>
+          </span>
+        </Row>
+      ))}
+      {confirmDialog}
+    </Panel>
+  );
+}
+
 export default function FinancePage() {
   const counts = useAdminCounts();
   const refreshCounts = useRefreshAdminCounts();
@@ -266,6 +338,8 @@ export default function FinancePage() {
       title="Οικονομικά"
       subtitle="Credits στους λογαριασμούς, πωλήσεις και καταχώριση αγοράς."
     >
+      <PurchaseRequests onDone={refreshCounts} />
+
       {/* Τα credits στους λογαριασμούς είναι προπληρωμένη υπηρεσία που
           οφείλεται ακόμα, όχι έσοδα — γι' αυτό χωριστά από τις πωλήσεις. */}
       <Panel title="Credits χρηστών" padded={false}>

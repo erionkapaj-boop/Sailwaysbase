@@ -76,9 +76,13 @@ await as(MARIA, async (page) => {
   await go(page, "/platform/wallet");
   const t = await text(page);
   check("σελίδα Credits: 0 credits", t.includes("0 credits"));
-  check("και τα τρία πακέτα με τις τιμές", t.includes("Starter") && t.includes("90€") && t.includes("Professional") && t.includes("200€") && t.includes("350€"));
-  check("η τιμή του ενός credit", t.includes("50€"));
   check("χωρίς λέξη «πορτοφόλι»", !/πορτοφόλ/i.test(t));
+  await page.getByRole("link", { name: "Αγορά credits" }).click();
+  await page.waitForTimeout(1500);
+  const b = await text(page);
+  check("η αγορά δείχνει τα τρία πακέτα με τις τιμές",
+    b.includes("Starter") && b.includes("90€") && b.includes("Professional") && b.includes("200€") && b.includes("350€"));
+  check("και την τιμή του ενός credit", b.includes("50€ το credit"));
 
   await searchAndPick(page, daysFromToday(10), daysFromToday(12), 250);
   const c = await text(page);
@@ -278,7 +282,7 @@ await as(ADMIN, async (page) => {
   check("οι Ρυθμίσεις δείχνουν την ενότητα Credits και πακέτα", (await text(page)).includes("Starter: τιμή"));
 });
 await as(MARIA, async (page) => {
-  await go(page, "/platform/wallet");
+  await go(page, "/platform/wallet/buy");
   check("η πελάτισσα βλέπει τη νέα τιμή 95€", (await text(page)).includes("95€"));
 });
 
