@@ -43,14 +43,23 @@ export async function POST(req) {
 
   if (!row) return Response.json({ error: "invalid_code" }, { status: 400 });
 
+  // Every try uses up one attempt BEFORE the code is compared, and only if
+  // nobody else took that same attempt in the meantime. Otherwise many
+  // requests sent at once would all read "0 attempts" and all get to guess.
+  const { data: taken } = await db
+    .from("email_reset_codes")
+    .update({ failed_attempts: row.failed_attempts + 1 })
+    .eq("id", row.id)
+    .eq("failed_attempts", row.failed_attempts)
+    .is("used_at", null)
+    .select("id");
+  if (!taken?.length) return Response.json({ error: "invalid_code" }, { status: 400 });
+
   // Constant-time compare so a wrong code can't be narrowed down by timing.
   const provided = Buffer.from(hashCode(String(code)));
   const stored = Buffer.from(row.code_hash);
   const match = provided.length === stored.length && crypto.timingSafeEqual(provided, stored);
-  if (!match) {
-    await db.from("email_reset_codes").update({ failed_attempts: row.failed_attempts + 1 }).eq("id", row.id);
-    return Response.json({ error: "invalid_code" }, { status: 400 });
-  }
+  if (!match) return Response.json({ error: "invalid_code" }, { status: 400 });
 
   const { error: updErr } = await db.auth.admin.updateUserById(user.id, { password: newPin });
   if (updErr) return Response.json({ error: "could_not_set_pin" }, { status: 500 });

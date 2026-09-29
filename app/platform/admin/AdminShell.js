@@ -40,7 +40,7 @@ export const SECTIONS = [
     badge: ["coverage_needed", "replacement_awaiting_client"],
     heading: "Κρατήσεις & πλήρωμα",
   },
-  { href: "/platform/admin/offers", label: "Αναθέσεις δουλειάς" },
+  { href: "/platform/admin/offers", label: "Αναθέσεις δουλειάς", ownerOnly: true },
   { href: "/platform/admin/bookings", label: "Όλες οι κρατήσεις" },
   { href: "/platform/admin/deliveries", label: "Μεταφορές σκάφους" },
   { href: "/platform/admin/users", label: "Χρήστες", heading: "Χρήστες & χρήματα" },

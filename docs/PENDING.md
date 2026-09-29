@@ -100,3 +100,19 @@
 - Τι χρειάζεται: δωρεάν λογαριασμός στο sentry.io → νέο project (Next.js) → DSN.
 - Πού μπαίνει: Vercel → Environment Variables → `NEXT_PUBLIC_SENTRY_DSN`.
 - Μετά: κάθε σφάλμα που βλέπει χρήστης καταγράφεται και σου στέλνει email.
+
+## Έλεγχος ασφαλείας (0115) — ρυθμίσεις στο Supabase
+1. **CAPTCHA στη σύνδεση:** Supabase → Authentication → Attack Protection →
+   Enable CAPTCHA protection (Cloudflare Turnstile, δωρεάν). Χρειάζεται και
+   αλλαγή στην οθόνη σύνδεσης· θα τη φτιάξω μόλις υπάρχει το site key.
+2. **Κλειστή δημόσια εγγραφή:** Authentication → Sign In / Providers →
+   «Allow new users to sign up» = off. Η εφαρμογή φτιάχνει λογαριασμούς από
+   τον διακομιστή, οπότε η εγγραφή συνεχίζει να δουλεύει.
+3. **Διακομιστής φωτογραφιών:** μετά το 0115, στο SQL Editor:
+   ```sql
+   select * from platform_config;
+   ```
+   Αν είναι κενό, βάλε τον δικό σου (η διεύθυνση του project χωρίς https://):
+   ```sql
+   insert into platform_config (key, value) values ('photo_host', 'XXXX.supabase.co');
+   ```

@@ -60,6 +60,7 @@ export default function OffersPage() {
       title="Αναθέσεις δουλειάς"
       subtitle="Δουλειά που δίνεις εσύ σε συγκεκριμένα άτομα. Την παίρνει όποιος αποδεχτεί πρώτος, και πληρώνει."
       counts={counts}
+      ownerOnly
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 

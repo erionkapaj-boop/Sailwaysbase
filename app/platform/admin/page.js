@@ -437,9 +437,11 @@ function QuickActions() {
           + Αγορά credits
         </Link>
       )}
-      <Link href="/platform/admin/offers" style={chip}>
-        + Νέα ανάθεση
-      </Link>
+      {isOwner && (
+        <Link href="/platform/admin/offers" style={chip}>
+          + Νέα ανάθεση
+        </Link>
+      )}
       <Link href="/platform/admin/bookings?filter=upcoming" style={chip}>
         Κρατήσεις
       </Link>

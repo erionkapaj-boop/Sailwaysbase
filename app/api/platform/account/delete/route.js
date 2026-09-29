@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
 
-// Self-service (and admin-on-behalf-of) account deletion.
+// Self-service account deletion.
 //
 // soft_delete_account() (0074) marks the row status='deleted' and hides the
 // professional profile — it deliberately leaves phone_number, email and
@@ -56,27 +56,19 @@ export async function POST(req) {
   if (!caller) return Response.json({ error: "not_authenticated" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  let targetId = caller.id;
-
-  // Admin deleting someone else's account, not their own.
-  if (body.userId && body.userId !== caller.id) {
-    const { data: callerRow } = await db.from("users").select("role, is_staff_admin").eq("id", caller.id).maybeSingle();
-    if (callerRow?.role !== "admin" && !callerRow?.is_staff_admin) {
-      return Response.json({ error: "not_admin" }, { status: 403 });
-    }
-    targetId = body.userId;
-  }
+  // Only the person's own account. Deleting someone else goes through
+  // admin_delete_account (owner only, with the checks and the log there) —
+  // this route used to accept any userId from any staff member.
+  if (body.userId && body.userId !== caller.id) return Response.json({ error: "not_allowed" }, { status: 403 });
 
   // Deleting your own account asks for your PIN, like changing your phone or
   // email: an unlocked phone left on a table must not be enough.
-  if (targetId === caller.id) {
-    const problem = await checkPin(db, caller.id, body.pin);
-    if (problem) return Response.json({ error: problem.error }, { status: problem.status });
-  }
+  const problem = await checkPin(db, caller.id, body.pin);
+  if (problem) return Response.json({ error: problem.error }, { status: problem.status });
 
   const { error: rpcErr } = await db.rpc("soft_delete_account", {
-    p_user_id: targetId,
-    p_notes: targetId === caller.id ? "Αυτοεξυπηρέτηση — ζήτησε ο ίδιος τη διαγραφή." : body.notes || null,
+    p_user_id: caller.id,
+    p_notes: "Αυτοεξυπηρέτηση — ζήτησε ο ίδιος τη διαγραφή.",
   });
   if (rpcErr) return Response.json({ error: rpcErr.message }, { status: 400 });
 

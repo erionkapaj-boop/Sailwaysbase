@@ -4,6 +4,7 @@ import { emailConfig, sendEmail } from "../../../../../lib/platform/email";
 
 const CODE_TTL_MINUTES = 15;
 const MAX_CODES_PER_HOUR = 3;
+const MAX_CODES_PER_DAY = 6;
 
 function hashCode(code) {
   return crypto.createHash("sha256").update(code).digest("hex");
@@ -63,6 +64,14 @@ export async function POST(req) {
     .eq("user_id", user.id)
     .gt("created_at", new Date(Date.now() - 60 * 60_000).toISOString());
   if ((count || 0) >= MAX_CODES_PER_HOUR) return Response.json(generic);
+  // Each code allows 5 tries; the daily cap keeps the total number of guesses
+  // on one account small.
+  const { count: today } = await db
+    .from("email_reset_codes")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .gt("created_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString());
+  if ((today || 0) >= MAX_CODES_PER_DAY) return Response.json(generic);
 
   const code = String(crypto.randomInt(100000, 1000000));
   const { error } = await db.from("email_reset_codes").insert({
