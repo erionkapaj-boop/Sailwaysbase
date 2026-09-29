@@ -237,7 +237,7 @@ export default function ProfileTab({ data, id, reload, confirm }) {
           {sp && (
             <>
               <Field label="Τιμή / ημέρα (€)">
-                <input style={fieldInput} type="number" min="210" value={price} onChange={(e) => setPrice(e.target.value)} />
+                <input style={fieldInput} type="number" min="1" value={price} onChange={(e) => setPrice(e.target.value)} />
               </Field>
               <Field label="Αριθμός διπλώματος">
                 <input style={fieldInput} value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />

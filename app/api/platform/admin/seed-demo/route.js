@@ -54,7 +54,7 @@ const DEMO_USERS = [
     email: "n.vasileiou@example.com",
     role: "skipper",
     skipper: {
-      price: 210,
+      price: 230,
       years: 3,
       gender: "Άνδρας",
       tier: "medium",

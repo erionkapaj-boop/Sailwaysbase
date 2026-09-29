@@ -153,6 +153,10 @@ select complete_registration('Νέος Skipper', 'new@example.com', '+3069000077
 select pg_temp.act('postgres');
 select pg_temp.check('νέος επαγγελματίας: σε αναμονή έγκρισης', (select approval_status = 'pending' from skipper_profiles where user_id = :'NEWPRO'));
 select id as newsp from skipper_profiles where user_id = :'NEWPRO' \gset
+-- Την τιμή τη δηλώνει ο ίδιος (0118): χωρίς τιμή δεν εμφανίζεται στις αναζητήσεις.
+select pg_temp.act('authenticated', :'NEWPRO');
+update skipper_profiles set price_per_day = 120 where user_id = :'NEWPRO';
+select pg_temp.act('postgres');
 insert into availability_windows (skipper_id, start_date, end_date) values (:'newsp', current_date + 5, current_date + 40) returning id as nw \gset
 insert into availability_window_regions (window_id, region_id) values (:'nw', :'cyclades');
 insert into skipper_boat_types (skipper_id, boat_type_id) values (:'newsp', :'sailboat');

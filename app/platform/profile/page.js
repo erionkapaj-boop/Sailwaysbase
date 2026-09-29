@@ -36,8 +36,6 @@ import { container, card, h1, h2, muted, colors, radius, select, label, button, 
 import SignedOutNotice from "../components/SignedOutNotice";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
-const MIN_PRICE = 210;
-
 // "Έγκριση σε εκκρεμότητα" vs "Εγκρίθηκε" vs "Δεν εγκρίθηκε" — a secondary
 // role goes through the same admin review as the main profile (0065), so it
 // needs the same three-state story, just compressed into one line per role
@@ -60,7 +58,7 @@ function SecondaryRoles({ profile }) {
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
   const [newRole, setNewRole] = useState("");
-  const [newPrice, setNewPrice] = useState(String(MIN_PRICE));
+  const [newPrice, setNewPrice] = useState("");
   const [newLicenseNumber, setNewLicenseNumber] = useState("");
   const [newLicenseType, setNewLicenseType] = useState("");
 
@@ -82,8 +80,8 @@ function SecondaryRoles({ profile }) {
   async function handleAdd() {
     setError("");
     if (!newRole) return;
-    if (Number(newPrice) < MIN_PRICE) {
-      setError(`Η τιμή πρέπει να είναι τουλάχιστον ${MIN_PRICE}€.`);
+    if (!(Number(newPrice) > 0)) {
+      setError("Γράψε την τιμή σου ανά ημέρα.");
       return;
     }
     setBusy(true);
@@ -96,7 +94,7 @@ function SecondaryRoles({ profile }) {
       });
       setAdding(false);
       setNewRole("");
-      setNewPrice(String(MIN_PRICE));
+      setNewPrice("");
       setNewLicenseNumber("");
       setNewLicenseType("");
       await load();
@@ -112,8 +110,8 @@ function SecondaryRoles({ profile }) {
   }
 
   async function handlePriceSave(id, value) {
-    if (Number(value) < MIN_PRICE) {
-      setError(`Η τιμή πρέπει να είναι τουλάχιστον ${MIN_PRICE}€.`);
+    if (!(Number(value) > 0)) {
+      setError("Γράψε την τιμή σου ανά ημέρα.");
       return;
     }
     try {
@@ -160,9 +158,9 @@ function SecondaryRoles({ profile }) {
             <div style={{ minWidth: 100, fontWeight: 600 }}>{labelForRole(r.role)}</div>
             <input
               type="number"
-              min={MIN_PRICE}
+              min={1}
               style={{ ...input, width: 90 }}
-              value={r.price_per_day}
+              value={r.price_per_day ?? ""}
               onChange={(e) => handlePriceChange(r.id, e.target.value)}
               onBlur={(e) => handlePriceSave(r.id, e.target.value)}
               disabled={busy}
@@ -191,7 +189,7 @@ function SecondaryRoles({ profile }) {
           <label style={label}>Τιμή ανά ημέρα (€)</label>
           <input
             type="number"
-            min={MIN_PRICE}
+            min={1}
             style={{ ...input, marginBottom: 12, maxWidth: 160 }}
             value={newPrice}
             onChange={(e) => setNewPrice(e.target.value)}
@@ -718,7 +716,7 @@ function BecomeProfessional() {
   const [licenseNumber, setLicenseNumber] = useState("");
   const [licenseType, setLicenseType] = useState("");
   const [yearsExperience, setYearsExperience] = useState("");
-  const [pricePerDay, setPricePerDay] = useState(String(MIN_PRICE));
+  const [pricePerDay, setPricePerDay] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -727,8 +725,8 @@ function BecomeProfessional() {
     setError("");
     if (!licenseNumber.trim()) return setError("Συμπλήρωσε αριθμό άδειας.");
     if (!licenseType.trim()) return setError("Συμπλήρωσε τύπο άδειας.");
-    if (Number(pricePerDay) < MIN_PRICE) {
-      return setError(`Η τιμή ανά ημέρα δεν μπορεί να είναι κάτω από ${MIN_PRICE}€.`);
+    if (!(Number(pricePerDay) > 0)) {
+      return setError("Γράψε την τιμή σου ανά ημέρα.");
     }
     setBusy(true);
     try {
@@ -813,7 +811,7 @@ function BecomeProfessional() {
         <input
           id="bp-price"
           type="number"
-          min={MIN_PRICE}
+          min={1}
           style={{ ...input, marginBottom: 20 }}
           value={pricePerDay}
           onChange={(e) => setPricePerDay(e.target.value)}

@@ -25,8 +25,6 @@ import {
   badge,
 } from "../../../lib/platform/theme";
 
-const MIN_PRICE = 210;
-
 // Filled navy when selected, hairline outline when not.
 const chip = (active) => ({
   padding: "9px 16px",
@@ -138,7 +136,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
     nationality_id: profile.nationality_id || "",
     photo_url: profile.photo_url || "",
     date_of_birth: profile.date_of_birth || "",
-    price_per_day: profile.price_per_day || MIN_PRICE,
+    price_per_day: profile.price_per_day || "",
   });
   const [languageIds, setLanguageIds] = useState([]);
   const [boatTypeIds, setBoatTypeIds] = useState([]);
@@ -197,8 +195,8 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
       setError("Συμπλήρωσε ημερομηνία γέννησης.");
       return;
     }
-    if (Number(form.price_per_day) < MIN_PRICE) {
-      setError(`Η τιμή ανά ημέρα δεν μπορεί να είναι κάτω από ${MIN_PRICE}€.`);
+    if (!(Number(form.price_per_day) > 0)) {
+      setError("Γράψε την τιμή σου ανά ημέρα.");
       return;
     }
     if (languageIds.length === 0) {
@@ -236,7 +234,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
   // φωτογραφία (που η αναζήτηση ΔΕΝ ελέγχει) και παρέλειπε τους τύπους
   // σκάφους (που τους ελέγχει και χωρίς αυτούς κανείς δεν εμφανίζεται ποτέ).
   // Αποτέλεσμα: πράσινο «είσαι ορατός» σε κάποιον μόνιμα αόρατο.
-  const hasPrice = Number(form.price_per_day) >= MIN_PRICE;
+  const hasPrice = Number(form.price_per_day) > 0;
   // Ζητείται μόνο όπου προσφέρεται: η ενότητα «Τύποι σκαφών» εμφανίζεται μόνο
   // για skipper, οπότε σε άλλη ιδιότητα θα ήταν κριτήριο χωρίς κουμπί.
   const hasBoatTypes = !isSkipper || boatTypeIds.length > 0;
@@ -384,7 +382,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         )}
       </Section>
 
-      <Section title="Τιμή" note={`Ελάχιστη επιτρεπτή τιμή ${MIN_PRICE}€ ανά ημέρα.`}>
+      <Section title="Τιμή" note="Την ορίζεις εσύ.">
         <label style={label} htmlFor="p-price">
           Τιμή ανά ημέρα
         </label>
@@ -392,7 +390,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
           <input
             id="p-price"
             type="number"
-            min={MIN_PRICE}
+            min={1}
             required
             style={{ ...input, maxWidth: 160 }}
             value={form.price_per_day}

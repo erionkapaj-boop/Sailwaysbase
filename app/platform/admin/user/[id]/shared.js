@@ -227,7 +227,7 @@ export const ERROR_LABEL = {
   missing_fields: "Λείπουν στοιχεία.",
   missing_user_id: "Λείπουν στοιχεία.",
   name_required: "Χρειάζεται όνομα.",
-  price_too_low: "Η τιμή/ημέρα είναι κάτω από το επιτρεπτό όριο.",
+  invalid_price: "Γράψε μια τιμή μεγαλύτερη από 0.",
   invalid_amount: "Το ποσό δεν είναι έγκυρο.",
   invalid_role: "Μη έγκυρος λογαριασμός για πίστωση.",
   no_photo: "Δεν υπάρχει φωτογραφία να αφαιρεθεί.",

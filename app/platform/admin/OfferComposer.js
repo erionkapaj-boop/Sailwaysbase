@@ -272,7 +272,7 @@ export default function OfferComposer({ job = null, onDone }) {
                 title={s.full_name || "(χωρίς όνομα)"}
                 meta={
                   <>
-                    <span style={money}>{s.phone_number}</span> · <span style={money}>{s.price_per_day}€</span>/ημέρα ·{" "}
+                    <span style={money}>{s.phone_number}</span> · <span style={money}>{s.price_per_day != null ? `${s.price_per_day}€` : "—"}</span>/ημέρα ·{" "}
                     {labelForRole(s.crew_role)}
                     {s.rating_count > 0 ? (
                       <>

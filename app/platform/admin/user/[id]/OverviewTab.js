@@ -45,7 +45,7 @@ export default function OverviewTab({ data, onSelectTab, reload }) {
         <Metric label="Credits" value={formatCredits(u.wallet_balance)} />
         {cp && <Metric label="Αξιοπιστία" value={cp.reliability_percentage != null ? `${cp.reliability_percentage}%` : "—"} />}
         {cp && <Metric label="Ολοκληρωμένες κρατήσεις" value={cp.completed_bookings_count ?? 0} />}
-        {sp && <Metric label="Τιμή / ημέρα" value={`${sp.price_per_day}€`} />}
+        {sp && <Metric label="Τιμή / ημέρα" value={sp.price_per_day != null ? `${sp.price_per_day}€` : "—"} />}
         {sp && <Metric label="Έγκριση" value={sp.approval_status === "approved" ? "Εγκεκριμένο" : sp.approval_status === "rejected" ? "Απορρίφθηκε" : "Σε αναμονή"} />}
         {sp && <Metric label="Αξιοπιστία" value={sp.reliability_percentage != null ? `${sp.reliability_percentage}%` : "—"} />}
       </MetricGrid>
