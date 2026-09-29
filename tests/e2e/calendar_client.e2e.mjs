@@ -44,7 +44,7 @@ async function search(page, role, regionName, from, to) {
   await page.waitForTimeout(1200);
   const t = await text(page);
   const m = t.match(/(\d+) διαθέσιμ(ος|οι)/);
-  return { count: m ? Number(m[1]) : -1, text: t };
+  return { count: m ? Number(m[1]) : /Κανένας διαθέσιμος/.test(t) ? 0 : -1, text: t };
 }
 const has = (r, price) => r.count > 0 && r.text.includes(`${price}€`);
 
