@@ -46,7 +46,8 @@ export const SECTIONS = [
   { href: "/platform/admin/users", label: "Χρήστες", heading: "Χρήστες & χρήματα" },
   // ownerOnly: μόνο ο ιδιοκτήτης (0112).
   { href: "/platform/admin/finance", label: "Οικονομικά", ownerOnly: true, badge: "credit_purchases_pending" },
-  { href: "/platform/admin/settings", label: "Ρυθμίσεις", heading: "Σύστημα", ownerOnly: true },
+  { href: "/platform/admin/health", label: "Υγεία εφαρμογής", heading: "Σύστημα", ownerOnly: true, badge: "health_open" },
+  { href: "/platform/admin/settings", label: "Ρυθμίσεις", ownerOnly: true },
   { href: "/platform/admin/ghost", label: "Δοκιμές (Ghost Mode)", ownerOnly: true },
 ];
 

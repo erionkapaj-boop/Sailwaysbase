@@ -30,5 +30,14 @@ export async function GET(req) {
     results.expireError = String(e);
   }
 
+  // Υγεία εφαρμογής (0116): τρέχει κάθε ώρα μέσα στη βάση· εδώ ως εφεδρεία.
+  try {
+    const { data, error } = await db.rpc("run_health_checks");
+    if (error) throw error;
+    results.health = data;
+  } catch (e) {
+    results.healthError = String(e);
+  }
+
   return Response.json({ ok: true, ...results });
 }

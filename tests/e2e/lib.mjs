@@ -63,7 +63,8 @@ export async function as(phone, fn) {
   const errors = [];
   // Any uncaught error fails the step — including React hydration errors,
   // which is how the <style> escaping bug on the search page was found.
-  page.on("pageerror", (e) => errors.push(e.message));
+  // Σφάλματα που ένα σενάριο ρίχνει επίτηδες ξεκινούν με "e2e:" και δεν μετράνε.
+  page.on("pageerror", (e) => { if (!e.message.startsWith("e2e:")) errors.push(e.message); });
   try {
     await page.goto(`${BASE}/platform/login`);
     await page.waitForLoadState("networkidle");
