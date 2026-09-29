@@ -1,10 +1,12 @@
 // Εύρεση μέρους με ορθογραφικά λάθη: ό,τι θα έγραφε ένας πραγματικός πελάτης.
 // Κάθε γραμμή: [τι έγραψε, τι ήθελε]. Το σωστό πρέπει να είναι στις 3 πρώτες
 // επιλογές (και πρώτο στις περισσότερες). Τρέχει με: node tests/unit/placeSearch.test.mjs
-import { buildPlaceIndex, searchPlaces, phoneticKey, describeChoice, pointFor } from "../../lib/platform/placeSearch.js";
+import { buildPlaceIndex, searchPlaces, phoneticKey, describeChoice, pointFor, popularPlaces } from "../../lib/platform/placeSearch.js";
 import { PLACES, REGION_INFO } from "../../lib/platform/places.js";
 
-const regions = Object.keys(REGION_INFO).map((name, i) => ({ id: `r${i}`, name }));
+// Οι περιοχές που έχουν επαγγελματίες στη βάση (οι υπόλοιπες δεν καλύπτονται ακόμα).
+const COVERED = ["Σαρωνικός", "Κυκλάδες", "Ιόνιο", "Δωδεκάνησα", "Σποράδες", "Κρήτη"];
+const regions = COVERED.map((name, i) => ({ id: `r${i}`, name }));
 const index = buildPlaceIndex(regions);
 
 const CASES = [
@@ -52,6 +54,13 @@ const CASES = [
   ["σαρωνικος", "Σαρωνικός"], ["saronic", "Σαρωνικός"], ["αργοσαρωνικος", "Σαρωνικός"], ["δωδεκανησα", "Δωδεκάνησα"], ["dodecanese", "Δωδεκάνησα"],
   ["σποραδες", "Σποράδες"], ["sporades", "Σποράδες"], ["κρητη", "Κρήτη"], ["crete", "Κρήτη"],
   ["ελλαδα", "Ελλάδα"], ["greece", "Ελλάδα"],
+  // Πόλεις που ζήτησε ο ιδιοκτήτης να βρίσκονται
+  ["καλαματα", "Καλαμάτα"], ["kalamata", "Καλαμάτα"], ["καλαματτα", "Καλαμάτα"],
+  ["πατρα", "Πάτρα"], ["patras", "Πάτρα"], ["πατρα", "Πάτρα"], ["πάτρας", "Πάτρα"],
+  ["θεσσαλονικη", "Θεσσαλονίκη"], ["thessaloniki", "Θεσσαλονίκη"], ["σαλονικη", "Θεσσαλονίκη"], ["θεσαλονικη", "Θεσσαλονίκη"], ["salonica", "Θεσσαλονίκη"],
+  ["χαλκιδικη", "Χαλκιδική"], ["halkidiki", "Χαλκιδική"], ["καβαλα", "Καβάλα"], ["λεσβοσ", "Λέσβος"], ["lesvos", "Λέσβος"], ["μυτιληνη", "Λέσβος"],
+  ["σαλαμινα", "Σαλαμίνα"], ["salamis", "Σαλαμίνα"], ["ναυπλιο", "Ναύπλιο"], ["nafplio", "Ναύπλιο"], ["ραφηνα", "Ραφήνα"], ["rafina", "Ραφήνα"],
+  ["ηγουμενιτσα", "Ηγουμενίτσα"], ["igoumenitsa", "Ηγουμενίτσα"], ["χιοσ", "Χίος"], ["σαμοσ", "Σάμος"], ["ικαρια", "Ικαρία"],
   // Όσο γράφει
   ["σαντ", "Σαντορίνη"], ["μυκο", "Μύκονος"], ["κεφαλ", "Κεφαλονιά"], ["λευκ", "Λευκάδα"],
 ];
@@ -101,7 +110,7 @@ const choices = [
   [{ regionId: cyc, point: "Κυκλάδες" }, "region"],
   [{ regionId: cyc, point: "" }, "region"],
   [{ regionId: cyc, point: "Ψαθή" }, "custom:Ψαθή"],
-  [{ regionId: cyc, point: "Λαύριο" }, "custom:Λαύριο"], // μέρος άλλης περιοχής = κείμενο
+  [{ regionId: cyc, point: "Ραφήνα" }, "custom:Ραφήνα"], // μέρος άλλης περιοχής = κείμενο
   [{ regionId: cyc, point: "Άλιμος (Πάρος)" }, "custom:Άλιμος (Πάρος)"], // λιμάνι που δεν ανήκει εκεί
 ];
 for (const [v, want] of choices) {
@@ -109,6 +118,21 @@ for (const [v, want] of choices) {
   const got = c.kind === "place" ? `place:${c.entry.name}:${c.port || ""}` : c.kind === "custom" ? `custom:${c.text}` : c.kind;
   if (got !== want) failures.push(`describeChoice(${JSON.stringify(v.point)}) → ${got} (ήθελε ${want})`);
 }
+
+// Κάθε μέρος έχει γεωγραφική περιοχή· όπου η περιοχή έχει επαγγελματίες, έχει και id.
+for (const e of index.filter((x) => x.type === "place")) {
+  if (e.covered !== COVERED.includes(e.regionName)) failures.push(`${e.name}: covered=${e.covered} αλλά περιοχή ${e.regionName}`);
+  if (e.covered && !e.regionId) failures.push(`${e.name}: καλυμμένη περιοχή χωρίς id`);
+}
+const thess = index.find((e) => e.name === "Θεσσαλονίκη");
+if (!thess || thess.covered || !thess.near.some((n) => n.name === "Σποράδες")) failures.push("Θεσσαλονίκη: πρέπει να είναι εκτός κάλυψης με κοντινή περιοχή τις Σποράδες");
+const kal = index.find((e) => e.name === "Καλαμάτα");
+if (!kal?.covered || kal.regionName !== "Ιόνιο") failures.push("Καλαμάτα → Ιόνιο");
+
+// Γρήγορες επιλογές = τα βασικά λιμάνια τσάρτερ, με αυτή τη σειρά, και οι περιοχές τους.
+const BASES = [["Άλιμος", "Σαρωνικός"], ["Λαύριο", "Κυκλάδες"], ["Λευκάδα", "Ιόνιο"], ["Πρέβεζα", "Ιόνιο"], ["Κέρκυρα", "Ιόνιο"], ["Κως", "Δωδεκάνησα"], ["Ρόδος", "Δωδεκάνησα"], ["Σκιάθος", "Σποράδες"], ["Βόλος", "Σποράδες"], ["Πάρος", "Κυκλάδες"], ["Μύκονος", "Κυκλάδες"]];
+const bases = popularPlaces(index, "GR").map((e) => [e.name, e.regionName]);
+if (JSON.stringify(bases) !== JSON.stringify(BASES)) failures.push(`γρήγορες επιλογές: ${bases.map((b) => b.join("—")).join(", ")}`);
 
 const pct = (n) => Math.round((100 * n) / CASES.length);
 console.log(`δοκιμές: ${CASES.length} · σωστό πρώτο: ${top1} (${pct(top1)}%) · στις 3 πρώτες: ${top3} (${pct(top3)}%)`);

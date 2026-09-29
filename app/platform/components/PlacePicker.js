@@ -8,7 +8,7 @@ import {
   popularPlaces,
   searchPlaces,
 } from "../../../lib/platform/placeSearch";
-import { regionExamples, regionIn } from "../../../lib/platform/places";
+import { COUNTRIES, regionExamples, regionIn } from "../../../lib/platform/places";
 import { logPlaceMiss } from "../../../lib/platform/health";
 import { colors, input, muted, radius } from "../../../lib/platform/theme";
 
@@ -78,8 +78,9 @@ const meta = { ...muted, display: "block", fontSize: 12.5, marginTop: 2 };
 
 function placeMeta(e) {
   if (e.type === "country") return "Όλες οι περιοχές";
-  if (e.type === "region") return ["Περιοχή", regionExamples(e.name, 3).join(", ")].filter(Boolean).join(" · ");
-  return [e.parent, e.regionName, e.countryName].filter(Boolean).join(" · ");
+  if (e.type === "region")
+    return ["Περιοχή", e.covered ? regionExamples(e.name, 3).join(", ") : "Χωρίς επαγγελματίες ακόμα"].filter(Boolean).join(" · ");
+  return [e.parent, e.regionName, e.countryName, e.covered ? null : "Χωρίς επαγγελματίες ακόμα"].filter(Boolean).join(" · ");
 }
 
 export default function PlacePicker({
@@ -105,6 +106,8 @@ export default function PlacePicker({
   const [browsing, setBrowsing] = useState(false);
   const [openRegion, setOpenRegion] = useState(null);
   const [unlisted, setUnlisted] = useState(false);
+  const [uncovered, setUncovered] = useState(null);
+  const [country, setCountry] = useState(choice?.region?.countryCode || COUNTRIES[0].code);
   const inputRef = useRef(null);
   const focusNext = useRef(autoFocus);
   const listId = useId();
@@ -130,9 +133,9 @@ export default function PlacePicker({
   const trimmed = query.trim();
   const results = useMemo(() => {
     if (trimmed.length < 2) return [];
-    const found = searchPlaces(index, trimmed, arrival ? 5 : 6);
+    const found = searchPlaces(index, trimmed, arrival ? 5 : 6, arrival ? null : country);
     return arrival ? found.filter((e) => e.type === "place").slice(0, 5) : found;
-  }, [index, trimmed, arrival]);
+  }, [index, trimmed, arrival, country]);
 
   useEffect(() => {
     setActive(0);
@@ -153,6 +156,7 @@ export default function PlacePicker({
     setBrowsing(false);
     setOpenRegion(null);
     setUnlisted(false);
+    setUncovered(null);
   }
 
   function done(next) {
@@ -170,8 +174,17 @@ export default function PlacePicker({
     }
     if (arrival) return done(opt.name);
     if (opt.type === "country") {
+      setCountry(opt.code);
       setQuery("");
       setBrowsing(true);
+      return;
+    }
+    // Περιοχή χωρίς επαγγελματίες ακόμα: το βρίσκει και ενημερώνεται, και
+    // η ζήτηση καταγράφεται για τον ιδιοκτήτη.
+    if (opt.covered === false) {
+      logPlaceMiss(opt.name, null);
+      setUncovered(opt);
+      setQuery("");
       return;
     }
     if (opt.type === "region") return done({ regionId: opt.regionId, point: opt.name });
@@ -203,14 +216,16 @@ export default function PlacePicker({
   }
 
   function startEditing() {
+    onEditingChange?.(true); // αμέσως, χωρίς να περιμένει το επόμενο render
     focusNext.current = true;
     reset();
     setEditing(true);
   }
 
   const regionEntries = index
-    .filter((e) => e.type === "region")
+    .filter((e) => e.type === "region" && e.covered && e.countryCode === country)
     .sort((a, b) => a.popular - b.popular);
+  const countryName = COUNTRIES.find((c) => c.code === country)?.name || "";
 
   const border = invalid ? `1px solid ${colors.danger}` : `1px solid ${colors.border}`;
 
@@ -288,8 +303,9 @@ export default function PlacePicker({
   if (browsing && !arrival) {
     return (
       <div data-place-picker="browse">
+        <CountryRow current={country} onPick={setCountry} />
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-          <p style={{ ...muted, fontSize: 13, margin: 0 }}>Περιοχές · Ελλάδα</p>
+          <p style={{ ...muted, fontSize: 13, margin: 0 }}>Περιοχές · {countryName}</p>
           <button
             type="button"
             style={{ ...linkButton, padding: 0, minHeight: 0, fontSize: 13 }}
@@ -340,8 +356,31 @@ export default function PlacePicker({
   // ---- Γράφει -------------------------------------------------------------
   const showList = !askRegion && options.length > 0;
   const activeId = showList ? `${listId}-${active}` : undefined;
+  if (uncovered) {
+    const options = uncovered.near.length
+      ? uncovered.near
+      : regionEntries.map((r) => ({ regionId: r.regionId, name: r.name }));
+    return (
+      <div data-place-picker="uncovered">
+        <Summary title={uncovered.name} sub={[uncovered.type === "place" ? uncovered.regionName : null, uncovered.countryName].filter(Boolean).join(" · ")} onChange={startEditing} border={border} />
+        <p style={{ fontSize: 14, margin: "14px 0 2px", color: colors.ink }}>Δεν έχουμε ακόμα επαγγελματίες σε αυτή την περιοχή.</p>
+        <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px" }}>
+          {uncovered.near.length ? "Δες όσους είναι κοντά:" : "Δες πού έχουμε επαγγελματίες:"}
+        </p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {options.map((r) => (
+            <button key={r.regionId} type="button" style={chip(false)} onClick={() => done({ regionId: r.regionId, point: uncovered.name })}>
+              {r.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div data-place-picker="edit">
+      {!arrival && <CountryRow current={country} onPick={setCountry} />}
       <div style={{ position: "relative" }}>
         <input
           ref={inputRef}
@@ -433,9 +472,9 @@ export default function PlacePicker({
 
       {!arrival && trimmed.length < 2 && (
         <>
-          {popularPlaces(index, 8).length > 0 && (
+          {popularPlaces(index, country).length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
-              {popularPlaces(index, 8).map((e) => (
+              {popularPlaces(index, country).map((e) => (
                 <button key={e.id} type="button" style={chip(false)} onClick={() => pick(e)}>
                   {e.name}
                 </button>
@@ -502,4 +541,25 @@ function RegionsState({ regions, failed, onRetry }) {
     );
   }
   return <p style={{ ...muted, fontSize: 13, margin: "10px 0 0" }}>Φόρτωση περιοχών…</p>;
+}
+
+// Πρώτο σκαλοπάτι: η χώρα. Με μία χώρα φαίνεται επιλεγμένη και δεν θέλει
+// καμία ενέργεια· με περισσότερες, ο πελάτης διαλέγει και η αναζήτηση
+// περιορίζεται σε αυτήν.
+function CountryRow({ current, onPick }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }} role="group" aria-label="Χώρα">
+      {COUNTRIES.map((c) => (
+        <button
+          key={c.code}
+          type="button"
+          style={chip(c.code === current)}
+          aria-pressed={c.code === current}
+          onClick={() => onPick(c.code)}
+        >
+          {c.name}
+        </button>
+      ))}
+    </div>
+  );
 }

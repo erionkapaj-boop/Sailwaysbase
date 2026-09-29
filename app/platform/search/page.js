@@ -452,6 +452,7 @@ function RoleSection({
   initial,
   validateShared,
   showFullFilters,
+  onEditFilters,
   selected,
   onToggle,
   onSetSelection,
@@ -658,9 +659,23 @@ function RoleSection({
 
       {results && (
         <div style={{ marginTop: 14 }}>
-          <p style={muted}>
-            {results.length} διαθέσιμ{results.length === 1 ? "ος" : "οι"} {roleLabel.toLowerCase()}
-          </p>
+          {results.length > 0 ? (
+            <p style={muted}>
+              {results.length} διαθέσιμ{results.length === 1 ? "ος" : "οι"} {roleLabel.toLowerCase()}
+            </p>
+          ) : (
+            <div data-no-results style={{ ...card, marginTop: 4 }}>
+              <b style={{ fontWeight: 600, fontSize: 15 }}>Κανένας διαθέσιμος {roleLabel.toLowerCase()} αυτές τις ημέρες</b>
+              <p style={{ ...muted, margin: "6px 0 14px", fontSize: 13.5 }}>
+                Δοκίμασε άλλες ημερομηνίες ή μια κοντινή περιοχή. Πολλοί επαγγελματίες ανοίγουν διαθεσιμότητα κοντά στο ταξίδι.
+              </p>
+              {onEditFilters && (
+                <button type="button" style={button("secondary")} onClick={onEditFilters}>
+                  Αλλαγή αναζήτησης
+                </button>
+              )}
+            </div>
+          )}
 
           {results.length > 0 && (
             <p style={{ ...muted, fontSize: 13.5, margin: "-4px 0 14px" }}>
@@ -1450,6 +1465,10 @@ function SearchPageInner() {
           }
           validateShared={validateShared}
           showFullFilters={showFullFilters}
+          onEditFilters={() => {
+            setShowFullFilters(true);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
           selected={getRoleSelection(role)}
           onToggle={(id) => toggleRoleSelection(role, id)}
           onSetSelection={(ids) => setRoleSelection(role, ids)}

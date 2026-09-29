@@ -23,7 +23,10 @@ await as(MARIA, async (page) => {
 
   let t = await text(page);
   check("ένα βήμα για το «από πού» (όχι χώρα / περιοχή / λιμάνι)", t.includes("Από πού ξεκινά το ταξίδι;") && !t.includes("Ποια χώρα;"));
-  check("γρήγορες επιλογές πριν γράψει", t.includes("Αθήνα") && t.includes("Πάρος"));
+  const chips = (await page.locator("[data-place-picker=edit] button").allInnerTexts()).map((x) => x.trim());
+  check("πρώτο σκαλοπάτι: η χώρα, επιλεγμένη", (await page.getByRole("button", { name: "Ελλάδα", exact: true }).getAttribute("aria-pressed")) === "true");
+  check("γρήγορες επιλογές = βασικά λιμάνια τσάρτερ, με τη σειρά τους",
+    chips.filter((x) => x !== "Ελλάδα").slice(0, 11).join(",") === "Άλιμος,Λαύριο,Λευκάδα,Πρέβεζα,Κέρκυρα,Κως,Ρόδος,Σκιάθος,Βόλος,Πάρος,Μύκονος", chips.join(","));
   check("το πεδίο έχει ήδη την εστίαση", await combobox(page).evaluate((el) => el === document.activeElement));
   check("χωρίς περιοχή δεν συνεχίζει", await page.getByRole("button", { name: "Συνέχεια" }).isDisabled());
 
@@ -81,13 +84,33 @@ await as(MARIA, async (page) => {
 
   // ---- Μέρος που δεν υπάρχει: χωρίς αδιέξοδο ----
   await go(page, "/platform/search");
-  await combobox(page).fill("Μαρμαρίς");
+  await combobox(page).fill("Καρλόβασι");
   await page.waitForTimeout(200);
   t = await text(page);
-  check("δεν βρέθηκε → ρωτά την περιοχή", t.includes("Δεν το βρήκαμε στη λίστα. Σε ποια περιοχή είναι το «Μαρμαρίς»;"), t.slice(0, 300));
+  check("δεν βρέθηκε → ρωτά την περιοχή", t.includes("Δεν το βρήκαμε στη λίστα. Σε ποια περιοχή είναι το «Καρλόβασι»;"), t.slice(0, 300));
   await page.locator("[data-place-picker=unlisted] button").filter({ hasText: "Δωδεκάνησα" }).click();
   await page.waitForTimeout(800);
-  check("κρατά ό,τι έγραψε, με την περιοχή", (await page.locator("[data-place-title]").first().innerText()) === "Μαρμαρίς" && (await text(page)).includes("Δωδεκάνησα · Ελλάδα"));
+  check("κρατά ό,τι έγραψε, με την περιοχή", (await page.locator("[data-place-title]").first().innerText()) === "Καρλόβασι" && (await text(page)).includes("Δωδεκάνησα · Ελλάδα"));
+
+  // ---- Πόλεις χωρίς επαγγελματίες ακόμα: τις βρίσκει, ενημερώνεται, δεν κολλάει ----
+  await page.getByRole("button", { name: "Αλλαγή" }).first().click();
+  await pickPlace(page, "salonica", "Θεσσαλονίκη");
+  t = await text(page);
+  check("Θεσσαλονίκη: βρέθηκε αλλά χωρίς επαγγελματίες ακόμα", t.includes("Δεν έχουμε ακόμα επαγγελματίες σε αυτή την περιοχή.") && t.includes("Βόρειο Αιγαίο"), t.slice(0, 300));
+  await page.locator("[data-place-picker=uncovered] button").filter({ hasText: "Σποράδες" }).click();
+  check("κρατά «Θεσσαλονίκη» με κοντινή περιοχή τις Σποράδες",
+    (await page.locator("[data-place-title]").first().innerText()) === "Θεσσαλονίκη" && (await text(page)).includes("Σποράδες · Ελλάδα"));
+
+  // ---- Πόλεις που ζήτησε ο ιδιοκτήτης: η περιοχή προκύπτει ----
+  await page.getByRole("button", { name: "Αλλαγή" }).first().click();
+  await pickPlace(page, "καλαματα", "Καλαμάτα");
+  check("Καλαμάτα → Ιόνιο", (await text(page)).includes("Ιόνιο · Ελλάδα"));
+  await page.getByRole("button", { name: "Αλλαγή" }).first().click();
+  await pickPlace(page, "patra", "Πάτρα");
+  check("Πάτρα → Ιόνιο", (await text(page)).includes("Ιόνιο · Ελλάδα"));
+  await page.getByRole("button", { name: "Αλλαγή" }).first().click();
+  await pickPlace(page, "σαλαμινα", "Σαλαμίνα");
+  check("Σαλαμίνα → Σαρωνικός (ο επαγγελματίας του Σαρωνικού την καλύπτει)", (await text(page)).includes("Σαρωνικός · Ελλάδα"));
 
   // ---- «Ελλάδα» → περιοχές → οπουδήποτε στο Ιόνιο ----
   await page.getByRole("button", { name: "Αλλαγή" }).first().click();
@@ -105,13 +128,14 @@ await as(MARIA, async (page) => {
   check("Enter → Κέρκυρα", (await page.locator("[data-place-title]").first().innerText()) === "Κέρκυρα");
 });
 
-check("το «Μαρμαρίς» καταγράφηκε μία φορά, στα Δωδεκάνησα",
-  num(`select count(*) from place_search_misses m join regions r on r.id = m.region_id where m.query = 'Μαρμαρίς' and r.name = 'Δωδεκάνησα'`) === 1);
+check("η Θεσσαλονίκη καταγράφηκε ως ζήτηση εκτός κάλυψης", num(`select count(*) from place_search_misses where query = 'Θεσσαλονίκη' and region_id is null`) === 1);
+check("το «Καρλόβασι» καταγράφηκε μία φορά, στα Δωδεκάνησα",
+  num(`select count(*) from place_search_misses m join regions r on r.id = m.region_id where m.query = 'Καρλόβασι' and r.name = 'Δωδεκάνησα'`) === 1);
 
 await as(ADMIN, async (page) => {
   await go(page, "/platform/admin/health");
   const t = await text(page);
-  check("ο ιδιοκτήτης βλέπει τι δεν βρέθηκε", t.includes("Μαρμαρίς") && t.includes("1×"), t.slice(0, 600));
+  check("ο ιδιοκτήτης βλέπει τι δεν βρέθηκε", t.includes("Καρλόβασι") && t.includes("1×"), t.slice(0, 600));
 });
 
 sql(`delete from place_search_misses`);
