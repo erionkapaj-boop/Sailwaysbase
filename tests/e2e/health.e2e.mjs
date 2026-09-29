@@ -37,9 +37,30 @@ await as(ADMIN, async (page) => {
   check("«Λύθηκε» κλείνει ένα θέμα", num(`select count(*) from health_issues where status = 'resolved' and resolved_by is not null`) === 1);
 });
 
+// 3. Φάση 2: πήγαινε-έλα και βήματα ροής.
+sql(`delete from health_events; delete from health_issues; delete from flow_events;`);
+await as(CLIENT, async (page) => {
+  for (let i = 0; i < 3; i++) {
+    await go(page, "/platform/requests");
+    await go(page, "/platform/wallet");
+  }
+  await go(page, "/platform/wallet/buy");
+  await page.waitForTimeout(1000);
+});
+check("πήγαινε-έλα ανάμεσα σε δύο σελίδες: καταγράφηκε",
+  num(`select count(*) from health_issues where code = 'pingpong' and sample->>'detail' like '%/platform/requests%/platform/wallet%'`) === 1);
+check("ροή αγοράς credits: καταγράφηκε το άνοιγμα, χωρίς προσωπικά στοιχεία",
+  num(`select count(*) from flow_events where flow = 'topup' and step = 'open'`) === 1);
+await as(ADMIN, async (page) => {
+  await go(page, "/platform/admin/health");
+  const t = await text(page);
+  check("η σελίδα δείχνει τις ροές", t.includes("Αγορά credits") && /1 ξεκίνησαν · 0 ολοκλήρωσαν/.test(t), t.slice(0, 900));
+  check("και το πήγαινε-έλα", t.includes("Χρήστες πηγαινοέρχονται ανάμεσα σε δύο σελίδες"));
+});
+
 // Επαναφορά για τα επόμενα σενάρια.
 trusted(`update users set phone_verified_at = now() where phone_number = '+306900002005'`);
-sql(`delete from health_events; delete from health_issues;
+sql(`delete from health_events; delete from health_issues; delete from flow_events;
      delete from notifications where kind = 'admin_health_issue';`);
 
 finish();

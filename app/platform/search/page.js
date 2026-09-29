@@ -40,6 +40,7 @@ import {
   sectionLabel,
 } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
+import { trackFlow, noteFailure } from "../../../lib/platform/health";
 
 // Quick picks for the region's main ports, sitting above the free-text
 // field — a tap fills the same field a keystroke would, it just saves the
@@ -780,6 +781,12 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [awaitingVerification, selectionKey, filters, boatTypesByRole, done]);
 
+  // Ροή «Αποστολή αιτήματος» (0117): διάλεξε → πάτησε αποστολή → στάλθηκε.
+  const hasPicks = activeRoles.length > 0;
+  useEffect(() => {
+    if (hasPicks) trackFlow("request", "picked");
+  }, [hasPicks]);
+
   if (activeRoles.length === 0 && !done) return null;
 
   async function handleCheckout() {
@@ -792,6 +799,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
       return;
     }
     if (awaitingVerification) return;
+    trackFlow("request", "send");
     if (!filters.partySize || filters.privateCabin === undefined) {
       setError("Συμπλήρωσε αριθμό ατόμων και ιδιωτική καμπίνα πριν στείλεις το αίτημα.");
       return;
@@ -849,7 +857,10 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
         }
       }
       setDone(true);
+      trackFlow("request", "done");
     } catch (err) {
+      // Όσα δεν περνούν από το friendlyError μετρούν εδώ για το «κολλάει».
+      if (BROADCAST_ERRORS[err.message]) noteFailure(err.message);
       const sentNow = nowSent.size;
       const partial =
         sentNow > 0

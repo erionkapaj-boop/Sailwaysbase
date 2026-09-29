@@ -32,6 +32,7 @@ import {
   radius,
   sectionLabel, tapTarget } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
+import { trackFlow, noteFailure } from "../../../lib/platform/health";
 
 const REQUEST_ERRORS = {
   account_not_verified: "Ο λογαριασμός σου ελέγχεται ακόμα. Θα μπορείς να στείλεις το αίτημα μόλις ενεργοποιηθεί.",
@@ -212,11 +213,16 @@ function RoleBlock({
         requestId = dr.id;
       }
       const row = await createDeliveryRoleRequest(requestId, role, Number(price), Array.from(selected));
+      trackFlow("delivery", "done");
       setSent(row);
       onSent?.(row);
     } catch (err) {
       if (err.message === "insufficient_wallet") setTopUpNeed(Math.max(1, Number(estimate) || 1));
-      else setError(REQUEST_ERRORS[err.message] || ROLE_ERRORS[err.message] || friendlyError(err));
+      else {
+        // Όσα δεν περνούν από το friendlyError μετρούν εδώ για το «κολλάει».
+        if (REQUEST_ERRORS[err.message] || ROLE_ERRORS[err.message]) noteFailure(err.message);
+        setError(REQUEST_ERRORS[err.message] || ROLE_ERRORS[err.message] || friendlyError(err));
+      }
     } finally {
       setBusy(false);
     }
@@ -340,6 +346,10 @@ function DeliveryForm({ onCreated }) {
   const [coversPortExpenses, setCoversPortExpenses] = useState(false);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
+  // Ροή «Αίτημα μεταφοράς σκάφους» (0117): άνοιξε τη φόρμα → στάλθηκε.
+  useEffect(() => {
+    trackFlow("delivery", "open");
+  }, []);
 
   function handleSubmit(e) {
     e.preventDefault();

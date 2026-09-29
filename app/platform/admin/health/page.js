@@ -3,21 +3,28 @@ import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useCallback, useEffect, useState } from "react";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Empty, colors, muted, button } from "../ui";
-import { adminHealthIssues, adminResolveHealthIssue, adminRunHealthChecks } from "../../../../lib/platform/db";
+import { adminHealthIssues, adminResolveHealthIssue, adminRunHealthChecks, adminFlowStats } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
 
-const SOURCE_LABEL = { data: "Δεδομένα", app: "Σφάλμα χρήστη" };
+const SOURCE_LABEL = { data: "Δεδομένα", app: "Σφάλμα χρήστη", flow: "Ροή" };
 
 function Issue({ issue, busy, onResolve }) {
   const open = issue.status === "open";
   const count =
     issue.source === "data"
       ? `${issue.occurrences} ${issue.occurrences === 1 ? "περίπτωση" : "περιπτώσεις"}`
-      : `${issue.occurrences} ${issue.occurrences === 1 ? "φορά" : "φορές"}`;
-  const users = issue.affected_users
-    ? `${issue.affected_users} ${issue.affected_users === 1 ? "χρήστης" : "χρήστες"}`
-    : null;
-  const detail = issue.sample?.detail;
+      : issue.source === "flow"
+        ? `${issue.occurrences} σταμάτησαν`
+        : `${issue.occurrences} ${issue.occurrences === 1 ? "φορά" : "φορές"}`;
+  const users =
+    issue.source !== "flow" && issue.affected_users
+      ? `${issue.affected_users} ${issue.affected_users === 1 ? "χρήστης" : "χρήστες"}`
+      : null;
+  const s = issue.sample || {};
+  const detail =
+    issue.source === "flow"
+      ? `${s.started} ξεκίνησαν, ${s.completed} ολοκλήρωσαν${s.stop_step ? ` · σταματούν: ${s.stop_step}` : ""} (7 ημέρες)`
+      : s.detail;
   const ids = Array.isArray(issue.sample?.ids) ? issue.sample.ids : [];
 
   return (
@@ -82,10 +89,13 @@ export default function HealthPage() {
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
   const [checkedAt, setCheckedAt] = useState(null);
+  const [flows, setFlows] = useState([]);
 
   const load = useCallback(async () => {
     try {
-      setIssues(await adminHealthIssues(showClosed));
+      const [list, stats] = await Promise.all([adminHealthIssues(showClosed), adminFlowStats(7)]);
+      setIssues(list);
+      setFlows(stats);
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -151,6 +161,48 @@ export default function HealthPage() {
         {open.map((i) => (
           <Issue key={i.fingerprint} issue={i} busy={busyId === i.fingerprint} onResolve={resolve} />
         ))}
+      </Panel>
+
+      <Panel title="Ροές · 7 ημέρες" subtitle="Πόσοι ξεκίνησαν κάθε διαδρομή και πόσοι έφτασαν στο τέλος." padded={false}>
+        {!loading && flows.every((f) => f.started === 0) && <Empty>Καμία κίνηση ακόμα.</Empty>}
+        {flows
+          .filter((f) => f.started > 0)
+          .map((f) => {
+            const pct = Math.round((100 * f.completed) / f.started);
+            const low = f.started >= 5 && pct < 50;
+            return (
+              <div
+                key={f.flow}
+                style={{
+                  borderBottom: `1px solid ${colors.border}`,
+                  padding: "12px 16px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink }}>{f.flow_label}</div>
+                  <div style={{ ...muted, fontSize: 12.5, marginTop: 3 }}>
+                    {f.started} ξεκίνησαν · {f.completed} ολοκλήρωσαν
+                    {f.stop_step && f.completed < f.started ? ` · σταματούν: ${f.stop_step}` : ""}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: low ? colors.danger : colors.ink,
+                    fontVariantNumeric: "tabular-nums",
+                    flexShrink: 0,
+                  }}
+                >
+                  {pct}%
+                </div>
+              </div>
+            );
+          })}
       </Panel>
 
       <Panel

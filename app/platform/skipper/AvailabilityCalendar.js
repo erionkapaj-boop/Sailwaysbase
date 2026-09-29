@@ -1,5 +1,6 @@
 "use client";
 import { friendlyError } from "../../../lib/platform/friendlyError";
+import { trackFlow, noteFailure } from "../../../lib/platform/health";
 import { useEffect, useState } from "react";
 import {
   listAvailabilityWindows,
@@ -117,6 +118,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   }
 
   function openNew(prefillStart) {
+    trackFlow("availability", "open");
     setError("");
     setRange({ startDate: prefillStart || "", endDate: "" });
     setSheetRegionIds([]);
@@ -163,12 +165,14 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   async function save() {
     if (!range.startDate || !range.endDate) {
       setError("Διάλεξε αρχή και τέλος στο ημερολόγιο.");
+      noteFailure("missing_dates");
       return;
     }
     const editingAbsence = sheet.editKind === "absence";
     if (sheet.mode === "close") {
       if (bookedInRange(range.startDate, range.endDate)) {
         setError("Το διάστημα περιλαμβάνει ημέρες με κράτηση. Διάλεξε άλλες μέρες.");
+        noteFailure("booked_in_range");
         return;
       }
       // Η απουσία μπαίνει πάνω από ό,τι έχει δηλωθεί· η διαθεσιμότητα από κάτω
@@ -177,11 +181,15 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         if (editingAbsence) await removeAvailabilityBlock(sheet.editId);
         await addAvailabilityBlock(skipperId, { startDate: range.startDate, endDate: range.endDate });
       });
-      if (ok) closeSheet();
+      if (ok) {
+        trackFlow("availability", "done");
+        closeSheet();
+      }
       return;
     }
     if (sheetRegionIds.length === 0) {
       setError("Διάλεξε τουλάχιστον μία περιοχή.");
+      noteFailure("region_required");
       return;
     }
     const ok = await run(async () => {
@@ -193,7 +201,10 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         replaceId: sheet.editKind === "period" ? sheet.editId : null,
       });
     });
-    if (ok) closeSheet();
+    if (ok) {
+      trackFlow("availability", "done");
+      closeSheet();
+    }
   }
 
   async function removeCurrent() {

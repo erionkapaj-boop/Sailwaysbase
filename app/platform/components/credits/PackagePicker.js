@@ -4,6 +4,7 @@ import { useAuth } from "../../AuthContext";
 import { getCreditOffer, getMyPendingCreditPurchase, requestCreditPurchase } from "../../../../lib/platform/db";
 import { formatCredits, PACKAGES } from "../../../../lib/platform/credits";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
+import { trackFlow } from "../../../../lib/platform/health";
 import { card, muted, colors, money, button, radius, badge } from "../../../../lib/platform/theme";
 
 const POPULAR = "professional";
@@ -55,6 +56,8 @@ export default function PackagePicker({ need = 0, onSent, onPending }) {
       .then((p) => {
         setPending(p);
         if (p) onPending?.(p);
+        // Ροή «Αγορά credits» (0117): άνοιξε → έστειλε αίτημα.
+        else trackFlow("topup", "open");
       })
       .catch(() => setPending(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,6 +91,7 @@ export default function PackagePicker({ need = 0, onSent, onPending }) {
     setError("");
     try {
       const row = await requestCreditPurchase(choice, choice === "custom" ? customCount : null);
+      trackFlow("topup", "done");
       onSent?.(row);
     } catch (err) {
       setError(friendlyError(err));

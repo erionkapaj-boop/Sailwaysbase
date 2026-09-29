@@ -15,6 +15,7 @@ import { CREW_ROLES } from "../../../lib/platform/roles";
 import BackButton from "../components/BackButton";
 import { container, card, h1, muted, button, input, label, select, colors, radius } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
+import { trackFlow, noteFailure } from "../../../lib/platform/health";
 
 // Επιλογή κωδικού χώρας μόνο για επαγγελματίες, μόνο εδώ — χωρίς αυτήν, ένας
 // πραγματικά ξένος επαγγελματίας δεν είχε τρόπο να δηλώσει το πραγματικό του
@@ -127,8 +128,14 @@ function RegisterInner() {
     getOtpEnabled().then(setOtpEnabled).catch(() => {});
   }, []);
 
+  // Ροή «Εγγραφή» (0117): άνοιξε → έστειλε τα στοιχεία → λογαριασμός έτοιμος.
+  useEffect(() => {
+    trackFlow("register", "open");
+  }, []);
+
   async function submitDetails(e) {
     e.preventDefault();
+    trackFlow("register", "submitted");
     setError("");
     setBusy(true);
     try {
@@ -153,10 +160,12 @@ function RegisterInner() {
           crewRole: isProfessional ? crewRole : null,
           phoneVerified: false,
         });
+        trackFlow("register", "done");
         await refresh();
         router.push(isProfessional ? "/platform/set-pin?as=professional" : "/platform/set-pin");
       }
     } catch (err) {
+      if (REGISTER_ERRORS[err.message]) noteFailure(err.message);
       setError(REGISTER_ERRORS[err.message] || friendlyError(err));
     } finally {
       setBusy(false);
@@ -186,11 +195,13 @@ function RegisterInner() {
         crewRole: isProfessional ? crewRole : null,
         phoneVerified: isTestPhone ? otpEnabled : true,
       });
+      trackFlow("register", "done");
       await refresh();
       // PIN comes next: the OTP proved identity, the PIN is what they'll use
       // from now on.
       router.push(isProfessional ? "/platform/set-pin?as=professional" : "/platform/set-pin");
     } catch (err) {
+      if (REGISTER_ERRORS[err.message]) noteFailure(err.message);
       setError(REGISTER_ERRORS[err.message] || friendlyError(err));
     } finally {
       setBusy(false);
