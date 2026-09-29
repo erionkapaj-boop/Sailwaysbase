@@ -4,7 +4,7 @@
 // λήξη με επιστροφή → επαγγελματίας χωρίς credits → δώρο → ανάληψη →
 // μεταφορά σκάφους (υπολογισμός από τα μίλια) → δωρεάν περίοδος για πελάτες →
 // δώρο εγγραφής → αλλαγή τιμής πακέτου → πωλήσεις → ισοζύγιο.
-import { as, go, text, click, check, finish, sql, num, pickDay, daysFromToday, iso } from "./lib.mjs";
+import { as, go, text, click, check, finish, sql, num, pickDay, daysFromToday, iso, pickPlace } from "./lib.mjs";
 
 const ADMIN = "6900002001", MARIA = "6900002002", NIKOS = "6900002003", GIORGOS = "6900002004", ELENI = "6900002006";
 const wallet = (name) => num(`select wallet_balance from users where full_name = '${name}'`);
@@ -47,11 +47,10 @@ async function searchAndPick(page, from, to, price) {
   await pickDay(page, from);
   await pickDay(page, to);
   const selects = page.locator("select");
-  await selects.nth(0).selectOption({ label: "Κυκλάδες" });
-  await page.fill("input[placeholder='π.χ. Καλλιθέα']", "Νάξος");
+  await pickPlace(page, "Νάξος");
   await page.locator("input[type=number]").fill("4");
-  await selects.nth(2).selectOption({ label: "Ναι" });
-  await selects.nth(3).selectOption({ label: "Ιστιοπλοϊκό" });
+  await selects.nth(1).selectOption({ label: "Ναι" });
+  await selects.nth(2).selectOption({ label: "Ιστιοπλοϊκό" });
   await page.click("button[type=submit]");
   await page.waitForTimeout(2500);
   await page.locator("div").filter({ hasText: `${price}€` }).filter({ has: page.getByRole("button", { name: "Επιλογή", exact: true }) }).last()

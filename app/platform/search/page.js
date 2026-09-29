@@ -10,6 +10,7 @@ import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
 import DateRangeCalendar from "../components/DateRangeCalendar";
 import BackButton from "../components/BackButton";
+import PlacePicker from "../components/PlacePicker";
 import { SUPPORTED_ROLES, labelForRole, computeCrewHighlights } from "../../../lib/platform/roles";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { savePendingBroadcast, takePendingBroadcast } from "../../../lib/platform/pendingBroadcast";
@@ -41,20 +42,6 @@ import {
 } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
-
-// Quick picks for the region's main ports, sitting above the free-text
-// field — a tap fills the same field a keystroke would, it just saves the
-// typing for the common cases.
-const chip = (active) => ({
-  padding: "8px 14px",
-  borderRadius: radius.pill,
-  fontSize: 14,
-  fontFamily: "inherit",
-  cursor: "pointer",
-  border: `1px solid ${active ? colors.ink : colors.border}`,
-  background: active ? colors.ink : "transparent",
-  color: active ? "#fff" : colors.ink,
-});
 
 const BROADCAST_ERRORS = {
   insufficient_wallet: "Δεν έχεις αρκετά credits. Απόκτησε credits από τη σελίδα Credits.",
@@ -1258,9 +1245,6 @@ function SearchPageInner() {
     setFilters((f) => (f.arrivalPoint === f.departurePoint ? f : { ...f, arrivalPoint: f.departurePoint }));
   }, [sameDestination, filters.departurePoint]);
 
-  // The chosen region's curated ports, offered as quick picks above the
-  // free-text field — same pattern as the wizard's own port step.
-  const portsInRegion = lookups.ports.filter((p) => p.region_id === filters.regionId);
   const regionName = lookups.regions.find((r) => r.id === filters.regionId)?.name;
   const boatTypeName = lookups.boatTypes.find((b) => b.id === filters.boatTypeId)?.name;
 
@@ -1311,60 +1295,24 @@ function SearchPageInner() {
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "6px 0 0" }}>Επίλεξε ημερομηνίες.</p>
             )}
           </div>
-          <div>
-            <label style={label}>Περιοχή</label>
-            <select
-              style={fieldErrors.regionId ? { ...select, border: `1px solid ${colors.danger}` } : select}
-              value={filters.regionId}
-              onChange={(e) => {
-                setFilters((f) => ({ ...f, regionId: e.target.value }));
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={label}>Από πού ξεκινά το ταξίδι</label>
+            <PlacePicker
+              regions={lookups.regions}
+              value={{ regionId: filters.regionId, point: filters.departurePoint || "" }}
+              onChange={({ regionId, point }) => {
+                setFilters((f) => ({ ...f, regionId, departurePoint: point }));
                 clearFieldError("regionId");
-              }}
-            >
-              <option value="">Επιλογή...</option>
-              {lookups.regions.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-            {fieldErrors.regionId && (
-              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
-            )}
-          </div>
-          <div style={portsInRegion.length > 0 ? { gridColumn: "1 / -1" } : undefined}>
-            <label style={label}>Λιμάνι αναχώρησης</label>
-            {portsInRegion.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "4px 0 8px" }}>
-                {portsInRegion.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    style={chip(filters.departurePoint === p.name)}
-                    onClick={() => {
-                      setFilters((f) => ({ ...f, departurePoint: p.name }));
-                      clearFieldError("departurePoint");
-                    }}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            <input
-              type="text"
-              style={fieldErrors.departurePoint ? { ...input, border: `1px solid ${colors.danger}` } : input}
-              placeholder="π.χ. Καλλιθέα"
-              value={filters.departurePoint || ""}
-              onChange={(e) => {
-                setFilters((f) => ({ ...f, departurePoint: e.target.value }));
                 clearFieldError("departurePoint");
               }}
+              invalid={Boolean(fieldErrors.regionId || fieldErrors.departurePoint)}
+              failed={lookupsFailed}
+              onRetry={loadLookups}
             />
-            {fieldErrors.departurePoint && (
+            {(fieldErrors.regionId || fieldErrors.departurePoint) && (
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
             )}
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, margin: "2px 0 0", minHeight: 44, cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, margin: "6px 0 0", minHeight: 44, cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={!sameDestination}
@@ -1376,20 +1324,20 @@ function SearchPageInner() {
                   }
                 }}
               />
-              Το ταξίδι τελειώνει σε διαφορετικό σημείο
+              Τελειώνει σε άλλο σημείο
             </label>
             {!sameDestination && (
-              <div style={{ marginTop: 10 }}>
-                <label style={label}>Λιμάνι τερματισμού</label>
-                <input
-                  type="text"
-                  style={fieldErrors.arrivalPoint ? { ...input, border: `1px solid ${colors.danger}` } : input}
-                  placeholder="π.χ. Ρόδος"
+              <div style={{ marginTop: 6 }}>
+                <label style={label}>Πού τελειώνει</label>
+                <PlacePicker
+                  mode="arrival"
+                  regions={lookups.regions}
                   value={filters.arrivalPoint || ""}
-                  onChange={(e) => {
-                    setFilters((f) => ({ ...f, arrivalPoint: e.target.value }));
+                  onChange={(point) => {
+                    setFilters((f) => ({ ...f, arrivalPoint: point }));
                     clearFieldError("arrivalPoint");
                   }}
+                  invalid={Boolean(fieldErrors.arrivalPoint)}
                 />
                 {fieldErrors.arrivalPoint && (
                   <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
@@ -1462,14 +1410,15 @@ function SearchPageInner() {
             </b>
             <span style={muted}>
               {" · "}
-              {regionName}
-              {filters.departurePoint
-                ? ` · ${filters.departurePoint}${
+              {filters.departurePoint && filters.departurePoint !== regionName
+                ? `${filters.departurePoint}${
                     filters.arrivalPoint && filters.arrivalPoint !== filters.departurePoint
                       ? ` → ${filters.arrivalPoint}`
                       : ""
-                  }`
-                : ""}
+                  } · ${regionName || ""}`
+                : `${regionName || ""}${
+                    filters.arrivalPoint && filters.arrivalPoint !== filters.departurePoint ? ` → ${filters.arrivalPoint}` : ""
+                  }`}
               {" · "}
               {filters.partySize} άτομα
               {" · "}

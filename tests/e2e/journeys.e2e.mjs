@@ -10,7 +10,7 @@
 //   Ε. πελάτης 0 credits → αποστολή → αγορά → επιβεβαίωση → οι επιλογές του
 //      έμειναν, τα αιτήματα φεύγουν
 import { chromium } from "playwright";
-import { BASE, text, check, finish, sql, num, pickDay, daysFromToday } from "./lib.mjs";
+import { BASE, text, check, finish, sql, num, pickDay, daysFromToday, pickPlace } from "./lib.mjs";
 import { TEST_PIN } from "./gateway.mjs";
 
 const U = {
@@ -181,11 +181,10 @@ try {
   await pickDay(maria, daysFromToday(36));
   await pickDay(maria, daysFromToday(38));
   const selects = maria.locator("select");
-  await selects.nth(0).selectOption({ label: "Κυκλάδες" });
-  await maria.fill("input[placeholder='π.χ. Καλλιθέα']", "Νάξος");
+  await pickPlace(maria, "Νάξος");
   await maria.locator("input[type=number]").fill("4");
-  await selects.nth(2).selectOption({ label: "Ναι" });
-  await selects.nth(3).selectOption({ label: "Ιστιοπλοϊκό" });
+  await selects.nth(1).selectOption({ label: "Ναι" });
+  await selects.nth(2).selectOption({ label: "Ιστιοπλοϊκό" });
   await maria.click("button[type=submit]");
   await maria.waitForTimeout(2500);
   await maria.locator("div").filter({ hasText: "260€" }).filter({ has: btn(maria, "Επιλογή") }).last().getByRole("button", { name: "Επιλογή", exact: true }).click();

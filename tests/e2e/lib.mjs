@@ -90,3 +90,10 @@ export async function go(page, path) {
 }
 export const text = async (page) => (await page.innerText("body")).replace(/\s+/g, " ");
 export const click = (page, name) => page.getByRole("button", { name, exact: true }).first().click();
+
+// «Από πού ξεκινά το ταξίδι;»: γράφει και διαλέγει την πρόταση με αυτό το όνομα.
+export async function pickPlace(page, typed, name = typed) {
+  const box = page.getByRole("combobox").first();
+  await box.fill(typed);
+  await page.getByRole("option", { name: new RegExp(`^${name}`) }).first().click();
+}

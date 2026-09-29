@@ -4,7 +4,7 @@
 // three show interest, one declines, one withdraws → client picks → admin
 // sees it completed. Then a second trip: admin withdraws and closes a case
 // without a replacement, and the client's fee comes back.
-import { as, go, text, click, check, finish, sql, num, pickDay, daysFromToday, iso } from "./lib.mjs";
+import { as, go, text, click, check, finish, sql, num, pickDay, daysFromToday, iso, pickPlace } from "./lib.mjs";
 
 const MARIA = "6900002002", ADMIN = "6900002001", NIKOS = "6900002003";
 const GIORGOS = "6900002004", KOSTAS = "6900002005", ELENI = "6900002006", PETROS = "6900002007";
@@ -21,11 +21,10 @@ await as(MARIA, async (page) => {
   await pickDay(page, start);
   await pickDay(page, end);
   const selects = page.locator("select");
-  await selects.nth(0).selectOption({ label: "Κυκλάδες" });
-  await page.fill("input[placeholder='π.χ. Καλλιθέα']", "Μύκονος");
+  await pickPlace(page, "Μύκονος");
   await page.locator("input[type=number]").fill("4");
-  await selects.nth(2).selectOption({ label: "Ναι" });
-  await selects.nth(3).selectOption({ label: "Ιστιοπλοϊκό" });
+  await selects.nth(1).selectOption({ label: "Ναι" });
+  await selects.nth(2).selectOption({ label: "Ιστιοπλοϊκό" });
   await page.click("button[type=submit]");
   await page.waitForTimeout(2500);
   const t = await text(page);

@@ -10,8 +10,9 @@
     "prebuild": "node scripts/check-platform.mjs",
     "test:db": "bash tests/db/run.sh",
     "test:e2e": "bash tests/e2e/run.sh",
-    "test": "bash tests/db/run.sh && bash tests/e2e/run.sh",
-    "test:perf": "E2E_EXTRA_SQL=tests/perf/scale.sql E2E_SPECS=timing.perf.mjs bash tests/e2e/run.sh"
+    "test": "node tests/unit/placeSearch.test.mjs && bash tests/db/run.sh && bash tests/e2e/run.sh",
+    "test:perf": "E2E_EXTRA_SQL=tests/perf/scale.sql E2E_SPECS=timing.perf.mjs bash tests/e2e/run.sh",
+    "test:unit": "node tests/unit/placeSearch.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

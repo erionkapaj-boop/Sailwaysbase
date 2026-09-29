@@ -4,21 +4,21 @@ import { useRouter } from "next/navigation";
 import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
-import { Mark } from "./components/Logo";
 import BackButton from "./components/BackButton";
+import PlacePicker from "./components/PlacePicker";
 import { button, colors, input, label, muted, radius, select, h2 } from "../../lib/platform/theme";
 
 // Progressive disclosure (brief §4): one question on screen at a time, gentle
 // fade/slide between them — never the whole form at once.
 //
-// "country" exists as its own step even though Greece is the only option
-// today — the regions table was always meant to grow beyond one country
-// (see its own seed comment), so the step is there to grow into rather than
-// retrofit later.
+// "where" is one question instead of country → region → port: the client
+// types what they know (island, town, marina — typos welcome) and the region
+// follows from the place (PlacePicker). Anyone who doesn't know yet can browse
+// the regions from the same step.
 //
 // The "boat" step only makes sense when the search includes skipper: a boat
 // type is what a skipper operates, and hostess (or any future non-skipper
-// role) doesn't have one. A hostess-only search skips straight from port to
+// role) doesn't have one. A hostess-only search skips straight from "where" to
 // "extras" instead of asking a question that has no right answer for it.
 //
 // "extras" (language/party size/private cabin) is always last — everything
@@ -26,7 +26,7 @@ import { button, colors, input, label, muted, radius, select, h2 } from "../../l
 // asked for here instead, so landing on results means there's nothing left
 // to fill in, just candidates to browse and pick.
 function stepsFor(roles) {
-  const base = ["role", "dates", "country", "region", "port"];
+  const base = ["role", "dates", "where"];
   const withBoat = roles.includes("skipper") ? [...base, "boat"] : base;
   return [...withBoat, "extras"];
 }
@@ -51,10 +51,7 @@ const option = (active) => ({
   color: colors.ink,
 });
 
-// Quick picks for the region's main ports, sitting above the free-text
-// field — a tap fills the same field a keystroke would, it just saves the
-// typing for the common cases (see chip() in AvailabilityCalendar for the
-// same pattern applied to region selection).
+// Small secondary action (retry after a failed load).
 const chip = (active) => ({
   padding: "8px 14px",
   borderRadius: radius.pill,
@@ -80,6 +77,7 @@ export default function CrewSearchFlow() {
   const [departurePoint, setDeparturePoint] = useState("");
   const [arrivalPoint, setArrivalPoint] = useState("");
   const [sameDestination, setSameDestination] = useState(true);
+  const [pickingPlace, setPickingPlace] = useState(true);
   const [boatTypeId, setBoatTypeId] = useState("");
   const [languageId, setLanguageId] = useState("");
   const [partySize, setPartySize] = useState("");
@@ -172,12 +170,6 @@ export default function CrewSearchFlow() {
     router.push(`/platform/search?${params.toString()}`);
   }
 
-  // The region step already narrowed this down — just the curated ports that
-  // actually belong to the chosen one, offered as quick picks. The catalog
-  // never has to be complete: whatever isn't listed is exactly what the
-  // free-text field below is for.
-  const portsInRegion = lookups.ports.filter((p) => p.region_id === regionId);
-
   const current = STEPS[step];
 
   return (
@@ -252,120 +244,51 @@ export default function CrewSearchFlow() {
         </div>
       )}
 
-      {current === "country" && (
-        <div key="country" data-sf-step style={stepWrap}>
-          <StepHeading>Ποια χώρα;</StepHeading>
-          <button
-            type="button"
-            onClick={next}
-            style={{
-              ...option(true),
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
+      {current === "where" && (
+        <div key="where" data-sf-step style={stepWrap}>
+          <StepHeading>Από πού ξεκινά το ταξίδι;</StepHeading>
+          <PlacePicker
+            regions={lookups.regions}
+            value={{ regionId, point: departurePoint }}
+            onChange={({ regionId: r, point }) => {
+              setRegionId(r);
+              setDeparturePoint(point);
             }}
-          >
-            <Mark size={22} />
-            Ελλάδα
-          </button>
-        </div>
-      )}
-
-      {current === "region" && (
-        <div key="region" data-sf-step style={stepWrap}>
-          <StepHeading>Ποια περιοχή;</StepHeading>
-          <div style={{ maxHeight: 380, overflowY: "auto", marginBottom: 20 }}>
-            {lookups.regions.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                style={option(regionId === r.id)}
-                onClick={() => {
-                  setRegionId(r.id);
-                  setDeparturePoint("");
-                  setArrivalPoint("");
-                  setSameDestination(true);
-                  next();
-                }}
-              >
-                {r.name}
-              </button>
-            ))}
-            {lookups.regions.length === 0 && lookupsError && (
-              <div>
-                <p style={{ ...muted, color: colors.danger }}>Οι περιοχές δεν φορτώθηκαν.</p>
-                <button type="button" style={chip(false)} onClick={() => setLookupsAttempt((n) => n + 1)}>
-                  Δοκίμασε ξανά
-                </button>
-              </div>
-            )}
-            {lookups.regions.length === 0 && !lookupsError && <p style={muted}>Φόρτωση περιοχών…</p>}
-          </div>
-        </div>
-      )}
-
-      {current === "port" && (
-        <div key="port" data-sf-step style={stepWrap}>
-          <StepHeading>Από πού φεύγεις;</StepHeading>
-          {portsInRegion.length > 0 && (
-            <>
-              <p style={{ ...muted, fontSize: 13, margin: "-8px 0 10px" }}>Βασικά λιμάνια της περιοχής:</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
-                {portsInRegion.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    style={chip(departurePoint === p.name)}
-                    onClick={() => setDeparturePoint(p.name)}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-          <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>
-            Ή γράψε το ακριβές σημείο: λιμάνι, μαρίνα ή όρμο.
-          </p>
-          <input
-            type="text"
-            style={{ ...input, marginBottom: 16 }}
-            placeholder="π.χ. Καλλιθέα"
-            value={departurePoint}
-            onChange={(e) => setDeparturePoint(e.target.value)}
+            autoFocus
+            onEditingChange={setPickingPlace}
+            failed={lookupsError}
+            onRetry={() => setLookupsAttempt((n) => n + 1)}
           />
 
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, margin: "0 0 16px", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={!sameDestination}
-              onChange={(e) => {
-                const different = e.target.checked;
-                setSameDestination(!different);
-                if (!different) setArrivalPoint("");
-              }}
-            />
-            Το ταξίδι τελειώνει σε διαφορετικό σημείο
-          </label>
-
-          {!sameDestination && (
+          {regionId && !pickingPlace && (
             <>
-              <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>Πού τελειώνει το ταξίδι;</p>
-              <input
-                type="text"
-                style={{ ...input, marginBottom: 20 }}
-                placeholder="π.χ. Ρόδος"
-                value={arrivalPoint}
-                onChange={(e) => setArrivalPoint(e.target.value)}
-              />
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, margin: "18px 0 12px", minHeight: 44, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={!sameDestination}
+                  onChange={(e) => {
+                    const different = e.target.checked;
+                    setSameDestination(!different);
+                    if (!different) setArrivalPoint("");
+                  }}
+                />
+                Τελειώνει σε άλλο σημείο
+              </label>
+
+              {!sameDestination && (
+                <div style={{ marginBottom: 20 }}>
+                  <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>Πού τελειώνει;</p>
+                  <PlacePicker mode="arrival" regions={lookups.regions} value={arrivalPoint} onChange={setArrivalPoint} autoFocus />
+                </div>
+              )}
             </>
           )}
 
           <button
             type="button"
-            disabled={!departurePoint.trim() || (!sameDestination && !arrivalPoint.trim())}
+            disabled={pickingPlace || !regionId || !departurePoint.trim() || (!sameDestination && !arrivalPoint.trim())}
             onClick={next}
-            style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15 }}
+            style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15, marginTop: regionId && !pickingPlace ? 0 : 24 }}
           >
             Συνέχεια
           </button>

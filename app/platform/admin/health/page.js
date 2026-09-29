@@ -3,7 +3,7 @@ import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useCallback, useEffect, useState } from "react";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Empty, colors, muted, button } from "../ui";
-import { adminHealthIssues, adminResolveHealthIssue, adminRunHealthChecks, adminFlowStats } from "../../../../lib/platform/db";
+import { adminHealthIssues, adminResolveHealthIssue, adminRunHealthChecks, adminFlowStats, adminPlaceMisses } from "../../../../lib/platform/db";
 import { timeAgo } from "../../../../lib/platform/notifications";
 
 const SOURCE_LABEL = { data: "Δεδομένα", app: "Σφάλμα χρήστη", flow: "Ροή" };
@@ -90,12 +90,18 @@ export default function HealthPage() {
   const [error, setError] = useState("");
   const [checkedAt, setCheckedAt] = useState(null);
   const [flows, setFlows] = useState([]);
+  const [misses, setMisses] = useState([]);
 
   const load = useCallback(async () => {
     try {
-      const [list, stats] = await Promise.all([adminHealthIssues(showClosed), adminFlowStats(7)]);
+      const [list, stats, missed] = await Promise.all([
+        adminHealthIssues(showClosed),
+        adminFlowStats(7),
+        adminPlaceMisses(30).catch(() => []),
+      ]);
       setIssues(list);
       setFlows(stats);
+      setMisses(missed);
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -203,6 +209,37 @@ export default function HealthPage() {
               </div>
             );
           })}
+      </Panel>
+
+      <Panel
+        title="Μέρη που δεν βρέθηκαν · 30 ημέρες"
+        subtitle="Ό,τι έγραψαν πελάτες στο «Από πού ξεκινά το ταξίδι;» και δεν υπήρχε στη λίστα μερών."
+        padded={false}
+      >
+        {!loading && misses.length === 0 && <Empty>Κανένα.</Empty>}
+        {misses.map((m) => (
+          <div
+            key={m.query}
+            style={{
+              borderBottom: `1px solid ${colors.border}`,
+              padding: "12px 16px",
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink, wordBreak: "break-word" }}>{m.query}</div>
+              <div style={{ ...muted, fontSize: 12.5, marginTop: 3 }}>
+                {[m.regions, `τελευταία ${timeAgo(m.last_at)}`].filter(Boolean).join(" · ")}
+              </div>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: colors.ink, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+              {m.times}×
+            </div>
+          </div>
+        ))}
       </Panel>
 
       <Panel
