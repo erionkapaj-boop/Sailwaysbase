@@ -102,17 +102,38 @@
 - Μετά: κάθε σφάλμα που βλέπει χρήστης καταγράφεται και σου στέλνει email.
 
 ## Έλεγχος ασφαλείας (0115) — ρυθμίσεις στο Supabase
-1. **CAPTCHA στη σύνδεση:** Supabase → Authentication → Attack Protection →
-   Enable CAPTCHA protection (Cloudflare Turnstile, δωρεάν). Χρειάζεται και
-   αλλαγή στην οθόνη σύνδεσης· θα τη φτιάξω μόλις υπάρχει το site key.
-2. **Κλειστή δημόσια εγγραφή:** Authentication → Sign In / Providers →
-   «Allow new users to sign up» = off. Η εφαρμογή φτιάχνει λογαριασμούς από
-   τον διακομιστή, οπότε η εγγραφή συνεχίζει να δουλεύει.
-3. **Διακομιστής φωτογραφιών:** μετά το 0115, στο SQL Editor:
-   ```sql
-   select * from platform_config;
-   ```
-   Αν είναι κενό, βάλε τον δικό σου (η διεύθυνση του project χωρίς https://):
-   ```sql
-   insert into platform_config (key, value) values ('photo_host', 'XXXX.supabase.co');
-   ```
+Το 0115 έχει εφαρμοστεί στην παραγωγή (επιβεβαιώθηκε με έλεγχο)· ο διακομιστής
+φωτογραφιών ορίστηκε μόνος του (`cpkeosztnqxtstmfervo.supabase.co`).
+
+### 1. CAPTCHA στη σύνδεση (Cloudflare Turnstile, δωρεάν)
+Χωρίς αυτό, κάποιος με πολλές διευθύνσεις μπορεί να μαντεύει PIN.
+
+⚠️ **Η σειρά μετράει.** Αν ανοίξει πρώτα στο Supabase, κανείς δεν μπαίνει
+(ούτε ο ιδιοκτήτης), γιατί η εφαρμογή δεν στέλνει ακόμα το CAPTCHA.
+
+**Βήμα 1 — Cloudflare (εσύ)**
+1. dash.cloudflare.com (δωρεάν λογαριασμός) → **Turnstile** → **Add widget**.
+2. Widget name: `SkipperFinder` · Hostnames: `skipperfinder.gr`,
+   `www.skipperfinder.gr` και η διεύθυνση `.vercel.app` του project ·
+   Widget mode: **Managed** → **Create**.
+3. Δίνει δύο κλειδιά:
+   - **Site key** (δημόσιο) → στέλνεται σε εμένα.
+   - **Secret key** (μυστικό) → δεν στέλνεται πουθενά· κρατιέται για το βήμα 3.
+
+**Βήμα 2 — Εφαρμογή (εγώ)**
+Το CAPTCHA μπαίνει στη σύνδεση και σε όσες οθόνες ζητούν PIN (αλλαγή
+τηλεφώνου, email, διαγραφή λογαριασμού). Μετά: μία μεταβλητή στο Vercel και
+redeploy.
+
+**Βήμα 3 — Supabase (εσύ, μόνο αφού ανέβει το βήμα 2)**
+1. Supabase → project → **Authentication** → **Attack Protection**
+   (παλιότερη εμφάνιση: Settings → Bot and Abuse Protection).
+2. **Enable CAPTCHA protection** → Provider: **Turnstile by Cloudflare**.
+3. **Captcha secret**: το Secret key του βήματος 1 → **Save**.
+4. Μία δοκιμαστική σύνδεση. Αν κάτι δεν πάει καλά: κλείνεις τον ίδιο
+   διακόπτη και όλα γυρίζουν όπως πριν.
+
+### 2. Κλειστή δημόσια εγγραφή (γίνεται οποτεδήποτε, ασφαλές)
+Authentication → Sign In / Providers → **Allow new users to sign up** = off.
+Η εγγραφή μέσα από την εφαρμογή συνεχίζει να δουλεύει: τους λογαριασμούς
+τους φτιάχνει ο διακομιστής.
