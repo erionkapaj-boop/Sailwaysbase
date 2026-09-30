@@ -144,16 +144,10 @@ if (!thess || thess.covered || !thess.near.some((n) => n.name === "Σποράδ�
 const kal = index.find((e) => e.name === "Καλαμάτα");
 if (!kal?.covered || kal.regionName !== "Ιόνιο") failures.push("Καλαμάτα → Ιόνιο");
 
-// Προτεινόμενα λιμάνια = η λίστα του ιδιοκτήτη (gr.ports.js), με τη σειρά της, ανά περιοχή.
-const suggested = suggestedPlaces(index, "GR");
-const perRegion = {};
-for (const e of suggested) perRegion[e.regionName] = (perRegion[e.regionName] || 0) + 1;
-const WANT = { Σαρωνικός: 10, Κυκλάδες: 15, Ιόνιο: 16, Δωδεκάνησα: 12, Σποράδες: 5, Κρήτη: 6 };
-if (JSON.stringify(perRegion) !== JSON.stringify(WANT)) failures.push(`προτεινόμενα ανά περιοχή: ${JSON.stringify(perRegion)}`);
-const first = suggested.map((e) => (e.child ? `${e.parent} – ${e.name}` : e.name));
-for (const w of ["Άλιμος", "Λαύριο", "Κέα – Κορησσία", "Πάρος – Παροικιά", "Κέρκυρα – Gouvia Marina", "Κεφαλονιά – Αργοστόλι", "Ρόδος", "Άγιος Νικόλαος"])
-  if (!first.includes(w)) failures.push(`λείπει από τα προτεινόμενα: ${w}`);
-if (suggested.some((e, i) => e.base !== i + 1)) failures.push("η σειρά των προτεινόμενων δεν ακολουθεί τη λίστα");
+// Βασικά λιμάνια = η λίστα του ιδιοκτήτη (gr.ports.js), με τη σειρά της.
+const suggested = suggestedPlaces(index, "GR").map((e) => [e.child ? `${e.parent} – ${e.name}` : e.name, e.regionName]);
+const BASES = [["Άλιμος", "Σαρωνικός"], ["Λαύριο", "Σαρωνικός"], ["Λευκάδα", "Ιόνιο"], ["Πρέβεζα", "Ιόνιο"], ["Κέρκυρα – Gouvia Marina", "Ιόνιο"], ["Κως", "Δωδεκάνησα"], ["Ρόδος", "Δωδεκάνησα"], ["Σκιάθος", "Σποράδες"], ["Βόλος", "Σποράδες"], ["Πάρος", "Κυκλάδες"], ["Μύκονος", "Κυκλάδες"], ["Ζάκυνθος", "Ιόνιο"]];
+if (JSON.stringify(suggested) !== JSON.stringify(BASES)) failures.push(`βασικά λιμάνια: ${suggested.map((b) => b.join("—")).join(", ")}`);
 
 // Λιμάνια που υπάρχουν σε πολλά νησιά ξεχωρίζουν, και το σημείο αναχώρησης τα ξαναδιαβάζει σωστά.
 const vathy = searchPlaces(index, "βαθυ", 8).filter((e) => e.name === "Βαθύ").map((e) => e.parent).sort().join(",");

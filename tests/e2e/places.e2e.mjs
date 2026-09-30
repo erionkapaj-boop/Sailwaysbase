@@ -29,18 +29,14 @@ await as(MARIA, async (page) => {
   t = await text(page);
   check("μετά το μέρος (όχι περιοχή / λιμάνι ξεχωριστά)", t.includes("Από πού ξεκινά το ταξίδι;") && !t.includes("Ποια περιοχή;"));
   await shoot(page, "wizard-where-empty");
-  const tabs = (await page.getByRole("tab").allInnerTexts()).map((x) => x.trim());
-  check("προτεινόμενα λιμάνια ανά περιοχή (καρτέλες)", tabs.join(",") === "Σαρωνικός,Κυκλάδες,Ιόνιο,Δωδεκάνησα,Σποράδες,Κρήτη", tabs.join(","));
-  const rowsOf = async () => (await page.locator("[role=tabpanel] .sf-pp-row").allInnerTexts()).map((x) => x.trim());
-  check("Σαρωνικός: η λίστα του ιδιοκτήτη, με τη σειρά της", (await rowsOf()).join(",") === "Άλιμος,Λαύριο,Ζέα,Φλοίσβος,Αίγινα,Πόρος,Ύδρα,Σπέτσες,Πόρτο Χέλι,Ερμιόνη");
-  await page.getByRole("tab", { name: "Ιόνιο" }).click();
-  const ion = await rowsOf();
-  check("Ιόνιο: νησί – λιμάνι", ion.length === 16 && ion[0] === "Κέρκυρα – Gouvia Marina" && ion.includes("Ιθάκη – Βαθύ") && ion.includes("Πρέβεζα"), ion.join(","));
-  await shoot(page, "wizard-where-tab");
-  await page.getByRole("tab", { name: "Κυκλάδες" }).click();
-  await page.getByRole("button", { name: "Πάρος – Παροικιά" }).click();
+  const bases = (await page.locator("[data-base-ports] .sf-pp-name").allInnerTexts()).map((x) => x.trim());
+  check("βασικά λιμάνια: η λίστα του ιδιοκτήτη, με τη σειρά της",
+    bases.join(",") === "Άλιμος,Λαύριο,Λευκάδα,Πρέβεζα,Κέρκυρα,Κως,Ρόδος,Σκιάθος,Βόλος,Πάρος,Μύκονος,Ζάκυνθος", bases.join(","));
+  check("χωρίς εσωτερικούς όρους στη σελίδα", !/προτεινόμεν/i.test(await text(page)));
+  await page.locator("[data-base-ports] .sf-pp-row").filter({ hasText: "Gouvia Marina" }).click();
   t = await text(page);
-  check("λιμάνι από τη λίστα: νησί, περιοχή και επιλεγμένο λιμάνι", t.includes("Πάρος") && t.includes("Κυκλάδες · Ελλάδα") && (await page.getByRole("button", { name: "Παροικιά", exact: true }).getAttribute("aria-pressed")) === "true", t.slice(0, 300));
+  check("Κέρκυρα – Gouvia: νησί, περιοχή και λιμάνι επιλεγμένο",
+    t.includes("Κέρκυρα") && t.includes("Ιόνιο · Ελλάδα") && (await page.getByRole("button", { name: "Gouvia Marina", exact: true }).getAttribute("aria-pressed")) === "true", t.slice(0, 300));
   await page.getByRole("button", { name: "Αλλαγή" }).click();
   check("το πεδίο έχει ήδη την εστίαση", await combobox(page).evaluate((el) => el === document.activeElement));
   check("χωρίς περιοχή δεν συνεχίζει", await page.getByRole("button", { name: "Συνέχεια" }).isDisabled());

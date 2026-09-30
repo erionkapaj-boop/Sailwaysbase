@@ -60,14 +60,6 @@ const CSS = `
 .sf-pp-row[aria-pressed="true"] .sf-pp-radio { border: 6px solid ${colors.ink}; }
 .sf-pp-chev { flex-shrink: 0; color: #A9B3BD; transition: transform .2s ease; }
 .sf-pp-row[aria-expanded="true"] .sf-pp-chev { transform: rotate(90deg); }
-.sf-pp-tabs { display: flex; gap: 18px; margin: 0 0 12px; padding-right: 32px; overflow-x: auto; border-bottom: 1px solid ${colors.border}; scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
-.sf-pp-tabs::-webkit-scrollbar { display: none; }
-.sf-pp-tab { position: relative; flex-shrink: 0; min-height: 44px; padding: 0; border: 0; background: none; font: inherit; font-size: 14.5px; color: ${colors.inkSoft}; cursor: pointer; transition: color .15s ease; }
-.sf-pp-tab:hover { color: ${colors.ink}; }
-.sf-pp-tab[aria-selected="true"] { color: ${colors.ink}; font-weight: 500; }
-.sf-pp-tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: ${colors.ink}; border-radius: 2px; }
-.sf-pp-tab:focus-visible { outline: 2px solid ${colors.ink}; outline-offset: 4px; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) { .sf-pp-input, .sf-pp-row, .sf-pp-radio, .sf-pp-chev { transition: none; } }
 `;
 
@@ -119,18 +111,12 @@ export default function PlacePicker({
   const [openRegion, setOpenRegion] = useState(null);
   const [unlisted, setUnlisted] = useState(false);
   const [uncovered, setUncovered] = useState(null);
-  const [tab, setTab] = useState(null);
   const [ownCountry, setOwnCountry] = useState(choice?.region?.countryCode || COUNTRIES[0].code);
   const country = countryProp || ownCountry;
   const showCountryChoice = !countryProp && !arrival && COUNTRIES.length > 1;
   const inputRef = useRef(null);
   const focusNext = useRef(autoFocus);
   const listId = useId();
-  const tabsRef = useRef(null);
-  useEffect(() => {
-    // Η καρτέλα που διάλεξε φαίνεται ολόκληρη, ακόμα κι αν ήταν κομμένη στην άκρη.
-    if (tab) tabsRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-  }, [tab]);
 
   // Όσο αλλάζει μέρος, η γονική φόρμα δεν προχωρά με την παλιά επιλογή.
   const editingNow = editing || !hasValue;
@@ -416,8 +402,6 @@ export default function PlacePicker({
   const showList = !askRegion && options.length > 0;
   const activeId = showList ? `${listId}-${active}` : undefined;
   const suggested = !arrival && trimmed.length < 2 ? suggestedPlaces(index, country) : [];
-  const tabs = [...new Set(suggested.map((e) => e.regionName))];
-  const activeTab = tabs.includes(tab) ? tab : tabs[0];
   return (
     <div data-place-picker="edit">
       {styleTag}
@@ -508,23 +492,17 @@ export default function PlacePicker({
       )}
 
       {suggested.length > 0 && (
-        <div style={{ marginTop: 28 }}>
-          <p style={label}>Προτεινόμενα λιμάνια</p>
-          <div className="sf-pp-tabs" role="tablist" aria-label="Περιοχή" ref={tabsRef}>
-            {tabs.map((t) => (
-              <button key={t} type="button" role="tab" className="sf-pp-tab" aria-selected={t === activeTab} onClick={() => setTab(t)}>
-                {t}
+        <div style={{ marginTop: 20 }}>
+          <div className="sf-pp-list" data-base-ports>
+            {suggested.map((e) => (
+              <button key={e.id} type="button" className="sf-pp-row" onClick={() => pick(e)}>
+                <span>
+                  <span className="sf-pp-name">{e.child ? e.parent : e.name}</span>
+                  <span className="sf-pp-sub">{[e.child ? e.name : e.parent, e.regionName].filter(Boolean).join(" · ")}</span>
+                </span>
+                <Chevron />
               </button>
             ))}
-          </div>
-          <div className="sf-pp-list" role="tabpanel">
-            {suggested
-              .filter((e) => e.regionName === activeTab)
-              .map((e) => (
-                <button key={e.id} type="button" className="sf-pp-row" onClick={() => pick(e)}>
-                  <span className="sf-pp-name">{e.child ? `${e.parent} – ${e.name}` : e.name}</span>
-                </button>
-              ))}
           </div>
           {regions.length > 0 && (
             <button
@@ -536,7 +514,7 @@ export default function PlacePicker({
                 setBrowsing(true);
               }}
             >
-              Δες όλες τις περιοχές
+              Άλλο μέρος; Δες όλες τις περιοχές
             </button>
           )}
         </div>
