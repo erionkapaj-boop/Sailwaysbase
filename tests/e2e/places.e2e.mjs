@@ -109,14 +109,14 @@ await as(MARIA, async (page) => {
 
   // ---- Μέρος που δεν υπάρχει: χωρίς αδιέξοδο ----
   await go(page, "/platform/search");
-  await combobox(page).fill("Καρλόβασι");
+  await combobox(page).fill("Γκιόκοβα");
   await page.waitForTimeout(200);
   t = await text(page);
-  check("δεν βρέθηκε → ρωτά την περιοχή", t.includes("Δεν το βρήκαμε στη λίστα. Σε ποια περιοχή είναι το «Καρλόβασι»;"), t.slice(0, 300));
+  check("δεν βρέθηκε → ρωτά την περιοχή", t.includes("Δεν το βρήκαμε στη λίστα. Σε ποια περιοχή είναι το «Γκιόκοβα»;"), t.slice(0, 300));
   await shoot(page, "search-unlisted");
   await page.locator("[data-place-picker=unlisted] button").filter({ hasText: "Δωδεκάνησα" }).click();
   await page.waitForTimeout(800);
-  check("κρατά ό,τι έγραψε, με την περιοχή", (await page.locator("[data-place-title]").first().innerText()) === "Καρλόβασι" && (await text(page)).includes("Δωδεκάνησα · Ελλάδα"));
+  check("κρατά ό,τι έγραψε, με την περιοχή", (await page.locator("[data-place-title]").first().innerText()) === "Γκιόκοβα" && (await text(page)).includes("Δωδεκάνησα · Ελλάδα"));
 
   // ---- Πόλεις χωρίς επαγγελματίες ακόμα: τις βρίσκει, ενημερώνεται, δεν κολλάει ----
   await page.getByRole("button", { name: "Αλλαγή" }).first().click();
@@ -159,13 +159,13 @@ await as(MARIA, async (page) => {
 });
 
 check("η Θεσσαλονίκη καταγράφηκε ως ζήτηση εκτός κάλυψης", num(`select count(*) from place_search_misses where query = 'Θεσσαλονίκη' and region_id is null`) === 1);
-check("το «Καρλόβασι» καταγράφηκε μία φορά, στα Δωδεκάνησα",
-  num(`select count(*) from place_search_misses m join regions r on r.id = m.region_id where m.query = 'Καρλόβασι' and r.name = 'Δωδεκάνησα'`) === 1);
+check("το «Γκιόκοβα» καταγράφηκε μία φορά, στα Δωδεκάνησα",
+  num(`select count(*) from place_search_misses m join regions r on r.id = m.region_id where m.query = 'Γκιόκοβα' and r.name = 'Δωδεκάνησα'`) === 1);
 
 await as(ADMIN, async (page) => {
   await go(page, "/platform/admin/health");
   const t = await text(page);
-  check("ο ιδιοκτήτης βλέπει τι δεν βρέθηκε", t.includes("Καρλόβασι") && t.includes("1×"), t.slice(0, 600));
+  check("ο ιδιοκτήτης βλέπει τι δεν βρέθηκε", t.includes("Γκιόκοβα") && t.includes("1×"), t.slice(0, 600));
 });
 
 sql(`delete from place_search_misses`);
