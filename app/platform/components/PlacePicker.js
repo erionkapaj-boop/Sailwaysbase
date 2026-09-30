@@ -5,8 +5,9 @@ import {
   describeChoice,
   placesInRegion,
   pointFor,
-  popularPlaces,
+  pointOf,
   searchPlaces,
+  suggestedPlaces,
 } from "../../../lib/platform/placeSearch";
 import { COUNTRIES, regionExamples, regionIn } from "../../../lib/platform/places";
 import { logPlaceMiss } from "../../../lib/platform/health";
@@ -59,6 +60,14 @@ const CSS = `
 .sf-pp-row[aria-pressed="true"] .sf-pp-radio { border: 6px solid ${colors.ink}; }
 .sf-pp-chev { flex-shrink: 0; color: #A9B3BD; transition: transform .2s ease; }
 .sf-pp-row[aria-expanded="true"] .sf-pp-chev { transform: rotate(90deg); }
+.sf-pp-tabs { display: flex; gap: 18px; margin: 0 0 12px; padding-right: 32px; overflow-x: auto; border-bottom: 1px solid ${colors.border}; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+.sf-pp-tabs::-webkit-scrollbar { display: none; }
+.sf-pp-tab { position: relative; flex-shrink: 0; min-height: 44px; padding: 0; border: 0; background: none; font: inherit; font-size: 14.5px; color: ${colors.inkSoft}; cursor: pointer; transition: color .15s ease; }
+.sf-pp-tab:hover { color: ${colors.ink}; }
+.sf-pp-tab[aria-selected="true"] { color: ${colors.ink}; font-weight: 500; }
+.sf-pp-tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: ${colors.ink}; border-radius: 2px; }
+.sf-pp-tab:focus-visible { outline: 2px solid ${colors.ink}; outline-offset: 4px; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) { .sf-pp-input, .sf-pp-row, .sf-pp-radio, .sf-pp-chev { transition: none; } }
 `;
 
@@ -110,12 +119,18 @@ export default function PlacePicker({
   const [openRegion, setOpenRegion] = useState(null);
   const [unlisted, setUnlisted] = useState(false);
   const [uncovered, setUncovered] = useState(null);
+  const [tab, setTab] = useState(null);
   const [ownCountry, setOwnCountry] = useState(choice?.region?.countryCode || COUNTRIES[0].code);
   const country = countryProp || ownCountry;
   const showCountryChoice = !countryProp && !arrival && COUNTRIES.length > 1;
   const inputRef = useRef(null);
   const focusNext = useRef(autoFocus);
   const listId = useId();
+  const tabsRef = useRef(null);
+  useEffect(() => {
+    // Η καρτέλα που διάλεξε φαίνεται ολόκληρη, ακόμα κι αν ήταν κομμένη στην άκρη.
+    if (tab) tabsRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [tab]);
 
   // Όσο αλλάζει μέρος, η γονική φόρμα δεν προχωρά με την παλιά επιλογή.
   const editingNow = editing || !hasValue;
@@ -192,7 +207,7 @@ export default function PlacePicker({
       setQuery("");
       return;
     }
-    done({ regionId: opt.regionId, point: opt.name });
+    done({ regionId: opt.regionId, point: pointOf(opt) });
   }
 
   function pickUnlistedRegion(r) {
@@ -380,7 +395,7 @@ export default function PlacePicker({
                       Οπουδήποτε {regionIn(r.name)}
                     </button>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
-                      {placesInRegion(index, r.regionId, 14).map((e) => (
+                      {placesInRegion(index, r.regionId, 80).map((e) => (
                         <button key={e.id} type="button" className="sf-pp-cell" onClick={() => done({ regionId: e.regionId, point: e.name })}>
                           {e.name}
                         </button>
@@ -400,7 +415,9 @@ export default function PlacePicker({
   // ---- Γράφει -------------------------------------------------------------
   const showList = !askRegion && options.length > 0;
   const activeId = showList ? `${listId}-${active}` : undefined;
-  const base = !arrival && trimmed.length < 2 ? popularPlaces(index, country) : [];
+  const suggested = !arrival && trimmed.length < 2 ? suggestedPlaces(index, country) : [];
+  const tabs = [...new Set(suggested.map((e) => e.regionName))];
+  const activeTab = tabs.includes(tab) ? tab : tabs[0];
   return (
     <div data-place-picker="edit">
       {styleTag}
@@ -490,30 +507,38 @@ export default function PlacePicker({
         </div>
       )}
 
-      {base.length > 0 && (
-        <div style={{ marginTop: 24 }}>
-          <p style={label}>Βασικά λιμάνια</p>
-          <div className="sf-pp-list">
-            {base.map((e) => (
-              <button key={e.id} type="button" className="sf-pp-row" onClick={() => pick(e)}>
-                <span className="sf-pp-name">{e.name}</span>
-                <span className="sf-pp-side">{e.regionName}</span>
+      {suggested.length > 0 && (
+        <div style={{ marginTop: 28 }}>
+          <p style={label}>Προτεινόμενα λιμάνια</p>
+          <div className="sf-pp-tabs" role="tablist" aria-label="Περιοχή" ref={tabsRef}>
+            {tabs.map((t) => (
+              <button key={t} type="button" role="tab" className="sf-pp-tab" aria-selected={t === activeTab} onClick={() => setTab(t)}>
+                {t}
               </button>
             ))}
-            {regions.length > 0 && (
-              <button
-                type="button"
-                className="sf-pp-row"
-                onClick={() => {
-                  setOpenRegion(null);
-                  setBrowsing(true);
-                }}
-              >
-                <span className="sf-pp-name" style={{ color: colors.inkSoft, fontWeight: 400 }}>Δες όλες τις περιοχές</span>
-                <Chevron />
-              </button>
-            )}
           </div>
+          <div className="sf-pp-list" role="tabpanel">
+            {suggested
+              .filter((e) => e.regionName === activeTab)
+              .map((e) => (
+                <button key={e.id} type="button" className="sf-pp-row" onClick={() => pick(e)}>
+                  <span className="sf-pp-name">{e.child ? `${e.parent} – ${e.name}` : e.name}</span>
+                </button>
+              ))}
+          </div>
+          {regions.length > 0 && (
+            <button
+              type="button"
+              className="sf-pp-ghost"
+              style={{ marginTop: 8, color: colors.ink }}
+              onClick={() => {
+                setOpenRegion(null);
+                setBrowsing(true);
+              }}
+            >
+              Δες όλες τις περιοχές
+            </button>
+          )}
         </div>
       )}
       {!arrival && trimmed.length < 2 && <RegionsState regions={regions} failed={failed} onRetry={onRetry} />}

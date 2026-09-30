@@ -1,0 +1,1 @@
+  if (names[0] === want) top1++; else if (process.env.SHOW) console.log("not first:", q, "→", names.join(", "), "

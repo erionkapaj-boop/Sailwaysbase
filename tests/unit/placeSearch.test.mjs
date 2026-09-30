@@ -1,7 +1,7 @@
 // Εύρεση μέρους με ορθογραφικά λάθη: ό,τι θα έγραφε ένας πραγματικός πελάτης.
 // Κάθε γραμμή: [τι έγραψε, τι ήθελε]. Το σωστό πρέπει να είναι στις 3 πρώτες
 // επιλογές (και πρώτο στις περισσότερες). Τρέχει με: node tests/unit/placeSearch.test.mjs
-import { buildPlaceIndex, searchPlaces, phoneticKey, describeChoice, pointFor, popularPlaces } from "../../lib/platform/placeSearch.js";
+import { buildPlaceIndex, searchPlaces, phoneticKey, editDistance, describeChoice, pointFor, pointOf, suggestedPlaces } from "../../lib/platform/placeSearch.js";
 import { PLACES, REGION_INFO } from "../../lib/platform/places.js";
 
 // Οι περιοχές που έχουν επαγγελματίες στη βάση (οι υπόλοιπες δεν καλύπτονται ακόμα).
@@ -29,10 +29,10 @@ const CASES = [
   ["μηλος", "Μήλος"], ["milos", "Μήλος"], ["μιλοσ", "Μήλος"],
   ["συρος", "Σύρος"], ["siros", "Σύρος"], ["ερμουπολη", "Ερμούπολη"], ["ermoupolis", "Ερμούπολη"],
   ["ναουσα", "Νάουσα"], ["naousa", "Νάουσα"], ["naoussa", "Νάουσα"], ["νααουσα", "Νάουσα"],
-  ["τζια", "Κέα"], ["kea", "Κέα"], ["κουφονησια", "Κουφονήσια"], ["koufonisi", "Κουφονήσια"],
+  ["τζια", "Κέα"], ["kea", "Κέα"], ["κουφονησια", "Κουφονήσι"], ["koufonisi", "Κουφονήσι"],
   ["φολεγανδρος", "Φολέγανδρος"], ["folegandros", "Φολέγανδρος"], ["αμοργος", "Αμοργός"],
   // Ιόνιο
-  ["κερκυρα", "Κέρκυρα"], ["corfu", "Κέρκυρα"], ["kerkira", "Κέρκυρα"], ["κέρκηρα", "Κέρκυρα"], ["γουβια", "Γουβιά"], ["gouvia", "Γουβιά"],
+  ["κερκυρα", "Κέρκυρα"], ["corfu", "Κέρκυρα"], ["kerkira", "Κέρκυρα"], ["κέρκηρα", "Κέρκυρα"], ["γουβια", "Gouvia Marina"], ["gouvia", "Gouvia Marina"],
   ["λευκαδα", "Λευκάδα"], ["lefkada", "Λευκάδα"], ["lefkas", "Λευκάδα"], ["λεφκαδα", "Λευκάδα"], ["νυδρι", "Νυδρί"], ["nidri", "Νυδρί"],
   ["ζακυνθος", "Ζάκυνθος"], ["zante", "Ζάκυνθος"], ["zakinthos", "Ζάκυνθος"], ["ζακηνθος", "Ζάκυνθος"],
   ["κεφαλονια", "Κεφαλονιά"], ["kefalonia", "Κεφαλονιά"], ["cefalonia", "Κεφαλονιά"], ["κεφαλωνια", "Κεφαλονιά"], ["argostoli", "Αργοστόλι"], ["fiskardo", "Φισκάρδο"],
@@ -74,6 +74,7 @@ const failures = [];
 for (const [q, want] of CASES) {
   const names = searchPlaces(index, q, 5).map((e) => e.name);
   if (names[0] === want) top1++;
+  else if (process.env.SHOW) console.log("δεν είναι πρώτο:", q, "→", names.join(", "), "| ήθελε", want);
   if (names.slice(0, 3).includes(want)) top3++;
   else failures.push(`«${q}» → ${names.join(", ") || "—"} (ήθελε ${want})`);
 }
@@ -90,15 +91,29 @@ if (both[0] !== "Πόρος") failures.push(`«ποροσ» → πρώτο πρ�
 // Κάθε μέρος έχει γνωστή περιοχή και βρίσκεται με το ίδιο του το όνομα.
 for (const p of PLACES) {
   if (!REGION_INFO[p.region]) failures.push(`${p.name}: άγνωστη περιοχή ${p.region}`);
-  for (const n of [p.name, p.en]) {
-    if (searchPlaces(index, n, 1)[0]?.name !== p.name && !p.aka?.includes(n)) {
-      const got = searchPlaces(index, n, 3).map((e) => e.name);
-      if (!got.includes(p.name)) failures.push(`«${n}» δεν βρίσκει το ${p.name} → ${got.join(", ")}`);
-    }
+  // Λιμάνι νησιού: βρίσκεται με «Νησί Λιμάνι» (το «Βαθύ» υπάρχει σε πολλά νησιά).
+  const queries = p.child ? [`${p.parent} ${p.name}`] : [p.name, p.en].filter(Boolean);
+  for (const n of queries) {
+    const got = searchPlaces(index, n, 3).map((e) => (e.child ? `${e.parent}–${e.name}` : e.name));
+    const want = p.child ? `${p.parent}–${p.name}` : p.name;
+    if (!got.includes(want) && !p.aka?.includes(n)) failures.push(`«${n}» δεν βρίσκει το ${want} → ${got.join(", ")}`);
   }
 }
-const dup = PLACES.map((p) => phoneticKey(p.name)).filter((k, i, a) => a.indexOf(k) !== i);
-if (dup.length) failures.push(`διπλά ονόματα στο λεξικό: ${dup.join(", ")}`);
+// Κάθε όνομα μία φορά ανά περιοχή (τα λιμάνια νησιών ξεχωρίζουν με το νησί τους).
+const ids = PLACES.map((p) => `${p.region}|${p.parent || ""}|${p.name}`);
+const dup = ids.filter((k, i) => ids.indexOf(k) !== i);
+if (dup.length) failures.push(`διπλά μέρη στο λεξικό: ${dup.join(", ")}`);
+const standalone = PLACES.filter((p) => !p.child).map((p) => phoneticKey(p.name));
+const dupStandalone = standalone.filter((k, i) => standalone.indexOf(k) !== i);
+if (dupStandalone.length) failures.push(`ίδια προφορά σε δύο μέρη (ενοποίησέ τα): ${dupStandalone.join(", ")}`);
+// Ίδιο λιμάνι με δύο γραφές, π.χ. «Κουφονήσι» / «Κουφονήσια»: ενοποιείται.
+// Πραγματικά διαφορετικά μέρη με σχεδόν ίδιο όνομα.
+const DIFFERENT = [["Ηρακλειά", "Ηράκλειο"], ["Καστός", "Κάσος"]];
+const names = PLACES.filter((p) => !p.child).map((p) => [phoneticKey(p.name), p.name]);
+for (let i = 0; i < names.length; i++)
+  for (let j = i + 1; j < names.length; j++)
+    if (names[i][0].length > 5 && editDistance(names[i][0], names[j][0]) <= 1 && !DIFFERENT.some(([a, b]) => [a, b].sort().join() === [names[i][1], names[j][1]].sort().join()))
+      failures.push(`σχεδόν ίδια ονόματα: ${names[i][1]} / ${names[j][1]}`);
 
 // Μια αποθηκευμένη επιλογή ξαναδιαβάζεται όπως επιλέχτηκε.
 const cyc = regions.find((r) => r.name === "Κυκλάδες").id;
@@ -129,10 +144,27 @@ if (!thess || thess.covered || !thess.near.some((n) => n.name === "Σποράδ�
 const kal = index.find((e) => e.name === "Καλαμάτα");
 if (!kal?.covered || kal.regionName !== "Ιόνιο") failures.push("Καλαμάτα → Ιόνιο");
 
-// Γρήγορες επιλογές = τα βασικά λιμάνια τσάρτερ, με αυτή τη σειρά, και οι περιοχές τους.
-const BASES = [["Άλιμος", "Σαρωνικός"], ["Λαύριο", "Κυκλάδες"], ["Λευκάδα", "Ιόνιο"], ["Πρέβεζα", "Ιόνιο"], ["Κέρκυρα", "Ιόνιο"], ["Κως", "Δωδεκάνησα"], ["Ρόδος", "Δωδεκάνησα"], ["Σκιάθος", "Σποράδες"], ["Βόλος", "Σποράδες"], ["Πάρος", "Κυκλάδες"], ["Μύκονος", "Κυκλάδες"]];
-const bases = popularPlaces(index, "GR").map((e) => [e.name, e.regionName]);
-if (JSON.stringify(bases) !== JSON.stringify(BASES)) failures.push(`γρήγορες επιλογές: ${bases.map((b) => b.join("—")).join(", ")}`);
+// Προτεινόμενα λιμάνια = η λίστα του ιδιοκτήτη (gr.ports.js), με τη σειρά της, ανά περιοχή.
+const suggested = suggestedPlaces(index, "GR");
+const perRegion = {};
+for (const e of suggested) perRegion[e.regionName] = (perRegion[e.regionName] || 0) + 1;
+const WANT = { Σαρωνικός: 10, Κυκλάδες: 15, Ιόνιο: 16, Δωδεκάνησα: 12, Σποράδες: 5, Κρήτη: 6 };
+if (JSON.stringify(perRegion) !== JSON.stringify(WANT)) failures.push(`προτεινόμενα ανά περιοχή: ${JSON.stringify(perRegion)}`);
+const first = suggested.map((e) => (e.child ? `${e.parent} – ${e.name}` : e.name));
+for (const w of ["Άλιμος", "Λαύριο", "Κέα – Κορησσία", "Πάρος – Παροικιά", "Κέρκυρα – Gouvia Marina", "Κεφαλονιά – Αργοστόλι", "Ρόδος", "Άγιος Νικόλαος"])
+  if (!first.includes(w)) failures.push(`λείπει από τα προτεινόμενα: ${w}`);
+if (suggested.some((e, i) => e.base !== i + 1)) failures.push("η σειρά των προτεινόμενων δεν ακολουθεί τη λίστα");
+
+// Λιμάνια που υπάρχουν σε πολλά νησιά ξεχωρίζουν, και το σημείο αναχώρησης τα ξαναδιαβάζει σωστά.
+const vathy = searchPlaces(index, "βαθυ", 8).filter((e) => e.name === "Βαθύ").map((e) => e.parent).sort().join(",");
+if (vathy !== "Αστυπάλαια,Ιθάκη,Κάλυμνος,Μέθανα,Μεγανήσι,Σίφνος") failures.push(`«Βαθύ» σε: ${vathy}`);
+const ithaca = searchPlaces(index, "ithaki vathy", 1)[0];
+if (!(ithaca?.parent === "Ιθάκη" && ithaca.name === "Βαθύ")) failures.push("«ithaki vathy» → Ιθάκη – Βαθύ");
+const ion = regions.find((r) => r.name === "Ιόνιο").id;
+const back = describeChoice(index, { regionId: ion, point: pointOf(ithaca) });
+if (!(back.kind === "place" && back.entry.name === "Ιθάκη" && back.port === "Βαθύ")) failures.push(`σημείο «${pointOf(ithaca)}» δεν ξαναδιαβάζεται`);
+const naoussa = searchPlaces(index, "naousa", 1)[0];
+if (pointOf(naoussa) !== "Νάουσα (Πάρος)") failures.push(`Νάουσα → ${pointOf(naoussa)}`);
 
 const pct = (n) => Math.round((100 * n) / CASES.length);
 console.log(`δοκιμές: ${CASES.length} · σωστό πρώτο: ${top1} (${pct(top1)}%) · στις 3 πρώτες: ${top3} (${pct(top3)}%)`);
