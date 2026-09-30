@@ -1330,6 +1330,7 @@ function SearchPageInner() {
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, margin: "6px 0 0", minHeight: 44, cursor: "pointer" }}>
               <input
                 type="checkbox"
+                style={{ width: 18, height: 18, accentColor: colors.ink }}
                 checked={!sameDestination}
                 onChange={(e) => {
                   const different = e.target.checked;

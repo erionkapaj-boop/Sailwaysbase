@@ -6,15 +6,18 @@ import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
 import BackButton from "./components/BackButton";
 import PlacePicker from "./components/PlacePicker";
+import { Mark } from "./components/Logo";
+import { COUNTRIES } from "../../lib/platform/places";
 import { button, colors, input, label, muted, radius, select, h2 } from "../../lib/platform/theme";
 
 // Progressive disclosure (brief §4): one question on screen at a time, gentle
 // fade/slide between them — never the whole form at once.
 //
-// "where" is one question instead of country → region → port: the client
-// types what they know (island, town, marina — typos welcome) and the region
-// follows from the place (PlacePicker). Anyone who doesn't know yet can browse
-// the regions from the same step.
+// "country" and "where" are two questions instead of country → region → port:
+// first the country (its own page — more countries are coming), then the
+// client types what they know (island, town, marina — typos welcome) or picks
+// one of the base ports, and the region follows from the place (PlacePicker).
+// Anyone who doesn't know yet can browse the regions from the same step.
 //
 // The "boat" step only makes sense when the search includes skipper: a boat
 // type is what a skipper operates, and hostess (or any future non-skipper
@@ -26,7 +29,7 @@ import { button, colors, input, label, muted, radius, select, h2 } from "../../l
 // asked for here instead, so landing on results means there's nothing left
 // to fill in, just candidates to browse and pick.
 function stepsFor(roles) {
-  const base = ["role", "dates", "where"];
+  const base = ["role", "dates", "country", "where"];
   const withBoat = roles.includes("skipper") ? [...base, "boat"] : base;
   return [...withBoat, "extras"];
 }
@@ -73,6 +76,7 @@ export default function CrewSearchFlow() {
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [], languages: [] });
   const [roles, setRoles] = useState([]);
   const [dates, setDates] = useState({ start: "", end: "" });
+  const [country, setCountry] = useState("");
   const [regionId, setRegionId] = useState("");
   const [departurePoint, setDeparturePoint] = useState("");
   const [arrivalPoint, setArrivalPoint] = useState("");
@@ -244,11 +248,41 @@ export default function CrewSearchFlow() {
         </div>
       )}
 
+      {current === "country" && (
+        <div key="country" data-sf-step style={stepWrap}>
+          <StepHeading>Ποια χώρα;</StepHeading>
+          {COUNTRIES.map((c) => (
+            <button
+              key={c.code}
+              type="button"
+              style={{ ...option(country === c.code), display: "flex", alignItems: "center", gap: 12 }}
+              onClick={() => {
+                if (country !== c.code) {
+                  setCountry(c.code);
+                  setRegionId("");
+                  setDeparturePoint("");
+                  setArrivalPoint("");
+                  setSameDestination(true);
+                }
+                next();
+              }}
+            >
+              <Mark size={22} />
+              <span style={{ flex: 1 }}>{c.name}</span>
+              <svg width="7" height="12" viewBox="0 0 7 12" fill="none" aria-hidden="true" style={{ color: "#A9B3BD" }}>
+                <path d="M1 1l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          ))}
+        </div>
+      )}
+
       {current === "where" && (
         <div key="where" data-sf-step style={stepWrap}>
           <StepHeading>Από πού ξεκινά το ταξίδι;</StepHeading>
           <PlacePicker
             regions={lookups.regions}
+            country={country || COUNTRIES[0].code}
             value={{ regionId, point: departurePoint }}
             onChange={({ regionId: r, point }) => {
               setRegionId(r);
@@ -262,9 +296,10 @@ export default function CrewSearchFlow() {
 
           {regionId && !pickingPlace && (
             <>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, margin: "18px 0 12px", minHeight: 44, cursor: "pointer" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, margin: "24px 0 20px", minHeight: 44, cursor: "pointer" }}>
                 <input
                   type="checkbox"
+                  style={{ width: 18, height: 18, accentColor: colors.ink }}
                   checked={!sameDestination}
                   onChange={(e) => {
                     const different = e.target.checked;

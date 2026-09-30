@@ -97,3 +97,14 @@ export async function pickPlace(page, typed, name = typed) {
   await box.fill(typed);
   await page.getByRole("option", { name: new RegExp(`^${name}`) }).first().click();
 }
+
+// Στιγμιότυπο για τον έλεγχο αισθητικής (docs/DESIGN.md): κινητό και desktop.
+export async function shoot(page, name) {
+  const original = page.viewportSize();
+  for (const [w, h, tag] of [[390, 844, "m"], [1280, 900, "d"]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: `${OUT}/design-${name}-${tag}.png`, fullPage: false });
+  }
+  if (original) await page.setViewportSize(original);
+}

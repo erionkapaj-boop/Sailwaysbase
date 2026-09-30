@@ -1,7 +1,7 @@
 // «Από πού ξεκινά το ταξίδι;» (0119): ο πελάτης γράφει ό,τι ξέρει, με λάθη,
 // διαλέγει από προτάσεις, και η περιοχή προκύπτει μόνη της. Δεν μένει ποτέ
 // σε αδιέξοδο: ό,τι δεν βρίσκεται → διαλέγει περιοχή, και ο ιδιοκτήτης το βλέπει.
-import { as, go, text, check, finish, sql, num, pickDay, daysFromToday, pickPlace } from "./lib.mjs";
+import { as, go, text, check, finish, sql, num, pickDay, daysFromToday, pickPlace, shoot } from "./lib.mjs";
 
 const MARIA = "6900002002", ADMIN = "6900002001";
 const cyclades = sql(`select id from regions where name = 'Κυκλάδες'`);
@@ -22,11 +22,16 @@ await as(MARIA, async (page) => {
   await page.waitForTimeout(400);
 
   let t = await text(page);
-  check("ένα βήμα για το «από πού» (όχι χώρα / περιοχή / λιμάνι)", t.includes("Από πού ξεκινά το ταξίδι;") && !t.includes("Ποια χώρα;"));
-  const chips = (await page.locator("[data-place-picker=edit] button").allInnerTexts()).map((x) => x.trim());
-  check("πρώτο σκαλοπάτι: η χώρα, επιλεγμένη", (await page.getByRole("button", { name: "Ελλάδα", exact: true }).getAttribute("aria-pressed")) === "true");
-  check("γρήγορες επιλογές = βασικά λιμάνια τσάρτερ, με τη σειρά τους",
-    chips.filter((x) => x !== "Ελλάδα").slice(0, 11).join(",") === "Άλιμος,Λαύριο,Λευκάδα,Πρέβεζα,Κέρκυρα,Κως,Ρόδος,Σκιάθος,Βόλος,Πάρος,Μύκονος", chips.join(","));
+  check("πρώτα η χώρα, σε δική της σελίδα", t.includes("Ποια χώρα;") && !t.includes("Από πού ξεκινά το ταξίδι;"));
+  await shoot(page, "wizard-country");
+  await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
+  await page.waitForTimeout(400);
+  t = await text(page);
+  check("μετά το μέρος (όχι περιοχή / λιμάνι ξεχωριστά)", t.includes("Από πού ξεκινά το ταξίδι;") && !t.includes("Ποια περιοχή;"));
+  await shoot(page, "wizard-where-empty");
+  const rows = (await page.locator("[data-place-picker=edit] .sf-pp-row").allInnerTexts()).map((x) => x.split("\n")[0].trim());
+  check("βασικά λιμάνια τσάρτερ, με τη σειρά τους",
+    rows.slice(0, 11).join(",") === "Άλιμος,Λαύριο,Λευκάδα,Πρέβεζα,Κέρκυρα,Κως,Ρόδος,Σκιάθος,Βόλος,Πάρος,Μύκονος", rows.join(","));
   check("το πεδίο έχει ήδη την εστίαση", await combobox(page).evaluate((el) => el === document.activeElement));
   check("χωρίς περιοχή δεν συνεχίζει", await page.getByRole("button", { name: "Συνέχεια" }).isDisabled());
 
@@ -35,6 +40,7 @@ await as(MARIA, async (page) => {
   let names = await options(page);
   check("«ποροσ» → Πόρος πρώτος, και η Πάρος στις επιλογές", names[0] === "Πόρος" && names.includes("Πάρος"), names.join(", "));
   check("τίποτα δεν επιλέχτηκε αυτόματα", await page.getByRole("button", { name: "Συνέχεια" }).isDisabled());
+  await shoot(page, "wizard-typing");
 
   // Λάθος γραφή → σωστό μέρος, με την περιοχή του.
   await pickPlace(page, "παρωσ", "Πάρος");
@@ -43,6 +49,7 @@ await as(MARIA, async (page) => {
   check("λιμάνια της Πάρου, με «Όπου βολεύει» προεπιλεγμένο",
     t.includes("Νάουσα") && (await page.getByRole("button", { name: "Όπου βολεύει" }).getAttribute("aria-pressed")) === "true");
   check("ενημέρωση για την περιοχή", t.includes("Επαγγελματίες διαθέσιμοι στις Κυκλάδες."));
+  await shoot(page, "wizard-selected");
   await page.getByRole("button", { name: "Νάουσα", exact: true }).click();
   check("επιλογή λιμανιού", (await page.getByRole("button", { name: "Νάουσα", exact: true }).getAttribute("aria-pressed")) === "true");
 
@@ -88,6 +95,7 @@ await as(MARIA, async (page) => {
   await page.waitForTimeout(200);
   t = await text(page);
   check("δεν βρέθηκε → ρωτά την περιοχή", t.includes("Δεν το βρήκαμε στη λίστα. Σε ποια περιοχή είναι το «Καρλόβασι»;"), t.slice(0, 300));
+  await shoot(page, "search-unlisted");
   await page.locator("[data-place-picker=unlisted] button").filter({ hasText: "Δωδεκάνησα" }).click();
   await page.waitForTimeout(800);
   check("κρατά ό,τι έγραψε, με την περιοχή", (await page.locator("[data-place-title]").first().innerText()) === "Καρλόβασι" && (await text(page)).includes("Δωδεκάνησα · Ελλάδα"));
@@ -97,6 +105,7 @@ await as(MARIA, async (page) => {
   await pickPlace(page, "salonica", "Θεσσαλονίκη");
   t = await text(page);
   check("Θεσσαλονίκη: βρέθηκε αλλά χωρίς επαγγελματίες ακόμα", t.includes("Δεν έχουμε ακόμα επαγγελματίες σε αυτή την περιοχή.") && t.includes("Βόρειο Αιγαίο"), t.slice(0, 300));
+  await shoot(page, "search-uncovered");
   await page.locator("[data-place-picker=uncovered] button").filter({ hasText: "Σποράδες" }).click();
   check("κρατά «Θεσσαλονίκη» με κοντινή περιοχή τις Σποράδες",
     (await page.locator("[data-place-title]").first().innerText()) === "Θεσσαλονίκη" && (await text(page)).includes("Σποράδες · Ελλάδα"));
@@ -116,6 +125,9 @@ await as(MARIA, async (page) => {
   await page.getByRole("button", { name: "Αλλαγή" }).first().click();
   await pickPlace(page, "ελλαδα", "Ελλάδα");
   check("«Ελλάδα» ανοίγει τις περιοχές", await page.locator("[data-place-picker=browse]").isVisible());
+  await page.getByRole("button", { name: /^Κυκλάδες/ }).click();
+  await shoot(page, "search-browse");
+  await page.getByRole("button", { name: /^Κυκλάδες/ }).click();
   await page.getByRole("button", { name: /^Ιόνιο/ }).click();
   await page.getByRole("button", { name: "Οπουδήποτε στο Ιόνιο" }).click();
   t = await text(page);
