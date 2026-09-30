@@ -1291,25 +1291,6 @@ function SearchPageInner() {
           something. */}
       {showFullFilters ? (
         <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
-          <div
-            style={{
-              gridColumn: "1 / -1",
-              ...(fieldErrors.dates ? { border: `1px solid ${colors.danger}`, borderRadius: radius.md, padding: 10 } : {}),
-            }}
-          >
-            <label style={label}>Ημερομηνίες</label>
-            <DateRangeCalendar
-              startDate={filters.startDate}
-              endDate={filters.endDate}
-              onChange={({ startDate, endDate }) => {
-                setFilters((f) => ({ ...f, startDate, endDate }));
-                clearFieldError("dates");
-              }}
-            />
-            {fieldErrors.dates && (
-              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "6px 0 0" }}>Επίλεξε ημερομηνίες.</p>
-            )}
-          </div>
           <div style={{ gridColumn: "1 / -1" }}>
             <label style={label}>Από πού ξεκινά το ταξίδι</label>
             <PlacePicker
@@ -1359,6 +1340,25 @@ function SearchPageInner() {
                   <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
                 )}
               </div>
+            )}
+          </div>
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              ...(fieldErrors.dates ? { border: `1px solid ${colors.danger}`, borderRadius: radius.md, padding: 10 } : {}),
+            }}
+          >
+            <label style={label}>Ημερομηνίες</label>
+            <DateRangeCalendar
+              startDate={filters.startDate}
+              endDate={filters.endDate}
+              onChange={({ startDate, endDate }) => {
+                setFilters((f) => ({ ...f, startDate, endDate }));
+                clearFieldError("dates");
+              }}
+            />
+            {fieldErrors.dates && (
+              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "6px 0 0" }}>Επίλεξε ημερομηνίες.</p>
             )}
           </div>
           <div>

@@ -11,13 +11,10 @@ const combobox = (page) => page.getByRole("combobox").first();
 const options = async (page) => (await page.getByRole("option").allInnerTexts()).map((t) => t.split("\n")[0].trim());
 
 await as(MARIA, async (page) => {
-  // ---- Οδηγός: ρόλος → ημερομηνίες → «από πού» ----
+  // ---- Οδηγός: ρόλος → χώρα → «από πού» → ημερομηνίες ----
   await go(page, "/platform");
   await page.locator("button.sf-cta").click();
   await page.getByRole("button", { name: /^Skipper/ }).click();
-  await page.getByRole("button", { name: "Συνέχεια" }).click();
-  await pickDay(page, daysFromToday(40));
-  await pickDay(page, daysFromToday(43));
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(400);
 
@@ -71,6 +68,21 @@ await as(MARIA, async (page) => {
   await page.getByLabel("Τελειώνει σε άλλο σημείο").check();
   await page.getByRole("combobox").fill("mikonos");
   await page.getByRole("option", { name: /^Μύκονος/ }).click();
+  await page.getByRole("button", { name: "Συνέχεια" }).click();
+  await page.waitForTimeout(400);
+
+  // Ημερολόγιο μετά το μέρος· η ενέργεια φαίνεται χωρίς κύλιση, και σε κινητό.
+  check("το ημερολόγιο έρχεται μετά το μέρος", (await text(page)).includes("Πότε;"));
+  await page.setViewportSize({ width: 390, height: 740 });
+  await pickDay(page, daysFromToday(40));
+  await pickDay(page, daysFromToday(43));
+  const inView = await page.getByRole("button", { name: "Συνέχεια" }).evaluate((b) => {
+    const r = b.getBoundingClientRect();
+    return r.top >= 0 && r.bottom <= window.innerHeight;
+  });
+  check("«Συνέχεια» ορατό στην οθόνη του κινητού χωρίς κύλιση", inView);
+  await shoot(page, "wizard-dates");
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(300);
   await page.getByRole("button", { name: "Ιστιοπλοϊκό" }).click();

@@ -11,7 +11,15 @@ import { container } from "../../lib/platform/theme";
 export default function LandingPage() {
   return (
     <div style={{ ...container, maxWidth: 680 }}>
+      {/* Κεντραρισμένο μόνο το πρώτο σκαλοπάτι· ο οδηγός ξεκινά από πάνω, ώστε
+          η ερώτηση και η ενέργεια να χωράνε στην οθόνη χωρίς κύλιση. */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: ".sf-home:has([data-sf-wizard]) { min-height: 0 !important; justify-content: flex-start !important; padding: 0 !important; }",
+        }}
+      />
       <div
+        className="sf-home"
         style={{
           minHeight: "58vh",
           display: "flex",

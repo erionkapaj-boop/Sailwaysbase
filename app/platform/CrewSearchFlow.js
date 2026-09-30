@@ -29,7 +29,7 @@ import { button, colors, input, label, muted, radius, select, h2 } from "../../l
 // asked for here instead, so landing on results means there's nothing left
 // to fill in, just candidates to browse and pick.
 function stepsFor(roles) {
-  const base = ["role", "dates", "country", "where"];
+  const base = ["role", "country", "where", "dates"];
   const withBoat = roles.includes("skipper") ? [...base, "boat"] : base;
   return [...withBoat, "extras"];
 }
@@ -65,6 +65,8 @@ const chip = (active) => ({
   background: active ? colors.ink : "transparent",
   color: active ? "#fff" : colors.ink,
 });
+
+const cta = { ...button("primary"), width: "100%", height: 52, padding: "0 18px", fontSize: 16, borderRadius: 12 };
 
 function StepHeading({ children }) {
   return <h2 style={{ ...h2, fontSize: 24, marginBottom: 20 }}>{children}</h2>;
@@ -177,7 +179,7 @@ export default function CrewSearchFlow() {
   const current = STEPS[step];
 
   return (
-    <div style={{ maxWidth: 460, width: "100%", margin: "0 auto" }}>
+    <div data-sf-wizard style={{ maxWidth: 460, width: "100%", margin: "0 auto" }}>
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes sf-step-in {
           from { opacity: 0; transform: translateY(8px); }
@@ -186,6 +188,14 @@ export default function CrewSearchFlow() {
         @media (prefers-reduced-motion: reduce) {
           [data-sf-step] { animation: none !important; }
         }
+        /* Η ενέργεια του βήματος μένει πάντα ορατή στο κάτω μέρος της οθόνης,
+           χωρίς κύλιση για να βρεθεί. */
+        .sf-step-footer {
+          position: sticky; bottom: 0; z-index: 5;
+          margin: 24px -20px 0; padding: 20px 20px calc(16px + env(safe-area-inset-bottom));
+          background: linear-gradient(to bottom, rgba(252,251,249,0) 0, ${colors.bg} 20px);
+        }
+        .sf-step-footer button:disabled { opacity: 1 !important; background: #D5DADF !important; color: #fff !important; cursor: not-allowed; }
       ` }} />
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
@@ -213,38 +223,30 @@ export default function CrewSearchFlow() {
               )}
             </button>
           ))}
-          <p style={{ ...muted, fontSize: 13, margin: "12px 0 20px" }}>
+          <p style={{ ...muted, fontSize: 13, margin: "12px 0 0" }}>
             Μπορείς να επιλέξεις περισσότερους από έναν.
           </p>
-          <button
-            type="button"
-            disabled={roles.length === 0}
-            onClick={next}
-            style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15 }}
-          >
-            Συνέχεια
-          </button>
+          <div className="sf-step-footer">
+            <button type="button" disabled={roles.length === 0} onClick={next} style={cta}>
+              Συνέχεια
+            </button>
+          </div>
         </div>
       )}
 
       {current === "dates" && (
         <div key="dates" data-sf-step style={stepWrap}>
           <StepHeading>Πότε;</StepHeading>
-          <div style={{ marginBottom: 24 }}>
-            <DateRangeCalendar
-              startDate={dates.start}
-              endDate={dates.end}
-              onChange={({ startDate, endDate }) => setDates({ start: startDate, end: endDate })}
-            />
+          <DateRangeCalendar
+            startDate={dates.start}
+            endDate={dates.end}
+            onChange={({ startDate, endDate }) => setDates({ start: startDate, end: endDate })}
+          />
+          <div className="sf-step-footer">
+            <button type="button" disabled={!dates.start || !dates.end || dates.end < dates.start} onClick={next} style={cta}>
+              Συνέχεια
+            </button>
           </div>
-          <button
-            type="button"
-            disabled={!dates.start || !dates.end || dates.end < dates.start}
-            onClick={next}
-            style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15 }}
-          >
-            Συνέχεια
-          </button>
         </div>
       )}
 
@@ -296,7 +298,7 @@ export default function CrewSearchFlow() {
 
           {regionId && !pickingPlace && (
             <>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, margin: "24px 0 20px", minHeight: 44, cursor: "pointer" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, margin: "20px 0 0", minHeight: 44, cursor: "pointer" }}>
                 <input
                   type="checkbox"
                   style={{ width: 18, height: 18, accentColor: colors.ink }}
@@ -311,7 +313,7 @@ export default function CrewSearchFlow() {
               </label>
 
               {!sameDestination && (
-                <div style={{ marginBottom: 20 }}>
+                <div style={{ marginTop: 8 }}>
                   <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>Πού τελειώνει;</p>
                   <PlacePicker mode="arrival" regions={lookups.regions} value={arrivalPoint} onChange={setArrivalPoint} autoFocus />
                 </div>
@@ -319,14 +321,16 @@ export default function CrewSearchFlow() {
             </>
           )}
 
-          <button
-            type="button"
-            disabled={pickingPlace || !regionId || !departurePoint.trim() || (!sameDestination && !arrivalPoint.trim())}
-            onClick={next}
-            style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15, marginTop: regionId && !pickingPlace ? 0 : 24 }}
-          >
-            Συνέχεια
-          </button>
+          <div className="sf-step-footer">
+            <button
+              type="button"
+              disabled={pickingPlace || !regionId || !departurePoint.trim() || (!sameDestination && !arrivalPoint.trim())}
+              onClick={next}
+              style={cta}
+            >
+              Συνέχεια
+            </button>
+          </div>
         </div>
       )}
 
@@ -403,23 +407,20 @@ export default function CrewSearchFlow() {
               Συνήθως το πλήρωμα μένει στο σκάφος. Θα έχει δική του καμπίνα ή κοινό χώρο;
             </p>
           </div>
-          <button
-            type="button"
-            disabled={!partySize || privateCabin === undefined}
-            onClick={finish}
-            style={{ ...button("primary"), width: "100%", padding: "13px 18px", fontSize: 15 }}
-          >
-            Ολοκλήρωση
-          </button>
-          {(!partySize || privateCabin === undefined) && (
-            <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0", textAlign: "center" }}>
-              {!partySize && privateCabin === undefined
-                ? "Συμπλήρωσε τον αριθμό ατόμων και απάντησε για την καμπίνα για να συνεχίσεις."
-                : !partySize
-                  ? "Συμπλήρωσε τον αριθμό ατόμων για να συνεχίσεις."
-                  : "Απάντησε για την καμπίνα για να συνεχίσεις."}
-            </p>
-          )}
+          <div className="sf-step-footer">
+            {(!partySize || privateCabin === undefined) && (
+              <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px", textAlign: "center" }}>
+                {!partySize && privateCabin === undefined
+                  ? "Συμπλήρωσε τον αριθμό ατόμων και την καμπίνα."
+                  : !partySize
+                    ? "Συμπλήρωσε τον αριθμό ατόμων."
+                    : "Απάντησε για την καμπίνα."}
+              </p>
+            )}
+            <button type="button" disabled={!partySize || privateCabin === undefined} onClick={finish} style={cta}>
+              Ολοκλήρωση
+            </button>
+          </div>
         </div>
       )}
     </div>
