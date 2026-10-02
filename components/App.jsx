@@ -4918,7 +4918,7 @@ function BoatsAdmin({ boats, isOwner, me, tasks, boatNotes, onAddBoatNote, onDel
     const checkinItems = !opts.checkin ? [] : (tasks.find(t => t.boatId === boat.id && t.status === "open" && t.checkinItems)?.checkinItems || []).filter(it => it.status === "pending");
     const invItems = !opts.inventory ? [] : (tasks.find(t => t.boatId === boat.id && t.status === "open" && t.inventoryItems)?.inventoryItems || []).filter(it => it.status === "pending");
     const rawNotes = !opts.observations ? [] : boatNotes.filter(n => n.boatId === boat.id).sort((a, c) => c.at.localeCompare(a.at));
-    const rawObsTasks = !opts.observations ? [] : tasks.filter(t => t.boatId === boat.id && t.status === "open");
+    const rawObsTasks = !opts.observations ? [] : tasks.filter(t => t.boatId === boat.id && t.status === "open" && !t.inventoryItems && !t.checkinItems);
     let taskTexts = taskItems.map(t => t.desc), checkinTexts = checkinItems.map(it => it.text), invTexts = invItems.map(it => it.text);
     let noteTexts = rawNotes.map(n => n.text), obsTaskTexts = rawObsTasks.map(t => t.desc);
     let freeNote = opts.note || "";
