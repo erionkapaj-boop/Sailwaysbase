@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { storage as winStorage } from "../lib/storage";
 import { supabase } from "../lib/supabaseClient";
 
@@ -1882,7 +1883,7 @@ ${histLines}
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: FONT_STACK, paddingBottom: 88 }}>
+    <div id="app-root" style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: FONT_STACK, paddingBottom: 88 }}>
       <BaseStyles />
       <Header me={acting} onLogout={logout} />
       {canGoBack && (
@@ -2902,9 +2903,12 @@ function BaseStyles() {
       .print-area { display: none; }
       @page { margin: 16mm; }
       @media print {
-        body * { visibility: hidden; }
-        .print-area, .print-area * { visibility: visible; }
-        .print-area { display: block !important; position: absolute; top: 0; left: 0; width: 100%; margin: 0; }
+        /* Το print-area μπαίνει με portal έξω από το #app-root, κατευθείαν μέσα στο #print-root (αδελφό
+           του, κάτω από το body) — έτσι το κρύψιμο του #app-root του αφαιρεί εντελώς το ύψος του από τη
+           σελίδα, αντί απλώς να το κάνει αόρατο (visibility:hidden) κρατώντας το ύψος του. Χωρίς αυτό, η
+           εκτύπωση έβγαζε τόσες κενές σελίδες όσες χωρούσε σε ύψος η ίδια η εφαρμογή από πίσω. */
+        #app-root { display: none !important; }
+        .print-area { display: block !important; }
       }
     `}</style>
   );
@@ -4798,9 +4802,11 @@ function PrintPhotoRow({ urls }) {
 // αριθμημένη λίστα), αλλά σκόπιμα ΧΩΡΙΣ το υποσέλιδο «Sailways — Βάση Αλίμου».
 function PendingItemsPrintSheet({ boat, title, items, lang }) {
   if (!boat) return null;
+  const printRoot = typeof document !== "undefined" ? document.getElementById("print-root") : null;
+  if (!printRoot) return null;
   const printedAt = new Date().toLocaleDateString(lang === "en" ? "en-GB" : "el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
   const emptyText = lang === "en" ? "Nothing pending." : "Τίποτα εκκρεμές.";
-  return (
+  return createPortal((
     <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px", boxSizing: "border-box" }}>
       <PrintSheetHeader boat={boat} title={title} printedAt={printedAt} />
       <PrintNumberedList items={items} emptyText={emptyText} renderItem={it => (
@@ -4810,7 +4816,7 @@ function PendingItemsPrintSheet({ boat, title, items, lang }) {
         </>
       )} />
     </div>
-  );
+  ), printRoot);
 }
 
 // Ενιαίο, επιλέξιμο export από τις «Πληροφορίες» σκάφους: ο χρήστης διαλέγει ποια sections θέλει (εργασίες /
@@ -4820,12 +4826,14 @@ function PendingItemsPrintSheet({ boat, title, items, lang }) {
 // συμπλήρωσε ρητά για συνεργασία με άλλη εταιρεία (base manager δεν βλέπει καν αυτά τα πεδία). Χωρίς υποσέλιδο εταιρείας.
 function BoatExportPrintSheet({ boat, sections, lang, meta }) {
   if (!boat) return null;
+  const printRoot = typeof document !== "undefined" ? document.getElementById("print-root") : null;
+  if (!printRoot) return null;
   const en = lang === "en";
   const printedAt = new Date().toLocaleDateString(en ? "en-GB" : "el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
   const charterRange = meta && (meta.charterFrom || meta.charterTo)
     ? `${meta.charterFrom ? fmtDate(meta.charterFrom) : "—"} – ${meta.charterTo ? fmtDate(meta.charterTo) : "—"}`
     : "—";
-  return (
+  return createPortal((
     <div className="print-area" style={{ fontFamily: FONT_STACK, color: "#111", background: "#fff", padding: "28px 34px", boxSizing: "border-box" }}>
       <PrintSheetHeader boat={boat} title={en ? "Export" : "Εξαγωγή"} printedAt={printedAt} />
       {meta && (
@@ -4854,7 +4862,7 @@ function BoatExportPrintSheet({ boat, sections, lang, meta }) {
         </div>
       ))}
     </div>
-  );
+  ), printRoot);
 }
 // Στο τμήμα «Παρατηρήσεις» του export, ό,τι έχει καταγραφεί (χειροκίνητες παρατηρήσεις ΚΑΙ οι ίδιες οι
 // ανοιχτές εργασίες του σκάφους) εμφανίζεται σαν ΜΙΑ ενιαία λίστα με συνεχόμενη αρίθμηση — σκόπιμα χωρίς να

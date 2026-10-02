@@ -15,7 +15,10 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="el">
-      <body style={{ margin: 0 }}>{children}</body>
+      <body style={{ margin: 0 }}>
+        {children}
+        <div id="print-root" />
+      </body>
     </html>
   );
 }
