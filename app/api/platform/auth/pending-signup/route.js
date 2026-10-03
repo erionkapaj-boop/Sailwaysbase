@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
+import { isValidPhone } from "../../../../../lib/platform/phone";
 
 // Registration without real SMS OTP (0075) — while no SMS provider is
 // configured, this is the only way a real phone number can get a Supabase
@@ -23,6 +24,7 @@ export async function POST(req) {
 
   const { phone } = await req.json().catch(() => ({}));
   if (!phone) return Response.json({ error: "bad_request" }, { status: 400 });
+  if (!isValidPhone(phone)) return Response.json({ error: "invalid_phone" }, { status: 400 });
   if (TEST_PHONE_RE.test(phone)) return Response.json({ error: "use_test_signin_instead" }, { status: 403 });
 
   // 0094: a number that ever belonged to an account stays that account's —

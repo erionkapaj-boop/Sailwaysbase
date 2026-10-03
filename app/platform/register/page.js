@@ -13,6 +13,7 @@ import {
 } from "../../../lib/platform/db";
 import { CREW_ROLES } from "../../../lib/platform/roles";
 import BackButton from "../components/BackButton";
+import { normalizePhone, isValidPhone } from "../../../lib/platform/phone";
 import { container, card, h1, muted, button, input, label, select, colors, radius } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
@@ -76,6 +77,7 @@ const REGISTER_ERRORS = {
   phone_previously_used: PHONE_UNAVAILABLE,
   phone_taken: PHONE_UNAVAILABLE,
   test_phone_registered: "Αυτό το δοκιμαστικό τηλέφωνο έχει ήδη λογαριασμό. Σύνδεσου με τον κωδικό του από τη «Σύνδεση».",
+  invalid_phone: "Ο αριθμός δεν είναι σωστός. Γράψε το κινητό σου, π.χ. 69XXXXXXXX.",
 };
 
 const chip = (active) => ({
@@ -137,6 +139,10 @@ function RegisterInner() {
     e.preventDefault();
     trackFlow("register", "submitted");
     setError("");
+    if (!isValidPhone(normalizePhone(fullPhone))) {
+      setError("Ο αριθμός δεν είναι σωστός. Γράψε το κινητό σου, π.χ. 69XXXXXXXX.");
+      return;
+    }
     setBusy(true);
     try {
       // Whether a number is taken is checked only on the server (0107): the
