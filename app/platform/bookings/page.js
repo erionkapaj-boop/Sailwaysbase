@@ -64,7 +64,7 @@ function BookingsInner() {
 
   return (
     <div style={container}>
-      <h1 style={h1}>Κρατήσεις</h1>
+      <h1 style={{ ...h1, marginBottom: 24 }}>Κρατήσεις</h1>
       <PendingReviewBanner bookingsHref="/platform/bookings" />
       {!busy && loadFailed && <LoadError what="οι κρατήσεις σου" onRetry={load} />}
 
@@ -78,10 +78,10 @@ function BookingsInner() {
       )}
 
       {isProfessional && (
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 8, marginBottom: 32 }}>
           <h2 style={sectionLabel}>Ως επαγγελματίας<span style={{ marginLeft: 8, opacity: 0.55 }}>{proBookings.length}</span></h2>
           {busy && <p style={muted}>Φόρτωση...</p>}
-          {!busy && !loadFailed && proBookings.length === 0 && <p style={muted}>Δεν υπάρχουν κρατήσεις ακόμα.</p>}
+          {!busy && !loadFailed && proBookings.length === 0 && <div style={{ ...card, textAlign: "center", padding: "20px 22px" }}><p style={{ ...muted, margin: 0 }}>Δεν υπάρχουν κρατήσεις ακόμα.</p></div>}
           {proBookings.map((b) => (
             <BookingPanel
               key={b.id}
@@ -96,7 +96,7 @@ function BookingsInner() {
         </div>
       )}
 
-      <div style={{ marginTop: 32 }}>
+      <div>
         <h2 style={sectionLabel}>Ως πελάτης<span style={{ marginLeft: 8, opacity: 0.55 }}>{clientBookings.length}</span></h2>
         {busy && <p style={muted}>Φόρτωση...</p>}
         {!busy && !loadFailed && clientBookings.length === 0 && (

@@ -136,7 +136,7 @@ export default function PingsInbox({ skipperId }) {
     <div>
       <h2 style={sectionLabel}>Εισερχόμενα αιτήματα<span style={{ marginLeft: 8, opacity: 0.55 }}>{pending.length}</span></h2>
       {error && <p style={{ color: colors.danger }}>{error}</p>}
-      {pending.length === 0 && <p style={muted}>Δεν υπάρχουν εκκρεμή αιτήματα αυτή τη στιγμή.</p>}
+      {pending.length === 0 && <div style={{ ...card, textAlign: "center", padding: "20px 22px" }}><p style={{ ...muted, margin: 0 }}>Δεν υπάρχουν εκκρεμή αιτήματα αυτή τη στιγμή.</p></div>}
       {pending.map((p) => (
         <PingCard
           key={p.id}

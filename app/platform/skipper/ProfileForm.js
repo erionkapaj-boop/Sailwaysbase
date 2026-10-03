@@ -1,4 +1,5 @@
 "use client";
+import MultiPick from "../components/MultiPick";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -401,18 +402,14 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
       </Section>
 
       <Section title="Γλώσσες" note="Επίλεξε τουλάχιστον μία.">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {lookups.languages.map((l) => (
-            <button
-              type="button"
-              key={l.id}
-              style={chip(languageIds.includes(l.id))}
-              onClick={() => toggleIn(languageIds, setLanguageIds, l.id)}
-            >
-              {l.name}
-            </button>
-          ))}
-        </div>
+        <MultiPick
+          label="Γλώσσες"
+          placeholder="Πρόσθεσε γλώσσα"
+          options={lookups.languages}
+          value={languageIds}
+          common={["Ελληνικά", "Αγγλικά", "Γερμανικά", "Γαλλικά", "Ιταλικά", "Ισπανικά"]}
+          onChange={setLanguageIds}
+        />
       </Section>
 
       {isSkipper && (

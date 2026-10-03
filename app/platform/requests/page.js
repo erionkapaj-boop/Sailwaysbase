@@ -80,7 +80,7 @@ export default function RequestsPage() {
 
   return (
     <div style={container}>
-      <h1 style={h1}>Αιτήματα</h1>
+      <h1 style={{ ...h1, marginBottom: 24 }}>Αιτήματα</h1>
       <PendingReadyBanner />
 
       {isProfessional && (

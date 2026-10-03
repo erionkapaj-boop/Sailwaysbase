@@ -273,7 +273,7 @@ export default function MyDeliveryRequestsPage() {
       <h1 style={{ ...h1, marginTop: 14 }}>Τα αιτήματα μεταφοράς μου</h1>
       {error && <p style={{ color: colors.danger }}>{error}</p>}
       {rows == null && <p style={muted}>Φόρτωση...</p>}
-      {rows?.length === 0 && <p style={muted}>Δεν έχεις στείλει ακόμα αίτημα μεταφοράς.</p>}
+      {rows?.length === 0 && <div style={{ ...card, textAlign: "center", padding: "20px 22px" }}><p style={{ ...muted, margin: 0 }}>Δεν έχεις στείλει ακόμα αίτημα μεταφοράς.</p></div>}
       {rows?.map(({ request, role_requests }) => (
         <div key={request.id} style={card}>
           <h2 style={{ ...h2, fontSize: 16, margin: "0 0 4px" }}>

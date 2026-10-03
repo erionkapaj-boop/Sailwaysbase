@@ -1,4 +1,5 @@
 "use client";
+import MultiPick from "../components/MultiPick";
 import Stars from "../components/Stars";
 import DateField from "../components/calendar/DateField";
 import { useEffect, useState } from "react";
@@ -852,11 +853,6 @@ function ClientIdentityProfile({ role }) {
     await refresh();
   }
 
-  function toggleLanguage(id) {
-    setLanguageIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
-    setSaved(false);
-  }
-
   async function handleSave() {
     setError("");
     setBusy(true);
@@ -913,17 +909,18 @@ function ClientIdentityProfile({ role }) {
         </select>
 
         <span style={label}>Γλώσσες</span>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
-          {lookups.languages.map((l) => (
-            <button
-              type="button"
-              key={l.id}
-              style={chip(languageIds.includes(l.id))}
-              onClick={() => toggleLanguage(l.id)}
-            >
-              {l.name}
-            </button>
-          ))}
+        <div style={{ marginBottom: 20 }}>
+          <MultiPick
+            label="Γλώσσες"
+            placeholder="Πρόσθεσε γλώσσα"
+            options={lookups.languages}
+            value={languageIds}
+            common={["Ελληνικά", "Αγγλικά", "Γερμανικά", "Γαλλικά", "Ιταλικά", "Ισπανικά"]}
+            onChange={(ids) => {
+              setLanguageIds(ids);
+              setSaved(false);
+            }}
+          />
         </div>
 
         <button type="button" disabled={busy} style={button("primary")} onClick={handleSave}>
