@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderPanel from "./HeaderPanel";
 import LoadError from "./LoadError";
-import { listMyNotifications, markNotificationsRead } from "../../../lib/platform/db";
+import { listMyNotifications, markNotificationsRead, getViewAsUser } from "../../../lib/platform/db";
 import { describeNotification, timeAgo } from "../../../lib/platform/notifications";
 import { colors, muted } from "../../../lib/platform/theme";
 
@@ -45,6 +45,9 @@ export default function NotificationPanel({ count = 0, onRead }) {
       await markNotificationsRead(null);
       setItems((prev) => prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
       onRead?.();
+    } catch {
+      // Δεν άλλαξε τίποτα: οι ειδοποιήσεις μένουν όπως ήταν και ο χρήστης
+      // μπορεί να ξαναπατήσει. Δεν αφήνουμε ανεπεξέργαστο σφάλμα.
     } finally {
       setBusy(false);
     }
@@ -57,7 +60,8 @@ export default function NotificationPanel({ count = 0, onRead }) {
       ariaLabel="Ειδοποιήσεις"
       title="Ειδοποιήσεις"
       onOpen={load}
-      action={count > 0 ? { label: "Όλα ως διαβασμένα", onClick: markAll, busy } : null}
+      // Σε «προβολή ως χρήστη» οι αλλαγές είναι απενεργοποιημένες: το κουμπί δεν εμφανίζεται.
+      action={count > 0 && !getViewAsUser() ? { label: "Όλα ως διαβασμένα", onClick: markAll, busy } : null}
     >
       {(close) => (
         <>

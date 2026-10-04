@@ -7,7 +7,9 @@ import { reportAppIssue } from "../../../lib/platform/health";
 // που απέτυχε και δεν το χειρίστηκε η οθόνη) πηγαίνει στην «Υγεία
 // εφαρμογής». Επίσης (0117) το πήγαινε-έλα ανάμεσα σε δύο σελίδες και το
 // συνεχές ξαναφόρτωμα. Δεν δείχνει τίποτα στον χρήστη.
-const NOISE = /ResizeObserver loop|Script error\.?$|AbortError|The user aborted/i;
+// «Προβολή ως χρήστης: οι αλλαγές είναι απενεργοποιημένες» είναι σκόπιμο μπλοκάρισμα
+// της προβολής μόνο-για-ανάγνωση του ιδιοκτήτη, όχι σφάλμα εφαρμογής.
+const NOISE = /ResizeObserver loop|Script error\.?$|AbortError|The user aborted|Προβολή ως χρήστη: οι αλλαγές/i;
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 const clean = (path) => path.replace(UUID, ":id");
 
