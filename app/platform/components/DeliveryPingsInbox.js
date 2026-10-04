@@ -37,8 +37,14 @@ export default function DeliveryPingsInbox({ skipperId }) {
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
 
+  // Ποτέ δεν πετά. Η ενότητα εμφανίζεται μόνο όταν υπάρχει κάτι, οπότε μια
+  // αποτυχία φόρτωσης απλώς την αφήνει κρυφή (και ξαναδοκιμάζει στην επόμενη ενέργεια).
   async function load() {
-    setRows(await listMyDeliveryPings());
+    try {
+      setRows(await listMyDeliveryPings());
+    } catch {
+      // κρατάμε ό,τι είχε φορτωθεί
+    }
   }
   useEffect(() => {
     load();

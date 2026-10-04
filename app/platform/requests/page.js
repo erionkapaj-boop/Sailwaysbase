@@ -13,6 +13,8 @@ import { container, card, h1, sectionLabel, muted, button, badge, colors, money 
 import SignedOutNotice from "../components/SignedOutNotice";
 import PendingReadyBanner from "../components/PendingReadyBanner";
 import { friendlyError } from "../../../lib/platform/friendlyError";
+import LoadError from "../components/LoadError";
+import { noteFailure } from "../../../lib/platform/health";
 
 const REQ_STATUS = {
   matched: ["Βρέθηκε επαγγελματίας", "success"],
@@ -32,9 +34,11 @@ export default function RequestsPage() {
   const [toast, setToast] = useState(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [loadFailed, setLoadFailed] = useState(false);
 
   async function load() {
     setBusy(true);
+    setLoadFailed(false);
     try {
       let [r, cp] = await Promise.all([listMyBookingRequests(), getMyClientProfile()]);
       // Κάθε λογαριασμός μπορεί να στείλει αίτημα, και οι επαγγελματίες. Αν
@@ -48,6 +52,10 @@ export default function RequestsPage() {
       }
       setRequests(r);
       setClientProfile(cp);
+    } catch {
+      // Χωρίς αυτό η σελίδα έμενε άδεια σαν να μην υπάρχει κανένα αίτημα.
+      setLoadFailed(true);
+      noteFailure("requests_load");
     } finally {
       setBusy(false);
     }
@@ -113,7 +121,9 @@ export default function RequestsPage() {
       )}
 
       <div>
-        {!clientProfile && !busy ? (
+        {loadFailed ? (
+          <LoadError what="τα αιτήματα" onRetry={load} />
+        ) : !clientProfile && !busy ? (
           <div style={card}>
             <b>Ο λογαριασμός σου δεν είναι έτοιμος για αιτήματα.</b>
             <p style={muted}>Ολοκλήρωσέ τον με ένα πάτημα.</p>

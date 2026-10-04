@@ -15,6 +15,7 @@ import {
 } from "../../../lib/platform/db";
 import Stars from "./Stars";
 import { card, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
+import LoadError from "./LoadError";
 import { formatDateTime, formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 
@@ -52,8 +53,15 @@ export default function PingsInbox({ skipperId }) {
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
 
+  const [loadFailed, setLoadFailed] = useState(false);
+  // Ποτέ δεν πετά: μια αποτυχία φαίνεται ως «δεν φορτώθηκαν», όχι ως άδεια λίστα.
   async function load() {
-    setPings(await listMyPings(skipperId));
+    try {
+      setPings(await listMyPings(skipperId));
+      setLoadFailed(false);
+    } catch {
+      setLoadFailed(true);
+    }
   }
   useEffect(() => {
     load();
@@ -136,7 +144,8 @@ export default function PingsInbox({ skipperId }) {
     <div>
       <h2 style={sectionLabel}>Εισερχόμενα αιτήματα<span style={{ marginLeft: 8, opacity: 0.55 }}>{pending.length}</span></h2>
       {error && <p style={{ color: colors.danger }}>{error}</p>}
-      {pending.length === 0 && <div style={{ ...card, textAlign: "center", padding: "20px 22px" }}><p style={{ ...muted, margin: 0 }}>Δεν υπάρχουν εκκρεμή αιτήματα αυτή τη στιγμή.</p></div>}
+      {loadFailed && <LoadError what="τα εισερχόμενα αιτήματα" onRetry={load} compact />}
+      {!loadFailed && pending.length === 0 && <div style={{ ...card, textAlign: "center", padding: "20px 22px" }}><p style={{ ...muted, margin: 0 }}>Δεν υπάρχουν εκκρεμή αιτήματα αυτή τη στιγμή.</p></div>}
       {pending.map((p) => (
         <PingCard
           key={p.id}
