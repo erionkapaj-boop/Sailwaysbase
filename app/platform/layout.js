@@ -38,9 +38,14 @@ export const metadata = {
   // manifest.json (start_url: "/"), so "Install app" from a /platform page
   // would launch straight into the other app instead.
   manifest: "/platform-manifest.json",
+  // Δικά του εικονίδια (κυκλικό τιμόνι), ξεχωριστά από του Base Manager
+  // (/icon-192.png κ.λπ.). Αναπαράγονται με scripts/make-platform-icons.mjs.
   icons: {
-    icon: "/icon-192.png",
-    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/skipperfinder-icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/skipperfinder-icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/skipperfinder-apple-touch-icon.png",
   },
 };
 
