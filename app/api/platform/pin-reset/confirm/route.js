@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
 import { pinProblem } from "../../../../../lib/platform/pin";
+import { reportServerIssue } from "../../../../../lib/platform/serverHealth";
 
 // A 6-digit code has a million values; without a cap, 15 minutes is plenty
 // of time to try them all. After this many wrong tries the code is burnt and
@@ -62,7 +63,10 @@ export async function POST(req) {
   if (!match) return Response.json({ error: "invalid_code" }, { status: 400 });
 
   const { error: updErr } = await db.auth.admin.updateUserById(user.id, { password: newPin });
-  if (updErr) return Response.json({ error: "could_not_set_pin" }, { status: 500 });
+  if (updErr) {
+    await reportServerIssue("pin_reset.set_pin", "/api/platform/pin-reset/confirm", updErr);
+    return Response.json({ error: "could_not_set_pin" }, { status: 500 });
+  }
 
   await db.from("email_reset_codes").update({ used_at: new Date().toISOString() }).eq("id", row.id);
   // Clear the lockout, otherwise the user resets their PIN and still can't in.

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
 import { emailConfig, sendEmail } from "../../../../../lib/platform/email";
+import { reportServerIssue } from "../../../../../lib/platform/serverHealth";
 
 const CODE_TTL_MINUTES = 15;
 const MAX_CODES_PER_HOUR = 3;
@@ -79,7 +80,10 @@ export async function POST(req) {
     code_hash: hashCode(code),
     expires_at: new Date(Date.now() + CODE_TTL_MINUTES * 60_000).toISOString(),
   });
-  if (error) return Response.json({ error: "could_not_issue" }, { status: 500 });
+  if (error) {
+    await reportServerIssue("pin_reset.issue", "/api/platform/pin-reset/request", error);
+    return Response.json({ error: "could_not_issue" }, { status: 500 });
+  }
 
   if (!(await sendCodeEmail(config, user.email, code))) {
     console.error("pin-reset: email delivery failed");

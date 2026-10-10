@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
 import { isWeakPin } from "../../../../../lib/platform/pin";
+import { reportServerIssue } from "../../../../../lib/platform/serverHealth";
 
 // A temporary PIN for someone who forgot theirs. SMS reset isn't live in
 // production (0075), so "Ξέχασα τον κωδικό" sends people to the contact form —
@@ -55,7 +56,10 @@ export async function POST(req) {
 
   const pin = randomStrongPin();
   const { error: updErr } = await db.auth.admin.updateUserById(userId, { password: pin });
-  if (updErr) return Response.json({ error: updErr.message }, { status: 500 });
+  if (updErr) {
+    await reportServerIssue("reset_pin.update", "/api/platform/admin/reset-pin", updErr);
+    return Response.json({ error: updErr.message }, { status: 500 });
+  }
 
   // Temporary by design: the person is asked for their own PIN on the next
   // sign-in (PinChangeGate). Nobody but them should know it for long.

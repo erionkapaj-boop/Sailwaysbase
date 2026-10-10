@@ -1,6 +1,7 @@
 import { serviceClient } from "../../../../lib/platform/serverDb";
 import { emailConfig, sendEmail } from "../../../../lib/platform/email";
 import { EMAIL_KINDS, buildNotificationEmail } from "../../../../lib/platform/emailNotifications";
+import { reportServerIssue } from "../../../../lib/platform/serverHealth";
 
 // Sends the notifications waiting for an email (0103). Called every few
 // minutes by the database itself (pg_cron + pg_net, see the SQL in
@@ -25,7 +26,10 @@ async function run(req) {
   if (!db) return Response.json({ ok: false, error: "not_configured" }, { status: 500 });
 
   const { data: rows, error } = await db.rpc("claim_notification_emails", { p_kinds: EMAIL_KINDS });
-  if (error) return Response.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    await reportServerIssue("notify_email.load", "/api/platform/notify-email", error);
+    return Response.json({ ok: false, error: error.message }, { status: 500 });
+  }
 
   const baseUrl = (process.env.PLATFORM_PUBLIC_URL || new URL(req.url).origin).replace(/\/$/, "");
   const byUser = new Map();

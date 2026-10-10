@@ -19,6 +19,11 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Η έκδοση (το deploy) μπαίνει σε κάθε αναφορά της «Υγείας εφαρμογής»,
+  // ώστε να φαίνεται αν ένα σφάλμα ξεκίνησε μετά από συγκεκριμένο deploy.
+  env: {
+    NEXT_PUBLIC_APP_VERSION: (process.env.VERCEL_GIT_COMMIT_SHA || "local").slice(0, 7),
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { reportServerIssue } from "../../../../lib/platform/serverHealth";
 
 // Isolated from /api/cron/nightly (the base task-management app's cron) —
 // separate path, separate schedule, touches only the skipper-platform tables.
@@ -20,6 +21,7 @@ export async function GET(req) {
     results.bookingsCompleted = data;
   } catch (e) {
     results.markCompletedError = String(e);
+    await reportServerIssue("cron.mark_bookings_completed", "/api/platform/cron", e, ["cron νυχτερινή εργασία"]);
   }
 
   try {
@@ -28,6 +30,7 @@ export async function GET(req) {
     results.requestsExpired = data;
   } catch (e) {
     results.expireError = String(e);
+    await reportServerIssue("cron.expire_stale_booking_requests", "/api/platform/cron", e, ["cron νυχτερινή εργασία"]);
   }
 
   // Υγεία εφαρμογής (0116): τρέχει κάθε ώρα μέσα στη βάση· εδώ ως εφεδρεία.
@@ -37,6 +40,7 @@ export async function GET(req) {
     results.health = data;
   } catch (e) {
     results.healthError = String(e);
+    await reportServerIssue("cron.run_health_checks", "/api/platform/cron", e, ["cron νυχτερινή εργασία"]);
   }
 
   return Response.json({ ok: true, ...results });

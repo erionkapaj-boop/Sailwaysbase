@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { reportAppIssue } from "../../../lib/platform/health";
+import { addStep, cleanStep, reportAppIssue } from "../../../lib/platform/health";
 
 // Ό,τι σπάει στη σελίδα χωρίς να το πιάσει κανείς (σφάλμα κώδικα, αίτημα
 // που απέτυχε και δεν το χειρίστηκε η οθόνη) πηγαίνει στην «Υγεία
@@ -40,6 +40,27 @@ export default function HealthWatch() {
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onRejection);
 
+    // Βήματα (0120): ποιο κουμπί πατήθηκε. Μόνο η ετικέτα του κουμπιού (σύντομη,
+    // φιλτραρισμένη), ποτέ ό,τι γράφεται σε πεδία· για συνδέσμους μόνο η διαδρομή,
+    // όχι το κείμενο (μπορεί να είναι όνομα προσώπου).
+    function onClick(e) {
+      const el = e.target?.closest?.("button, a[href], [role=button], [role=option], [role=tab], input[type=checkbox], input[type=radio]");
+      if (!el) return;
+      if (el.tagName === "A") {
+        try {
+          const url = new URL(el.href, window.location.href);
+          if (url.origin === window.location.origin) addStep(`σύνδεσμος ${clean(url.pathname)}`);
+        } catch {
+          // άκυρος σύνδεσμος: τίποτα
+        }
+        return;
+      }
+      const label = el.getAttribute("aria-label") || (el.tagName === "INPUT" ? el.closest("label")?.innerText : el.innerText) || "";
+      const first = cleanStep(label.split("\n")[0], 40);
+      if (first) addStep(`πάτησε «${first}»`);
+    }
+    document.addEventListener("click", onClick, true);
+
     // Ξαναφόρτωμα της ίδιας σελίδας 4 φορές μέσα σε 2 λεπτά.
     try {
       const nav = performance.getEntriesByType?.("navigation")?.[0];
@@ -62,6 +83,7 @@ export default function HealthWatch() {
     return () => {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onRejection);
+      document.removeEventListener("click", onClick, true);
     };
   }, []);
 
@@ -70,6 +92,7 @@ export default function HealthWatch() {
   // Κρατιέται και στο sessionStorage, ώστε να μετρά και με πλήρη φόρτωση σελίδας.
   useEffect(() => {
     if (!pathname) return;
+    addStep(`άνοιξε ${clean(pathname)}`);
     const now = Date.now();
     // Με τα ids: λίστα → κράτηση 1 → λίστα → κράτηση 2 είναι κανονική
     // περιήγηση, όχι πήγαινε-έλα. Τα ids φεύγουν μόνο στην αναφορά.
