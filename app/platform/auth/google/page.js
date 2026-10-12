@@ -50,7 +50,7 @@ const chip = (active) => ({
 function GoogleReturn() {
   const router = useRouter();
   const params = useSearchParams();
-  const { session, refresh } = useAuth();
+  const { session, refresh, signOut } = useAuth();
   const [intent, setIntent] = useState({}); // {as, role, next}: από πριν φύγει για τη Google
   const asParam = intent.as || null; // "professional" | "client" | null
   const failedAtGoogle = Boolean(params.get("error") || params.get("error_code"));
@@ -292,6 +292,21 @@ function GoogleReturn() {
         </button>
         {error && <p style={{ color: colors.danger, marginTop: 12, marginBottom: 0 }}>{error}</p>}
       </form>
+
+      <div style={{ ...muted, fontSize: 13, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <span>Έχεις ήδη λογαριασμό;</span>
+        <button
+          type="button"
+          style={{ ...button("secondary"), minHeight: 44 }}
+          onClick={async () => {
+            clearGoogleIntent();
+            await signOut();
+            router.push("/platform/login");
+          }}
+        >
+          Σύνδεση με τηλέφωνο και κωδικό
+        </button>
+      </div>
     </div>
   );
 }

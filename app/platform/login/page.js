@@ -13,7 +13,7 @@ import { container, card, h1, muted, button, input, label, colors, tapTarget } f
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const { session, refresh } = useAuth();
+  const { session, userRow, loading, refresh, signOut } = useAuth();
   const nextParam = params.get("next") || "";
   const fromSend = nextParam === "/platform/search" || nextParam === "/platform/delivery";
 
@@ -68,6 +68,25 @@ function LoginInner() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (session && !loading && !userRow) {
+    // Συνδεδεμένος χωρίς ολοκληρωμένο λογαριασμό (π.χ. γύρισε πίσω στη μέση της σύνδεσης με
+    // Google): δεν υπάρχει μενού, οπότε η έξοδος είναι από εδώ.
+    return (
+      <div style={{ ...container, maxWidth: 460 }}>
+        <h1 style={h1}>Η σύνδεση δεν ολοκληρώθηκε</h1>
+        <p style={muted}>Δεν υπάρχει ακόμα λογαριασμός για αυτή τη σύνδεση.</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 20 }}>
+          <Link href="/platform/auth/google" style={{ ...button("primary"), textDecoration: "none" }}>
+            Συνέχεια εγγραφής
+          </Link>
+          <button type="button" style={button("secondary")} onClick={signOut}>
+            Αποσύνδεση
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (session) {

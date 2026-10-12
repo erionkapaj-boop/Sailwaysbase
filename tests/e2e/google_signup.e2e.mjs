@@ -161,5 +161,31 @@ await browser(async (page) => {
   await shoot(page, "google-cancelled");
 });
 
+// 8. Συνδεδεμένος με Google χωρίς λογαριασμό (έφυγε στη μέση): πάντα υπάρχει έξοδος.
+await persona({ email: "cancel.google@gmail.com", name: "Χωρίς Λογαριασμό" });
+await browser(async (page) => {
+  await page.goto(`${BASE}/platform/login`);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Συνέχεια με Google" }).click();
+  await page.getByText("Στοιχεία λογαριασμού").waitFor();
+  await shoot(page, "google-return-existing");
+  // Πάει πίσω στη σελίδα Σύνδεση χωρίς να ολοκληρώσει.
+  await page.goto(`${BASE}/platform/login`);
+  await page.getByText("Η σύνδεση δεν ολοκληρώθηκε").waitFor();
+  await shoot(page, "google-stuck");
+  check("σύνδεση χωρίς λογαριασμό: προτείνει συνέχεια εγγραφής ή αποσύνδεση",
+    (await page.getByRole("link", { name: "Συνέχεια εγγραφής" }).count()) === 1 && (await page.getByRole("button", { name: "Αποσύνδεση" }).count()) === 1);
+  await page.getByRole("button", { name: "Αποσύνδεση" }).click();
+  await page.locator("#login-phone").waitFor();
+  check("η αποσύνδεση φέρνει πίσω τη φόρμα σύνδεσης", true);
+  // Από τη σελίδα στοιχείων: «Έχω ήδη λογαριασμό».
+  await page.getByRole("button", { name: "Συνέχεια με Google" }).click();
+  await page.getByText("Στοιχεία λογαριασμού").waitFor();
+  await page.getByRole("button", { name: "Σύνδεση με τηλέφωνο και κωδικό" }).click();
+  await page.waitForURL(/\/platform\/login/);
+  await page.locator("#login-phone").waitFor();
+  check("«Έχεις ήδη λογαριασμό»: βγάζει από τη σύνδεση Google και πάει στη φόρμα", true);
+});
+
 cleanup();
 finish();
