@@ -17,7 +17,7 @@ select pg_temp.act('anon');
 select pg_temp.check('τιμή credit και πακέτα διαβάζονται δημόσια',
   (select count(*) = 7 from platform_settings where key = 'credit_price_eur' or key like 'package\_%'));
 select pg_temp.check('αρχικές τιμές: 50€, 2/90€, 5/200€, 10/350€',
-  (select string_agg(key || '=' || value::int, ',' order by key) from platform_settings where key = 'credit_price_eur' or key like 'package\_%')
+  (select string_agg(key || '=' || value::int, ',' order by key collate "C") from platform_settings where key = 'credit_price_eur' or key like 'package\_%')
   = 'credit_price_eur=50,package_pro_credits=10,package_pro_price=350,package_professional_credits=5,package_professional_price=200,package_starter_credits=2,package_starter_price=90');
 select pg_temp.act('authenticated', :'ADMIN');
 select admin_update_setting('package_pro_price', 330);

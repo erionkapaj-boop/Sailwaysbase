@@ -31,8 +31,14 @@ jobs:
       PGPASSWORD: postgres
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
       - name: Postgres client
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: App dependencies
+        run: npm ci
       - name: Place search (typos, Greek/Latin)
         run: node tests/unit/placeSearch.test.mjs && node tests/unit/phone.test.mjs
       - name: Database tests
