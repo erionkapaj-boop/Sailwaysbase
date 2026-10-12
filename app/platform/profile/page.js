@@ -30,6 +30,9 @@ import {
   changeMyEmail,
   setMyEmailNotifications,
   normalizePhone,
+  getGoogleIdentity,
+  linkGoogleAccount,
+  GOOGLE_LOGIN_ENABLED,
 } from "../../../lib/platform/db";
 import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { formatDate, formatDateRange } from "../../../lib/platform/notifications";
@@ -689,6 +692,45 @@ function AccountAccess() {
           Αλλαγή κωδικού
         </Link>
       </div>
+
+      {GOOGLE_LOGIN_ENABLED && <GoogleLink rowStyle={row} />}
+    </div>
+  );
+}
+
+// Σύνδεση του λογαριασμού με Google (0121): ο ίδιος λογαριασμός, δεύτερος τρόπος εισόδου.
+function GoogleLink({ rowStyle }) {
+  const [identity, setIdentity] = useState(undefined); // undefined: φορτώνει · null: δεν έχει
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    getGoogleIdentity().then(setIdentity).catch(() => setIdentity(null));
+  }, []);
+  if (identity === undefined) return null;
+
+  async function connect() {
+    setError("");
+    setBusy(true);
+    try {
+      await linkGoogleAccount();
+    } catch (err) {
+      setBusy(false);
+      setError(friendlyError(err));
+    }
+  }
+
+  return (
+    <div style={{ ...rowStyle, marginTop: 18, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
+      <div>
+        <div style={{ ...muted, fontSize: 13 }}>Google</div>
+        <div style={{ fontSize: 15, marginTop: 2, overflowWrap: "anywhere" }}>{identity ? identity.email : "Δεν έχει συνδεθεί"}</div>
+        {error && <p style={{ color: colors.danger, fontSize: 13, margin: "8px 0 0" }}>{error}</p>}
+      </div>
+      {!identity && (
+        <button type="button" disabled={busy} onClick={connect} style={button("secondary")}>
+          {busy ? "…" : "Σύνδεση με Google"}
+        </button>
+      )}
     </div>
   );
 }

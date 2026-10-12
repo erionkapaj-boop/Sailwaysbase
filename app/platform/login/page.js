@@ -3,7 +3,8 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
-import { signInWithPin, isSignedInAdmin } from "../../../lib/platform/db";
+import { signInWithPin, isSignedInAdmin, signInWithGoogle, GOOGLE_LOGIN_ENABLED } from "../../../lib/platform/db";
+import GoogleButton, { OrDivider } from "../components/GoogleButton";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../../lib/platform/pendingDelivery";
 import BackButton from "../components/BackButton";
@@ -21,6 +22,18 @@ function LoginInner() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [lockedOut, setLockedOut] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+
+  async function google() {
+    setError("");
+    setGoogleBusy(true);
+    try {
+      await signInWithGoogle({ next: nextParam });
+    } catch {
+      setGoogleBusy(false);
+      setError("Η σύνδεση με Google δεν ξεκίνησε. Δοκίμασε ξανά.");
+    }
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -96,6 +109,12 @@ function LoginInner() {
         </div>
       ) : (
         <form onSubmit={submit} style={{ ...card, marginTop: 20 }}>
+          {GOOGLE_LOGIN_ENABLED && (
+            <>
+              <GoogleButton onClick={google} busy={googleBusy} />
+              <OrDivider />
+            </>
+          )}
           <label style={label} htmlFor="login-phone">
             Κινητό τηλέφωνο
           </label>

@@ -1,0 +1,165 @@
+// Εγγραφή και σύνδεση με Google (0121). Η «Google» είναι το gateway των τεστ:
+// ορίζουμε ποιος θα επιστρέψει και η εφαρμογή περνά από την πραγματική ροή
+// (κουμπί → authorize → επιστροφή με code → σύνδεση).
+import { chromium } from "playwright";
+import { BASE, check, finish, sql, shoot, text, as } from "./lib.mjs";
+
+const GATEWAY = process.env.NEXT_PUBLIC_PLATFORM_SUPABASE_URL;
+const MARIA = "6900002002";
+const EMAILS = ["nea.pelatis@gmail.com", "pro.google@gmail.com", "taken.google@gmail.com", "maria.google@gmail.com", "cancel.google@gmail.com"];
+
+const persona = (p) => fetch(`${GATEWAY}/__google/next`, { method: "POST", body: JSON.stringify(p) });
+
+async function browser(fn) {
+  const b = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => { if (!e.message.startsWith("e2e:")) errors.push(e.message); });
+  try {
+    await fn(page);
+    check("χωρίς σφάλματα σελίδας", errors.length === 0, errors.join(" | "));
+  } catch (e) {
+    await page.screenshot({ path: new URL(`./output/failure-google-${Date.now()}.png`, import.meta.url).pathname }).catch(() => {});
+    check("η ροή ολοκληρώθηκε", false, e.stack || e.message);
+  } finally {
+    await b.close();
+  }
+}
+const row = (email) =>
+  sql(`select concat_ws('|', phone_verified_at is not null, status, role, email, phone_number) from users where email = '${email}'`);
+
+const cleanup = () => {
+  const list = EMAILS.map((e) => `'${e}'`).join(",");
+  try {
+    sql(`
+      create temp table _g as select id from users where email in (${list});
+      delete from wallet_transactions where user_id in (select id from _g);
+      delete from notifications where user_id in (select id from _g);
+      delete from skipper_profiles where user_id in (select id from _g);
+      delete from client_profiles where user_id in (select id from _g);
+      delete from users where id in (select id from _g);
+      delete from auth.users where email in (${list}) or id in (select id from _g);`);
+  } catch (e) {
+    console.log("   (καθαρισμός δεν ολοκληρώθηκε)", String(e.message).slice(0, 120));
+  }
+};
+cleanup();
+
+// 1. Νέος πελάτης: Εγγραφή → Google → στοιχεία → κωδικός.
+await persona({ email: "nea.pelatis@gmail.com", name: "Νέα Πελάτισσα" });
+await browser(async (page) => {
+  await page.goto(`${BASE}/platform/register`);
+  await page.waitForLoadState("networkidle");
+  await shoot(page, "google-register");
+  await page.getByRole("button", { name: "Συνέχεια με Google" }).click();
+  await page.waitForURL(/\/platform\/auth\/google/);
+  await page.getByText("Στοιχεία λογαριασμού").waitFor();
+  const t = await text(page);
+  check("δείχνει τον λογαριασμό Google", t.includes("nea.pelatis@gmail.com"), t.slice(0, 300));
+  check("το όνομα έρχεται από τη Google", (await page.inputValue("#g-name")) === "Νέα Πελάτισσα");
+  check("ο πελάτης δεν ρωτιέται για ιδιότητα", !t.includes("Είμαι") && !t.includes("Ιδιότητα"));
+  await shoot(page, "google-return-client");
+  await page.fill("#g-phone", "6900009001");
+  await page.getByRole("button", { name: "Συνέχεια" }).click();
+  await page.waitForURL(/\/platform\/set-pin/);
+  check("πάει στον κωδικό", true);
+});
+check("ο λογαριασμός ξεκίνησε επαληθευμένος, με το email και το τηλέφωνο",
+  row("nea.pelatis@gmail.com") === "t|active|client|nea.pelatis@gmail.com|+306900009001", row("nea.pelatis@gmail.com"));
+
+// 2. Ο ίδιος άνθρωπος ξαναμπαίνει με Google: κατευθείαν μέσα, χωρίς φόρμα.
+await browser(async (page) => {
+  await page.goto(`${BASE}/platform/login`);
+  await page.waitForLoadState("networkidle");
+  await shoot(page, "google-login");
+  await page.getByRole("button", { name: "Συνέχεια με Google" }).click();
+  await page.waitForURL((u) => !u.pathname.includes("/auth/google") && !u.pathname.endsWith("/login"), { timeout: 20000 });
+  await page.waitForTimeout(1500);
+  const t = await text(page);
+  check("ξανασύνδεση: μπαίνει στην εφαρμογή, χωρίς φόρμα στοιχείων", !t.includes("Στοιχεία λογαριασμού") && page.url().includes("/platform"), page.url());
+});
+
+// 3. Επαγγελματίας.
+await persona({ email: "pro.google@gmail.com", name: "Μαρία Καπετάνισσα" });
+await browser(async (page) => {
+  await page.goto(`${BASE}/platform/register?as=professional`);
+  await page.waitForLoadState("networkidle");
+  await shoot(page, "google-register-pro");
+  await page.getByRole("button", { name: "Συνέχεια με Google" }).click();
+  await page.waitForURL(/\/platform\/auth\/google/);
+  await page.getByText("Στοιχεία λογαριασμού").waitFor();
+  const t = await text(page);
+  check("ο επαγγελματίας διαλέγει ιδιότητα και βλέπει τον κωδικό χώρας", t.includes("Ιδιότητα") && (await page.locator("select").count()) === 1, t.slice(0, 300));
+  await shoot(page, "google-return-pro");
+  await page.fill("#g-phone", "6900009002");
+  await page.getByRole("button", { name: "Συνέχεια" }).click();
+  await page.waitForURL(/\/platform\/set-pin\?as=professional/);
+  check("πάει στον κωδικό ως επαγγελματίας", true);
+});
+check("επαγγελματίας: επαληθευμένος, σε προσχέδιο, περιμένει έγκριση προφίλ",
+  row("pro.google@gmail.com") === "t|draft|skipper|pro.google@gmail.com|+306900009002", row("pro.google@gmail.com"));
+check("παίρνει το δώρο των επαγγελματιών, μία φορά",
+  sql(`select wallet_balance = (select value from platform_settings where key = 'signup_credits_professional') from users where email = 'pro.google@gmail.com'`) === "t");
+check("το προφίλ του περιμένει έγκριση από τη διαχείριση",
+  sql(`select approval_status from skipper_profiles where user_id = (select id from users where email = 'pro.google@gmail.com')`) === "pending");
+
+// 4. Τηλέφωνο που ανήκει σε άλλον λογαριασμό: δεν γίνεται εγγραφή.
+await persona({ email: "taken.google@gmail.com", name: "Άλλος Άνθρωπος" });
+await browser(async (page) => {
+  await page.goto(`${BASE}/platform/login`);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Συνέχεια με Google" }).click();
+  await page.waitForURL(/\/platform\/auth\/google/);
+  await page.getByText("Στοιχεία λογαριασμού").waitFor();
+  const t = await text(page);
+  check("από τη σύνδεση: ρωτά αν είναι πελάτης ή επαγγελματίας", t.includes("Είμαι") && t.includes("Πελάτης") && t.includes("Επαγγελματίας"));
+  await page.getByRole("button", { name: "Πελάτης", exact: true }).click();
+  await page.fill("#g-phone", MARIA);
+  await page.getByRole("button", { name: "Συνέχεια" }).click();
+  await page.getByText("Δεν γίνεται εγγραφή με αυτό το τηλέφωνο").waitFor();
+  await shoot(page, "google-return-error");
+  check("το τηλέφωνο άλλου λογαριασμού δεν δίνεται", true);
+});
+check("δεν δημιουργήθηκε λογαριασμός", sql(`select count(*) from users where email = 'taken.google@gmail.com'`) === "0");
+check("ούτε μπήκε το τηλέφωνο στην ταυτότητα Google", sql(`select coalesce(phone, '') from auth.users where email = 'taken.google@gmail.com'`) === "");
+
+// 5. Σύνδεση Google σε υπάρχοντα λογαριασμό από το Προφίλ.
+await persona({ email: "maria.google@gmail.com", name: "Μαρία" });
+await as(MARIA, async (page) => {
+  await page.goto(`${BASE}/platform/profile`);
+  await page.waitForLoadState("networkidle");
+  await page.getByText("Δεν έχει συνδεθεί").waitFor();
+  await page.getByRole("button", { name: "Σύνδεση με Google" }).click();
+  await page.waitForURL(/\/platform\/profile/);
+  await page.getByText("maria.google@gmail.com").waitFor({ timeout: 20000 });
+  check("το Προφίλ δείχνει τη Google που συνδέθηκε", true);
+});
+check("η ταυτότητα Google μπήκε στον ίδιο λογαριασμό της Μαρίας",
+  sql(`select count(*) from auth.identities i join auth.users u on u.id = i.user_id where i.provider = 'google' and u.phone = '30${MARIA}'`) === "1");
+
+// 6. Λογαριασμός σε αναστολή δεν μπαίνει ούτε με Google.
+sql(`update users set status = 'suspended' where phone_number = '+30${MARIA}'`);
+await browser(async (page) => {
+  await page.goto(`${BASE}/platform/login`);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Συνέχεια με Google" }).click();
+  await page.getByText("Ο λογαριασμός είναι σε αναστολή.").waitFor({ timeout: 20000 });
+  check("σε αναστολή: δεν μπαίνει με Google", true);
+});
+sql(`update users set status = 'active' where phone_number = '+30${MARIA}'`);
+
+// 7. Ακύρωση στη Google.
+await persona({ error: true });
+await browser(async (page) => {
+  await page.goto(`${BASE}/platform/login`);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Συνέχεια με Google" }).click();
+  await page.getByText("Η σύνδεση με Google δεν ολοκληρώθηκε.").waitFor();
+  const t = await text(page);
+  check("ακύρωση: μήνυμα και δρόμος πίσω", t.includes("Πίσω στη σύνδεση"));
+  await shoot(page, "google-cancelled");
+});
+
+cleanup();
+finish();

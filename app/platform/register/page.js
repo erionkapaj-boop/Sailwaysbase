@@ -10,59 +10,17 @@ import {
   testPhoneSignIn,
   pendingSignIn,
   getOtpEnabled,
+  signInWithGoogle,
+  GOOGLE_LOGIN_ENABLED,
 } from "../../../lib/platform/db";
+import GoogleButton, { OrDivider } from "../components/GoogleButton";
 import { CREW_ROLES } from "../../../lib/platform/roles";
+import { COUNTRY_CODES } from "../../../lib/platform/countryCodes";
 import BackButton from "../components/BackButton";
 import { normalizePhone, isValidPhone } from "../../../lib/platform/phone";
 import { container, card, h1, muted, button, input, label, select, colors, radius } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
-
-// Επιλογή κωδικού χώρας μόνο για επαγγελματίες, μόνο εδώ — χωρίς αυτήν, ένας
-// πραγματικά ξένος επαγγελματίας δεν είχε τρόπο να δηλώσει το πραγματικό του
-// νούμερο· το normalizePhone() ανάγκαζε σιωπηλά τα πάντα σε +30 εκτός αν
-// κάποιος έγραφε ο ίδιος το "+" — αόρατη επιλογή, ποτέ πραγματική. (Το τέλος
-// διεκδίκησης είναι πλέον το ίδιο για όλους, ανεξαρτήτως χώρας — βλ. 0064.)
-const COUNTRY_CODES = [
-  { code: "+30", label: "🇬🇷 Ελλάδα (+30)" },
-  { code: "+357", label: "🇨🇾 Κύπρος (+357)" },
-  { code: "+355", label: "🇦🇱 Αλβανία (+355)" },
-  { code: "+359", label: "🇧🇬 Βουλγαρία (+359)" },
-  { code: "+40", label: "🇷🇴 Ρουμανία (+40)" },
-  { code: "+381", label: "🇷🇸 Σερβία (+381)" },
-  { code: "+389", label: "🇲🇰 Βόρεια Μακεδονία (+389)" },
-  { code: "+90", label: "🇹🇷 Τουρκία (+90)" },
-  { code: "+39", label: "🇮🇹 Ιταλία (+39)" },
-  { code: "+33", label: "🇫🇷 Γαλλία (+33)" },
-  { code: "+34", label: "🇪🇸 Ισπανία (+34)" },
-  { code: "+351", label: "🇵🇹 Πορτογαλία (+351)" },
-  { code: "+49", label: "🇩🇪 Γερμανία (+49)" },
-  { code: "+43", label: "🇦🇹 Αυστρία (+43)" },
-  { code: "+41", label: "🇨🇭 Ελβετία (+41)" },
-  { code: "+31", label: "🇳🇱 Ολλανδία (+31)" },
-  { code: "+32", label: "🇧🇪 Βέλγιο (+32)" },
-  { code: "+44", label: "🇬🇧 Ην. Βασίλειο (+44)" },
-  { code: "+353", label: "🇮🇪 Ιρλανδία (+353)" },
-  { code: "+46", label: "🇸🇪 Σουηδία (+46)" },
-  { code: "+47", label: "🇳🇴 Νορβηγία (+47)" },
-  { code: "+45", label: "🇩🇰 Δανία (+45)" },
-  { code: "+358", label: "🇫🇮 Φινλανδία (+358)" },
-  { code: "+48", label: "🇵🇱 Πολωνία (+48)" },
-  { code: "+420", label: "🇨🇿 Τσεχία (+420)" },
-  { code: "+421", label: "🇸🇰 Σλοβακία (+421)" },
-  { code: "+36", label: "🇭🇺 Ουγγαρία (+36)" },
-  { code: "+385", label: "🇭🇷 Κροατία (+385)" },
-  { code: "+386", label: "🇸🇮 Σλοβενία (+386)" },
-  { code: "+380", label: "🇺🇦 Ουκρανία (+380)" },
-  { code: "+7", label: "🇷🇺 Ρωσία (+7)" },
-  { code: "+1", label: "🇺🇸 ΗΠΑ / 🇨🇦 Καναδάς (+1)" },
-  { code: "+61", label: "🇦🇺 Αυστραλία (+61)" },
-  { code: "+55", label: "🇧🇷 Βραζιλία (+55)" },
-  { code: "+27", label: "🇿🇦 Ν. Αφρική (+27)" },
-  { code: "+86", label: "🇨🇳 Κίνα (+86)" },
-  { code: "+81", label: "🇯🇵 Ιαπωνία (+81)" },
-  { code: "+91", label: "🇮🇳 Ινδία (+91)" },
-];
 
 // "not_a_test_phone"/"use_test_signin_instead" never reach a real user (the
 // UI itself picks the right path by isTestPhone) — only listed here in case
@@ -120,6 +78,7 @@ function RegisterInner() {
   const [step, setStep] = useState("details"); // details | otp
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [googleBusy, setGoogleBusy] = useState(false);
   // 0075: while no SMS provider is configured this stays false and every
   // real (non-test) phone goes through admin verification instead of a
   // code step — see submitDetails. Defaults to false (today's real value)
@@ -134,6 +93,17 @@ function RegisterInner() {
   useEffect(() => {
     trackFlow("register", "open");
   }, []);
+
+  async function google() {
+    setError("");
+    setGoogleBusy(true);
+    try {
+      await signInWithGoogle({ as: isProfessional ? "professional" : "client", role: isProfessional ? crewRole : undefined });
+    } catch {
+      setGoogleBusy(false);
+      setError("Η σύνδεση με Google δεν ξεκίνησε. Δοκίμασε ξανά.");
+    }
+  }
 
   async function submitDetails(e) {
     e.preventDefault();
@@ -245,6 +215,12 @@ function RegisterInner() {
             </div>
           )}
 
+          {GOOGLE_LOGIN_ENABLED && (
+            <>
+              <GoogleButton onClick={google} busy={googleBusy} />
+              <OrDivider />
+            </>
+          )}
           <label style={label} htmlFor="reg-name">
             Ονοματεπώνυμο
           </label>

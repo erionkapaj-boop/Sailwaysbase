@@ -30,10 +30,32 @@ function lookup(sql) {
   return execFileSync("psql", ["-X", "-At", "-c", sql], { env: process.env }).toString().trim();
 }
 
-const user = (id, phone) => ({
-  id, phone: (phone || "").replace(/^\+/, ""), aud: "authenticated", role: "authenticated",
-  app_metadata: { provider: "phone" }, user_metadata: {}, created_at: new Date().toISOString(),
-});
+const esc = (v) => String(v ?? "").replace(/'/g, "''");
+
+// Ο χρήστης όπως τον έχει η βάση: τηλέφωνο, email και συνδέσεις (Google).
+function dbUser(id) {
+  const raw = lookup(
+    `select json_build_object('phone', phone, 'email', email, 'meta', coalesce(raw_app_meta_data, '{}'::jsonb), ` +
+      `'identities', (select coalesce(json_agg(json_build_object('provider', provider, 'identity_data', identity_data)), '[]'::json) ` +
+      `from auth.identities i where i.user_id = u.id)) from auth.users u where id = '${esc(id)}'`
+  );
+  return raw ? JSON.parse(raw) : null;
+}
+const user = (id, phone) => {
+  const d = dbUser(id) || {};
+  return {
+    id, phone: String((d.phone ?? phone) || "").replace(/^\+/, ""), email: d.email || undefined,
+    aud: "authenticated", role: "authenticated",
+    app_metadata: { provider: "phone", ...(d.meta || {}) }, user_metadata: {},
+    identities: (d.identities || []).map((i) => ({ provider: i.provider, identity_data: i.identity_data })),
+    created_at: new Date().toISOString(),
+  };
+};
+
+// Η «Google» των δοκιμών: το τεστ ορίζει ποιος θα επιστρέψει (POST /__google/next),
+// το authorize τον γυρίζει στην εφαρμογή με ένα code, και το code γίνεται σύνδεση.
+let nextGoogle = { email: "giannis.test@gmail.com", name: "Γιάννης Δοκιμής" };
+const codes = new Map();
 function session(id, phone) {
   const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
   return {
@@ -63,8 +85,56 @@ const server = http.createServer(async (req, res) => {
   const body = Buffer.concat(chunks);
   const url = new URL(req.url, "http://x");
 
+  if (url.pathname === "/__google/next" && req.method === "POST") {
+    nextGoogle = JSON.parse(body.toString() || "{}");
+    return json(res, 200, { ok: true });
+  }
+
   if (url.pathname.startsWith("/auth/v1")) {
     const path = url.pathname.slice("/auth/v1".length);
+    if (path === "/authorize" && req.method === "GET") {
+      const back = url.searchParams.get("redirect_to") || `http://localhost:3000/platform/auth/google`;
+      const target = new URL(back);
+      if (nextGoogle.error) {
+        target.searchParams.set("error", "access_denied");
+        target.searchParams.set("error_description", "Access denied");
+      } else {
+        const code = crypto.randomUUID();
+        codes.set(code, { persona: nextGoogle, linkUserId: url.searchParams.get("link_user") || null });
+        target.searchParams.set("code", code);
+      }
+      res.writeHead(302, { location: target.toString() });
+      return res.end();
+    }
+    // linkIdentity: η εφαρμογή ζητά τη διεύθυνση της Google για τον συνδεδεμένο χρήστη.
+    if (path === "/user/identities/authorize") {
+      const c = claimsOf((req.headers.authorization || "").replace(/^Bearer /, ""));
+      if (!c?.sub) return json(res, 401, { msg: "no user" });
+      const q = new URLSearchParams({ provider: "google", redirect_to: url.searchParams.get("redirect_to") || "", link_user: c.sub });
+      return json(res, 200, { url: `http://localhost:${PORT}/auth/v1/authorize?${q}` });
+    }
+    if (path === "/token" && url.searchParams.get("grant_type") === "pkce") {
+      const j = JSON.parse(body.toString() || "{}");
+      const entry = codes.get(String(j.auth_code));
+      if (!entry) return json(res, 400, { error: "invalid_grant", error_description: "invalid flow state", msg: "invalid flow state" });
+      codes.delete(String(j.auth_code));
+      const { persona, linkUserId } = entry;
+      // Όπως η Google/Supabase: ο λογαριασμός βρίσκεται από την ταυτότητα, όχι από το email του χρήστη.
+      let id =
+        linkUserId ||
+        lookup(`select user_id from auth.identities where provider = 'google' and identity_data ->> 'email' = '${esc(persona.email)}'`) ||
+        lookup(`select id from auth.users where email = '${esc(persona.email)}'`);
+      if (!id) {
+        id = crypto.randomUUID();
+        lookup(`insert into auth.users (id, email, raw_app_meta_data) values ('${id}', '${esc(persona.email)}', '{"provider":"google","providers":["google"]}')`);
+      }
+      if (!lookup(`select 1 from auth.identities where user_id = '${id}' and provider = 'google'`)) {
+        const data = JSON.stringify({ email: persona.email, email_verified: true, full_name: persona.name, name: persona.name });
+        lookup(`insert into auth.identities (user_id, provider, provider_id, identity_data) values ('${id}', 'google', 'g-${id}', '${esc(data)}')`);
+        if (linkUserId) lookup(`update auth.users set raw_app_meta_data = jsonb_set(coalesce(raw_app_meta_data, '{}'::jsonb), '{providers}', '["phone","google"]'::jsonb) where id = '${id}'`);
+      }
+      return json(res, 200, session(id, lookup(`select coalesce(phone, '') from auth.users where id = '${id}'`)));
+    }
     if (path === "/token") {
       const j = JSON.parse(body.toString() || "{}");
       if (url.searchParams.get("grant_type") === "refresh_token") {
@@ -78,9 +148,24 @@ const server = http.createServer(async (req, res) => {
       }
       return json(res, 200, session(id, `+${digits}`));
     }
-    if (path === "/user") {
+    if (path === "/user" && req.method === "GET") {
       const c = claimsOf((req.headers.authorization || "").replace(/^Bearer /, ""));
       return c?.sub ? json(res, 200, user(c.sub, c.phone)) : json(res, 401, { msg: "no user" });
+    }
+    // auth.admin.updateUserById (service role): η αλλαγή τηλεφώνου ενός λογαριασμού.
+    if (path.startsWith("/admin/users/") && req.method === "PUT") {
+      const c = claimsOf((req.headers.authorization || "").replace(/^Bearer /, ""));
+      if (c?.role !== "service_role") return json(res, 403, { msg: "not allowed" });
+      const id = path.slice("/admin/users/".length).replace(/[^0-9a-f-]/gi, "");
+      const payload = JSON.parse(body.toString() || "{}");
+      if (payload.phone) {
+        const digits = String(payload.phone).replace(/\D/g, "");
+        if (lookup(`select 1 from auth.users where regexp_replace(phone, '\\D', '', 'g') = '${digits}' and id <> '${id}'`)) {
+          return json(res, 422, { msg: "A user with this phone number has already been registered", code: "phone_exists" });
+        }
+        lookup(`update auth.users set phone = '${digits}' where id = '${id}'`);
+      }
+      return json(res, 200, user(id, ""));
     }
     // auth.admin.createUser (service role only, as in Supabase): a new
     // identity that then signs in with the test PIN like any other.

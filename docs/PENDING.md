@@ -6,14 +6,68 @@
 ## Πριν ανοίξει η εφαρμογή στο κοινό
 Όσο την χρησιμοποιεί μόνο ο ιδιοκτήτης, τίποτα από αυτά δεν είναι επείγον.
 Πριν δοθεί σε άλλους, με αυτή τη σειρά:
-1. **Κλειστή δημόσια εγγραφή στο Supabase** (3 λεπτά, μία φορά): Authentication
-   → Sign In / Providers → «Allow new users to sign up» = off. Μετά: μία
-   σύνδεση και μία δοκιμαστική εγγραφή. Λεπτομέρειες παρακάτω, «Έλεγχος
-   ασφαλείας (0115)», §2.
-2. **Όριο συνδέσεων ανά IP** στο Supabase.
-3. **CAPTCHA** στη σύνδεση και στην εγγραφή.
-4. **Email και SMS** (Resend, πάροχος SMS), μαζί με επανέλεγχο της εγγραφής
-   (§2: με SMS η εγγραφή περνά από την πόρτα του Supabase).
+1. **Σύνδεση με Google** (παρακάτω): ρύθμιση σε Google και Supabase, μία φορά.
+2. **Κλείσιμο της «πόρτας» email στο Supabase** (1 λεπτό): Authentication →
+   Sign In / Providers → **Email** → off. Η εφαρμογή δεν τη χρησιμοποιεί.
+   Μετά από αυτό, λογαριασμούς φτιάχνει μόνο ο διακομιστής μας και η Google.
+   **Ο διακόπτης «Allow new users to sign up» μένει ΑΝΟΙΧΤΟΣ** όσο υπάρχει
+   Google: η σύνδεση με Google περνά από την ίδια πόρτα, και κλειστή θα την
+   έκοβε. (Αν δεν χρησιμοποιηθεί ποτέ Google, τότε κλείνει, όπως στο §2
+   «Έλεγχος ασφαλείας (0115)».)
+3. **Όριο συνδέσεων ανά IP** στο Supabase.
+4. **CAPTCHA** στη σύνδεση και στην εγγραφή.
+5. **Email και SMS** (Resend, πάροχος SMS), μαζί με επανέλεγχο της εγγραφής
+   (με SMS, το τηλέφωνο επαληθεύεται· σήμερα με Google το τηλέφωνο δεν
+   επαληθεύεται, μόνο το email).
+
+## Σύνδεση με Google (κώδικας έτοιμος — θέλει ρύθμιση)
+Τι κάνει: «Συνέχεια με Google» στη Σύνδεση και στην Εγγραφή· ο λογαριασμός
+ξεκινά επαληθευμένος (το email το επιβεβαιώνει η Google), ζητά ακόμα τηλέφωνο
+και κωδικό, και οι υπάρχοντες χρήστες μπορούν να προσθέσουν Google από το
+Προφίλ. Μέχρι να γίνουν τα παρακάτω, το κουμπί δεν φαίνεται πουθενά.
+
+**Σειρά (όλα μαζί, μία φορά):**
+1. **SQL:** τρέξε πρώτα το `0121_google_signup.sql` στον SQL Editor.
+2. **Google Cloud** (console.cloud.google.com, δωρεάν):
+   1. Νέο project «SkipperFinder».
+   2. APIs & Services → **OAuth consent screen** → User type: **External** →
+      App name `SkipperFinder`, email υποστήριξης, Authorized domain
+      `skipperfinder.gr`. Scopes: μόνο τα προεπιλεγμένα (email, profile,
+      openid). Στο τέλος **Publish app** (Production). Αλλιώς δουλεύει μόνο
+      για λίγους δοκιμαστικούς χρήστες.
+   3. **Credentials** → Create credentials → **OAuth client ID** → Web
+      application. Authorized redirect URI:
+      `https://cpkeosztnqxtstmfervo.supabase.co/auth/v1/callback`
+   4. Δίνει **Client ID** και **Client Secret**. Το Secret δεν στέλνεται
+      πουθενά εκτός από το βήμα 3.
+3. **Supabase** → Authentication → Sign In / Providers → **Google** → Enable →
+   Client ID και Client Secret → Save. Στην ίδια σελίδα (User Signups):
+   **Allow new users to sign up** = on και **Allow manual linking** = on
+   (για το «Σύνδεση με Google» στο Προφίλ).
+4. **Supabase** → Authentication → **URL Configuration**:
+   - Site URL: `https://skipperfinder.gr`
+   - Redirect URLs (προσθήκη, οι διευθύνσεις πρέπει να ταιριάζουν ακριβώς):
+     `https://skipperfinder.gr/platform/auth/google` και
+     `https://skipperfinder.gr/platform/profile`, και το ίδιο ζεύγος για
+     `https://www.skipperfinder.gr` και για τη διεύθυνση `.vercel.app` του
+     project αν τη χρησιμοποιείς.
+5. **Vercel** → Environment Variables → `NEXT_PUBLIC_GOOGLE_LOGIN` = `1` →
+   Redeploy.
+6. **Δοκιμή:** (α) Σύνδεση → «Συνέχεια με Google» με άλλον λογαριασμό Google:
+   ζητά όνομα και τηλέφωνο, μετά κωδικό, και μπαίνει. (β) Ξανά με τον ίδιο:
+   μπαίνει κατευθείαν. (γ) Από το Προφίλ ενός υπάρχοντος λογαριασμού:
+   «Σύνδεση με Google». (δ) **Στην εγκατεστημένη εφαρμογή στο κινητό**
+   (όχι μόνο στον browser): τα εγκατεστημένα PWA συμπεριφέρονται αλλιώς στην
+   αλλαγή σελίδας προς Google.
+
+**Να ξέρεις:**
+- Το τηλέφωνο των λογαριασμών Google δεν επαληθεύεται (όπως ούτε στην
+  εγγραφή με τηλέφωνο, χωρίς SMS): όποιος γράψει ξένο ελεύθερο αριθμό τον
+  «πιάνει». Λύνεται με το SMS.
+- Ο επαγγελματίας παίρνει το δώρο εγγραφής αμέσως, αλλά χρησιμοποιεί
+  credits μόνο αφού εγκρίνεις το δίπλωμά του.
+- Πολιτική απορρήτου: προστέθηκε γραμμή για τη σύνδεση με Google· δες την
+  και με τον δικηγόρο μαζί με τα υπόλοιπα.
 
 ## CAPTCHA στη σύνδεση και την εγγραφή
 - Τι χρειάζεται: δωρεάν λογαριασμός Cloudflare → Turnstile → νέο site για το

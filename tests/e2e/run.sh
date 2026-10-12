@@ -116,6 +116,8 @@ export PLATFORM_EMAIL_FROM="Sailways <noreply@example.com>"
 export PLATFORM_EMAIL_API_URL="http://127.0.0.1:${EMAIL_CAPTURE_PORT:-54392}/emails"
 export EMAIL_CAPTURE_PORT="${EMAIL_CAPTURE_PORT:-54392}"
 export CRON_SECRET="e2e-cron-secret"
+# Το κουμπί «Συνέχεια με Google» φαίνεται (η «Google» των τεστ είναι το gateway).
+export NEXT_PUBLIC_GOOGLE_LOGIN=1
 # The team app (/) uses its own Supabase project in production; here the same
 # gateway stands in for it.
 export NEXT_PUBLIC_SUPABASE_URL="http://localhost:$GATEWAY_PORT"

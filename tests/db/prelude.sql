@@ -14,6 +14,13 @@ create table auth.users (
   phone text, email text, encrypted_password text, created_at timestamptz default now(),
   raw_app_meta_data jsonb default '{}'::jsonb
 );
+-- Συνδέσεις με εξωτερικούς παρόχους (Google κ.ά.), με τις στήλες που διαβάζουμε.
+create table auth.identities (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users on delete cascade,
+  provider text not null, provider_id text, identity_data jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
 -- Sign-in sessions; deleting a row signs that device out (as in Supabase).
 create table auth.sessions (
   id uuid primary key default gen_random_uuid(),
