@@ -1,6 +1,6 @@
 "use client";
 import { friendlyError } from "../../lib/platform/friendlyError";
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/platform/supabaseClient";
 import {
   getMyUserRow,
@@ -13,6 +13,7 @@ import {
 } from "../../lib/platform/db";
 
 const AuthContext = createContext(null);
+const AUTH_PAGES = ["/platform/login", "/platform/register", "/platform/auth/", "/platform/forgot-pin"];
 const EMPTY_NOTIFICATIONS = { pendingRequests: 0, unreadBookingIds: [] };
 
 export function AuthProvider({ children }) {
@@ -28,6 +29,9 @@ export function AuthProvider({ children }) {
   // whole app as that person, not one screen — and dies with the tab.
   const [viewingAs, setViewingAs] = useState(null);
   const [adminUserRow, setAdminUserRow] = useState(null);
+  // Για να ξέρουμε αν η σύνδεση τελείωσε από αλλού (άλλη καρτέλα, λήξη) ή από εδώ.
+  const hadSession = useRef(false);
+  const signingOut = useRef(false);
 
   // Separate from refresh() (below) because a booking gets read or claimed
   // without the profile itself changing — the header icons need to update
@@ -51,6 +55,7 @@ export function AuthProvider({ children }) {
     try {
       setLoadError("");
       const { data } = await supabase.auth.getSession();
+      hadSession.current = Boolean(data.session);
       setSession(data.session || null);
       if (data.session) {
         // Read who (if anyone) is being viewed before any query runs, so the
@@ -114,7 +119,18 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     refresh();
     if (!supabase) return;
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      // Η σύνδεση τελείωσε χωρίς να το πατήσουμε εδώ (αποσύνδεση σε άλλη καρτέλα, λήξη):
+      // η σελίδα δεν πρέπει να μείνει όπως ήταν, με στοιχεία συνδεδεμένου.
+      // Στις σελίδες σύνδεσης και εγγραφής την αποσύνδεση την κάνει η ίδια η εφαρμογή (π.χ.
+      // λογαριασμός σε αναστολή) και δείχνει δικό της μήνυμα: εκεί δεν ανανεώνουμε.
+      if (event === "SIGNED_OUT" && hadSession.current && !signingOut.current) {
+        hadSession.current = false;
+        if (!AUTH_PAGES.some((p) => window.location.pathname.startsWith(p))) {
+          window.location.assign("/platform/login");
+          return;
+        }
+      }
       refresh();
     });
     return () => sub.subscription.unsubscribe();
@@ -152,15 +168,37 @@ export function AuthProvider({ children }) {
     refresh();
   }, [refresh]);
 
-  const signOut = useCallback(async () => {
-    sessionStorage.removeItem("sf_view_as");
+  // Πρώτα καθαρίζει ό,τι φαίνεται, μετά κλείνει η σύνδεση (ό,τι κι αν γίνει με το δίκτυο),
+  // και στο τέλος ξαναφορτώνει η σελίδα: τίποτα από τον συνδεδεμένο χρήστη δεν μένει στη μνήμη.
+  // Το «onClick={signOut}» περνά το γεγονός ως όρισμα· μόνο κείμενο μετράει ως προορισμός.
+  const signOut = useCallback(async (redirectTo) => {
+    const to = typeof redirectTo === "string" ? redirectTo : "/platform";
+    signingOut.current = true;
+    hadSession.current = false;
+    try {
+      sessionStorage.removeItem("sf_view_as");
+    } catch {
+      // χωρίς αποθήκευση δεν υπάρχει τίποτα να καθαρίσει
+    }
     setViewAsUser(null);
     setViewingAs(null);
-    if (supabase) await supabase.auth.signOut();
     setSession(null);
     setUserRow(null);
     setProfile(null);
     setNotifications(EMPTY_NOTIFICATIONS);
+    try {
+      if (supabase) await supabase.auth.signOut();
+    } catch {
+      // ακόμα κι αν αποτύχει η κλήση, η σελίδα ξαναφορτώνει παρακάτω
+    }
+    // Χωρίς δίκτυο η κλήση αποτυγχάνει και η Supabase δεν σβήνει την τοπική σύνδεση: την
+    // σβήνουμε εμείς, αλλιώς μετά την ανανέωση ο χρήστης θα ήταν πάλι μέσα.
+    try {
+      if (supabase) localStorage.removeItem(supabase.auth.storageKey);
+    } catch {
+      // χωρίς αποθήκευση δεν υπάρχει τοπική σύνδεση
+    }
+    window.location.assign(to);
   }, []);
 
   return (

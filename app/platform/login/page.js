@@ -81,7 +81,7 @@ function LoginInner() {
           <Link href="/platform/auth/google" style={{ ...button("primary"), textDecoration: "none" }}>
             Συνέχεια εγγραφής
           </Link>
-          <button type="button" style={button("secondary")} onClick={signOut}>
+          <button type="button" style={button("secondary")} onClick={() => signOut("/platform/login")}>
             Αποσύνδεση
           </button>
         </div>

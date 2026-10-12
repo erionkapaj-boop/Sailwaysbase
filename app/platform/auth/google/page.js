@@ -300,8 +300,7 @@ function GoogleReturn() {
           style={{ ...button("secondary"), minHeight: 44 }}
           onClick={async () => {
             clearGoogleIntent();
-            await signOut();
-            router.push("/platform/login");
+            await signOut("/platform/login");
           }}
         >
           Σύνδεση με τηλέφωνο και κωδικό
