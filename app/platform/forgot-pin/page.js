@@ -12,6 +12,7 @@ import {
   getPinResetChannels,
 } from "../../../lib/platform/db";
 import BackButton from "../components/BackButton";
+import PhoneField from "../components/PhoneField";
 import { container, card, h1, muted, button, input, label, colors, radius } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
@@ -162,16 +163,9 @@ export default function ForgotPinPage() {
         <label style={label} htmlFor="fp-phone">
           Κινητό τηλέφωνο
         </label>
-        <input
-          id="fp-phone"
-          required
-          inputMode="tel"
-          placeholder="69XXXXXXXX"
-          style={{ ...input, marginBottom: 16 }}
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          disabled={sent}
-        />
+        <div style={{ marginBottom: 16 }}>
+          <PhoneField id="fp-phone" quiet disabled={sent} onChange={({ phone: p }) => setPhone(p)} />
+        </div>
 
         {sent && (
           <>

@@ -8,6 +8,7 @@ import GoogleButton, { OrDivider } from "../components/GoogleButton";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../../lib/platform/pendingDelivery";
 import BackButton from "../components/BackButton";
+import PhoneField from "../components/PhoneField";
 import { container, card, h1, muted, button, input, label, colors, tapTarget } from "../../../lib/platform/theme";
 
 function LoginInner() {
@@ -137,16 +138,9 @@ function LoginInner() {
           <label style={label} htmlFor="login-phone">
             Κινητό τηλέφωνο
           </label>
-          <input
-            id="login-phone"
-            required
-            inputMode="tel"
-            placeholder="69XXXXXXXX"
-            autoComplete="tel"
-            style={{ ...input, marginBottom: 16 }}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
+          <div style={{ marginBottom: 16 }}>
+            <PhoneField id="login-phone" quiet onChange={({ phone: p }) => setPhone(p)} />
+          </div>
 
           <label style={label} htmlFor="login-pin">
             Κωδικός

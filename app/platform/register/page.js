@@ -15,10 +15,10 @@ import {
 } from "../../../lib/platform/db";
 import GoogleButton, { OrDivider } from "../components/GoogleButton";
 import { CREW_ROLES } from "../../../lib/platform/roles";
-import { COUNTRY_CODES } from "../../../lib/platform/countryCodes";
+import PhoneField from "../components/PhoneField";
 import BackButton from "../components/BackButton";
 import { normalizePhone, isValidPhone } from "../../../lib/platform/phone";
-import { container, card, h1, muted, button, input, label, select, colors, radius } from "../../../lib/platform/theme";
+import { container, card, h1, muted, button, input, label, colors, radius } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
 
@@ -59,17 +59,11 @@ function RegisterInner() {
   const isProfessional = params.get("as") === "professional";
 
   const [form, setForm] = useState({ fullName: "", phone: "", email: "" });
+  const [phoneValid, setPhoneValid] = useState(false);
+  const [triedSubmit, setTriedSubmit] = useState(false);
   const [crewRole, setCrewRole] = useState(isProfessional ? "skipper" : null);
-  // Only meaningful for professionals — see COUNTRY_CODES above. Greek stays
-  // the default since it's still by far the common case; a client's phone
-  // has no fee implication, so their form never shows this at all.
-  const [countryCode, setCountryCode] = useState("+30");
-
-  // Local digits only, no leading trunk 0 (that's a domestic dialling
-  // convention, not part of the number itself) — combined with the chosen
-  // country code for professionals; a plain client registration is
-  // untouched, still handled entirely by normalizePhone() as before.
-  const fullPhone = isProfessional ? countryCode + form.phone.replace(/^0+/, "") : form.phone;
+  // Το τηλέφωνο έρχεται έτοιμο σε διεθνή μορφή (+30…) από το PhoneField, για όλους.
+  const fullPhone = form.phone;
   // Ghost Mode (βλ. db.js): μια δεσμευμένη σειρά τηλεφώνων δοκιμής
   // (+306980000001-099) παρακάμπτει το πραγματικό SMS — ΟΡΑΤΑ, όχι κρυφά,
   // βλ. το βήμα "otp" παρακάτω.
@@ -109,8 +103,10 @@ function RegisterInner() {
     e.preventDefault();
     trackFlow("register", "submitted");
     setError("");
-    if (!isValidPhone(normalizePhone(fullPhone))) {
-      setError("Ο αριθμός δεν είναι σωστός. Γράψε το κινητό σου, π.χ. 69XXXXXXXX.");
+    setTriedSubmit(true);
+    if (!phoneValid || !isValidPhone(normalizePhone(fullPhone))) {
+      // Το μήνυμα φαίνεται κάτω από το ίδιο το πεδίο· εδώ μόνο πηγαίνουμε εκεί.
+      document.getElementById("reg-phone")?.focus();
       return;
     }
     setBusy(true);
@@ -235,41 +231,16 @@ function RegisterInner() {
           <label style={label} htmlFor="reg-phone">
             Κινητό τηλέφωνο
           </label>
-          {isProfessional ? (
-            <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-              <select
-                aria-label="Κωδικός χώρας"
-                style={{ ...select, flex: "0 0 168px" }}
-                value={countryCode}
-                onChange={(e) => setCountryCode(e.target.value)}
-              >
-                {COUNTRY_CODES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                id="reg-phone"
-                required
-                inputMode="tel"
-                placeholder="69XXXXXXXX"
-                style={{ ...input, flex: 1 }}
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              />
-            </div>
-          ) : (
-            <input
+          <div style={{ marginBottom: isProfessional ? 4 : 16 }}>
+            <PhoneField
               id="reg-phone"
-              required
-              inputMode="tel"
-              placeholder="69XXXXXXXX"
-              style={{ ...input, marginBottom: 16 }}
-              value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              showErrors={triedSubmit}
+              onChange={({ phone, valid }) => {
+                setForm((f) => ({ ...f, phone }));
+                setPhoneValid(valid);
+              }}
             />
-          )}
+          </div>
           {isProfessional && (
             <p style={{ ...muted, fontSize: 12.5, margin: "0 0 16px" }}>
               Τον βλέπει μόνο ο πελάτης και μόνο αφού κλείσει κράτηση μαζί σου.

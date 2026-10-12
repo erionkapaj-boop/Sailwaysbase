@@ -9,6 +9,7 @@ import { useAuth } from "../AuthContext";
 import MissingProfile from "../skipper/MissingProfile";
 import ProfileForm from "../skipper/ProfileForm";
 import PhotoUpload from "../components/PhotoUpload";
+import PhoneField from "../components/PhoneField";
 import {
   updateMyPhoto,
   listLookups,
@@ -614,15 +615,21 @@ function AccountAccess() {
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [phoneAgain, setPhoneAgain] = useState("");
+  const [phoneOk, setPhoneOk] = useState(false);
+  const [phoneAgainOk, setPhoneAgainOk] = useState(false);
   const [pin, setPinValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [tried, setTried] = useState(false);
 
   function close() {
     setOpen(false);
     setPhone("");
     setPhoneAgain("");
+    setPhoneOk(false);
+    setPhoneAgainOk(false);
+    setTried(false);
     setPinValue("");
     setError("");
   }
@@ -632,7 +639,9 @@ function AccountAccess() {
     setError("");
     // Typed twice on purpose: there's no SMS check yet, and a wrong digit
     // here would move the account to a number its owner can't sign in with.
-    if (normalizePhone(phone) !== normalizePhone(phoneAgain)) return setError("Τα δύο τηλέφωνα δεν ταιριάζουν.");
+    setTried(true);
+    if (!phoneOk) return document.getElementById("new-phone")?.focus();
+    if (normalizePhone(phone) !== normalizePhone(phoneAgain) || !phoneAgainOk) return setError("Τα δύο τηλέφωνα δεν ταιριάζουν.");
     setBusy(true);
     try {
       const res = await changeMyPhone(phone, pin);
@@ -670,9 +679,9 @@ function AccountAccess() {
             Από εδώ και πέρα θα συνδέεσαι με το νέο τηλέφωνο.
           </p>
           <label style={label} htmlFor="new-phone">Νέο τηλέφωνο</label>
-          <input id="new-phone" required inputMode="tel" autoComplete="tel" placeholder="69XXXXXXXX" style={{ ...input, marginBottom: 14 }} value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <div style={{ marginBottom: 14 }}><PhoneField id="new-phone" showErrors={tried} onChange={({ phone: p, valid }) => { setPhone(p); setPhoneOk(valid); }} /></div>
           <label style={label} htmlFor="new-phone-again">Ξανά το νέο τηλέφωνο</label>
-          <input id="new-phone-again" required inputMode="tel" autoComplete="off" style={{ ...input, marginBottom: 14 }} value={phoneAgain} onChange={(e) => setPhoneAgain(e.target.value)} />
+          <div style={{ marginBottom: 14 }}><PhoneField id="new-phone-again" quiet onChange={({ phone: p, valid }) => { setPhoneAgain(p); setPhoneAgainOk(valid); }} /></div>
           <label style={label} htmlFor="current-pin">Ο τωρινός σου κωδικός</label>
           <input id="current-pin" required type="password" autoComplete="current-password" style={{ ...input, marginBottom: 16 }} value={pin} onChange={(e) => setPinValue(e.target.value)} />
           {error && <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 12px" }}>{error}</p>}

@@ -14,13 +14,13 @@ import {
   clearGoogleIntent,
 } from "../../../../lib/platform/db";
 import { CREW_ROLES } from "../../../../lib/platform/roles";
-import { COUNTRY_CODES } from "../../../../lib/platform/countryCodes";
+import PhoneField from "../../components/PhoneField";
 import { normalizePhone, isValidPhone } from "../../../../lib/platform/phone";
 import { hasPendingBroadcast } from "../../../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../../../lib/platform/pendingDelivery";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../../lib/platform/health";
-import { container, card, h1, muted, button, input, label, select, colors, radius } from "../../../../lib/platform/theme";
+import { container, card, h1, muted, button, input, label, colors, radius } from "../../../../lib/platform/theme";
 
 // Επιστροφή από τη Google (0121). Η σελίδα περιμένει να ολοκληρωθεί η σύνδεση και μετά:
 //  - λογαριασμός που υπάρχει: μπαίνει κανονικά (εκτός αν είναι διαγραμμένος ή σε αναστολή)·
@@ -29,7 +29,7 @@ const PHONE_UNAVAILABLE =
   "Δεν γίνεται εγγραφή με αυτό το τηλέφωνο. Αν έχεις ήδη λογαριασμό, σύνδεσου. Αλλιώς επικοινώνησε μαζί μας.";
 const ERRORS = {
   phone_unavailable: PHONE_UNAVAILABLE,
-  invalid_phone: "Ο αριθμός δεν είναι σωστός. Γράψε το κινητό σου, π.χ. 69XXXXXXXX.",
+  invalid_phone: "Ο αριθμός δεν είναι σωστός. Έλεγξε τη χώρα και τα ψηφία.",
   already_registered: "Ο λογαριασμός έχει ήδη ολοκληρωθεί.",
   account_deleted: "Αυτός ο λογαριασμός έχει διαγραφεί. Για να τον ενεργοποιήσεις ξανά, επικοινώνησε μαζί μας.",
   account_suspended: "Ο λογαριασμός είναι σε αναστολή.",
@@ -64,7 +64,8 @@ function GoogleReturn() {
   const [crewRole, setCrewRole] = useState("skipper");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [countryCode, setCountryCode] = useState("+30");
+  const [phoneValid, setPhoneValid] = useState(false);
+  const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -128,8 +129,12 @@ function GoogleReturn() {
     e.preventDefault();
     setError("");
     if (!kind) return setError("Διάλεξε αν είσαι πελάτης ή επαγγελματίας.");
-    const fullPhone = isProfessional ? countryCode + phone.replace(/^0+/, "") : phone;
-    if (!isValidPhone(normalizePhone(fullPhone))) return setError(ERRORS.invalid_phone);
+    setTried(true);
+    const fullPhone = phone;
+    if (!phoneValid || !isValidPhone(normalizePhone(fullPhone))) {
+      document.getElementById("g-phone")?.focus();
+      return;
+    }
     setBusy(true);
     try {
       await attachGooglePhone(fullPhone);
@@ -244,43 +249,16 @@ function GoogleReturn() {
         <label style={label} htmlFor="g-phone">
           Κινητό τηλέφωνο
         </label>
-        {isProfessional ? (
-          <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-            <select
-              aria-label="Κωδικός χώρας"
-              style={{ ...select, flex: "0 0 168px" }}
-              value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value)}
-            >
-              {COUNTRY_CODES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            <input
-              id="g-phone"
-              required
-              inputMode="tel"
-              autoComplete="tel-national"
-              placeholder="69XXXXXXXX"
-              style={{ ...input, flex: 1 }}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-        ) : (
-          <input
+        <div style={{ marginBottom: isProfessional ? 4 : 20 }}>
+          <PhoneField
             id="g-phone"
-            required
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="69XXXXXXXX"
-            style={{ ...input, marginBottom: 20 }}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            showErrors={tried}
+            onChange={({ phone: p, valid }) => {
+              setPhone(p);
+              setPhoneValid(valid);
+            }}
           />
-        )}
+        </div>
         {isProfessional && (
           <p style={{ ...muted, fontSize: 12.5, margin: "0 0 20px" }}>
             Τον βλέπει μόνο ο πελάτης και μόνο αφού κλείσει κράτηση μαζί σου.
