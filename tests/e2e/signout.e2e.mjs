@@ -14,13 +14,13 @@ async function openMenuAndSignOut(page) {
 // 1. Κανονική αποσύνδεση από την κονσόλα διαχείρισης.
 await as(ADMIN, async (page) => {
   await go(page, "/platform/admin");
-  check("συνδεδεμένος διαχειριστής: φαίνεται η κονσόλα", (await text(page)).includes("Διαχείριση") || (await page.locator(".sf-admin-sidebar").count()) > 0);
+  check("συνδεδεμένος διαχειριστής: φαίνεται η κονσόλα και το μενού", (await text(page)).includes("Καλησπέρα") && (await page.getByRole("button", { name: "Μενού", exact: true }).count()) === 1);
   await openMenuAndSignOut(page);
   await page.waitForURL((u) => u.pathname === "/platform");
   await page.waitForLoadState("networkidle");
   const t = await text(page);
   check("μετά την αποσύνδεση: πάει στην αρχική, με κεφαλίδα επισκέπτη", (await page.getByRole("link", { name: "Σύνδεση" }).count()) >= 1);
-  check("δεν μένει το μενού διαχείρισης", (await page.locator(".sf-admin-sidebar").count()) === 0 && !t.includes("Εκκρεμότητες"), t.slice(0, 200));
+  check("δεν μένει το μενού διαχείρισης", (await page.getByRole("button", { name: "Μενού", exact: true }).count()) === 0 && !t.includes("Εκκρεμότητες"), t.slice(0, 200));
   check("η σύνδεση σβήστηκε από τον browser", !(await hasToken(page)));
   await page.goto(`${BASE}/platform/admin`);
   await page.waitForLoadState("networkidle");
