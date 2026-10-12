@@ -906,6 +906,7 @@ function ClientIdentityProfile({ role }) {
 
   async function handleSave() {
     setError("");
+    setSaved(false);
     setBusy(true);
     try {
       await updateClientProfile({ nationality_id: nationalityId || null });

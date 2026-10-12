@@ -10,6 +10,7 @@ import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
 import Avatar from "./components/Avatar";
 import AccountMenu from "./components/AccountMenu";
+import FeedbackProvider from "./components/FeedbackProvider";
 import HealthWatch from "./components/HealthWatch";
 import { SECTIONS as ADMIN_SECTIONS, badgeCount, ADMIN_COUNTS_EVENT } from "./admin/AdminShell";
 import { adminOverview } from "../../lib/platform/db";
@@ -337,18 +338,20 @@ function SiteFooter() {
 export default function PlatformShell({ children }) {
   return (
     <AuthProvider>
-      <style dangerouslySetInnerHTML={{ __html: globalStyles }} />
-      <HealthWatch />
-      <div className="platform-scope" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-        <ViewAsBanner />
-        <NavBar />
-        <div style={{ flex: 1 }}>
-          <PinChangeGate>
-            <VerificationGate>{children}</VerificationGate>
-          </PinChangeGate>
+      <FeedbackProvider>
+        <style dangerouslySetInnerHTML={{ __html: globalStyles }} />
+        <HealthWatch />
+        <div className="platform-scope" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+          <ViewAsBanner />
+          <NavBar />
+          <div style={{ flex: 1 }}>
+            <PinChangeGate>
+              <VerificationGate>{children}</VerificationGate>
+            </PinChangeGate>
+          </div>
+          <SiteFooter />
         </div>
-        <SiteFooter />
-      </div>
+      </FeedbackProvider>
     </AuthProvider>
   );
 }

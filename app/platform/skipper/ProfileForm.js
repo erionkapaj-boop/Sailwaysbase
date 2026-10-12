@@ -208,6 +208,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
       setError("Επίλεξε τουλάχιστον έναν τύπο σκάφους.");
       return;
     }
+    setSaved(false);
     setBusy(true);
     try {
       await updateSkipperProfile({
