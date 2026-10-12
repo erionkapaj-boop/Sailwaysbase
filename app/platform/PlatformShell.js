@@ -185,6 +185,10 @@ const globalStyles = `
 @keyframes sf-drawer-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sf-drawer-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 @keyframes sf-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* Όποιος έχει ζητήσει «λιγότερη κίνηση» από το σύστημά του δεν βλέπει κινήσεις. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
 `;
 
 // Deliberately loud and always on screen. The whole point of this mode is

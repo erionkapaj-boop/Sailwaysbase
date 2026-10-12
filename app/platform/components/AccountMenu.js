@@ -1,4 +1,5 @@
 "use client";
+import Collapse from "./Collapse";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -57,27 +58,20 @@ export default function AccountMenu({ items = [], onSignOut, activeHref }) {
   const isActive = (it) =>
     activeHref && (it.prefix ? activeHref.startsWith(it.href) : activeHref === it.href);
 
-  // Items that carry a `heading` start a group; with many groups (the admin
-  // menu) the whole list no longer fits a phone screen, so groups fold.
-  // Open by default: the first headed group (the one you came for) and
-  // whichever holds the current page. A folded group still shows its count.
+  // Items that carry a `heading` start a group. Like the admin sidebar, only ONE group is
+  // open at a time: the one that holds the current page (or the first, on pages outside the
+  // menu). Pressing another group's title opens it and folds the previous one; pressing the open
+  // group's title folds it. A folded group still shows its count.
   const groups = [];
   for (const it of items) {
     if (it.heading || groups.length === 0) groups.push({ heading: it.heading || null, items: [] });
     groups[groups.length - 1].items.push(it);
   }
-  const defaultOpen = () => {
-    const o = {};
-    const firstHeaded = groups.find((g) => g.heading);
-    for (const g of groups) {
-      if (!g.heading) continue;
-      o[g.heading] = g === firstHeaded || g.items.some(isActive);
-    }
-    return o;
-  };
-  const [openGroups, setOpenGroups] = useState({});
+  const headed = groups.filter((g) => g.heading);
+  const homeGroup = (headed.find((g) => g.items.some(isActive)) || headed[0])?.heading || null;
+  const [openHeading, setOpenHeading] = useState(null);
   useEffect(() => {
-    if (open) setOpenGroups(defaultOpen());
+    if (open) setOpenHeading(homeGroup);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -157,14 +151,14 @@ export default function AccountMenu({ items = [], onSignOut, activeHref }) {
             </div>
             <nav style={{ display: "flex", flexDirection: "column", padding: "6px 10px 10px", overflowY: "auto", flex: 1 }}>
               {groups.map((g) => {
-                const isOpen = !g.heading || openGroups[g.heading];
+                const isOpen = !g.heading || openHeading === g.heading;
                 const waiting = g.items.reduce((n, it) => n + (it.badge > 0 ? it.badge : 0), 0);
                 return (
                   <div key={g.heading || "_top"} style={{ borderTop: g.heading ? `1px solid ${colors.border}` : undefined, marginTop: g.heading ? 6 : 0 }}>
                     {g.heading && (
                       <button
                         type="button"
-                        onClick={() => setOpenGroups((o) => ({ ...o, [g.heading]: !o[g.heading] }))}
+                        onClick={() => setOpenHeading((h) => (h === g.heading ? null : g.heading))}
                         aria-expanded={isOpen}
                         style={{
                           width: "100%",
@@ -188,13 +182,13 @@ export default function AccountMenu({ items = [], onSignOut, activeHref }) {
                           {g.heading}
                           {!isOpen && waiting > 0 && <Badge n={waiting} />}
                         </span>
-                        <span aria-hidden="true" style={{ fontSize: 12, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>
+                        <span aria-hidden="true" style={{ fontSize: 12, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)" }}>
                           ›
                         </span>
                       </button>
                     )}
-                    {isOpen &&
-                      g.items.map((it, i) => {
+                    <Collapse open={isOpen}>
+                      {g.items.map((it, i) => {
                         const active = isActive(it);
                         const divider = !g.heading && it.group && i > 0;
                         return (
@@ -223,6 +217,7 @@ export default function AccountMenu({ items = [], onSignOut, activeHref }) {
                           </div>
                         );
                       })}
+                    </Collapse>
                   </div>
                 );
               })}
