@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
-import { AsYouType, parsePhoneNumberFromString } from "libphonenumber-js/min";
+import { AsYouType, parsePhoneNumberFromString } from "libphonenumber-js/mobile";
 import { COUNTRIES, countryByIso } from "../../../lib/platform/countryCodes";
 import { isValidPhone, formatPhone } from "../../../lib/platform/phone";
 import { colors, input, radius } from "../../../lib/platform/theme";
 
-// Πεδίο τηλεφώνου: χώρα (προεπιλογή Ελλάδα, +30) και αριθμός. Ο αριθμός ελέγχεται με τους
+// Πεδίο τηλεφώνου (μόνο κινητό): χώρα (προεπιλογή Ελλάδα, +30) και αριθμός. Ο αριθμός ελέγχεται με τους
 // κανόνες της χώρας (μήκος, πρώτα ψηφία) καθώς γράφεται, και όταν είναι σωστός φαίνεται
 // ολόκληρος και μορφοποιημένος, ώστε να τον δει ο ίδιος ο χρήστης πριν συνεχίσει. Ένας
 // διεθνής αριθμός που επικολλάται («+30 694…», «0030…») διαλέγει μόνος του τη χώρα.
@@ -86,7 +86,7 @@ export default function PhoneField({ id, onChange, quiet = false, showErrors = f
   const valid = phone ? isValidPhone(phone) : false;
   const digitCount = display.replace(/\D/g, "").length;
   const showError = !quiet && !valid && digitCount > 0 && (touched || showErrors);
-  const message = showError ? HINTS[iso] || "Ο αριθμός δεν φαίνεται σωστός για αυτή τη χώρα." : "";
+  const message = showError ? HINTS[iso] || "Γράψε κινητό τηλέφωνο της χώρας που διάλεξες." : "";
   const echo = !quiet && valid ? formatPhone(phone) : "";
 
   return (
