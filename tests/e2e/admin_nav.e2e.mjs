@@ -2,7 +2,7 @@
 // σελίδα του διαχειριστή, με «Ο λογαριασμός μου» και «Αποσύνδεση». Μία ομάδα ανοιχτή τη φορά (αυτή
 // της σελίδας που βλέπεις)· πατώντας άλλο τίτλο ανοίγει εκείνη και κλείνει η προηγούμενη. Στο κινητό:
 // το συρτάρι με την ίδια λογική. Ποτέ δύο μενού το ένα πάνω στο άλλο.
-import { as, go, check, finish, shoot, OUT } from "./lib.mjs";
+import { as, go, check, finish, shoot, OUT, sql } from "./lib.mjs";
 
 const ADMIN = "6900002001";
 const settle = (page) => page.waitForTimeout(600); // η κίνηση ανοίγματος/κλεισίματος διαρκεί ~0,3s
@@ -75,6 +75,22 @@ await as(ADMIN, async (page) => {
   await settle(page);
   check("σε σελίδα άλλης ομάδας: ανοίγει η δική της", (await link("Χρήστες").isVisible()) && !(await link("Αντικαταστάσεις").isVisible()));
   await shoot(page, "adminnav-users");
+
+  // «Βλέπεις ως»: η πορτοκαλί λωρίδα σπρώχνει την κεφαλίδα κάτω· το μενού δεν κρύβεται από κάτω της.
+  const maria = sql(`select id from users where phone_number = '+306900002002'`);
+  await page.evaluate((id) => sessionStorage.setItem("sf_view_as", JSON.stringify({ id, name: "Μαρία", role: "client" })), maria);
+  await go(page, "/platform");
+  await settle(page);
+  const bar = await page.getByText("Μόνο ανάγνωση").boundingBox();
+  const headerBottom = await page.evaluate(() => {
+    const h = [...document.querySelectorAll(".platform-scope > div")].find((d) => getComputedStyle(d).position === "sticky" && d.querySelector('button[aria-label="Μενού"]'));
+    return h ? h.getBoundingClientRect().bottom : null;
+  });
+  const sideTop = (await side.boundingBox())?.y;
+  check("«Βλέπεις ως»: η λωρίδα φαίνεται", Boolean(bar));
+  check("«Βλέπεις ως»: το μενού ξεκινά κάτω από την κεφαλίδα", headerBottom !== null && sideTop >= headerBottom - 1, `${sideTop} / ${headerBottom}`);
+  await shoot(page, "adminnav-viewas");
+  await page.evaluate(() => sessionStorage.removeItem("sf_view_as"));
 
   // ---- Κινητό: συρτάρι με τα ίδια, ίδια λογική ----
   await page.setViewportSize({ width: 390, height: 844 });

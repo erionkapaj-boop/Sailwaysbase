@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import NavGroups from "./NavGroups";
 import { colors, fontSans } from "../../../lib/platform/theme";
 
@@ -6,6 +7,7 @@ import { colors, fontSans } from "../../../lib/platform/theme";
 // κινητού (NavGroups), με «Ο λογαριασμός μου» και «Αποσύνδεση» κάτω-κάτω, και σε ΚΑΘΕ σελίδα, όχι
 // μόνο σε αυτές της διαχείρισης. Σε στενή οθόνη δεν φαίνεται και δουλεύει το συρτάρι.
 // Το πλάτος του (250px) το ξέρει και το PlatformShell, που μετακινεί το περιεχόμενο δεξιά του.
+// Ξεκινά ακριβώς κάτω από την κεφαλίδα, όποιο ύψος κι αν έχει (π.χ. με τη λωρίδα «Βλέπεις ως» από πάνω).
 export const SIDENAV_WIDTH = 250;
 export const SIDENAV_MIN_SCREEN = 1100;
 
@@ -20,8 +22,25 @@ export const SIDENAV_CSS = `
 `;
 
 export default function SideNav({ items, activeHref, onSignOut }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const place = () => {
+      const header = document.querySelector("[data-sf-header]");
+      if (ref.current && header) ref.current.style.top = `${Math.max(0, header.getBoundingClientRect().bottom)}px`;
+    };
+    place();
+    window.addEventListener("scroll", place, { passive: true });
+    window.addEventListener("resize", place);
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(place) : null;
+    ro?.observe(document.body);
+    return () => {
+      window.removeEventListener("scroll", place);
+      window.removeEventListener("resize", place);
+      ro?.disconnect();
+    };
+  }, []);
   return (
-    <aside className="sf-sidenav">
+    <aside ref={ref} className="sf-sidenav">
       <nav aria-label="Πλαϊνό μενού" style={{ flex: 1, overflowY: "auto", padding: "6px 10px 10px" }}>
         <NavGroups items={items} activeHref={activeHref} />
       </nav>

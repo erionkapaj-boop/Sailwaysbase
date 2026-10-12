@@ -41,7 +41,7 @@ function AccountNavBar({ name, photoUrl, loading, items, activeHref, onSignOut, 
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
   return (
-    <div style={{ ...nav, display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "center", columnGap: 10 }}>
+    <div data-sf-header style={{ ...nav, display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "center", columnGap: 10 }}>
       <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} hideOnWide={hideMenuOnWide} />
 
       <Link
