@@ -1,8 +1,7 @@
 "use client";
-import Collapse from "./Collapse";
+import NavGroups from "./NavGroups";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import { colors, fontSans, shadow, radius } from "../../../lib/platform/theme";
 
 const DRAWER_WIDTH = 280;
@@ -19,61 +18,13 @@ const itemStyle = {
 // A slide-in drawer, not a dropdown box floating next to the icon — the
 // familiar shape people already know from every other app's hamburger menu,
 // instead of a small rectangle appearing at an arbitrary point on the page.
+// The list itself (groups, current page, counts) is NavGroups, shared with the
+// permanent side menu on wide screens (SideNav).
 //
-// `activeHref` (optional) highlights the item matching the current page —
-// exact match unless the item sets `prefix: true`, in which case anything
-// starting with its href counts (an admin section's own sub-pages, e.g.
-// /platform/admin/user/[id] under "Χρήστες"). `items` can mix plain entries
-// with `group: true` (a bare divider above it) and `heading: "text"` (a
-// small section label that starts a group) — one flat list then reads as
-// several labelled groups, which fold so a long (admin) menu fits a phone.
-function Badge({ n }) {
-  return (
-    <span
-      style={{
-        minWidth: 20,
-        height: 20,
-        padding: "0 6px",
-        borderRadius: 10,
-        background: colors.warn,
-        color: "#fff",
-        fontFamily: fontSans,
-        fontSize: 12,
-        fontWeight: 600,
-        letterSpacing: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
-      {n}
-    </span>
-  );
-}
-
-export default function AccountMenu({ items = [], onSignOut, activeHref }) {
+// `hideOnWide`: on wide screens the permanent side menu shows the same list, so
+// the button goes quiet (it keeps its place so the header does not shift).
+export default function AccountMenu({ items = [], onSignOut, activeHref, hideOnWide = false }) {
   const [open, setOpen] = useState(false);
-
-  const isActive = (it) =>
-    activeHref && (it.prefix ? activeHref.startsWith(it.href) : activeHref === it.href);
-
-  // Items that carry a `heading` start a group. Like the admin sidebar, only ONE group is
-  // open at a time: the one that holds the current page (or the first, on pages outside the
-  // menu). Pressing another group's title opens it and folds the previous one; pressing the open
-  // group's title folds it. A folded group still shows its count.
-  const groups = [];
-  for (const it of items) {
-    if (it.heading || groups.length === 0) groups.push({ heading: it.heading || null, items: [] });
-    groups[groups.length - 1].items.push(it);
-  }
-  const headed = groups.filter((g) => g.heading);
-  const homeGroup = (headed.find((g) => g.items.some(isActive)) || headed[0])?.heading || null;
-  const [openHeading, setOpenHeading] = useState(null);
-  useEffect(() => {
-    if (open) setOpenHeading(homeGroup);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
 
   // Closeable the same way any drawer is: tap the dimmed backdrop, tap the
   // ✕, or press Escape. Body scroll is held still while it's open so the
@@ -150,77 +101,7 @@ export default function AccountMenu({ items = [], onSignOut, activeHref }) {
               </button>
             </div>
             <nav style={{ display: "flex", flexDirection: "column", padding: "6px 10px 10px", overflowY: "auto", flex: 1 }}>
-              {groups.map((g) => {
-                const isOpen = !g.heading || openHeading === g.heading;
-                const waiting = g.items.reduce((n, it) => n + (it.badge > 0 ? it.badge : 0), 0);
-                return (
-                  <div key={g.heading || "_top"} style={{ borderTop: g.heading ? `1px solid ${colors.border}` : undefined, marginTop: g.heading ? 6 : 0 }}>
-                    {g.heading && (
-                      <button
-                        type="button"
-                        onClick={() => setOpenHeading((h) => (h === g.heading ? null : g.heading))}
-                        aria-expanded={isOpen}
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 8,
-                          padding: "10px 18px 6px",
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          fontFamily: fontSans,
-                          fontSize: 11.5,
-                          fontWeight: 600,
-                          letterSpacing: "0.05em",
-                          textTransform: "uppercase",
-                          color: colors.inkSoft,
-                        }}
-                      >
-                        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          {g.heading}
-                          {!isOpen && waiting > 0 && <Badge n={waiting} />}
-                        </span>
-                        <span aria-hidden="true" style={{ fontSize: 12, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)" }}>
-                          ›
-                        </span>
-                      </button>
-                    )}
-                    <Collapse open={isOpen}>
-                      {g.items.map((it, i) => {
-                        const active = isActive(it);
-                        const divider = !g.heading && it.group && i > 0;
-                        return (
-                          <div
-                            key={it.href}
-                            style={divider ? { marginTop: 10, paddingTop: 6, borderTop: `1px solid ${colors.border}` } : undefined}
-                          >
-                          <Link
-                            href={it.href}
-                            onClick={() => setOpen(false)}
-                            style={{
-                              ...itemStyle,
-                              padding: g.heading ? "10px 18px" : itemStyle.padding,
-                              borderRadius: radius.sm,
-                              background: active ? colors.seaGlass : undefined,
-                              fontWeight: active ? 600 : 400,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 8,
-                            }}
-                          >
-                            <span>{it.label}</span>
-                            {it.badge > 0 && <Badge n={it.badge} />}
-                          </Link>
-                          </div>
-                        );
-                      })}
-                    </Collapse>
-                  </div>
-                );
-              })}
+              <NavGroups items={items} activeHref={activeHref} onNavigate={() => setOpen(false)} />
             </nav>
             <button
               type="button"
@@ -252,6 +133,7 @@ export default function AccountMenu({ items = [], onSignOut, activeHref }) {
       <button
         type="button"
         aria-label="Μενού"
+        className={hideOnWide ? "sf-hide-wide" : undefined}
         onClick={() => setOpen((o) => !o)}
         style={{ background: "none", border: "none", cursor: "pointer", padding: 8, fontSize: 24, lineHeight: 1, color: colors.ink }}
       >

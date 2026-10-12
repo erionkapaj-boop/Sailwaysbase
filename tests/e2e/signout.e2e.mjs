@@ -6,21 +6,23 @@ import { as, go, text, check, finish, BASE, shoot } from "./lib.mjs";
 const ADMIN = "6900002001";
 const hasToken = (page) => page.evaluate(() => Object.keys(localStorage).some((k) => k.includes("auth-token")));
 
+// Σε στενή οθόνη η αποσύνδεση είναι στο συρτάρι των τριών γραμμών, σε πλατιά στο μόνιμο μενού αριστερά.
 async function openMenuAndSignOut(page) {
-  await page.getByRole("button", { name: "Μενού", exact: true }).click();
+  const burger = page.getByRole("button", { name: "Μενού", exact: true });
+  if (await burger.isVisible()) await burger.click();
   await page.getByRole("button", { name: "Αποσύνδεση" }).click();
 }
 
 // 1. Κανονική αποσύνδεση από την κονσόλα διαχείρισης.
 await as(ADMIN, async (page) => {
   await go(page, "/platform/admin");
-  check("συνδεδεμένος διαχειριστής: φαίνεται η κονσόλα και το μενού", (await text(page)).includes("Καλησπέρα") && (await page.getByRole("button", { name: "Μενού", exact: true }).count()) === 1);
+  check("συνδεδεμένος διαχειριστής: φαίνεται η κονσόλα και το μενού", (await text(page)).includes("Καλησπέρα") && (await page.locator("aside.sf-sidenav").isVisible()));
   await openMenuAndSignOut(page);
   await page.waitForURL((u) => u.pathname === "/platform");
   await page.waitForLoadState("networkidle");
   const t = await text(page);
   check("μετά την αποσύνδεση: πάει στην αρχική, με κεφαλίδα επισκέπτη", (await page.getByRole("link", { name: "Σύνδεση" }).count()) >= 1);
-  check("δεν μένει το μενού διαχείρισης", (await page.getByRole("button", { name: "Μενού", exact: true }).count()) === 0 && !t.includes("Εκκρεμότητες"), t.slice(0, 200));
+  check("δεν μένει το μενού διαχείρισης", (await page.locator("aside.sf-sidenav").count()) === 0 && !t.includes("Εκκρεμότητες"), t.slice(0, 200));
   check("η σύνδεση σβήστηκε από τον browser", !(await hasToken(page)));
   await page.goto(`${BASE}/platform/admin`);
   await page.waitForLoadState("networkidle");

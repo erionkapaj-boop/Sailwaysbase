@@ -11,6 +11,8 @@ import MessagesPanel from "./components/MessagesPanel";
 import Avatar from "./components/Avatar";
 import AccountMenu from "./components/AccountMenu";
 import FeedbackProvider from "./components/FeedbackProvider";
+import SideNav, { SIDENAV_CSS } from "./components/SideNav";
+import { NAV_CSS } from "./components/NavGroups";
 import HealthWatch from "./components/HealthWatch";
 import { SECTIONS as ADMIN_SECTIONS, badgeCount, ADMIN_COUNTS_EVENT } from "./admin/AdminShell";
 import { adminOverview } from "../../lib/platform/db";
@@ -34,13 +36,13 @@ const navLink = {
 // header shape — the parts they do have should sit where they sit everywhere
 // else. Roles beyond skipper (hostess, cook, deckhand) come through here
 // unchanged, since nothing in it is specific to what someone does on a boat.
-function AccountNavBar({ name, photoUrl, loading, items, activeHref, onSignOut, notifications, refreshNotifications }) {
+function AccountNavBar({ name, photoUrl, loading, items, activeHref, onSignOut, notifications, refreshNotifications, hideMenuOnWide }) {
   const unreadNotifications = notifications?.pendingRequests ?? 0;
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
   return (
     <div style={{ ...nav, display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "center", columnGap: 10 }}>
-      <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} />
+      <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} hideOnWide={hideMenuOnWide} />
 
       <Link
         href="/platform"
@@ -132,17 +134,23 @@ function NavBar() {
   }, [isAdmin, pathname]);
 
   if (session && (isAdmin || role === "skipper" || role === "client")) {
+    const menuItems = buildMenuItems({ role, isAdmin, isOwner, adminCounts });
     return (
-      <AccountNavBar
-        name={profile?.full_name || userRow?.full_name || (isAdmin ? "Διαχειριστής" : undefined)}
-        photoUrl={profile?.photo_url || userRow?.photo_url}
-        loading={loading}
-        items={buildMenuItems({ role, isAdmin, isOwner, adminCounts })}
-        activeHref={pathname}
-        onSignOut={signOut}
-        notifications={notifications}
-        refreshNotifications={refreshNotifications}
-      />
+      <>
+        <AccountNavBar
+          name={profile?.full_name || userRow?.full_name || (isAdmin ? "Διαχειριστής" : undefined)}
+          photoUrl={profile?.photo_url || userRow?.photo_url}
+          loading={loading}
+          items={menuItems}
+          activeHref={pathname}
+          onSignOut={signOut}
+          notifications={notifications}
+          refreshNotifications={refreshNotifications}
+          hideMenuOnWide={isAdmin}
+        />
+        {/* Διαχειριστής σε πλατιά οθόνη: η ίδια λίστα μόνιμα αριστερά, παντού (βλ. SideNav). */}
+        {isAdmin && <SideNav items={menuItems} activeHref={pathname} onSignOut={signOut} />}
+      </>
     );
   }
 
@@ -182,6 +190,8 @@ const globalStyles = `
 .platform-scope input[type=date]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 .platform-scope .sf-cta:hover { background: ${colors.ink}; color: #fff; }
 .platform-scope .sf-cta:active { background: ${colors.brandDark}; color: #fff; }
+${NAV_CSS}
+${SIDENAV_CSS}
 @keyframes sf-drawer-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sf-drawer-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 @keyframes sf-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
@@ -339,22 +349,35 @@ function SiteFooter() {
   return session ? <AppFooter /> : <Footer />;
 }
 
+// Το κέλυφος κάτω από τον πάροχο σύνδεσης: κεφαλίδα, περιεχόμενο, υποσέλιδο. Ο διαχειριστής σε πλατιά
+// οθόνη έχει το μόνιμο αριστερό μενού (SideNav): περιεχόμενο ΚΑΙ υποσέλιδο μετακινούνται δεξιά του,
+// ώστε τίποτα να μη χάνεται πίσω του.
+function ShellBody({ children }) {
+  const { session, isAdmin } = useAuth();
+  const side = Boolean(session && isAdmin);
+  return (
+    <div className="platform-scope" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      <ViewAsBanner />
+      <NavBar />
+      <div className={side ? "sf-with-sidenav" : undefined} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1 }}>
+          <PinChangeGate>
+            <VerificationGate>{children}</VerificationGate>
+          </PinChangeGate>
+        </div>
+        <SiteFooter />
+      </div>
+    </div>
+  );
+}
+
 export default function PlatformShell({ children }) {
   return (
     <AuthProvider>
       <FeedbackProvider>
         <style dangerouslySetInnerHTML={{ __html: globalStyles }} />
         <HealthWatch />
-        <div className="platform-scope" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-          <ViewAsBanner />
-          <NavBar />
-          <div style={{ flex: 1 }}>
-            <PinChangeGate>
-              <VerificationGate>{children}</VerificationGate>
-            </PinChangeGate>
-          </div>
-          <SiteFooter />
-        </div>
+        <ShellBody>{children}</ShellBody>
       </FeedbackProvider>
     </AuthProvider>
   );
