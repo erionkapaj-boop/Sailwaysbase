@@ -40,6 +40,8 @@ await as(ADMIN, async (page) => {
   const statuses = [];
   page.on("response", (r) => { if (/rpc\/admin_health_issues/.test(r.url())) statuses.push(r.status()); });
   // Μέσα από την εφαρμογή (όπως στο κινητό: η σελίδα ήταν ήδη ανοιχτή).
+  // Το «Υγεία εφαρμογής» είναι στην ομάδα «Σύστημα» του μενού, που είναι κλειστή στην Επισκόπηση.
+  await page.locator("aside.sf-sidenav").getByRole("button", { name: /Σύστημα/i }).click();
   await page.locator('a[href="/platform/admin/health"]').first().click();
   const started = Date.now();
   while (anonCalls === 0 && Date.now() - started < 60000) await page.waitForTimeout(500);
