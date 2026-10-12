@@ -3,9 +3,11 @@
 // (κουμπί → authorize → επιστροφή με code → σύνδεση).
 import { chromium } from "playwright";
 import { BASE, check, finish, sql, shoot, text, as } from "./lib.mjs";
+import { TEST_PIN } from "./gateway.mjs";
 
 const GATEWAY = process.env.NEXT_PUBLIC_PLATFORM_SUPABASE_URL;
-const MARIA = "6900002002";
+const MARIA = "6900002002", NIKOS = "6900002003";
+const ORPHAN = "6900009901"; // εγγραφή με τηλέφωνο που κόπηκε: ταυτότητα χωρίς λογαριασμό
 const EMAILS = ["nea.pelatis@gmail.com", "pro.google@gmail.com", "taken.google@gmail.com", "maria.google@gmail.com", "cancel.google@gmail.com"];
 
 const persona = (p) => fetch(`${GATEWAY}/__google/next`, { method: "POST", body: JSON.stringify(p) });
@@ -138,6 +140,25 @@ await as(MARIA, async (page) => {
 check("η ταυτότητα Google μπήκε στον ίδιο λογαριασμό της Μαρίας",
   sql(`select count(*) from auth.identities i join auth.users u on u.id = i.user_id where i.provider = 'google' and u.phone = '30${MARIA}'`) === "1");
 
+// 5β. Ο ίδιος λογαριασμός Google σε δεύτερο χρήστη: δεν συνδέεται, και το λέει.
+await as(NIKOS, async (page) => {
+  await page.goto(`${BASE}/platform/profile`);
+  await page.waitForLoadState("networkidle");
+  await page.getByText("Δεν έχει συνδεθεί").waitFor();
+  await page.getByRole("button", { name: "Σύνδεση με Google" }).click();
+  await page.waitForURL(/\/platform\/profile/);
+  await page.getByText("Αυτός ο λογαριασμός Google είναι ήδη συνδεδεμένος με άλλον λογαριασμό.").first().waitFor({ timeout: 20000 });
+  check("Google άλλου χρήστη: μήνυμα στο Προφίλ", true);
+  check("Google άλλου χρήστη: και κάτω στην οθόνη, χωρίς κύλιση",
+    await page.getByRole("alert").filter({ hasText: "ήδη συνδεδεμένος με άλλον" }).first().isVisible());
+  await shoot(page, "google-link-taken-toast");
+  check("Google άλλου χρήστη: η διεύθυνση καθαρίζει", !/error/.test(page.url()), page.url());
+  check("Google άλλου χρήστη: παραμένει συνδεδεμένος", (await page.getByRole("button", { name: "Σύνδεση με Google" }).count()) === 1);
+  await shoot(page, "google-link-taken");
+});
+check("Google άλλου χρήστη: δεν μπήκε δεύτερη ταυτότητα",
+  sql(`select count(*) from auth.identities i join auth.users u on u.id = i.user_id where i.provider = 'google' and u.phone = '30${NIKOS}'`) === "0");
+
 // 6. Λογαριασμός σε αναστολή δεν μπαίνει ούτε με Google.
 sql(`update users set status = 'suspended' where phone_number = '+30${MARIA}'`);
 await browser(async (page) => {
@@ -186,6 +207,26 @@ await browser(async (page) => {
   await page.locator("#login-phone").waitFor();
   check("«Έχεις ήδη λογαριασμό»: βγάζει από τη σύνδεση Google και πάει στη φόρμα", true);
 });
+
+// 9. Εγγραφή με τηλέφωνο που κόπηκε (ταυτότητα χωρίς λογαριασμό): καμία πρόταση να συνεχίσει από
+// τη σελίδα της Google, μόνο έξοδος.
+sql(`delete from auth.users where phone = '30${ORPHAN}'; insert into auth.users (id, phone) values (gen_random_uuid(), '30${ORPHAN}')`);
+await browser(async (page) => {
+  await page.goto(`${BASE}/platform/login`);
+  await page.waitForLoadState("networkidle");
+  await page.locator("#login-phone").fill(ORPHAN);
+  await page.locator("#login-pin").fill(TEST_PIN);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(2500);
+  await page.goto(`${BASE}/platform/login`);
+  await page.getByText("Η σύνδεση δεν ολοκληρώθηκε").waitFor();
+  check("εγγραφή με τηλέφωνο χωρίς λογαριασμό: όχι «Συνέχεια εγγραφής» προς τη Google",
+    (await page.getByRole("link", { name: "Συνέχεια εγγραφής" }).count()) === 0 && (await page.getByRole("button", { name: "Αποσύνδεση" }).count()) === 1);
+  await page.goto(`${BASE}/platform/auth/google`);
+  await page.waitForURL(/\/platform\/login/, { timeout: 15000 });
+  check("η σελίδα της Google δεν δέχεται σύνδεση χωρίς Google", !(await text(page)).includes("Συνδέθηκες με Google"));
+});
+sql(`delete from auth.users where phone = '30${ORPHAN}'`);
 
 cleanup();
 finish();

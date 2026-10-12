@@ -73,15 +73,20 @@ function LoginInner() {
 
   if (session && !loading && !userRow) {
     // Συνδεδεμένος χωρίς ολοκληρωμένο λογαριασμό (π.χ. γύρισε πίσω στη μέση της σύνδεσης με
-    // Google): δεν υπάρχει μενού, οπότε η έξοδος είναι από εδώ.
+    // Google): δεν υπάρχει μενού, οπότε η έξοδος είναι από εδώ. Συνέχεια μόνο για όποιον μπήκε με
+    // Google: η σελίδα επιστροφής της Google δεν ολοκληρώνει εγγραφή με τηλέφωνο.
+    const meta = session.user?.app_metadata || {};
+    const viaGoogle = meta.provider === "google" || (meta.providers || []).includes("google");
     return (
       <div style={{ ...container, maxWidth: 460 }}>
         <h1 style={h1}>Η σύνδεση δεν ολοκληρώθηκε</h1>
         <p style={muted}>Δεν υπάρχει ακόμα λογαριασμός για αυτή τη σύνδεση.</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 20 }}>
-          <Link href="/platform/auth/google" style={{ ...button("primary"), textDecoration: "none" }}>
-            Συνέχεια εγγραφής
-          </Link>
+          {viaGoogle && (
+            <Link href="/platform/auth/google" style={{ ...button("primary"), textDecoration: "none" }}>
+              Συνέχεια εγγραφής
+            </Link>
+          )}
           <button type="button" style={button("secondary")} onClick={() => signOut("/platform/login")}>
             Αποσύνδεση
           </button>

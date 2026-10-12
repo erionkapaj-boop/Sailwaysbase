@@ -110,6 +110,11 @@ function GoogleReturn() {
         }
         const g = await getGoogleIdentity();
         if (cancelled) return;
+        // Συνδεδεμένος χωρίς Google (εγγραφή με τηλέφωνο που δεν ολοκληρώθηκε): εδώ δεν ολοκληρώνεται.
+        if (!g) {
+          router.replace("/platform/login");
+          return;
+        }
         setIdentity(g);
         setFullName((v) => v || g?.name || "");
         setMe(null);

@@ -95,9 +95,17 @@ const server = http.createServer(async (req, res) => {
     if (path === "/authorize" && req.method === "GET") {
       const back = url.searchParams.get("redirect_to") || `http://localhost:3000/platform/auth/google`;
       const target = new URL(back);
+      const linkUser = url.searchParams.get("link_user");
+      const ownerOfGoogle =
+        linkUser && lookup(`select user_id from auth.identities where provider = 'google' and identity_data ->> 'email' = '${esc(nextGoogle.email)}'`);
       if (nextGoogle.error) {
         target.searchParams.set("error", "access_denied");
         target.searchParams.set("error_description", "Access denied");
+      } else if (ownerOfGoogle && ownerOfGoogle !== linkUser) {
+        // Όπως το Supabase: ο λογαριασμός Google ανήκει ήδη σε άλλον χρήστη.
+        target.searchParams.set("error", "server_error");
+        target.searchParams.set("error_code", "identity_already_exists");
+        target.searchParams.set("error_description", "Identity is already linked to another user");
       } else {
         const code = crypto.randomUUID();
         codes.set(code, { persona: nextGoogle, linkUserId: url.searchParams.get("link_user") || null });

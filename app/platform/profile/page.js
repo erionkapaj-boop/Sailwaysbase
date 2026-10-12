@@ -10,6 +10,7 @@ import MissingProfile from "../skipper/MissingProfile";
 import ProfileForm from "../skipper/ProfileForm";
 import PhotoUpload from "../components/PhotoUpload";
 import PhoneField from "../components/PhoneField";
+import { useFeedback } from "../components/FeedbackProvider";
 import {
   updateMyPhoto,
   listLookups,
@@ -712,8 +713,25 @@ function GoogleLink({ rowStyle }) {
   const [identity, setIdentity] = useState(undefined); // undefined: φορτώνει · null: δεν έχει
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { fail } = useFeedback();
   useEffect(() => {
+    // Επιστροφή από τη Google χωρίς σύνδεση: ακυρώθηκε, ή ο λογαριασμός Google ανήκει ήδη σε άλλον.
+    // Η σελίδα ανοίγει από την κορυφή: το μήνυμα φαίνεται και κάτω στην οθόνη, όχι μόνο εδώ.
+    const q = new URLSearchParams(window.location.search + "&" + window.location.hash.slice(1));
+    const failed = q.get("error_code") || q.get("error");
+    if (failed) {
+      const message =
+        failed === "identity_already_exists"
+          ? "Αυτός ο λογαριασμός Google είναι ήδη συνδεδεμένος με άλλον λογαριασμό."
+          : "Η σύνδεση με Google δεν ολοκληρώθηκε.";
+      setError(message);
+      fail(message);
+      const keep = new URLSearchParams(window.location.search);
+      ["error", "error_code", "error_description"].forEach((k) => keep.delete(k));
+      window.history.replaceState(null, "", window.location.pathname + (keep.toString() ? `?${keep}` : ""));
+    }
     getGoogleIdentity().then(setIdentity).catch(() => setIdentity(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (identity === undefined) return null;
 
