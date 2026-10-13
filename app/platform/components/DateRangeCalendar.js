@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { colors, fontSans, radius } from "../../../lib/platform/theme";
-import { formatDateRange } from "../../../lib/platform/notifications";
+import { useFormat } from "../useFormat";
 import {
   CalendarStyles,
   MonthNav,
@@ -11,7 +11,6 @@ import {
   parseISO,
   todayKey,
   daysBetween,
-  shortDay,
   useMonthCount,
 } from "./calendar/Calendar";
 
@@ -30,6 +29,7 @@ export default function DateRangeCalendar({
   bare = false,
   maxMonths = 2,
 }) {
+  const f = useFormat();
   const floor = minDate || todayKey();
   const [month, setMonth] = useState(() => startOfMonth(startDate ? parseISO(startDate) : new Date()));
   // "start" | "end" | "done" (διάστημα πλήρες: καμία θέση δεν περιμένει)
@@ -127,7 +127,7 @@ export default function DateRangeCalendar({
             textOverflow: "ellipsis",
           }}
         >
-          {value ? shortDay(value) : placeholder}
+          {value ? f.shortDay(value) : placeholder}
         </span>
       </button>
     );
@@ -197,7 +197,7 @@ export default function DateRangeCalendar({
       >
         <span style={{ color: prompt ? colors.ink : colors.inkSoft, fontWeight: prompt ? 500 : 400 }}>
           {prompt ||
-            `${days} ${days === 1 ? "ημέρα" : "ημέρες"} · ${formatDateRange(startDate, endDate)}`}
+            `${days} ${days === 1 ? "ημέρα" : "ημέρες"} · ${f.dateRange(startDate, endDate)}`}
         </span>
         {startDate && (
           <button

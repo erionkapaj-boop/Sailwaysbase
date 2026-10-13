@@ -118,6 +118,12 @@ export EMAIL_CAPTURE_PORT="${EMAIL_CAPTURE_PORT:-54392}"
 export CRON_SECRET="e2e-cron-secret"
 # Το κουμπί «Συνέχεια με Google» φαίνεται (η «Google» των τεστ είναι το gateway).
 export NEXT_PUBLIC_GOOGLE_LOGIN=1
+# Γλώσσες (docs/I18N.md): εδώ ανοίγουν και τα αγγλικά, για να δοκιμαστεί ο
+# μηχανισμός (κουμπί, cookie, γλώσσα λογαριασμού, ημερομηνίες). Στην παραγωγή η
+# ίδια μεταβλητή περνά από την πύλη του build (scripts/check-i18n.mjs --gate), που
+# δεν αφήνει να ανοίξει γλώσσα που δεν είναι πλήρης· εδώ παρακάμπτεται ρητά.
+export NEXT_PUBLIC_PLATFORM_LOCALES="${E2E_LOCALES:-el,en}"
+export I18N_SKIP_GATE=1
 # The team app (/) uses its own Supabase project in production; here the same
 # gateway stands in for it.
 export NEXT_PUBLIC_SUPABASE_URL="http://localhost:$GATEWAY_PORT"

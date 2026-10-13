@@ -41,6 +41,8 @@ jobs:
         run: npm ci
       - name: Place search (typos, Greek/Latin)
         run: node tests/unit/placeSearch.test.mjs && node tests/unit/phone.test.mjs
+      - name: Languages (dates, names, no new hard-coded text, completeness gate)
+        run: node tests/unit/format.test.mjs && node tests/unit/translit.test.mjs && node scripts/check-i18n.mjs
       - name: Database tests
         run: bash tests/db/run.sh
 

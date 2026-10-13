@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import DateRangeCalendar from "../DateRangeCalendar";
-import { CalendarStyles, MonthNav, MonthGrid, addMonths, startOfMonth, parseISO, todayKey, longDay } from "./Calendar";
+import { CalendarStyles, MonthNav, MonthGrid, addMonths, startOfMonth, parseISO, todayKey } from "./Calendar";
 import { colors, radius, fontSans, button, shadow } from "../../../../lib/platform/theme";
-import { formatDateRange } from "../../../../lib/platform/notifications";
+import { useFormat } from "../../useFormat";
 
 // Μία ημερομηνία, με το ίδιο πλέγμα που χρησιμοποιεί όλη η εφαρμογή.
 export function SingleCalendar({ value, onChange, minDate, bare = false }) {
@@ -60,6 +60,7 @@ export default function DateField({
   endLabel = "Έως",
   invalid = false,
 }) {
+  const f = useFormat();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
 
@@ -83,10 +84,10 @@ export default function DateField({
   const text =
     mode === "single"
       ? value
-        ? longDay(value)
+        ? f.longDay(value)
         : ""
       : value?.startDate && value?.endDate
-      ? formatDateRange(value.startDate, value.endDate)
+      ? f.dateRange(value.startDate, value.endDate)
       : "";
 
   const rangeReady = mode === "range" && draft?.startDate && draft?.endDate;

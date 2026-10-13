@@ -2,6 +2,7 @@ import { serviceClient } from "../../../../lib/platform/serverDb";
 import { emailConfig, sendEmail } from "../../../../lib/platform/email";
 import { EMAIL_KINDS, buildNotificationEmail } from "../../../../lib/platform/emailNotifications";
 import { reportServerIssue } from "../../../../lib/platform/serverHealth";
+import { translatorFor } from "../../../../lib/platform/serverMessages";
 
 // Sends the notifications waiting for an email (0103). Called every few
 // minutes by the database itself (pg_cron + pg_net, see the SQL in
@@ -34,8 +35,16 @@ async function run(req) {
   const baseUrl = (process.env.PLATFORM_PUBLIC_URL || new URL(req.url).origin).replace(/\/$/, "");
   const byUser = new Map();
   for (const r of rows || []) {
-    if (!byUser.has(r.user_id)) byUser.set(r.user_id, { email: r.email, name: r.full_name, items: [] });
+    if (!byUser.has(r.user_id)) byUser.set(r.user_id, { userId: r.user_id, email: r.email, name: r.full_name, items: [] });
     byUser.get(r.user_id).items.push(r);
+  }
+
+  // Η γλώσσα του καθενός (0123). Αν η στήλη δεν υπάρχει ακόμα (η μετάβαση δεν έχει
+  // τρέξει), ή αποτύχει το ερώτημα, τα emails φεύγουν στα ελληνικά όπως πριν.
+  const locales = new Map();
+  if (byUser.size) {
+    const { data } = await db.from("users").select("id, locale").in("id", [...byUser.keys()]);
+    for (const row of data || []) locales.set(row.id, row.locale);
   }
 
   const sent = [];
@@ -43,7 +52,9 @@ async function run(req) {
   let retry = 0;
   for (const person of byUser.values()) {
     const ids = person.items.map((i) => i.id);
-    const status = await sendEmail(config, { to: person.email, ...buildNotificationEmail({ ...person, baseUrl }) });
+    const locale = locales.get(person.userId) || "el";
+    const t = await translatorFor(locale, "Email");
+    const status = await sendEmail(config, { to: person.email, ...buildNotificationEmail({ ...person, baseUrl, t, locale }) });
     if (status >= 200 && status < 300) sent.push(...ids);
     // A rejected address won't get better; an outage will — those stay
     // 'sending' and the database hands them out again in 30 minutes.

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { colors, fontSans } from "../../../../lib/platform/theme";
+import { useFormat } from "../../useFormat";
 
 // ----------------------------------------------------------------------------
 // Ένα σύστημα ημερολογίου για όλη την εφαρμογή (κράτηση, διαθεσιμότητα,
@@ -11,17 +12,8 @@ import { colors, fontSans } from "../../../../lib/platform/theme";
 //   · σήμερα: τελεία κάτω από τον αριθμό, παρελθόν: αχνό, όχι πατήσιμο.
 // ----------------------------------------------------------------------------
 
-export const WEEKDAYS = ["Δε", "Τρ", "Τε", "Πε", "Πα", "Σα", "Κυ"];
-export const MONTH_NAMES = [
-  "Ιανουάριος", "Φεβρουάριος", "Μάρτιος", "Απρίλιος", "Μάιος", "Ιούνιος",
-  "Ιούλιος", "Αύγουστος", "Σεπτέμβριος", "Οκτώβριος", "Νοέμβριος", "Δεκέμβριος",
-];
-const MONTH_GEN = [
-  "Ιανουαρίου", "Φεβρουαρίου", "Μαρτίου", "Απριλίου", "Μαΐου", "Ιουνίου",
-  "Ιουλίου", "Αυγούστου", "Σεπτεμβρίου", "Οκτωβρίου", "Νοεμβρίου", "Δεκεμβρίου",
-];
-const WEEKDAY_SHORT = ["Κυρ", "Δευ", "Τρί", "Τετ", "Πέμ", "Παρ", "Σάβ"];
-
+// Τα ονόματα μηνών και ημερών, και το «Πέμ 24 Σεπ» / «24 Σεπτεμβρίου 2026»,
+// έρχονται από το lib/platform/format.js στη γλώσσα της σελίδας (useFormat).
 const pad = (n) => String(n).padStart(2, "0");
 // Τοπική μορφή: το toISOString() περνά σε UTC και μπορεί να αλλάξει μέρα.
 export const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -39,18 +31,6 @@ export const addDaysKey = (key, n) => {
 };
 export const daysBetween = (a, b) => Math.round((parseISO(b) - parseISO(a)) / 86400000);
 
-// «Πέμ 24 Σεπ» — για τις θέσεις Αναχώρηση/Επιστροφή.
-export function shortDay(key) {
-  if (!key) return "";
-  const d = parseISO(key);
-  return `${WEEKDAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTH_GEN[d.getMonth()].slice(0, 3)}`;
-}
-// «24 Σεπτεμβρίου 2026» — για πεδία φόρμας.
-export function longDay(key) {
-  if (!key) return "";
-  const d = parseISO(key);
-  return `${d.getDate()} ${MONTH_GEN[d.getMonth()]} ${d.getFullYear()}`;
-}
 
 // Χρώματα λωρίδας ανά τόνο. «range»: επιλογή του χρήστη. Τα υπόλοιπα για
 // το ημερολόγιο διαθεσιμότητας (διαθέσιμο / κλειστό / κράτηση).
@@ -111,6 +91,8 @@ function Chevron({ dir }) {
 
 // Μήνας/μήνες με βελάκια. `count` μήνες δίπλα-δίπλα (2 σε φαρδιά οθόνη).
 export function MonthNav({ month, count = 1, onPrev, onNext, prevDisabled }) {
+  const f = useFormat();
+  const months = f.monthNames("long");
   return (
     <div style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: 14, minHeight: 36 }}>
       <button type="button" className="sf-cal-nav" aria-label="Προηγούμενος μήνας" onClick={onPrev} disabled={prevDisabled}>
@@ -121,7 +103,7 @@ export function MonthNav({ month, count = 1, onPrev, onNext, prevDisabled }) {
           const m = addMonths(month, i);
           return (
             <span key={i} style={{ fontFamily: fontSans, fontSize: 16, fontWeight: 600, color: colors.ink }}>
-              {MONTH_NAMES[m.getMonth()]} {m.getFullYear()}
+              {months[m.getMonth()]} {m.getFullYear()}
             </span>
           );
         })}
@@ -142,6 +124,8 @@ export function MonthNav({ month, count = 1, onPrev, onNext, prevDisabled }) {
 // ένα διάστημα που αλλάζει γραμμή να διαβάζεται σωστά.
 // ----------------------------------------------------------------------------
 export function MonthGrid({ month, dayProps, onLeave }) {
+  const f = useFormat();
+  const weekdays = f.weekdayNames("mini");
   const first = startOfMonth(month);
   const last = new Date(month.getFullYear(), month.getMonth() + 1, 0);
   const offset = (first.getDay() + 6) % 7;
@@ -153,7 +137,7 @@ export function MonthGrid({ month, dayProps, onLeave }) {
   return (
     <div style={{ width: "100%" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 }}>
-        {WEEKDAYS.map((w) => (
+        {weekdays.map((w) => (
           <div
             key={w}
             style={{ fontFamily: fontSans, fontSize: 12, fontWeight: 500, color: colors.inkSoft, textAlign: "center", padding: "4px 0" }}
@@ -204,7 +188,7 @@ export function MonthGrid({ month, dayProps, onLeave }) {
                 disabled={p.disabled}
                 data-edge={p.filled ? "1" : "0"}
                 data-strike={p.strike ? "1" : "0"}
-                aria-label={p.ariaLabel || longDay(key)}
+                aria-label={p.ariaLabel || f.longDay(key)}
                 aria-pressed={p.filled || band !== "none" ? true : undefined}
                 onClick={() => p.onClick?.(key)}
                 onMouseEnter={() => p.onHover?.(key)}

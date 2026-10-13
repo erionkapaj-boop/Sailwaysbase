@@ -22,8 +22,15 @@
     "tagline": "Skippers and crew for your boat."
   },
   "LanguageSwitcher": {
-    "greek": "Greek",
-    "english": "English",
-    "switchTo": "Switch language to {language}"
+    "change": "Change language"
+  },
+  "Email": {
+    "greetingNamed": "Hello {name},",
+    "greeting": "Hello,",
+    "subjectMany": "{count} new notifications",
+    "subjectManyUrgent": "{count} new notifications — some are waiting for your reply",
+    "open": "Open →",
+    "optOutLead": "Don't want these emails?",
+    "optOutLink": "Turn them off in your profile"
   }
 }

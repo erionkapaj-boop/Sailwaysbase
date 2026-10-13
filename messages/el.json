@@ -22,8 +22,15 @@
     "tagline": "Skipper και πλήρωμα για το σκάφος σου."
   },
   "LanguageSwitcher": {
-    "greek": "Ελληνικά",
-    "english": "Αγγλικά",
-    "switchTo": "Αλλαγή γλώσσας σε {language}"
+    "change": "Αλλαγή γλώσσας"
+  },
+  "Email": {
+    "greetingNamed": "Γεια σου {name},",
+    "greeting": "Γεια σου,",
+    "subjectMany": "{count} νέες ειδοποιήσεις",
+    "subjectManyUrgent": "{count} νέες ειδοποιήσεις — κάποιες περιμένουν απάντησή σου",
+    "open": "Άνοιγμα →",
+    "optOutLead": "Δεν θέλεις αυτά τα email;",
+    "optOutLink": "Κλείσ' τα από το προφίλ σου"
   }
 }

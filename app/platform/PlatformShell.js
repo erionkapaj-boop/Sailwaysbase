@@ -2,12 +2,13 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer, { AppFooter } from "./components/Footer";
 import Logo from "./components/Logo";
 import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
+import LanguageSwitcher from "./components/LanguageSwitcher";
 import Avatar from "./components/Avatar";
 import AccountMenu from "./components/AccountMenu";
 import FeedbackProvider from "./components/FeedbackProvider";
@@ -15,9 +16,10 @@ import SideNav, { SIDENAV_CSS } from "./components/SideNav";
 import { NAV_CSS } from "./components/NavGroups";
 import HealthWatch from "./components/HealthWatch";
 import { SECTIONS as ADMIN_SECTIONS, badgeCount, ADMIN_COUNTS_EVENT } from "./admin/AdminShell";
-import { adminOverview } from "../../lib/platform/db";
+import { adminOverview, setMyLocale } from "../../lib/platform/db";
 import { hasPendingBroadcast } from "../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../lib/platform/pendingDelivery";
+import { isEnabledLocale, LOCALE_COOKIE } from "../../lib/platform/i18n";
 import { nav, colors, fontSans, container, card, h1, muted, button } from "../../lib/platform/theme";
 
 const navLink = {
@@ -65,6 +67,7 @@ function AccountNavBar({ name, photoUrl, loading, items, activeHref, onSignOut, 
       </Link>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+        <LanguageSwitcher />
         <NotificationPanel count={unreadNotifications} onRead={refreshNotifications} />
         <MessagesPanel count={unreadBookingIds.length} />
       </div>
@@ -164,6 +167,7 @@ function NavBar() {
           search entry point) and deliberately no sign-up: registration is a
           step inside the flow, at the SMS OTP moment, not a separate door. */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", rowGap: 8 }}>
+        <LanguageSwitcher />
         <Link href="/platform/login" style={{ ...navLink, color: colors.ink }}>
           {t("login")}
         </Link>
@@ -355,6 +359,33 @@ function SiteFooter() {
 function ShellBody({ children }) {
   const { session, isAdmin } = useAuth();
   const side = Boolean(session && isAdmin);
+  // Η γλώσσα της σελίδας στον browser (βοηθά και ορθογραφικό έλεγχο, και
+  // προγράμματα ανάγνωσης οθόνης), και διαθέσιμη σε κώδικα εκτός React
+  // (activeLocale στο lib/platform/i18n.js).
+  const locale = useLocale();
+  const { userRow } = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+  // Η γλώσσα ακολουθεί τον λογαριασμό: σε συσκευή που δεν έχει ξαναδιαλέξει
+  // γλώσσα, ανοίγει στη γλώσσα του λογαριασμού· αν έχει διαλέξει, η επιλογή
+  // της συσκευής γράφεται στον λογαριασμό.
+  const accountLocale = userRow?.locale;
+  useEffect(() => {
+    if (!accountLocale || !isEnabledLocale(accountLocale)) return;
+    const saved = document.cookie
+      .split("; ")
+      .find((c) => c.startsWith(`${LOCALE_COOKIE}=`))
+      ?.split("=")[1];
+    if (!saved && accountLocale !== locale) {
+      document.cookie = `${LOCALE_COOKIE}=${accountLocale}; path=/; max-age=31536000; samesite=lax`;
+      router.refresh();
+    } else if (saved && isEnabledLocale(saved) && saved !== accountLocale) {
+      setMyLocale(saved).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountLocale]);
   return (
     <div className="platform-scope" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <ViewAsBanner />
