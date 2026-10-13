@@ -100,7 +100,7 @@ try {
   await btn(petros, "Διεκδίκηση").first().click();
   await petros.waitForTimeout(1200);
   check("Α: το παράθυρο λέει τι λείπει", (await text(petros)).includes("Χρειάζεσαι 1 credit · διαθέσιμα 0 credits"));
-  await btn(petros, "Αποστολή αιτήματος").click();
+  await btn(petros, "Αποστολή αιτήματος αγοράς").click();
   await petros.waitForTimeout(1500);
   check("Α: περιμένει την πληρωμή, στην ίδια σελίδα",
     (await text(petros)).includes("Αναμονή επιβεβαίωσης της πληρωμής") && petros.url().endsWith("/platform/requests"));
@@ -121,11 +121,11 @@ try {
   await btn(kostas, "Διεκδίκηση").first().click();
   await kostas.waitForTimeout(1200);
   await kostas.getByRole("radio", { name: /Starter/ }).click();
-  await btn(kostas, "Αποστολή αιτήματος").click();
+  await btn(kostas, "Αποστολή αιτήματος αγοράς").click();
   await kostas.waitForTimeout(1500);
   await ownerHandles(admin, lastRef("kostas"), false);
   check("Β: μετά την απόρριψη το παράθυρο το λέει και προσφέρει ξανά επιλογή",
-    (await waitFor(kostas, "Το αίτημα αγοράς δεν ολοκληρώθηκε")) && (await text(kostas)).includes("Αποστολή αιτήματος"));
+    (await waitFor(kostas, "Το αίτημα αγοράς δεν ολοκληρώθηκε")) && (await text(kostas)).includes("Αποστολή αιτήματος αγοράς"));
   await kostas.keyboard.press("Escape");
   await kostas.waitForTimeout(500);
   check("Β: καμία χρέωση, η πρόταση είναι ακόμα εκεί",
@@ -141,7 +141,7 @@ try {
   await go(eleni, "/platform/requests");
   await btn(eleni, "Διεκδίκηση").first().click();
   await eleni.waitForTimeout(1200);
-  await btn(eleni, "Αποστολή αιτήματος").click();
+  await btn(eleni, "Αποστολή αιτήματος αγοράς").click();
   await eleni.waitForTimeout(1500);
   const giorgos = await login("giorgos");
   await go(giorgos, "/platform/requests");
@@ -191,9 +191,9 @@ try {
   await maria.locator("div").filter({ hasText: "260€" }).filter({ has: btn(maria, "Επιλογή") }).last().getByRole("button", { name: "Επιλογή", exact: true }).click();
   await btn(maria, "Ολοκλήρωση αιτήματος").click();
   await maria.waitForTimeout(1200);
-  check("Ε: παράθυρο αγοράς στον πελάτη", (await text(maria)).includes("Για την αποστολή χρειάζεται 1 credit"));
+  check("Ε: παράθυρο αγοράς στον πελάτη", (await text(maria)).includes("Χρειάζεται 1 credit"));
   await maria.getByRole("radio", { name: /Starter/ }).click();
-  await btn(maria, "Αποστολή αιτήματος").click();
+  await btn(maria, "Αποστολή αιτήματος αγοράς").click();
   await maria.waitForTimeout(1500);
   await ownerHandles(admin, lastRef("maria"), true);
   check("Ε: πιστώθηκαν", await waitFor(maria, "Τα credits πιστώθηκαν"));

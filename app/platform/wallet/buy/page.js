@@ -29,7 +29,7 @@ export default function BuyCreditsPage() {
       {back}
       {sent ? (
         <>
-          <h1 style={{ ...h1, marginTop: 12 }}>Το αίτημά σου καταχωρήθηκε</h1>
+          <h1 style={{ ...h1, marginTop: 12 }}>Το αίτημα αγοράς καταχωρήθηκε</h1>
           <div style={card}>
             <PurchaseSummary row={sent} />
             <p style={{ ...muted, fontSize: 13.5, margin: "12px 0 0", lineHeight: 1.55 }}>

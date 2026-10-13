@@ -93,7 +93,7 @@ await as(MARIA, async (page) => {
   check("η παραγγελία γράφει 1 credit", c.includes("1 credit"));
   await click(page, "Ολοκλήρωση αιτήματος");
   await page.waitForTimeout(2000);
-  check("το παράθυρο αγοράς ανοίγει στο τελευταίο βήμα", (await text(page)).includes("Για την αποστολή χρειάζεται 1 credit"));
+  check("το παράθυρο αγοράς ανοίγει στο τελευταίο βήμα", (await text(page)).includes("Χρειάζεται 1 credit"));
   await page.waitForTimeout(1000);
 });
 check("κανένα αίτημα δεν στάλθηκε", num(`select count(*) from booking_requests where client_id = 'a0000000-0000-0000-0000-000000000002' and fee_paid_at is not null`) === 0);
@@ -138,7 +138,7 @@ await as(MARIA, async (page) => {
   await searchAndPick(page, daysFromToday(25), daysFromToday(27), 300);
   await click(page, "Ολοκλήρωση αιτήματος");
   await page.waitForTimeout(2000);
-  check("τρίτο αίτημα: η αγορά ανοίγει, τα credits είναι δεσμευμένα", (await text(page)).includes("Για την αποστολή χρειάζεται 1 credit"));
+  check("τρίτο αίτημα: η αγορά ανοίγει, τα credits είναι δεσμευμένα", (await text(page)).includes("Χρειάζεται 1 credit"));
   await page.getByRole("button", { name: "Κλείσιμο" }).first().click();
 
   await go(page, "/platform/wallet");

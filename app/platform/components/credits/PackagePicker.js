@@ -221,7 +221,7 @@ export default function PackagePicker({ need = 0, onSent, onPending }) {
         disabled={busy || readOnly || !selected}
         onClick={send}
       >
-        {busy ? "…" : "Αποστολή αιτήματος"}
+        {busy ? "…" : "Αποστολή αιτήματος αγοράς"}
       </button>
       <p style={{ ...muted, fontSize: 12.5, margin: "12px 0 0", lineHeight: 1.5, textAlign: "center" }}>
         Τα credits πιστώνονται με την επιβεβαίωση της πληρωμής. Δεν λήγουν.

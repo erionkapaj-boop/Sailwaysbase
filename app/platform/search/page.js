@@ -983,8 +983,9 @@ function Checkout({
         need={topUpNeed}
         balance={available}
         onClose={() => setTopUpNeed(0)}
-        shortTitle={`Για την αποστολή ${verbFor(topUpNeed, "χρειάζεται", "χρειάζονται")} ${formatCredits(topUpNeed)}`}
-        waitingNote="Το αίτημά σου κρατήθηκε. Μόλις πιστωθούν τα credits, ολοκληρώνεται από εδώ."
+        shortTitle={`${verbFor(topUpNeed, "Χρειάζεται", "Χρειάζονται")} ${formatCredits(topUpNeed)}`}
+        shortNote={totalSlots === 1 ? "Για την αποστολή του αιτήματος" : "Για την αποστολή των αιτημάτων"}
+        waitingNote="Οι επιλογές σου κρατήθηκαν. Μόλις πιστωθούν τα credits, η αποστολή ολοκληρώνεται από εδώ."
         continueLabel="Ολοκλήρωση αιτήματος"
         onContinue={() => handleCheckout()}
       />
@@ -1416,14 +1417,21 @@ function SearchPageInner() {
   const regionName = lookups.regions.find((r) => r.id === filters.regionId)?.name;
   const boatTypeName = lookups.boatTypes.find((b) => b.id === filters.boatTypeId)?.name;
 
+  useEffect(() => {
+    if (checkoutDone) window.scrollTo({ top: 0 });
+  }, [checkoutDone]);
+
   const totalSelected = Object.values(selectionsByRole).reduce((n, set) => n + (set?.size || 0), 0);
   const showStickyBar = totalSelected > 0 && !checkoutVisible && !checkoutDone;
 
   return (
     <div style={showStickyBar ? { ...container, paddingBottom: 76 } : container}>
+      {/* Μόλις σταλεί το αίτημα, η σελίδα δείχνει μόνο την επιβεβαίωση. Κρυμμένα,
+          όχι αφαιρεμένα: η κατάσταση της σελίδας μένει όπως ήταν. */}
+      <div style={checkoutDone ? { display: "none" } : undefined}>
       <BackButton onClick={() => setShowFullFilters(true)} />
       <h1 style={{ ...h1, marginTop: 14 }}>Αποτελέσματα</h1>
-      <p style={muted}>Δωρεάν, χωρίς δέσμευση. Πληρώνεις μόνο όταν στέλνεις αίτημα.</p>
+      <p style={muted}>Η αναζήτηση είναι δωρεάν. Το credit χρεώνεται όταν ένας επαγγελματίας αποδεχτεί το αίτημα.</p>
       {lookupsFailed && <LoadError what="οι περιοχές και οι τύποι σκαφών" onRetry={loadLookups} />}
 
       {unsupportedRoles.length > 0 && (
@@ -1631,6 +1639,7 @@ function SearchPageInner() {
           onPositionsChange={(n) => setRolePositions(role, n)}
         />
       ))}
+      </div>
 
       <div ref={checkoutRef}>
         <Checkout

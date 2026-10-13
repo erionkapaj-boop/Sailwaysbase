@@ -32,7 +32,7 @@ await as(PETROS, async (page) => {
   await page.getByRole("button", { name: "Αγορά credits" }).first().click();
   await page.waitForTimeout(1200);
   const s = await text(page);
-  check("η υπενθύμιση ανοίγει το παράθυρο αγοράς με τα πακέτα", s.includes("Διαθέσιμα 1 credit") && s.includes("Professional") && s.includes("Αποστολή αιτήματος"));
+  check("η υπενθύμιση ανοίγει το παράθυρο αγοράς με τα πακέτα", s.includes("Διαθέσιμα 1 credit") && s.includes("Professional") && s.includes("Αποστολή αιτήματος αγοράς"));
   await page.getByRole("button", { name: "Κλείσιμο" }).click();
 });
 
@@ -46,11 +46,11 @@ await as(PETROS, async (page) => {
   check("η διεκδίκηση ανοίγει το παράθυρο: δεν φτάνουν", s.includes("Δεν έχεις αρκετά credits") && s.includes("Χρειάζεσαι 1 credit"));
   check("προτείνεται το δημοφιλές πακέτο",
     (await page.getByRole("radio", { name: /Professional/ }).getAttribute("aria-checked")) === "true");
-  await click(page, "Αποστολή αιτήματος");
+  await click(page, "Αποστολή αιτήματος αγοράς");
   await page.waitForTimeout(2000);
   const d = await text(page);
   check("το αίτημα αγοράς καταχωρήθηκε χωρίς να φύγει από τη σελίδα",
-    d.includes("Το αίτημά σου καταχωρήθηκε") && page.url().endsWith("/platform/requests"), page.url());
+    d.includes("Το αίτημα αγοράς καταχωρήθηκε") && page.url().endsWith("/platform/requests"), page.url());
   check("και περιμένει την πληρωμή", d.includes("Αναμονή επιβεβαίωσης της πληρωμής"));
   await click(page, "Κλείσιμο");
 });

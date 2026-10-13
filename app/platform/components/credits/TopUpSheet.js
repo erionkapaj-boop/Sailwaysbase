@@ -25,6 +25,7 @@ export default function TopUpSheet({
   onContinue,
   continueLabel = "Συνέχεια",
   shortTitle,
+  shortNote,
   waitingNote,
 }) {
   const { refresh } = useAuth();
@@ -108,7 +109,7 @@ export default function TopUpSheet({
   } else if (waiting) {
     body = (
       <>
-        <div style={{ fontSize: 18, fontWeight: 600 }}>Το αίτημά σου καταχωρήθηκε</div>
+        <div style={{ fontSize: 18, fontWeight: 600 }}>Το αίτημα αγοράς καταχωρήθηκε</div>
         <div style={{ marginTop: 12 }}>
           <PurchaseSummary row={waiting} />
         </div>
@@ -134,7 +135,9 @@ export default function TopUpSheet({
           <div>
             <div style={{ fontSize: 18, fontWeight: 600 }}>{short ? shortTitle || "Δεν έχεις αρκετά credits" : "Αγορά credits"}</div>
             <div style={{ ...muted, fontSize: 13.5, marginTop: 4 }}>
-              {short && !shortTitle ? `Χρειάζεσαι ${formatCredits(need)} · διαθέσιμα ${formatCredits(balance)}` : `Διαθέσιμα ${formatCredits(balance)}`}
+              {short && !shortTitle
+                ? `Χρειάζεσαι ${formatCredits(need)} · διαθέσιμα ${formatCredits(balance)}`
+                : `${short && shortNote ? `${shortNote} · ` : ""}Διαθέσιμα ${formatCredits(balance)}`}
             </div>
           </div>
           <button

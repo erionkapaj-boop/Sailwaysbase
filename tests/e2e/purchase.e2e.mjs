@@ -21,10 +21,10 @@ await as(GIORGOS, async (page) => {
   check("άλλος αριθμός: 3 × 50€ = 150€", (await text(page)).includes("Σύνολο · 3 credits") && (await text(page)).includes("150€"));
 
   await page.getByRole("radio", { name: /Pro\b/ }).last().click();
-  await click(page, "Αποστολή αιτήματος");
+  await click(page, "Αποστολή αιτήματος αγοράς");
   await page.waitForTimeout(2000);
   t = await text(page);
-  check("επιβεβαίωση με κωδικό", t.includes("Το αίτημά σου καταχωρήθηκε") && /CR-[0-9A-F]{6}/.test(t));
+  check("επιβεβαίωση με κωδικό", t.includes("Το αίτημα αγοράς καταχωρήθηκε") && /CR-[0-9A-F]{6}/.test(t));
 
   await go(page, "/platform/wallet");
   t = await text(page);
