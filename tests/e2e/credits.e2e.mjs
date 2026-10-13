@@ -145,6 +145,9 @@ await as(MARIA, async (page) => {
   const t = await text(page);
   check("Credits: διαθέσιμα 0, 2 δεσμευμένα", t.includes("0 credits") && t.includes("2 credits δεσμευμένα σε ανοιχτά αιτήματα"));
   check("καμία χρέωση στο ιστορικό", !t.includes("Credits για αίτημα"));
+  await go(page, "/platform/requests");
+  const rq = await text(page);
+  check("τα ανοιχτά αιτήματα γράφουν «δεσμευμένο», όχι «χρησιμοποιήθηκε»", rq.includes("1 credit · δεσμευμένο") && !rq.includes("χρησιμοποιήθηκε"), rq.slice(0, 500));
 });
 check("η βάση: 2 credits, καμία κίνηση αιτήματος, 2 αιτήματα ανοιχτά",
   wallet("Μαρία Πελάτη") === 2 && txns("Μαρία Πελάτη", "request_fee") === 0 &&

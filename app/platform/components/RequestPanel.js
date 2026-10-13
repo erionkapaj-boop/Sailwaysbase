@@ -145,9 +145,11 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
             <>
               <span style={{ ...money, color: colors.ink }}>{formatCredits(request.fee_amount)}</span>
               {" · "}
-              {request.fee_paid_at
+              {request.client_charged_at
                 ? verbFor(request.fee_amount, "χρησιμοποιήθηκε", "χρησιμοποιήθηκαν")
-                : verbFor(request.fee_amount, "εκκρεμεί", "εκκρεμούν")}
+                : request.fee_paid_at && request.status === "open"
+                  ? verbFor(request.fee_amount, "δεσμευμένο", "δεσμευμένα")
+                  : verbFor(request.fee_amount, "εκκρεμεί", "εκκρεμούν")}
             </>
           )}
         </p>
