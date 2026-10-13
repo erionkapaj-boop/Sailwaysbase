@@ -135,7 +135,7 @@ export default function HomeEntry() {
       <PendingReadyBanner />
       <RequestDraftLine />
 
-      <button type="button" onClick={openWizard} style={{ ...button("primary"), ...pill, width: "100%", maxWidth: 380 }}>
+      <button type="button" className="sf-cta" onClick={openWizard} style={{ ...button("primary"), ...pill, width: "100%", maxWidth: 380 }}>
         {t("searchCrew")}
       </button>
 
