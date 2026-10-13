@@ -5,3 +5,4 @@ node_modules/
 .vercel
 tests/e2e/output/
 tests/e2e/.bin/
+tests/e2e/*.tmp.mjs
