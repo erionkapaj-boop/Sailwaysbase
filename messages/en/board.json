@@ -157,10 +157,5 @@
     "added": "Added.",
     "removed": "Removed.",
     "settingsTitle": "Board settings"
-  },
-  "HomeBoard": {
-    "menu": "Apps",
-    "board": "Open requests",
-    "boardHint": "Client requests for professionals"
   }
 }

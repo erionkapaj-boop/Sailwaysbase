@@ -3,7 +3,7 @@
 import { sql } from "./lib.mjs";
 
 export const PUBLIC = ["/platform/login", "/platform/register", "/platform/forgot-pin", "/platform/about",
-  "/platform/terms", "/platform/privacy", "/platform/contact", "/platform/professionals"];
+  "/platform/terms", "/platform/privacy", "/platform/contact", "/platform/professionals", "/platform/experiences", "/platform/board"];
 export const EVERYONE = ["/platform", "/platform/search", "/platform/requests", "/platform/bookings", "/platform/wallet", "/platform/wallet/buy",
   "/platform/profile", "/platform/delivery", "/platform/delivery/requests", "/platform/contact",
   "/platform/about", "/platform/professionals"];

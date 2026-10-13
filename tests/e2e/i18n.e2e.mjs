@@ -25,7 +25,7 @@ const page = await ctx.newPage();
 page.on("pageerror", (e) => errors.push(e.message));
 await go(page, "/platform");
 
-check("η σελίδα ξεκινά στα ελληνικά", (await lang(page)) === "el" && (await text(page)).includes("Skipper και πλήρωμα για το σκάφος σου."));
+check("η σελίδα ξεκινά στα ελληνικά", (await lang(page)) === "el" && (await text(page)).includes("Οι άνθρωποι πίσω από κάθε ταξίδι."));
 check("το κουμπί γλώσσας φαίνεται στην κεφαλίδα", await button(page).isVisible());
 const box = await button(page).boundingBox();
 check("πάνω δεξιά: δίπλα στο κέντρο δεξιού άκρου, και αρκετά μεγάλο για δάχτυλο", box && box.x > 390 / 2 && box.y < 80 && box.width >= 44 && box.height >= 44, JSON.stringify(box));
@@ -43,7 +43,7 @@ await openMenuAndPick(page, "English");
 const en = await text(page);
 check("γλώσσα σελίδας: en", (await lang(page)) === "en");
 check("cookie γλώσσας", (await cookie(page)) === "en");
-check("τα κείμενα που έχουν περάσει στην υποδομή γύρισαν", en.includes("Skippers and crew for your boat.") && en.includes("Find crew") && en.includes("Login"));
+check("τα κείμενα που έχουν περάσει στην υποδομή γύρισαν", en.includes("The people behind every voyage.") && en.includes("Find crew") && en.includes("Login"));
 check("υποσέλιδο στα αγγλικά", en.includes("Terms of use") && en.includes("Privacy"));
 check("το κουμπί δείχνει τη νέα γλώσσα", (await button(page).getAttribute("aria-label")).includes("English"));
 const remaining = await page.locator("div.platform-scope").first().evaluate((el) => {
@@ -67,13 +67,13 @@ await other.close();
 
 await openMenuAndPick(page, "Ελληνικά");
 check("πίσω στα ελληνικά: γλώσσα σελίδας", (await lang(page)) === "el");
-check("πίσω στα ελληνικά: τα κείμενα", (await text(page)).includes("Skipper και πλήρωμα για το σκάφος σου."));
+check("πίσω στα ελληνικά: τα κείμενα", (await text(page)).includes("Οι άνθρωποι πίσω από κάθε ταξίδι."));
 
 // Άγνωστη ή κλειστή γλώσσα στο cookie δεν σπάει τίποτα: μένει η προεπιλογή.
 await ctx.addCookies([{ name: "sf_locale", value: "klingon", url: BASE }]);
 await page.reload();
 await page.waitForTimeout(1000);
-check("άγνωστη γλώσσα στο cookie → ελληνικά", (await lang(page)) === "el" && (await text(page)).includes("Skipper και πλήρωμα για το σκάφος σου."));
+check("άγνωστη γλώσσα στο cookie → ελληνικά", (await lang(page)) === "el" && (await text(page)).includes("Οι άνθρωποι πίσω από κάθε ταξίδι."));
 check("χωρίς σφάλματα σελίδας (επισκέπτης)", errors.length === 0, errors.join(" | "));
 await ctx.close();
 

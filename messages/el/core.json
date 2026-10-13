@@ -16,10 +16,14 @@
   "Home": {
     "searchCrew": "Αναζήτηση πληρώματος",
     "boatDelivery": "Μεταφορά σκάφους",
-    "professionalSignup": "Είσαι skipper, hostess, cook ή ναύτης; Κάνε εγγραφή",
     "welcomeTitle": "Καλώς ήρθες, {name}!",
     "welcomeSubtitle": "Ξεκίνα βρίσκοντας πλήρωμα για το ταξίδι σου.",
-    "tagline": "Skipper και πλήρωμα για το σκάφος σου."
+    "tagline": "Οι άνθρωποι πίσω από κάθε ταξίδι.",
+    "otherInMind": "Έχεις κάτι άλλο στο μυαλό σου;",
+    "discoverExperiences": "Ανακάλυψε εμπειρίες στη θάλασσα",
+    "areYouPro": "Είσαι επαγγελματίας;",
+    "createProfile": "Δημιούργησε προφίλ",
+    "appsMenu": "Περισσότερα"
   },
   "LanguageSwitcher": {
     "change": "Αλλαγή γλώσσας"
@@ -32,5 +36,9 @@
     "open": "Άνοιγμα →",
     "optOutLead": "Δεν θέλεις αυτά τα email;",
     "optOutLink": "Κλείσ' τα από το προφίλ σου"
+  },
+  "Experiences": {
+    "title": "Εμπειρίες στη θάλασσα",
+    "note": "Έρχεται σύντομα."
   }
 }

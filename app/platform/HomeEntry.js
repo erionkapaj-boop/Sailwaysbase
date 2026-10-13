@@ -7,6 +7,7 @@ import { displayName } from "../../lib/platform/names";
 import { useAuth } from "./AuthContext";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
+import HomeAppsMenu from "./components/HomeAppsMenu";
 import PendingReadyBanner from "./components/PendingReadyBanner";
 import RequestDraftLine from "./components/RequestDraftLine";
 import { adminOverview } from "../../lib/platform/db";
@@ -61,36 +62,6 @@ function AdminHomeBanner() {
   );
 }
 
-// Μικρό μενού «εφαρμογών» πάνω αριστερά, όπως των Google: εδώ μπαίνουν οι
-// είσοδοι που δεν είναι η κύρια ροή. Προς το παρόν μόνο τα ανοιχτά αιτήματα.
-function AppsMenu() {
-  const t = useTranslations("HomeBoard");
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ position: "absolute", top: 0, left: 0, textAlign: "left" }}>
-      <button
-        type="button"
-        aria-label={t("menu")}
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        style={{ ...tapTarget, justifyContent: "center", width: 44, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" fill={colors.inkSoft}>
-          {[2, 9, 16].flatMap((x) => [2, 9, 16].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.7" />))}
-        </svg>
-      </button>
-      {open && (
-        <div style={{ ...card, position: "absolute", top: 46, left: 0, zIndex: 20, minWidth: 240, padding: 8 }}>
-          <Link href="/platform/board" style={{ display: "block", padding: "10px 12px", textDecoration: "none", color: colors.ink }} onClick={() => setOpen(false)}>
-            <b style={{ fontWeight: 600, display: "block" }}>{t("board")}</b>
-            <span style={{ ...muted, fontSize: 12.5 }}>{t("boardHint")}</span>
-          </Link>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function HomeEntry() {
   const t = useTranslations("Home");
   const locale = useLocale();
@@ -137,14 +108,20 @@ export default function HomeEntry() {
 
   if (started) return <CrewSearchFlow />;
 
+  const pill = { borderRadius: 999, padding: "16px 36px", fontSize: 17, fontWeight: 500, minHeight: 56, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" };
+
   return (
-    <div style={{ textAlign: "center", position: "relative" }}>
-      <AppsMenu />
-      {/* Brand sits centred above the action, filling what was dead space —
-          the header drops its own mark on this route so there's no double. */}
-      <div style={{ marginBottom: 44 }}>
+    <div style={{ textAlign: "center" }}>
+      {/* Signed in, the header belongs to the account, so the dots sit here. */}
+      {session && (
+        <div style={{ position: "absolute", top: 10, left: 12 }}>
+          <HomeAppsMenu />
+        </div>
+      )}
+
+      <div style={{ marginBottom: 40 }}>
         <Logo variant="stacked" />
-        <p style={{ ...muted, fontSize: 15, margin: "14px auto 0", maxWidth: 300, lineHeight: 1.5 }}>{t("tagline")}</p>
+        <p style={{ fontSize: 17, color: colors.ink, margin: "14px auto 0", maxWidth: 340, lineHeight: 1.5 }}>{t("tagline")}</p>
       </div>
 
       {welcome && firstName && (
@@ -158,49 +135,26 @@ export default function HomeEntry() {
       <PendingReadyBanner />
       <RequestDraftLine />
 
-      {/* Outline rather than filled: lighter against the warm page, closer to
-          the "spare, premium" direction. Hover/active fills it so it still
-          reads as pressable — see .sf-cta in PlatformShell's style block. */}
-      <button
-        type="button"
-        className="sf-cta"
-        onClick={openWizard}
-        style={{
-          ...button("secondary"),
-          fontSize: 17,
-          fontWeight: 500,
-          padding: "18px 40px",
-          borderRadius: 12,
-          borderColor: colors.ink,
-        }}
-      >
+      <button type="button" onClick={openWizard} style={{ ...button("primary"), ...pill, width: "100%", maxWidth: 380 }}>
         {t("searchCrew")}
       </button>
 
-      <div style={{ marginTop: 22 }}>
-        <Link
-          href="/platform/delivery"
-          style={{ ...muted, ...tapTarget, fontSize: 14, color: colors.inkSoft, textDecoration: "none" }}
-        >
-          {t("boatDelivery")}
+      <div style={{ marginTop: 44 }}>
+        <p style={{ ...muted, fontSize: 14, margin: "0 0 4px" }}>{t("otherInMind")}</p>
+        <Link href="/platform/experiences" style={{ ...tapTarget, fontSize: 17, fontWeight: 500, color: colors.ink, textDecoration: "none" }}>
+          {t("discoverExperiences")}
         </Link>
       </div>
 
-      {/* The page speaks to clients; this is the one quiet door for the other
-          side. Deliberately far below the CTA, smaller than the delivery link,
-          and only here — a visitor passing through an interior page isn't the
-          audience for it. It also disappears once the search flow starts. */}
-      {/* Signed in, "Κάνε εγγραφή" reads as a second account — a client who
-          * wants to go pro does it from Το προφίλ μου («Ξεκίνα»). */}
+      {/* The one quiet door for the other side. Signed in, a client goes pro
+          from their own profile, never through a second sign-up. */}
       {!session && (
-      <div style={{ marginTop: 72 }}>
-        <Link
-          href="/platform/professionals"
-          style={{ fontSize: 13, color: colors.inkSoft, textDecoration: "none", opacity: 0.85 }}
-        >
-          {t("professionalSignup")}
-        </Link>
-      </div>
+        <div style={{ marginTop: 96 }}>
+          <p style={{ ...muted, fontSize: 14, margin: "0 0 12px" }}>{t("areYouPro")}</p>
+          <Link href="/platform/professionals" style={{ ...button("secondary"), ...pill, fontSize: 16, minHeight: 48, padding: "12px 28px", borderColor: colors.ink }}>
+            {t("createProfile")}
+          </Link>
+        </div>
       )}
     </div>
   );

@@ -2,14 +2,15 @@ import { Suspense } from "react";
 import HomeEntry from "./HomeEntry";
 import { container } from "../../lib/platform/theme";
 
-// No tagline by design (brief §4): better nothing than a line that doesn't
-// earn its place. The first screen is the CTA and one quiet secondary link.
+// Home layout (owner, 13/10/2026): logo, name, tagline, one filled CTA, one
+// quiet secondary line, and the professional door at the bottom.
 //
 // Suspense here, not inside HomeEntry itself: HomeEntry reads ?welcome=1
 // (see its own comment) via useSearchParams, which the app router requires
 // a boundary around.
 export default function LandingPage() {
   return (
+    <div style={{ position: "relative" }}>
     <div style={{ ...container, maxWidth: 680 }}>
       {/* Only the first step is centred; the wizard starts at the top so the
           question and the action fit on screen without scrolling. */}
@@ -32,6 +33,7 @@ export default function LandingPage() {
           <HomeEntry />
         </Suspense>
       </div>
+    </div>
     </div>
   );
 }

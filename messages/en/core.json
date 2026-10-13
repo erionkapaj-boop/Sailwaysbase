@@ -16,10 +16,14 @@
   "Home": {
     "searchCrew": "Find crew",
     "boatDelivery": "Boat delivery",
-    "professionalSignup": "Are you a skipper, hostess, cook or deckhand? Sign up",
     "welcomeTitle": "Welcome, {name}!",
     "welcomeSubtitle": "Start by finding crew for your trip.",
-    "tagline": "Skippers and crew for your boat."
+    "tagline": "The people behind every voyage.",
+    "otherInMind": "Something else in mind?",
+    "discoverExperiences": "Discover experiences at sea",
+    "areYouPro": "Are you a professional?",
+    "createProfile": "Create a profile",
+    "appsMenu": "More"
   },
   "LanguageSwitcher": {
     "change": "Change language"
@@ -32,5 +36,9 @@
     "open": "Open →",
     "optOutLead": "Don't want these emails?",
     "optOutLink": "Turn them off in your profile"
+  },
+  "Experiences": {
+    "title": "Experiences at sea",
+    "note": "Coming soon."
   }
 }

@@ -10,6 +10,7 @@ import Logo from "./components/Logo";
 import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
 import LanguageSwitcher from "./components/LanguageSwitcher";
+import HomeAppsMenu from "./components/HomeAppsMenu";
 import Avatar from "./components/Avatar";
 import AccountMenu from "./components/AccountMenu";
 import FeedbackProvider from "./components/FeedbackProvider";
@@ -21,7 +22,7 @@ import { adminOverview, setMyLocale } from "../../lib/platform/db";
 import { hasPendingBroadcast } from "../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../lib/platform/pendingDelivery";
 import { isEnabledLocale, LOCALE_COOKIE } from "../../lib/platform/i18n";
-import { nav, colors, fontSans, container, card, h1, muted, button } from "../../lib/platform/theme";
+import { nav, colors, fontSans, container, card, h1, muted, button, tapTarget } from "../../lib/platform/theme";
 
 const navLink = {
   fontSize: 14,
@@ -157,6 +158,22 @@ function NavBar() {
         {/* Διαχειριστής σε πλατιά οθόνη: η ίδια λίστα μόνιμα αριστερά, παντού (βλ. SideNav). */}
         {isAdmin && <SideNav items={menuItems} activeHref={pathname} onSignOut={signOut} />}
       </>
+    );
+  }
+
+  // Αρχική, χωρίς σύνδεση: μόνο οι τελείες αριστερά, γλώσσα και Σύνδεση δεξιά.
+  // Το λογότυπο είναι ήδη στο κέντρο της σελίδας.
+  if (pathname === "/platform") {
+    return (
+      <div style={{ ...nav, borderBottom: "none", background: "transparent", backdropFilter: "none", position: "static", padding: "10px 14px" }}>
+        <HomeAppsMenu />
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <LanguageSwitcher compact />
+          <Link href="/platform/login" style={{ ...navLink, ...tapTarget, color: colors.ink, fontSize: 15 }}>
+            {t("login")}
+          </Link>
+        </div>
+      </div>
     );
   }
 

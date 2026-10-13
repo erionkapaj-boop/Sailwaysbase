@@ -18,7 +18,8 @@ import { colors, radius, shadow, fontSans } from "../../../lib/platform/theme";
 // Η γλώσσα δεν μπαίνει στη διεύθυνση· γράφεται σε cookie που διαβάζει ο
 // διακομιστής (i18n/request.js), και, αν ο χρήστης είναι συνδεδεμένος, και στον
 // λογαριασμό του, ώστε τα emails και οι άλλες συσκευές του να τη βρίσκουν.
-export default function LanguageSwitcher() {
+// compact: μικρότερη σημαία, χωρίς κωδικό (κεφαλίδα της αρχικής).
+export default function LanguageSwitcher({ compact = false }) {
   const locale = useLocale();
   const t = useTranslations("LanguageSwitcher");
   const router = useRouter();
@@ -89,8 +90,8 @@ export default function LanguageSwitcher() {
           color: colors.ink,
         }}
       >
-        <Flag name={current.flag} />
-        <span className="sf-lang-code">{current.short}</span>
+        <Flag name={current.flag} width={compact ? 18 : 22} />
+        {!compact && <span className="sf-lang-code">{current.short}</span>}
         <svg width="10" height="6" viewBox="0 0 10 6" aria-hidden="true" style={{ opacity: 0.55 }}>
           <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
