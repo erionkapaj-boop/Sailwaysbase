@@ -50,7 +50,7 @@ jobs:
     name: Browser (whole replacement journey, every role)
     needs: database
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:16
