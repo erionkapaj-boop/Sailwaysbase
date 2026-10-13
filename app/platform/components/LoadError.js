@@ -1,10 +1,12 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { colors, button } from "../../../lib/platform/theme";
 
 // What a list shows when it could not be loaded — instead of looking empty.
 // An empty wallet history or inbox reads as "nothing happened", which is the
 // wrong thing to tell someone when the truth is "we couldn't check".
-export default function LoadError({ onRetry, what = "τα στοιχεία", compact = false }) {
+export default function LoadError({ onRetry, what, compact = false }) {
+  const t = useTranslations("LoadError");
   return (
     <div
       role="alert"
@@ -21,10 +23,10 @@ export default function LoadError({ onRetry, what = "τα στοιχεία", com
         flexWrap: "wrap",
       }}
     >
-      <span style={{ color: colors.danger }}>Δεν φορτώθηκαν {what}. Έλεγξε τη σύνδεσή σου.</span>
+      <span style={{ color: colors.danger }}>{t("message", { what: what ?? t("whatDefault") })}</span>
       {onRetry && (
         <button type="button" onClick={onRetry} style={button("secondary")}>
-          Ξαναδοκίμασε
+          {t("retry")}
         </button>
       )}
     </div>

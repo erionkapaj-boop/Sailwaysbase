@@ -1,6 +1,7 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
 import {
   sendOtp,
@@ -27,15 +28,14 @@ import { trackFlow, noteFailure } from "../../../lib/platform/health";
 // a stale tab races the two.
 // One answer for every "this number can't be used" (0107): the page must not
 // reveal whether a number belongs to a live, an old or a deleted account.
-const PHONE_UNAVAILABLE =
-  "Δεν γίνεται εγγραφή με αυτό το τηλέφωνο. Αν έχεις ήδη λογαριασμό, σύνδεσου. Αλλιώς επικοινώνησε μαζί μας.";
+// Τιμές: κλειδιά μηνυμάτων (Register.*), μεταφράζονται στο render.
 const REGISTER_ERRORS = {
-  phone_unavailable: PHONE_UNAVAILABLE,
-  phone_already_registered: PHONE_UNAVAILABLE,
-  phone_previously_used: PHONE_UNAVAILABLE,
-  phone_taken: PHONE_UNAVAILABLE,
-  test_phone_registered: "Αυτό το δοκιμαστικό τηλέφωνο έχει ήδη λογαριασμό. Σύνδεσου με τον κωδικό του από τη «Σύνδεση».",
-  invalid_phone: "Ο αριθμός δεν είναι σωστός. Γράψε το κινητό σου, π.χ. 69XXXXXXXX.",
+  phone_unavailable: "phoneUnavailable",
+  phone_already_registered: "phoneUnavailable",
+  phone_previously_used: "phoneUnavailable",
+  phone_taken: "phoneUnavailable",
+  test_phone_registered: "testPhoneRegistered",
+  invalid_phone: "invalidPhone",
 };
 
 const chip = (active) => ({
@@ -50,6 +50,7 @@ const chip = (active) => ({
 });
 
 function RegisterInner() {
+  const t = useTranslations("Register");
   const router = useRouter();
   const params = useSearchParams();
   const { refresh } = useAuth();
@@ -95,7 +96,7 @@ function RegisterInner() {
       await signInWithGoogle({ as: isProfessional ? "professional" : "client", role: isProfessional ? crewRole : undefined });
     } catch {
       setGoogleBusy(false);
-      setError("Η σύνδεση με Google δεν ξεκίνησε. Δοκίμασε ξανά.");
+      setError(t("googleFailed"));
     }
   }
 
@@ -138,7 +139,7 @@ function RegisterInner() {
       }
     } catch (err) {
       if (REGISTER_ERRORS[err.message]) noteFailure(err.message);
-      setError(REGISTER_ERRORS[err.message] || friendlyError(err));
+      setError(REGISTER_ERRORS[err.message] ? t(REGISTER_ERRORS[err.message]) : friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -174,7 +175,7 @@ function RegisterInner() {
       router.push(isProfessional ? "/platform/set-pin?as=professional" : "/platform/set-pin");
     } catch (err) {
       if (REGISTER_ERRORS[err.message]) noteFailure(err.message);
-      setError(REGISTER_ERRORS[err.message] || friendlyError(err));
+      setError(REGISTER_ERRORS[err.message] ? t(REGISTER_ERRORS[err.message]) : friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -183,13 +184,13 @@ function RegisterInner() {
   return (
     <div style={{ ...container, maxWidth: 460 }}>
       <BackButton onClick={() => router.back()} />
-      <h1 style={{ ...h1, marginTop: 20 }}>{isProfessional ? "Εγγραφή επαγγελματία" : "Εγγραφή"}</h1>
+      <h1 style={{ ...h1, marginTop: 20 }}>{isProfessional ? t("titleProfessional") : t("title")}</h1>
 
       {step === "details" && (
         <form onSubmit={submitDetails} style={{ ...card, marginTop: 20 }}>
           {isProfessional && (
             <div style={{ marginBottom: 20 }}>
-              <span style={label}>Ιδιότητα</span>
+              <span style={label}>{t("capacity")}</span>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {CREW_ROLES.map((r) => (
                   <button
@@ -204,8 +205,7 @@ function RegisterInner() {
               </div>
               {crewRole && !CREW_ROLES.find((r) => r.key === crewRole)?.supported && (
                 <p style={{ ...muted, fontSize: 13, marginTop: 10 }}>
-                  Οι εγγραφές για αυτή την ιδιότητα ανοίγουν σύντομα. Προς το παρόν θα δημιουργηθεί
-                  ο λογαριασμός σου χωρίς προφίλ.
+                  {t("comingSoon")}
                 </p>
               )}
             </div>
@@ -218,7 +218,7 @@ function RegisterInner() {
             </>
           )}
           <label style={label} htmlFor="reg-name">
-            Ονοματεπώνυμο
+            {t("fullName")}
           </label>
           <input
             id="reg-name"
@@ -229,7 +229,7 @@ function RegisterInner() {
           />
 
           <label style={label} htmlFor="reg-phone">
-            Κινητό τηλέφωνο
+            {t("phoneLabel")}
           </label>
           <div style={{ marginBottom: isProfessional ? 4 : 16 }}>
             <PhoneField
@@ -243,7 +243,7 @@ function RegisterInner() {
           </div>
           {isProfessional && (
             <p style={{ ...muted, fontSize: 12.5, margin: "0 0 16px" }}>
-              Τον βλέπει μόνο ο πελάτης και μόνο αφού κλείσει κράτηση μαζί σου.
+              {t("phoneVisibility")}
             </p>
           )}
 
@@ -260,14 +260,14 @@ function RegisterInner() {
           />
 
           <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%" }}>
-            {busy ? "Αποστολή…" : "Συνέχεια"}
+            {busy ? t("sending") : t("continue")}
           </button>
           <p style={{ ...muted, fontSize: 13, marginTop: 12, marginBottom: 0 }}>
             {isReservedTestPhone(fullPhone)
-              ? "Τηλέφωνο δοκιμής. Δεν χρειάζεται SMS."
+              ? t("noteTestPhone")
               : otpEnabled
-              ? "Θα σου στείλουμε κωδικό SMS για να επιβεβαιώσουμε το τηλέφωνό σου."
-              : "Ο λογαριασμός ενεργοποιείται μετά από έλεγχο."}
+              ? t("noteOtp")
+              : t("noteReview")}
           </p>
         </form>
       )}
@@ -284,19 +284,16 @@ function RegisterInner() {
                 marginBottom: 20,
               }}
             >
-              <b style={{ display: "block", marginBottom: 4 }}>Δοκιμή: δεν στάλθηκε SMS</b>
+              <b style={{ display: "block", marginBottom: 4 }}>{t("testBannerTitle")}</b>
               <span style={{ fontSize: 13.5 }}>
-                Το {fullPhone} είναι τηλέφωνο δοκιμής. Παρακάμπτεται μόνο το SMS. Με «Συνέχεια» ο λογαριασμός
-                καταλήγει εκεί που θα κατέληγε ένας πραγματικός πελάτης:{" "}
-                {otpEnabled
-                  ? "αμέσως επιβεβαιωμένος, γιατί το SMS OTP είναι ενεργό."
-                  : "σε αναμονή επαλήθευσης. Θα τον επιβεβαιώσεις εσύ από τις Εκκρεμότητες, όπως κάθε πελάτη."}
+                {t("testBannerBody", { phone: fullPhone })}{" "}
+                {otpEnabled ? t("testBannerVerified") : t("testBannerPending")}
               </span>
             </div>
           ) : (
             <>
               <label style={label} htmlFor="reg-otp">
-                Κωδικός SMS
+                {t("smsCode")}
               </label>
               <input
                 id="reg-otp"
@@ -310,7 +307,7 @@ function RegisterInner() {
             </>
           )}
           <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%" }}>
-            {busy ? "…" : isTestPhone ? "Συνέχεια (προσομοίωση)" : "Επαλήθευση"}
+            {busy ? t("busy") : isTestPhone ? t("continueSimulated") : t("verify")}
           </button>
         </form>
       )}

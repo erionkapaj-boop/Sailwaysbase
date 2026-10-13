@@ -1,7 +1,8 @@
 import { Inter, Noto_Sans_Mono, EB_Garamond } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import PlatformShell from "./PlatformShell";
+import MessageBridge from "./MessageBridge";
 import { page, colors } from "../../lib/platform/theme";
 
 // NOT Geist, despite the design brief naming it: Geist ships no Greek glyphs,
@@ -31,9 +32,11 @@ const serif = EB_Garamond({
   display: "swap",
 });
 
-export const metadata = {
+export async function generateMetadata() {
+  const t = await getTranslations("LayoutMeta");
+  return {
   title: "SkipperFinder",
-  description: "Βρες πλήρωμα για το σκάφος σου στην Ελλάδα.",
+  description: t("description"),
   // Without this, /platform pages silently inherit the base app's
   // manifest.json (start_url: "/"), so "Install app" from a /platform page
   // would launch straight into the other app instead.
@@ -47,7 +50,8 @@ export const metadata = {
     ],
     apple: "/skipperfinder-apple-touch-icon.png",
   },
-};
+  };
+}
 
 export const viewport = {
   themeColor: colors.bg,
@@ -65,7 +69,9 @@ export default async function PlatformLayout({ children }) {
     // These .variable classes define the CSS custom properties theme.js reads.
     <div className={`${sans.variable} ${mono.variable} ${serif.variable}`} style={page}>
       <NextIntlClientProvider locale={locale} messages={messages}>
-        <PlatformShell>{children}</PlatformShell>
+        <MessageBridge>
+          <PlatformShell>{children}</PlatformShell>
+        </MessageBridge>
       </NextIntlClientProvider>
     </div>
   );

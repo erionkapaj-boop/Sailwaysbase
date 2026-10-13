@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { colors, radius, shadow, button, fontSans } from "../../../lib/platform/theme";
 
 // Replaces window.confirm() everywhere in the platform: a native browser
@@ -13,6 +14,7 @@ import { colors, radius, shadow, button, fontSans } from "../../../lib/platform/
 // {confirmDialog}; then `if (!(await confirm("..."))) return;` exactly where
 // `if (!confirm("..."))` used to be — the calling code barely changes.
 export function useConfirm() {
+  const t = useTranslations("ConfirmDialog");
   const [state, setState] = useState(null);
   const resolveRef = useRef(null);
 
@@ -73,10 +75,10 @@ export function useConfirm() {
               <p style={{ fontSize: 15, color: colors.ink, margin: "0 0 20px", lineHeight: 1.5, whiteSpace: "pre-line" }}>{state.message}</p>
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 <button type="button" onClick={() => settle(false)} style={button("secondary")}>
-                  {state.cancelLabel || "Άκυρο"}
+                  {state.cancelLabel || t("cancel")}
                 </button>
                 <button type="button" onClick={() => settle(true)} style={button(state.tone || "danger")}>
-                  {state.confirmLabel || "Συνέχεια"}
+                  {state.confirmLabel || t("confirm")}
                 </button>
               </div>
             </div>

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { colors } from "../../../lib/platform/theme";
 
 // One back affordance, used everywhere a screen needs to say "go back a
@@ -42,7 +43,9 @@ function ChevronLeft() {
 // Pass exactly one of `href` (real navigation, e.g. back to a dashboard) or
 // `onClick` (an in-place action, e.g. closing a sheet or stepping back a
 // wizard stage) — never both.
-export default function BackButton({ href, onClick, label = "Πίσω", style }) {
+export default function BackButton({ href, onClick, label, style }) {
+  const t = useTranslations("BackButton");
+  label = label ?? t("back");
   if (href) {
     return (
       <Link href={href} aria-label={label} style={{ ...shellStyle, ...style }}>

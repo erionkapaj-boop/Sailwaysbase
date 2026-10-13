@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { isWeakPin } from "../../../lib/platform/pin";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import {
@@ -17,7 +18,6 @@ import { container, card, h1, muted, button, input, label, colors, radius } from
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const MIN_LENGTH = 6;
-const WEAK_PIN_MESSAGE = "Διάλεξε κάτι λιγότερο προφανές: όχι ίδια ψηφία (000000) ή σειρά (123456).";
 
 const tab = (active) => ({
   flex: 1,
@@ -32,6 +32,7 @@ const tab = (active) => ({
 });
 
 export default function ForgotPinPage() {
+  const t = useTranslations("ForgotPin");
   const router = useRouter();
   const { refresh } = useAuth();
 
@@ -66,12 +67,10 @@ export default function ForgotPinPage() {
     try {
       if (channel === "sms") {
         await requestPinResetSms(phone);
-        setNotice("Σου στείλαμε κωδικό με SMS.");
+        setNotice(t("sentSms"));
       } else {
         await requestPinResetEmail(phone);
-        setNotice(
-          "Αν ο λογαριασμός σου έχει δηλωμένο email, στάλθηκε κωδικός με ισχύ 15 λεπτών."
-        );
+        setNotice(t("sentEmail"));
       }
       setSent(true);
     } catch (err) {
@@ -84,8 +83,8 @@ export default function ForgotPinPage() {
   async function confirm(e) {
     e.preventDefault();
     setError("");
-    if (newPin.length < MIN_LENGTH) return setError(`Ο κωδικός θέλει τουλάχιστον ${MIN_LENGTH} χαρακτήρες.`);
-    if (isWeakPin(newPin)) return setError(WEAK_PIN_MESSAGE);
+    if (newPin.length < MIN_LENGTH) return setError(t("tooShortError", { min: MIN_LENGTH }));
+    if (isWeakPin(newPin)) return setError(t("weak"));
 
     setBusy(true);
     try {
@@ -95,7 +94,7 @@ export default function ForgotPinPage() {
         router.push("/platform");
       } else {
         await confirmPinResetEmail(phone, code, newPin);
-        setNotice("Ο κωδικός άλλαξε. Μπορείς να συνδεθείς.");
+        setNotice(t("changed"));
         router.push("/platform/login");
       }
     } catch (err) {
@@ -109,7 +108,7 @@ export default function ForgotPinPage() {
     return (
       <div style={{ ...container, maxWidth: 460 }}>
         <BackButton onClick={() => router.back()} />
-        <h1 style={{ ...h1, marginTop: 20 }}>Ξέχασα τον κωδικό</h1>
+        <h1 style={{ ...h1, marginTop: 20 }}>{t("title")}</h1>
       </div>
     );
   }
@@ -118,16 +117,16 @@ export default function ForgotPinPage() {
     return (
       <div style={{ ...container, maxWidth: 460 }}>
         <BackButton onClick={() => router.back()} />
-        <h1 style={{ ...h1, marginTop: 20 }}>Ξέχασα τον κωδικό</h1>
+        <h1 style={{ ...h1, marginTop: 20 }}>{t("title")}</h1>
         <div style={{ ...card, marginTop: 20 }}>
           <p style={{ ...muted, margin: "0 0 16px" }}>
-            Γράψε μας από τη φόρμα επικοινωνίας με το τηλέφωνό σου και θα λάβεις προσωρινό κωδικό.
+            {t("contactBody")}
           </p>
           <Link
             href="/platform/contact"
             style={{ ...button("primary"), width: "100%", display: "block", textAlign: "center", textDecoration: "none" }}
           >
-            Επικοινωνία
+            {t("contact")}
           </Link>
         </div>
       </div>
@@ -137,22 +136,22 @@ export default function ForgotPinPage() {
   return (
     <div style={{ ...container, maxWidth: 460 }}>
       <BackButton onClick={() => router.back()} />
-      <h1 style={{ ...h1, marginTop: 20 }}>Ξέχασα τον κωδικό</h1>
+      <h1 style={{ ...h1, marginTop: 20 }}>{t("title")}</h1>
       <p style={muted}>
         {channels.sms && channels.email
-          ? "Επίλεξε πώς θέλεις να επιβεβαιώσεις την ταυτότητά σου."
+          ? t("introBoth")
           : channels.sms
-          ? "Θα σου στείλουμε κωδικό με SMS στο κινητό σου."
-          : "Θα σου στείλουμε κωδικό στο email που έχεις δηλώσει στον λογαριασμό σου."}
+          ? t("introSms")
+          : t("introEmail")}
       </p>
 
       {channels.sms && channels.email ? (
         <div style={{ display: "flex", gap: 8, margin: "20px 0" }}>
           <button type="button" style={tab(channel === "sms")} onClick={() => { setChannel("sms"); setSent(false); }}>
-            Με SMS
+            {t("bySms")}
           </button>
           <button type="button" style={tab(channel === "email")} onClick={() => { setChannel("email"); setSent(false); }}>
-            Με email
+            {t("byEmail")}
           </button>
         </div>
       ) : (
@@ -161,7 +160,7 @@ export default function ForgotPinPage() {
 
       <form onSubmit={sent ? confirm : request} style={card}>
         <label style={label} htmlFor="fp-phone">
-          Κινητό τηλέφωνο
+          {t("phoneLabel")}
         </label>
         <div style={{ marginBottom: 16 }}>
           <PhoneField id="fp-phone" quiet disabled={sent} onChange={({ phone: p }) => setPhone(p)} />
@@ -170,7 +169,7 @@ export default function ForgotPinPage() {
         {sent && (
           <>
             <label style={label} htmlFor="fp-code">
-              Κωδικός επαλήθευσης
+              {t("codeLabel")}
             </label>
             <input
               id="fp-code"
@@ -182,7 +181,7 @@ export default function ForgotPinPage() {
             />
 
             <label style={label} htmlFor="fp-pin">
-              Νέος κωδικός
+              {t("newPin")}
             </label>
             <input
               id="fp-pin"
@@ -197,7 +196,7 @@ export default function ForgotPinPage() {
         )}
 
         <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%" }}>
-          {busy ? "…" : sent ? "Ορισμός νέου κωδικού" : "Αποστολή κωδικού"}
+          {busy ? t("busy") : sent ? t("setNew") : t("sendCode")}
         </button>
       </form>
 

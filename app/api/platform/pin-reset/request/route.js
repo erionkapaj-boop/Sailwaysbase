@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { serviceClient } from "../../../../../lib/platform/serverDb";
 import { emailConfig, sendEmail } from "../../../../../lib/platform/email";
 import { reportServerIssue } from "../../../../../lib/platform/serverHealth";
+import { translatorFor } from "../../../../../lib/platform/serverMessages";
 
 const CODE_TTL_MINUTES = 15;
 const MAX_CODES_PER_HOUR = 3;
@@ -11,14 +12,12 @@ function hashCode(code) {
   return crypto.createHash("sha256").update(code).digest("hex");
 }
 
-async function sendCodeEmail(config, to, code) {
+async function sendCodeEmail(config, to, code, locale) {
+  const t = await translatorFor(locale, "PinResetEmail");
   const status = await sendEmail(config, {
     to,
-    subject: "Κωδικός επαναφοράς",
-    text:
-      `Ο κωδικός επαναφοράς σου είναι: ${code}\n\n` +
-      `Ισχύει για ${CODE_TTL_MINUTES} λεπτά. Αν δεν τον ζήτησες εσύ, αγνόησε αυτό το μήνυμα — ` +
-      `ο κωδικός σου δεν αλλάζει χωρίς αυτόν.`,
+    subject: t("subject"),
+    text: t("body", { code, minutes: CODE_TTL_MINUTES }),
   });
   return status >= 200 && status < 300;
 }
@@ -52,7 +51,7 @@ export async function POST(req) {
 
   const { data: user } = await db
     .from("users")
-    .select("id, email, status")
+    .select("id, email, status, locale")
     .eq("phone_number", phone)
     .maybeSingle();
 
@@ -85,7 +84,7 @@ export async function POST(req) {
     return Response.json({ error: "could_not_issue" }, { status: 500 });
   }
 
-  if (!(await sendCodeEmail(config, user.email, code))) {
+  if (!(await sendCodeEmail(config, user.email, code, user.locale))) {
     console.error("pin-reset: email delivery failed");
   }
   return Response.json(generic);

@@ -2,6 +2,7 @@
 import { Suspense, useState } from "react";
 import { isWeakPin } from "../../../lib/platform/pin";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
 import { setPin } from "../../../lib/platform/db";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
@@ -11,7 +12,6 @@ import { container, card, h1, muted, button, input, label, colors } from "../../
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const MIN_LENGTH = 6;
-const WEAK_PIN_MESSAGE = "Διάλεξε κάτι λιγότερο προφανές: όχι ίδια ψηφία (000000) ή σειρά (123456).";
 
 export default function SetPinPage() {
   return (
@@ -24,6 +24,7 @@ export default function SetPinPage() {
 // useSearchParams() (για ?as=professional, μεταφερμένο από την εγγραφή)
 // χρειάζεται Suspense boundary γύρω του στο app router.
 function SetPinInner() {
+  const t = useTranslations("SetPin");
   const router = useRouter();
   const params = useSearchParams();
   const isProfessional = params.get("as") === "professional";
@@ -45,9 +46,9 @@ function SetPinInner() {
   async function submit(e) {
     e.preventDefault();
     setError("");
-    if (pin.length < MIN_LENGTH) return setError(`Ο κωδικός θέλει τουλάχιστον ${MIN_LENGTH} χαρακτήρες.`);
-    if (isWeakPin(pin)) return setError(WEAK_PIN_MESSAGE);
-    if (pin !== confirm) return setError("Οι δύο κωδικοί δεν ταιριάζουν.");
+    if (pin.length < MIN_LENGTH) return setError(t("tooShortError", { min: MIN_LENGTH }));
+    if (isWeakPin(pin)) return setError(t("weak"));
+    if (pin !== confirm) return setError(t("mismatch"));
 
     setBusy(true);
     try {
@@ -91,7 +92,7 @@ function SetPinInner() {
     return (
       <div style={{ ...container, maxWidth: 460 }}>
         <BackButton onClick={() => router.back()} />
-        <p style={{ ...muted, marginTop: 20 }}>Χρειάζεται σύνδεση για να ορίσεις κωδικό.</p>
+        <p style={{ ...muted, marginTop: 20 }}>{t("needSignIn")}</p>
       </div>
     );
   }
@@ -100,17 +101,16 @@ function SetPinInner() {
     <div style={{ ...container, maxWidth: 460 }}>
       {!isRequired && <BackButton onClick={() => router.back()} />}
       <h1 style={{ ...h1, marginTop: 20 }}>
-        {isRequired ? "Όρισε τον δικό σου κωδικό" : isChange ? "Αλλαγή κωδικού" : "Δημιούργησε κωδικό"}
+        {isRequired ? t("titleRequired") : isChange ? t("titleChange") : t("titleNew")}
       </h1>
       <p style={muted}>
-        {isRequired && "Ο προσωρινός κωδικός ήταν μόνο για να ξαναμπείς. "}
-        Θα τον χρησιμοποιείς μαζί με το τηλέφωνό σου σε κάθε επόμενη είσοδο. Διάλεξε ό,τι θες, αρκεί
-        να έχει {MIN_LENGTH} χαρακτήρες ή περισσότερους.
+        {isRequired && t("introTemporary")}
+        {t("intro", { min: MIN_LENGTH })}
       </p>
 
       <form onSubmit={submit} style={{ ...card, marginTop: 20 }}>
         <label style={label} htmlFor="pin">
-          Κωδικός
+          {t("pinLabel")}
         </label>
         <input
           id="pin"
@@ -123,12 +123,12 @@ function SetPinInner() {
         />
         {tooShort && (
           <p style={{ ...muted, fontSize: 13, margin: "0 0 16px" }}>
-            Ακόμα {MIN_LENGTH - pin.length} χαρακτήρες.
+            {t("remaining", { count: MIN_LENGTH - pin.length })}
           </p>
         )}
 
         <label style={label} htmlFor="pin-confirm">
-          Επανάληψη κωδικού
+          {t("confirmLabel")}
         </label>
         <input
           id="pin-confirm"
@@ -141,7 +141,7 @@ function SetPinInner() {
         />
         {mismatch && (
           <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 20px" }}>
-            Οι δύο κωδικοί δεν ταιριάζουν.
+            {t("mismatch")}
           </p>
         )}
 
@@ -150,7 +150,7 @@ function SetPinInner() {
           disabled={busy || pin.length < MIN_LENGTH || pin !== confirm}
           style={{ ...button("primary"), width: "100%" }}
         >
-          {busy ? "Αποθήκευση…" : "Αποθήκευση κωδικού"}
+          {busy ? t("saving") : t("save")}
         </button>
       </form>
 

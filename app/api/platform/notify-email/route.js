@@ -54,7 +54,9 @@ async function run(req) {
     const ids = person.items.map((i) => i.id);
     const locale = locales.get(person.userId) || "el";
     const t = await translatorFor(locale, "Email");
-    const status = await sendEmail(config, { to: person.email, ...buildNotificationEmail({ ...person, baseUrl, t, locale }) });
+    const tNotification = await translatorFor(locale, "Notification");
+    const tRole = await translatorFor(locale, "Roles");
+    const status = await sendEmail(config, { to: person.email, ...buildNotificationEmail({ ...person, baseUrl, t, tNotification, tRole, locale }) });
     if (status >= 200 && status < 300) sent.push(...ids);
     // A rejected address won't get better; an outage will — those stay
     // 'sending' and the database hands them out again in 30 minutes.

@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { AsYouType, parsePhoneNumberFromString } from "libphonenumber-js/mobile";
-import { COUNTRIES, countryByIso } from "../../../lib/platform/countryCodes";
+import { countriesFor, countryByIso } from "../../../lib/platform/countryCodes";
 import { isValidPhone, formatPhone } from "../../../lib/platform/phone";
 import { colors, input, radius } from "../../../lib/platform/theme";
 
@@ -27,11 +28,6 @@ const CSS = `
 .sf-phone-country select:disabled + .sf-phone-country-face { opacity: .6; }
 `;
 
-const HINTS = {
-  GR: "Το κινητό στην Ελλάδα έχει 10 ψηφία και ξεκινά από 69.",
-};
-const placeholder = (iso) => (iso === "GR" ? "69XXXXXXXX" : "Αριθμός");
-
 function toE164(iso, national) {
   const digits = national.replace(/\D/g, "");
   if (!digits) return "";
@@ -41,6 +37,8 @@ function toE164(iso, national) {
 }
 
 export default function PhoneField({ id, onChange, quiet = false, showErrors = false, defaultIso = "GR", autoFocus, required = true, disabled = false }) {
+  const t = useTranslations("PhoneField");
+  const COUNTRIES = countriesFor(useLocale());
   const [iso, setIso] = useState(defaultIso);
   const [display, setDisplay] = useState("");
   const [touched, setTouched] = useState(false);
@@ -86,7 +84,7 @@ export default function PhoneField({ id, onChange, quiet = false, showErrors = f
   const valid = phone ? isValidPhone(phone) : false;
   const digitCount = display.replace(/\D/g, "").length;
   const showError = !quiet && !valid && digitCount > 0 && (touched || showErrors);
-  const message = showError ? HINTS[iso] || "Γράψε κινητό τηλέφωνο της χώρας που διάλεξες." : "";
+  const message = showError ? (iso === "GR" ? t("hintGR") : t("hint")) : "";
   const echo = !quiet && valid ? formatPhone(phone) : "";
 
   return (
@@ -94,7 +92,7 @@ export default function PhoneField({ id, onChange, quiet = false, showErrors = f
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div style={{ display: "flex", gap: 8 }}>
         <div className="sf-phone-country">
-          <select aria-label="Χώρα" value={iso} disabled={disabled} onChange={(e) => handleCountry(e.target.value)}>
+          <select aria-label={t("country")} value={iso} disabled={disabled} onChange={(e) => handleCountry(e.target.value)}>
             {COUNTRIES.map((c) => (
               <option key={c.iso} value={c.iso}>
                 {c.name} {c.code}
@@ -115,7 +113,7 @@ export default function PhoneField({ id, onChange, quiet = false, showErrors = f
           autoComplete="tel-national"
           autoFocus={autoFocus}
           required={required}
-          placeholder={placeholder(iso)}
+          placeholder={iso === "GR" ? t("placeholderGR") : t("placeholder")}
           aria-invalid={showError || undefined}
           style={{ ...input, flex: 1, minWidth: 0, fontSize: 16, borderColor: showError ? colors.danger : colors.border }}
           value={display}

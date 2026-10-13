@@ -1,1 +1,454 @@
-{}
+{
+  "Errors": {
+    "account_not_active": "Your account is not active at the moment. For any questions, contact us.",
+    "test_account_mismatch": "Test accounts only work with other test accounts.",
+    "test_phone_cannot_be_admin": "A test account cannot be made an administrator.",
+    "booking_not_found": "The booking was not found. Refresh the page.",
+    "request_not_found": "The request was not found.",
+    "delivery_request_not_found": "The delivery request was not found. Refresh the page.",
+    "role_request_not_found": "The request was not found. Refresh the page.",
+    "ping_not_found": "This professional is no longer on the request. Refresh the page.",
+    "ping_not_open": "This offer has already been answered.",
+    "not_allowed": "You do not have permission for this action.",
+    "not_participant": "You are not part of this booking.",
+    "not_client_request": "This request is managed by the platform, not the client.",
+    "not_revealed": "Contact details are shown once the booking is confirmed.",
+    "not_cancellable": "This booking can no longer be cancelled.",
+    "use_replacement_flow": "This is a replacement offer: respond from the offer card.",
+    "bad_source": "Refresh the page and try again.",
+    "fee_not_paid": "The request has not been sent yet.",
+    "delivery_rate_not_configured": "Delivery rates for this role have not been set yet. Contact us.",
+    "invalid_food_allowance": "The food allowance is not valid.",
+    "invalid_photo_url": "The photo did not upload correctly. Try again.",
+    "review_not_allowed_before_end_date": "Reviews open after the trip ends.",
+    "review_not_allowed_cancelled": "A cancelled booking cannot be reviewed.",
+    "reviewer_not_participant": "Only those who took part in the booking can review.",
+    "reviewee_not_participant": "This person did not take part in the booking.",
+    "comment_too_long": "The comment is too long (up to 2,000 characters).",
+    "message_empty": "Write something before sending.",
+    "message_too_long": "The message is too long (up to 4,000 characters).",
+    "start_in_past": "The start date has already passed.",
+    "trip_too_long": "A request covers up to 60 days. For a longer period, make a second request.",
+    "party_too_large": "Up to 50 people per request.",
+    "too_many_professionals": "A request goes to up to 30 professionals.",
+    "skipper_not_available": "None of the professionals you chose is available on these days any more. Search again.",
+    "client_cannot_pay": "The request is no longer available.",
+    "credits_reserved": "The balance cannot fall below the credits reserved for open requests.",
+    "request_expired": "The request has expired.",
+    "trip_started": "The trip has started. The booking can no longer be cancelled.",
+    "professional_responded": "The professional has replied to messages. Use the regular cancellation.",
+    "response_time_not_over": "The professional's response deadline has not passed yet.",
+    "departure_in_past": "The departure date has already passed.",
+    "invalid_flexible_days": "Flexibility is limited to 30 days.",
+    "invalid_distance": "The distance does not look right.",
+    "invalid_email": "The email does not look right.",
+    "invalid_name": "The full name does not look right.",
+    "pin_too_short": "The code needs at least 6 characters.",
+    "pin_too_weak": "Choose something less obvious: no repeated digits (000000) or sequences (123456).",
+    "price_too_high": "The daily rate is limited to €5,000.",
+    "invalid_price": "Enter a price greater than 0.",
+    "invalid_years_experience": "The years of experience do not look right.",
+    "invalid_date_of_birth": "The date of birth does not look right (you must be at least 18).",
+    "too_many_messages": "You have already sent enough messages. Try again in an hour.",
+    "cannot_edit_admin": "This account is managed only by the platform owner.",
+    "cannot_reset_admin": "This account is managed only by the platform owner.",
+    "owner_only": "Only the platform owner can do this.",
+    "invalid_dates": "The end date is before the start date.",
+    "date_in_past": "The period cannot start in the past.",
+    "period_too_long": "A period is limited to one year.",
+    "region_required": "Choose at least one area.",
+    "window_not_found": "The period no longer exists.",
+    "purchase_request_pending": "You already have an open purchase request.",
+    "invalid_package": "The package is not available.",
+    "request_not_pending": "The request has already been processed.",
+    "cannot_credit_self": "You cannot change your own credits.",
+    "invalid_value": "The value is outside the allowed limits for this setting.",
+    "cannot_hire_self": "You cannot offer the job to yourself.",
+    "issue_not_open": "The issue is already closed.",
+    "too_many_requests": "You have reached today's request limit.",
+    "too_many_periods": "You have reached the period limit. Delete the ones you do not need.",
+    "supabase_not_configured": "Supabase is not configured (missing env vars).",
+    "view_as_readonly": "Viewing as a user: changes are disabled.",
+    "name_required": "The full name is required.",
+    "image_too_large": "The image is too large.",
+    "generic": "The action did not complete. Try again.",
+    "textTooLong": "The text is too long."
+  },
+  "Feedback": {
+    "users_PATCH": "Saved",
+    "client_profiles_PATCH": "Profile saved",
+    "skipper_profiles_PATCH": "Profile saved",
+    "skipper_secondary_roles_PATCH": "Role saved",
+    "skipper_secondary_roles_POST": "Role added",
+    "skipper_secondary_roles_DELETE": "Role removed",
+    "become_professional": "Professional application sent",
+    "set_availability_period": "Availability saved",
+    "availability_windows_DELETE": "Period removed",
+    "availability_blocks_POST": "Absence recorded",
+    "availability_blocks_DELETE": "Absence removed",
+    "delivery_availability_windows_POST": "Availability saved",
+    "delivery_availability_windows_DELETE": "Period removed",
+    "claim_booking_request": "Request accepted",
+    "decline_booking_request": "Request declined",
+    "client_withdraw_ping": "Request withdrawn",
+    "cancel_booking": "Booking cancelled",
+    "cancel_booking_no_response": "Booking cancelled",
+    "cancel_delivery_booking": "Booking cancelled",
+    "accept_delivery_role_request": "Request accepted",
+    "decline_delivery_role_request": "Request declined",
+    "cancel_delivery_role_request": "Request cancelled",
+    "relist_delivery_role_request": "Request relisted",
+    "client_select_replacement_candidate": "Professional selected",
+    "respond_to_replacement_offer": "Response recorded",
+    "withdraw_replacement_candidacy": "Application withdrawn",
+    "reviews_POST": "Review submitted",
+    "reviews_PATCH": "Review updated",
+    "request_credit_purchase": "Purchase request sent",
+    "cancel_credit_purchase_request": "Purchase request cancelled",
+    "admin_verify_user": "Account verified",
+    "admin_approve_skipper": "Profile approved",
+    "admin_reject_skipper": "Profile rejected",
+    "admin_approve_secondary_role": "Role approved",
+    "admin_reject_secondary_role": "Role rejected",
+    "admin_approve_photo": "Photo approved",
+    "admin_clear_photo": "Photo removed",
+    "admin_soft_delete_skipper": "Profile removed",
+    "admin_suspend_account": "Account suspended",
+    "admin_reactivate_account": "Account activated",
+    "admin_delete_account": "Account deleted",
+    "admin_restore_account": "Account restored",
+    "admin_set_staff_admin": "Permissions changed",
+    "admin_set_test_account": "Test flag changed",
+    "admin_update_profile": "Saved",
+    "admin_update_setting": "Setting saved",
+    "admin_create_offer": "Offer sent",
+    "admin_cancel_offer": "Offer cancelled",
+    "admin_close_replacement_case": "Case closed",
+    "admin_resolve_report": "Report closed",
+    "admin_resolve_flag": "Issue closed",
+    "admin_resolve_health_issue": "Issue closed",
+    "admin_set_contact_message_status": "Status changed",
+    "admin_run_health_checks": "Check completed",
+    "admin_record_purchase": "Purchase recorded",
+    "admin_complete_credit_purchase": "Payment confirmed",
+    "admin_cancel_credit_purchase": "Purchase request cancelled",
+    "admin_credit_wallet": "Credits added",
+    "admin_adjust_wallet": "Balance adjusted",
+    "failure": "Not completed. Try again."
+  },
+  "Reviews": {
+    "skipper": {
+      "safety": {
+        "label": "Safety",
+        "hint": "Boat handling, decisions, risk prevention, rule compliance"
+      },
+      "seamanship": {
+        "label": "Seamanship",
+        "hint": "Knowledge, navigation, manoeuvres, anchoring, handling situations"
+      },
+      "professionalism": {
+        "label": "Professionalism",
+        "hint": "Reliability, responsibility, keeping agreements and proper conduct"
+      },
+      "cleanliness": {
+        "label": "Cleanliness & Order",
+        "hint": "Condition and organisation of the boat during the charter"
+      },
+      "communication": {
+        "label": "Communication",
+        "hint": "Keeping clients informed, clarity, cooperation and responsiveness"
+      },
+      "hospitality": {
+        "label": "Experience & Hospitality",
+        "hint": "Knowledge of destinations, suggestions, service and the guests' overall experience"
+      }
+    },
+    "hostess": {
+      "cleanliness": {
+        "label": "Cleanliness & Order",
+        "hint": "Common areas, galley and the overall look of the boat"
+      },
+      "cooking": {
+        "label": "Cooking & Nutrition",
+        "hint": "Food quality, flavours, presentation and adapting to clients' preferences"
+      },
+      "service": {
+        "label": "Service",
+        "hint": "Willingness, speed and quality of service"
+      },
+      "professionalism": {
+        "label": "Professionalism",
+        "hint": "Reliability, responsibility, discretion and proper conduct"
+      },
+      "communication": {
+        "label": "Communication",
+        "hint": "Courtesy, cooperation and clear communication with guests and crew"
+      },
+      "hospitality": {
+        "label": "Hospitality",
+        "hint": "Creating a pleasant atmosphere and the guests' overall experience"
+      }
+    },
+    "client": {
+      "boat_respect": {
+        "label": "Respect for the Boat",
+        "hint": "Care for equipment, spaces and the general condition of the boat"
+      },
+      "responsibility": {
+        "label": "Responsibility",
+        "hint": "Following instructions and safety rules, and using the boat correctly"
+      },
+      "cooperation": {
+        "label": "Cooperation",
+        "hint": "Working with the skipper and crew, especially when instructions or changes are needed"
+      },
+      "consistency": {
+        "label": "Reliability",
+        "hint": "Keeping agreed schedules, procedures and obligations, including financial ones"
+      },
+      "conduct": {
+        "label": "Conduct",
+        "hint": "Courtesy, respect and professional behaviour towards the crew"
+      },
+      "tidiness": {
+        "label": "Cleanliness & Order",
+        "hint": "Keeping spaces in reasonable condition and respecting common areas"
+      }
+    },
+    "cook": {
+      "taste": {
+        "label": "Taste",
+        "hint": "Quality and flavour of the dishes"
+      },
+      "variety": {
+        "label": "Variety",
+        "hint": "Variety of meals and adapting to the schedule"
+      },
+      "presentation": {
+        "label": "Presentation",
+        "hint": "Appearance, serving and look of the dishes"
+      },
+      "adaptability": {
+        "label": "Adaptability",
+        "hint": "Responding to preferences, allergies and dietary requirements"
+      },
+      "organization": {
+        "label": "Organisation",
+        "hint": "Preparation, provisioning and running the galley properly"
+      },
+      "cleanliness": {
+        "label": "Cleanliness & Hygiene",
+        "hint": "A clean galley, safe food handling and order"
+      }
+    },
+    "deckhand": {
+      "seamanship": {
+        "label": "Seamanship",
+        "hint": "Knowledge and skill in deck work and manoeuvres"
+      },
+      "safety": {
+        "label": "Safety",
+        "hint": "Correct and safe execution of tasks and following instructions"
+      },
+      "maintenance": {
+        "label": "Maintenance",
+        "hint": "Care of equipment and deck, and basic maintenance tasks"
+      },
+      "cleanliness": {
+        "label": "Cleanliness & Order",
+        "hint": "Condition of the deck, equipment and common areas"
+      },
+      "teamwork": {
+        "label": "Teamwork",
+        "hint": "Team spirit and effective cooperation with the skipper and crew"
+      },
+      "diligence": {
+        "label": "Diligence",
+        "hint": "Willingness, reliability and readiness to take on and finish tasks"
+      }
+    }
+  },
+  "Roles": {
+    "role": {
+      "skipper": {
+        "label": "Skipper",
+        "blurb": "Commands the boat and is responsible for it"
+      },
+      "hostess": {
+        "label": "Hostess",
+        "blurb": "Looks after the guests and the boat at sea"
+      },
+      "cook": {
+        "label": "Cook",
+        "blurb": "Prepares the meals of the trip"
+      },
+      "deckhand": {
+        "label": "Deckhand",
+        "blurb": "Assists with mooring and deck work"
+      }
+    },
+    "highlights": {
+      "languages": "Speaks {count} languages"
+    },
+    "professional": "Professional"
+  },
+  "Notification": {
+    "txn": {
+      "deposit": "Credits added to your account",
+      "purchase": "Credits purchase",
+      "requestFee": "Credits used for a request",
+      "claimFee": "Credits used to accept a job",
+      "refundCredit": "Credits refunded",
+      "adjustment": "Credits adjustment",
+      "other": "Credit movement"
+    },
+    "topic": {
+      "general": "General question",
+      "booking": "Booking / request",
+      "payment": "Charge / credits",
+      "report": "Report",
+      "privacy": "Personal data",
+      "other": "Other"
+    },
+    "requestReceived": {
+      "title": "New booking request"
+    },
+    "offerReceived": {
+      "title": "A job is offered to you",
+      "titleReplacement": "Replacement: a job is offered to you",
+      "feeReplacement": "{credits} only if the client selects you",
+      "feeOnAccept": "{credits} on acceptance",
+      "noFee": "no charge"
+    },
+    "accountRestored": {
+      "title": "Your account has been restored",
+      "body": "You can sign in and use the app as normal."
+    },
+    "accountVerified": {
+      "title": "Your account has been approved",
+      "body": "You can now send requests to professionals."
+    },
+    "bookingConfirmed": {
+      "titleNewPro": "New professional for your trip: {name}",
+      "titleReplacement": "You have taken the replacement",
+      "title": "New confirmed booking"
+    },
+    "deliveryRequestReceived": {
+      "title": "Boat delivery offer"
+    },
+    "deliveryAccepted": {
+      "title": "Your delivery has been taken"
+    },
+    "requestExpired": {
+      "title": "Your request expired without a reply"
+    },
+    "refunded": "{count, plural, one {# credit refunded} other {# credits refunded}}",
+    "released": "{count, plural, one {# credit released} other {# credits released}}",
+    "deliveryExpired": {
+      "title": "No one took the delivery"
+    },
+    "deliveryCancelled": {
+      "titleClient": "The client cancelled the delivery",
+      "titlePro": "The professional cancelled the delivery"
+    },
+    "adminDeliveryCancelled": {
+      "title": "A professional cancelled a delivery"
+    },
+    "coverageNeeded": {
+      "titleClientTimeout": "Replacement: the client did not choose in time",
+      "titleNoResponse": "Replacement: no one expressed interest",
+      "titleCancelled": "Cancellation: a replacement is needed",
+      "sendNewOffer": "send a new offer"
+    },
+    "replacementCandidateAvailable": {
+      "title": "An available replacement has been found",
+      "decideBy": "choose by {when}",
+      "chooseFromOptions": "choose from your options"
+    },
+    "replacementNotSelected": {
+      "title": "You were not selected for the replacement",
+      "body": "the client chose someone else — you were not charged"
+    },
+    "replacementOfferClosed": {
+      "title": "The replacement offer has closed",
+      "clientTimeout": "the client did not choose in time",
+      "withdrawn": "it was withdrawn by the platform",
+      "free": "you were not charged and are free for other jobs"
+    },
+    "replacementChoiceExpired": {
+      "title": "The replacement options are no longer valid",
+      "deadlinePassed": "the selection deadline has passed",
+      "searchingAgain": "we are searching again and will notify you"
+    },
+    "replacementUnfilled": {
+      "title": "No replacement was found"
+    },
+    "bookingCancelled": {
+      "byClient": "The client cancelled the booking",
+      "proRemoved": "The professional is no longer available. We are looking for a replacement",
+      "proCancelled": "The professional cancelled. We are looking for a replacement",
+      "generic": "Booking cancelled",
+      "noNewCharge": "no new charge"
+    },
+    "reviewReceived": {
+      "title": "You received a review",
+      "rating": "{rating} out of 5 stars"
+    },
+    "reviewPrompt": {
+      "title": "The trip is complete. How did it go?"
+    },
+    "contactMessage": {
+      "title": "New contact message"
+    },
+    "adminSignupPending": {
+      "title": "A new sign-up is awaiting verification"
+    },
+    "adminCreditPurchase": {
+      "title": "Credit purchase request"
+    },
+    "adminHealthIssue": {
+      "titleAgain": "App health: reappeared",
+      "titleNew": "App health: new issue"
+    },
+    "creditPurchaseCancelled": {
+      "title": "The purchase request was cancelled"
+    },
+    "adminProPending": {
+      "title": "A professional is awaiting approval"
+    },
+    "adminRolePending": {
+      "title": "Application for an additional role"
+    },
+    "adminDisputeNew": {
+      "title": "New cancellation report"
+    },
+    "photoRemoved": {
+      "title": "Your photo was removed",
+      "body": "Upload a new one from your profile."
+    },
+    "profileApproved": {
+      "title": "Your profile was approved",
+      "body": "Set your availability to appear in searches."
+    },
+    "profileRereview": {
+      "title": "Your profile is going back for review",
+      "body": "You changed a licence or your name. Until it is approved again you do not appear in searches."
+    },
+    "profileRejected": {
+      "title": "Your profile was not approved",
+      "titleRevoked": "Your profile approval was revoked",
+      "body": "For details, contact us."
+    },
+    "roleApproved": {
+      "title": "You were also approved as {role}",
+      "body": "You can now receive requests for this role too."
+    },
+    "roleRejected": {
+      "title": "The {role} role was not approved",
+      "body": "For details, contact us."
+    },
+    "default": {
+      "title": "Update"
+    }
+  }
+}

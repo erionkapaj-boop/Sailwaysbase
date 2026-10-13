@@ -9,7 +9,7 @@ import { addStep, cleanStep, reportAppIssue } from "../../../lib/platform/health
 // συνεχές ξαναφόρτωμα. Δεν δείχνει τίποτα στον χρήστη.
 // «Προβολή ως χρήστης: οι αλλαγές είναι απενεργοποιημένες» είναι σκόπιμο μπλοκάρισμα
 // της προβολής μόνο-για-ανάγνωση του ιδιοκτήτη, όχι σφάλμα εφαρμογής.
-const NOISE = /ResizeObserver loop|Script error\.?$|AbortError|The user aborted|Προβολή ως χρήστη: οι αλλαγές/i;
+const NOISE = /ResizeObserver loop|Script error\.?$|AbortError|The user aborted|view_as_readonly/i;
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 const clean = (path) => path.replace(UUID, ":id");
 

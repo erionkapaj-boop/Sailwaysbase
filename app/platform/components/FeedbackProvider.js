@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Toast from "./Toast";
 import { onWriteResult } from "../../../lib/platform/supabaseClient";
-import { WRITE_MESSAGES, FAILURE_MESSAGE } from "../../../lib/platform/feedbackMessages";
+import { WRITE_MESSAGES, failureMessage } from "../../../lib/platform/feedbackMessages";
 import { colors } from "../../../lib/platform/theme";
 
 // «Κάτι έγινε»: όταν πετύχει μια αλλαγή, ο χρήστης το βλέπει αμέσως, όπου κι αν βρίσκεται η
@@ -41,7 +41,7 @@ export default function FeedbackProvider({ children }) {
 
   const show = useCallback((text, tone) => setToast({ id: Date.now() + Math.random(), text, tone }), []);
   const done = useCallback((text) => show(text, "done"), [show]);
-  const fail = useCallback((text) => show(text || FAILURE_MESSAGE, "fail"), [show]);
+  const fail = useCallback((text) => show(text || failureMessage(), "fail"), [show]);
 
   useEffect(() => {
     const onClick = (e) => {
@@ -51,7 +51,7 @@ export default function FeedbackProvider({ children }) {
     document.addEventListener("click", onClick, true);
 
     const off = onWriteResult((ev) => {
-      const message = WRITE_MESSAGES[ev.key];
+      const message = WRITE_MESSAGES.get(ev.key);
       if (!message) return;
       const now = Date.now();
       if (ev.ok) {

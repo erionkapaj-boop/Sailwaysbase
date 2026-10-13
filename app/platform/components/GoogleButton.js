@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { colors, radius, fontSans } from "../../../lib/platform/theme";
 
 // Κουμπί «Συνέχεια με Google»: λευκό, με το έγχρωμο γράμμα της Google (όπως
@@ -27,13 +28,14 @@ export function GoogleMark() {
   );
 }
 
-export default function GoogleButton({ onClick, busy, children = "Συνέχεια με Google", ...rest }) {
+export default function GoogleButton({ onClick, busy, children, ...rest }) {
+  const t = useTranslations("GoogleButton");
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <button type="button" className="sf-google" onClick={onClick} disabled={busy} {...rest}>
         <GoogleMark />
-        {busy ? "…" : children}
+        {busy ? "…" : children ?? t("continue")}
       </button>
     </>
   );
@@ -41,10 +43,11 @@ export default function GoogleButton({ onClick, busy, children = "Συνέχει
 
 // Η γραμμή «ή» ανάμεσα στο Google και στη φόρμα με τηλέφωνο.
 export function OrDivider() {
+  const t = useTranslations("GoogleButton");
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sf-or">ή</div>
+      <div className="sf-or">{t("or")}</div>
     </>
   );
 }

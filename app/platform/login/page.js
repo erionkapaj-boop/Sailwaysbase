@@ -2,6 +2,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
 import { signInWithPin, isSignedInAdmin, signInWithGoogle, GOOGLE_LOGIN_ENABLED } from "../../../lib/platform/db";
 import GoogleButton, { OrDivider } from "../components/GoogleButton";
@@ -12,6 +13,7 @@ import PhoneField from "../components/PhoneField";
 import { container, card, h1, muted, button, input, label, colors, tapTarget } from "../../../lib/platform/theme";
 
 function LoginInner() {
+  const t = useTranslations("Login");
   const router = useRouter();
   const params = useSearchParams();
   const { session, userRow, loading, refresh, signOut } = useAuth();
@@ -32,7 +34,7 @@ function LoginInner() {
       await signInWithGoogle({ next: nextParam });
     } catch {
       setGoogleBusy(false);
-      setError("Η σύνδεση με Google δεν ξεκίνησε. Δοκίμασε ξανά.");
+      setError(t("googleFailed"));
     }
   }
 
@@ -58,13 +60,13 @@ function LoginInner() {
       if (err.message === "locked_out") {
         setLockedOut(true);
       } else if (err.message === "account_deleted") {
-        setError("Αυτός ο λογαριασμός έχει διαγραφεί. Για να τον ενεργοποιήσεις ξανά, επικοινώνησε μαζί μας.");
+        setError(t("accountDeleted"));
       } else if (err.message === "account_suspended") {
-        setError("Ο λογαριασμός είναι σε αναστολή.");
+        setError(t("accountSuspended"));
       } else {
         // Don't say whether the phone or the PIN was wrong — that would tell
         // an attacker which numbers have accounts.
-        setError("Λάθος τηλέφωνο ή κωδικός.");
+        setError(t("wrongCredentials"));
       }
     } finally {
       setBusy(false);
@@ -79,16 +81,16 @@ function LoginInner() {
     const viaGoogle = meta.provider === "google" || (meta.providers || []).includes("google");
     return (
       <div style={{ ...container, maxWidth: 460 }}>
-        <h1 style={h1}>Η σύνδεση δεν ολοκληρώθηκε</h1>
-        <p style={muted}>Δεν υπάρχει ακόμα λογαριασμός για αυτή τη σύνδεση.</p>
+        <h1 style={h1}>{t("incompleteTitle")}</h1>
+        <p style={muted}>{t("incompleteBody")}</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 20 }}>
           {viaGoogle && (
             <Link href="/platform/auth/google" style={{ ...button("primary"), textDecoration: "none" }}>
-              Συνέχεια εγγραφής
+              {t("continueSignup")}
             </Link>
           )}
           <button type="button" style={button("secondary")} onClick={() => signOut("/platform/login")}>
-            Αποσύνδεση
+            {t("signOut")}
           </button>
         </div>
       </div>
@@ -98,8 +100,8 @@ function LoginInner() {
   if (session) {
     return (
       <div style={{ ...container, maxWidth: 460 }}>
-        <h1 style={h1}>Είσαι ήδη συνδεδεμένος</h1>
-        <p style={muted}>Χρησιμοποίησε το μενού για να πας στον λογαριασμό σου.</p>
+        <h1 style={h1}>{t("alreadyTitle")}</h1>
+        <p style={muted}>{t("alreadyBody")}</p>
       </div>
     );
   }
@@ -107,28 +109,25 @@ function LoginInner() {
   return (
     <div style={{ ...container, maxWidth: 460 }}>
       <BackButton onClick={() => router.back()} />
-      <h1 style={{ ...h1, marginTop: 20 }}>Σύνδεση</h1>
+      <h1 style={{ ...h1, marginTop: 20 }}>{t("title")}</h1>
       {fromSend && (
-        <p style={muted}>
-          Για να σταλεί το αίτημά σου χρειάζεσαι λογαριασμό. Οι επιλογές σου κρατήθηκαν.
-        </p>
+        <p style={muted}>{t("fromSend")}</p>
       )}
 
       {lockedOut ? (
         // Supabase's own limit on sign-in attempts (0107): until it passes
         // another attempt would only be refused.
         <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
-          <b style={{ fontWeight: 600 }}>Πολλές προσπάθειες</b>
+          <b style={{ fontWeight: 600 }}>{t("tooManyTitle")}</b>
           <p style={{ ...muted, margin: "8px 0 16px" }}>
-            Έγιναν πολλές προσπάθειες από αυτή τη συσκευή. Δοκίμασε ξανά σε λίγα λεπτά ή ζήτα βοήθεια αν δεν
-            θυμάσαι τον κωδικό.
+            {t("tooManyBody")}
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button style={button("secondary")} onClick={() => setLockedOut(false)}>
-              Δοκίμασε ξανά
+              {t("tryAgain")}
             </button>
             <Link href="/platform/forgot-pin" style={{ ...button("primary"), textDecoration: "none" }}>
-              Ξέχασα τον κωδικό
+              {t("forgot")}
             </Link>
           </div>
         </div>
@@ -141,14 +140,14 @@ function LoginInner() {
             </>
           )}
           <label style={label} htmlFor="login-phone">
-            Κινητό τηλέφωνο
+            {t("phoneLabel")}
           </label>
           <div style={{ marginBottom: 16 }}>
             <PhoneField id="login-phone" quiet onChange={({ phone: p }) => setPhone(p)} />
           </div>
 
           <label style={label} htmlFor="login-pin">
-            Κωδικός
+            {t("pinLabel")}
           </label>
           <input
             id="login-pin"
@@ -161,14 +160,14 @@ function LoginInner() {
           />
 
           <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%" }}>
-            {busy ? "Σύνδεση…" : "Σύνδεση"}
+            {busy ? t("submitBusy") : t("title")}
           </button>
 
           {error && <p style={{ color: colors.danger, marginTop: 12, marginBottom: 0 }}>{error}</p>}
 
           <div style={{ marginTop: 16 }}>
             <Link href="/platform/forgot-pin" style={{ ...muted, ...tapTarget, fontSize: 13, textDecoration: "none" }}>
-              Ξέχασα τον κωδικό
+              {t("forgot")}
             </Link>
           </div>
         </form>
@@ -178,12 +177,12 @@ function LoginInner() {
           yet — sign-up was a small grey link in the corner of a login form. */}
       {!lockedOut && (
         <div style={{ ...card, marginTop: 16, textAlign: "center" }}>
-          <p style={{ ...muted, margin: "0 0 12px" }}>Πρώτη φορά εδώ;</p>
+          <p style={{ ...muted, margin: "0 0 12px" }}>{t("firstTime")}</p>
           <Link
             href="/platform/register"
             style={{ ...button("secondary"), display: "block", textDecoration: "none", textAlign: "center" }}
           >
-            Δημιουργία λογαριασμού
+            {t("createAccount")}
           </Link>
         </div>
       )}

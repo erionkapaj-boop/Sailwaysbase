@@ -1,0 +1,785 @@
+[
+ {
+  "n": {
+   "kind": "request_received",
+   "data": {
+    "port": "Λευκάδα",
+    "start": "2026-09-25",
+    "end": "2026-09-29"
+   }
+  },
+  "r": {
+   "title": "Νέο αίτημα κράτησης",
+   "body": "Λευκάδα · 25–29 Σεπ 2026",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "offer_received",
+   "data": {
+    "port": "Πάρος",
+    "start": "2026-09-28",
+    "end": "2026-10-03",
+    "fee": 2,
+    "note": "Γεια"
+   }
+  },
+  "r": {
+   "title": "Σου προτείνεται δουλειά",
+   "body": "Πάρος · 28 Σεπ – 3 Οκτ 2026 · 2 credits με την αποδοχή · «Γεια»",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "offer_received",
+   "data": {
+    "port": "Πάρος",
+    "start": "2026-09-28",
+    "end": "2026-10-03",
+    "fee": 1,
+    "origin": "admin_replacement"
+   }
+  },
+  "r": {
+   "title": "Αντικατάσταση: σου προτείνεται δουλειά",
+   "body": "Πάρος · 28 Σεπ – 3 Οκτ 2026 · 1 credit μόνο αν σε επιλέξει ο πελάτης",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "offer_received",
+   "data": {
+    "port": "Πάρος",
+    "fee": 0
+   }
+  },
+  "r": {
+   "title": "Σου προτείνεται δουλειά",
+   "body": "Πάρος · χωρίς χρέωση",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "account_restored",
+   "data": {}
+  },
+  "r": {
+   "title": "Ο λογαριασμός σου επανήλθε",
+   "body": "Μπορείς να συνδέεσαι και να χρησιμοποιείς την εφαρμογή κανονικά."
+  }
+ },
+ {
+  "n": {
+   "kind": "account_verified",
+   "data": {}
+  },
+  "r": {
+   "title": "Ο λογαριασμός σου εγκρίθηκε",
+   "body": "Μπορείς πλέον να στέλνεις αιτήματα σε επαγγελματίες."
+  }
+ },
+ {
+  "n": {
+   "kind": "booking_confirmed",
+   "data": {
+    "replacement": true,
+    "pro_name": "Γιώργος",
+    "port": "Κως",
+    "start": "2026-12-30",
+    "end": "2027-01-02"
+   }
+  },
+  "r": {
+   "title": "Νέος επαγγελματίας για το ταξίδι σου: Γιώργος",
+   "body": "Κως · 30 Δεκ 2026 – 2 Ιαν 2027"
+  }
+ },
+ {
+  "n": {
+   "kind": "booking_confirmed",
+   "data": {
+    "replacement": true,
+    "port": "Κως"
+   }
+  },
+  "r": {
+   "title": "Ανέλαβες την αντικατάσταση",
+   "body": "Κως"
+  }
+ },
+ {
+  "n": {
+   "kind": "booking_confirmed",
+   "data": {
+    "port": "Κως",
+    "start": "2026-09-01",
+    "end": "2026-09-01"
+   }
+  },
+  "r": {
+   "title": "Νέα επιβεβαιωμένη κράτηση",
+   "body": "Κως · 1 Σεπ 2026"
+  }
+ },
+ {
+  "n": {
+   "kind": "delivery_request_received",
+   "data": {
+    "origin": "Αθήνα",
+    "destination": "Ρόδος",
+    "price": 300
+   }
+  },
+  "r": {
+   "title": "Πρόταση μεταφοράς σκάφους",
+   "body": "Αθήνα → Ρόδος · 300€",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "delivery_accepted",
+   "data": {
+    "origin": "Αθήνα",
+    "destination": "Ρόδος"
+   }
+  },
+  "r": {
+   "title": "Ανέλαβαν τη μεταφορά σου",
+   "body": "Αθήνα → Ρόδος"
+  }
+ },
+ {
+  "n": {
+   "kind": "request_expired",
+   "data": {
+    "role": "cook",
+    "port": "Σύρος",
+    "refund": 1,
+    "released": 3
+   }
+  },
+  "r": {
+   "title": "Το αίτημά σου έληξε χωρίς απάντηση",
+   "body": "Cook · Σύρος · επιστράφηκε 1 credit · ελευθερώθηκαν 3 credits"
+  }
+ },
+ {
+  "n": {
+   "kind": "request_expired",
+   "data": {
+    "role": "deckhand",
+    "refund": 2
+   }
+  },
+  "r": {
+   "title": "Το αίτημά σου έληξε χωρίς απάντηση",
+   "body": "Ναύτης · επιστράφηκαν 2 credits"
+  }
+ },
+ {
+  "n": {
+   "kind": "delivery_expired",
+   "data": {
+    "origin": "Α",
+    "destination": "Β",
+    "role": "skipper",
+    "refund": 1
+   }
+  },
+  "r": {
+   "title": "Κανείς δεν ανέλαβε τη μεταφορά",
+   "body": "Α → Β · Skipper · επιστράφηκε 1 credit"
+  }
+ },
+ {
+  "n": {
+   "kind": "delivery_cancelled",
+   "data": {
+    "by": "client",
+    "origin": "Α",
+    "destination": "Β",
+    "refund": 2
+   }
+  },
+  "r": {
+   "title": "Ο πελάτης ακύρωσε τη μεταφορά",
+   "body": "Α → Β · επιστράφηκαν 2 credits",
+   "urgent": false
+  }
+ },
+ {
+  "n": {
+   "kind": "delivery_cancelled",
+   "data": {
+    "by": "professional",
+    "origin": "Α",
+    "destination": "Β"
+   }
+  },
+  "r": {
+   "title": "Ο επαγγελματίας ακύρωσε τη μεταφορά",
+   "body": "Α → Β",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "admin_delivery_cancelled",
+   "data": {
+    "origin": "Α",
+    "destination": "Β",
+    "role": "hostess"
+   }
+  },
+  "r": {
+   "title": "Επαγγελματίας ακύρωσε μεταφορά",
+   "body": "Α → Β · Hostess",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "coverage_needed",
+   "data": {
+    "reason": "client_timeout",
+    "port": "Μήλος"
+   }
+  },
+  "r": {
+   "title": "Αντικατάσταση: ο πελάτης δεν διάλεξε εγκαίρως",
+   "body": "Μήλος · στείλε νέα πρόταση",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "coverage_needed",
+   "data": {
+    "reason": "no_response",
+    "port": "Μήλος"
+   }
+  },
+  "r": {
+   "title": "Αντικατάσταση: κανείς δεν δήλωσε ενδιαφέρον",
+   "body": "Μήλος · στείλε νέα πρόταση",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "coverage_needed",
+   "data": {
+    "reason": "skipper_cancelled",
+    "port": "Μήλος"
+   }
+  },
+  "r": {
+   "title": "Ακύρωση: χρειάζεται αντικαταστάτης",
+   "body": "Μήλος",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "replacement_candidate_available",
+   "data": {
+    "port": "Νάξος",
+    "decide_by": "2026-09-25T10:00:00Z"
+   }
+  },
+  "r": {
+   "title": "Βρέθηκε διαθέσιμος αντικαταστάτης",
+   "body": "Νάξος · διάλεξε έως 25/09/2026, 10:00 π.μ.",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "replacement_candidate_available",
+   "data": {
+    "port": "Νάξος"
+   }
+  },
+  "r": {
+   "title": "Βρέθηκε διαθέσιμος αντικαταστάτης",
+   "body": "Νάξος · διάλεξε από τις επιλογές σου",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "replacement_not_selected",
+   "data": {
+    "port": "Νάξος"
+   }
+  },
+  "r": {
+   "title": "Δεν επιλέχθηκες για την αντικατάσταση",
+   "body": "Νάξος · ο πελάτης διάλεξε άλλον — δεν χρεώθηκες"
+  }
+ },
+ {
+  "n": {
+   "kind": "replacement_offer_closed",
+   "data": {
+    "port": "Νάξος",
+    "reason": "client_timeout"
+   }
+  },
+  "r": {
+   "title": "Η πρόταση αντικατάστασης έκλεισε",
+   "body": "Νάξος · ο πελάτης δεν διάλεξε εγκαίρως · δεν χρεώθηκες, είσαι ελεύθερος για άλλες δουλειές"
+  }
+ },
+ {
+  "n": {
+   "kind": "replacement_offer_closed",
+   "data": {
+    "reason": "withdrawn"
+   }
+  },
+  "r": {
+   "title": "Η πρόταση αντικατάστασης έκλεισε",
+   "body": "την απέσυρε η διαχείριση · δεν χρεώθηκες, είσαι ελεύθερος για άλλες δουλειές"
+  }
+ },
+ {
+  "n": {
+   "kind": "replacement_offer_closed",
+   "data": {}
+  },
+  "r": {
+   "title": "Η πρόταση αντικατάστασης έκλεισε",
+   "body": "δεν χρεώθηκες, είσαι ελεύθερος για άλλες δουλειές"
+  }
+ },
+ {
+  "n": {
+   "kind": "replacement_choice_expired",
+   "data": {
+    "port": "Νάξος",
+    "reason": "client_timeout"
+   }
+  },
+  "r": {
+   "title": "Οι επιλογές αντικαταστάτη δεν ισχύουν πια",
+   "body": "Νάξος · πέρασε η προθεσμία επιλογής · ψάχνουμε ξανά και θα σε ειδοποιήσουμε",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "replacement_choice_expired",
+   "data": {}
+  },
+  "r": {
+   "title": "Οι επιλογές αντικαταστάτη δεν ισχύουν πια",
+   "body": "ψάχνουμε ξανά και θα σε ειδοποιήσουμε",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "replacement_unfilled",
+   "data": {
+    "port": "Νάξος",
+    "refund": 1
+   }
+  },
+  "r": {
+   "title": "Δεν βρέθηκε αντικαταστάτης",
+   "body": "Νάξος · επιστράφηκε 1 credit",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "booking_cancelled",
+   "data": {
+    "by": "no_response",
+    "port": "Θήρα"
+   }
+  },
+  "r": {
+   "title": "Ο πελάτης ακύρωσε την κράτηση",
+   "body": "Θήρα",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "booking_cancelled",
+   "data": {
+    "by": "professional",
+    "removed": true,
+    "port": "Θήρα",
+    "refund": 0
+   }
+  },
+  "r": {
+   "title": "Ο επαγγελματίας δεν είναι πια διαθέσιμος. Ψάχνουμε αντικαταστάτη",
+   "body": "Θήρα · χωρίς νέα χρέωση",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "booking_cancelled",
+   "data": {
+    "by": "professional",
+    "port": "Θήρα",
+    "refund": 3
+   }
+  },
+  "r": {
+   "title": "Ο επαγγελματίας ακύρωσε. Ψάχνουμε αντικαταστάτη",
+   "body": "Θήρα · επιστράφηκαν 3 credits",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "booking_cancelled",
+   "data": {
+    "by": "client",
+    "port": "Θήρα",
+    "refund": 1
+   }
+  },
+  "r": {
+   "title": "Ο πελάτης ακύρωσε την κράτηση",
+   "body": "Θήρα · επιστράφηκε 1 credit"
+  }
+ },
+ {
+  "n": {
+   "kind": "booking_cancelled",
+   "data": {
+    "port": "Θήρα"
+   }
+  },
+  "r": {
+   "title": "Ακυρώθηκε κράτηση",
+   "body": "Θήρα"
+  }
+ },
+ {
+  "n": {
+   "kind": "review_received",
+   "data": {
+    "rating": 5
+   }
+  },
+  "r": {
+   "title": "Έλαβες αξιολόγηση",
+   "body": "5 στα 5 αστέρια"
+  }
+ },
+ {
+  "n": {
+   "kind": "review_received",
+   "data": {}
+  },
+  "r": {
+   "title": "Έλαβες αξιολόγηση",
+   "body": ""
+  }
+ },
+ {
+  "n": {
+   "kind": "review_prompt",
+   "data": {
+    "port": "Ύδρα"
+   }
+  },
+  "r": {
+   "title": "Το ταξίδι ολοκληρώθηκε. Πώς πήγε;",
+   "body": "Ύδρα",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "wallet",
+   "data": {
+    "txn_type": "request_fee",
+    "amount": -1
+   }
+  },
+  "r": {
+   "title": "Χρησιμοποίησες credits για αίτημα",
+   "body": "-1 credit"
+  }
+ },
+ {
+  "n": {
+   "kind": "wallet",
+   "data": {
+    "txn_type": "deposit",
+    "amount": 10
+   }
+  },
+  "r": {
+   "title": "Credits στον λογαριασμό σου",
+   "body": "+10 credits"
+  }
+ },
+ {
+  "n": {
+   "kind": "wallet",
+   "data": {
+    "txn_type": "x",
+    "amount": 1
+   }
+  },
+  "r": {
+   "title": "Κίνηση credits",
+   "body": "+1 credit"
+  }
+ },
+ {
+  "n": {
+   "kind": "wallet",
+   "data": {
+    "txn_type": "refund_credit",
+    "amount": 2
+   }
+  },
+  "r": {
+   "title": "Επιστροφή credits",
+   "body": "+2 credits"
+  }
+ },
+ {
+  "n": {
+   "kind": "contact_message",
+   "data": {
+    "name": "Μαρία",
+    "topic": "report"
+   }
+  },
+  "r": {
+   "title": "Νέο μήνυμα επικοινωνίας",
+   "body": "Μαρία · Αναφορά",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "contact_message",
+   "data": {
+    "name": "Μαρία",
+    "topic": "general"
+   }
+  },
+  "r": {
+   "title": "Νέο μήνυμα επικοινωνίας",
+   "body": "Μαρία · Γενική ερώτηση",
+   "urgent": false
+  }
+ },
+ {
+  "n": {
+   "kind": "admin_signup_pending",
+   "data": {
+    "name": "Νίκος"
+   }
+  },
+  "r": {
+   "title": "Νέα εγγραφή περιμένει επαλήθευση",
+   "body": "Νίκος",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "admin_credit_purchase",
+   "data": {
+    "name": "Νίκος",
+    "credits": 10,
+    "price": 49.5,
+    "reference": "R1"
+   }
+  },
+  "r": {
+   "title": "Αίτημα αγοράς credits",
+   "body": "Νίκος · 10 credits · 49.5€ · R1",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "admin_health_issue",
+   "data": {
+    "again": true,
+    "title": "T",
+    "area": "A"
+   }
+  },
+  "r": {
+   "title": "Υγεία εφαρμογής: ξαναεμφανίστηκε",
+   "body": "T · A",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "admin_health_issue",
+   "data": {
+    "title": "T"
+   }
+  },
+  "r": {
+   "title": "Υγεία εφαρμογής: νέο θέμα",
+   "body": "T",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "credit_purchase_cancelled",
+   "data": {
+    "credits": 1,
+    "reference": "R"
+   }
+  },
+  "r": {
+   "title": "Το αίτημα αγοράς ακυρώθηκε",
+   "body": "1 credit · R"
+  }
+ },
+ {
+  "n": {
+   "kind": "admin_pro_pending",
+   "data": {
+    "name": "Ν",
+    "role": "cook"
+   }
+  },
+  "r": {
+   "title": "Επαγγελματίας περιμένει έγκριση",
+   "body": "Ν · Cook",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "admin_role_pending",
+   "data": {
+    "name": "Ν",
+    "role": "deckhand"
+   }
+  },
+  "r": {
+   "title": "Αίτηση για επιπλέον ιδιότητα",
+   "body": "Ν · Ναύτης",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "admin_dispute_new",
+   "data": {
+    "port": "Π",
+    "start": "2026-09-25"
+   }
+  },
+  "r": {
+   "title": "Νέα αναφορά ακύρωσης",
+   "body": "Π · 25/09/2026",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "photo_removed",
+   "data": {}
+  },
+  "r": {
+   "title": "Η φωτογραφία σου αφαιρέθηκε",
+   "body": "Ανέβασε μια νέα από το προφίλ σου."
+  }
+ },
+ {
+  "n": {
+   "kind": "profile_approved",
+   "data": {}
+  },
+  "r": {
+   "title": "Το προφίλ σου εγκρίθηκε",
+   "body": "Δήλωσε διαθεσιμότητα για να εμφανίζεσαι στις αναζητήσεις."
+  }
+ },
+ {
+  "n": {
+   "kind": "profile_rereview",
+   "data": {}
+  },
+  "r": {
+   "title": "Το προφίλ σου πάει ξανά για έλεγχο",
+   "body": "Άλλαξες δίπλωμα ή όνομα. Μέχρι να εγκριθεί ξανά δεν εμφανίζεσαι στις αναζητήσεις.",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "profile_rejected",
+   "data": {}
+  },
+  "r": {
+   "title": "Το προφίλ σου δεν εγκρίθηκε",
+   "body": "Για λεπτομέρειες επικοινώνησε μαζί μας."
+  }
+ },
+ {
+  "n": {
+   "kind": "profile_rejected",
+   "data": {
+    "revoked": true
+   }
+  },
+  "r": {
+   "title": "Η έγκριση του προφίλ σου ανακλήθηκε",
+   "body": "Για λεπτομέρειες επικοινώνησε μαζί μας."
+  }
+ },
+ {
+  "n": {
+   "kind": "role_approved",
+   "data": {
+    "role": "cook"
+   }
+  },
+  "r": {
+   "title": "Εγκρίθηκες και ως Cook",
+   "body": "Μπορείς πλέον να δέχεσαι αιτήματα και για αυτή την ιδιότητα."
+  }
+ },
+ {
+  "n": {
+   "kind": "role_rejected",
+   "data": {
+    "role": "deckhand"
+   }
+  },
+  "r": {
+   "title": "Η ιδιότητα Ναύτης δεν εγκρίθηκε",
+   "body": "Για λεπτομέρειες επικοινώνησε μαζί μας."
+  }
+ },
+ {
+  "n": {
+   "kind": "nonsense",
+   "data": {}
+  },
+  "r": {
+   "title": "Ενημέρωση",
+   "body": ""
+  }
+ }
+]

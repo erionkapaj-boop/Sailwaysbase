@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuth } from "../../AuthContext";
 import {
   getMyUserRow,
@@ -25,14 +26,13 @@ import { container, card, h1, muted, button, input, label, colors, radius } from
 // Επιστροφή από τη Google (0121). Η σελίδα περιμένει να ολοκληρωθεί η σύνδεση και μετά:
 //  - λογαριασμός που υπάρχει: μπαίνει κανονικά (εκτός αν είναι διαγραμμένος ή σε αναστολή)·
 //  - νέος: συμπληρώνει όνομα, τηλέφωνο και ιδιότητα, και συνεχίζει στον κωδικό.
-const PHONE_UNAVAILABLE =
-  "Δεν γίνεται εγγραφή με αυτό το τηλέφωνο. Αν έχεις ήδη λογαριασμό, σύνδεσου. Αλλιώς επικοινώνησε μαζί μας.";
+// Τιμές: κλειδιά μηνυμάτων (GoogleReturn.*), μεταφράζονται στο render.
 const ERRORS = {
-  phone_unavailable: PHONE_UNAVAILABLE,
-  invalid_phone: "Ο αριθμός δεν είναι σωστός. Έλεγξε τη χώρα και τα ψηφία.",
-  already_registered: "Ο λογαριασμός έχει ήδη ολοκληρωθεί.",
-  account_deleted: "Αυτός ο λογαριασμός έχει διαγραφεί. Για να τον ενεργοποιήσεις ξανά, επικοινώνησε μαζί μας.",
-  account_suspended: "Ο λογαριασμός είναι σε αναστολή.",
+  phone_unavailable: "phoneUnavailable",
+  invalid_phone: "invalidPhone",
+  already_registered: "alreadyRegistered",
+  account_deleted: "accountDeleted",
+  account_suspended: "accountSuspended",
 };
 
 const chip = (active) => ({
@@ -48,6 +48,7 @@ const chip = (active) => ({
 });
 
 function GoogleReturn() {
+  const t = useTranslations("GoogleReturn");
   const router = useRouter();
   const params = useSearchParams();
   const { session, refresh, signOut } = useAuth();
@@ -121,7 +122,7 @@ function GoogleReturn() {
         trackFlow("register", "open");
       } catch (err) {
         if (cancelled) return;
-        setBlocked(ERRORS[err.message] || friendlyError(err));
+        setBlocked(ERRORS[err.message] ? t(ERRORS[err.message]) : friendlyError(err));
       }
     })();
     return () => {
@@ -133,7 +134,7 @@ function GoogleReturn() {
   async function submit(e) {
     e.preventDefault();
     setError("");
-    if (!kind) return setError("Διάλεξε αν είσαι πελάτης ή επαγγελματίας.");
+    if (!kind) return setError(t("chooseKind"));
     setTried(true);
     const fullPhone = phone;
     if (!phoneValid || !isValidPhone(normalizePhone(fullPhone))) {
@@ -156,7 +157,7 @@ function GoogleReturn() {
       router.push(isProfessional ? "/platform/set-pin?as=professional" : "/platform/set-pin");
     } catch (err) {
       if (ERRORS[err.message]) noteFailure(err.message);
-      setError(ERRORS[err.message] || friendlyError(err));
+      setError(ERRORS[err.message] ? t(ERRORS[err.message]) : friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -164,14 +165,14 @@ function GoogleReturn() {
 
   const backToLogin = (
     <Link href="/platform/login" style={{ ...button("secondary"), textDecoration: "none", marginTop: 16 }}>
-      Πίσω στη σύνδεση
+      {t("backToLogin")}
     </Link>
   );
 
   if (blocked) {
     return (
       <div style={{ ...container, maxWidth: 460 }}>
-        <h1 style={h1}>Σύνδεση</h1>
+        <h1 style={h1}>{t("title")}</h1>
         <p style={{ color: colors.danger }}>{blocked}</p>
         {backToLogin}
       </div>
@@ -181,8 +182,8 @@ function GoogleReturn() {
   if (failedAtGoogle || (!userId && waitedTooLong)) {
     return (
       <div style={{ ...container, maxWidth: 460 }}>
-        <h1 style={h1}>Σύνδεση</h1>
-        <p style={muted}>Η σύνδεση με Google δεν ολοκληρώθηκε.</p>
+        <h1 style={h1}>{t("title")}</h1>
+        <p style={muted}>{t("googleIncomplete")}</p>
         {backToLogin}
       </div>
     );
@@ -192,7 +193,7 @@ function GoogleReturn() {
     return (
       <div style={{ ...container, maxWidth: 460 }}>
         <p style={muted} role="status">
-          Σύνδεση…
+          {t("signingIn")}
         </p>
       </div>
     );
@@ -200,21 +201,21 @@ function GoogleReturn() {
 
   return (
     <div style={{ ...container, maxWidth: 460 }}>
-      <h1 style={h1}>Στοιχεία λογαριασμού</h1>
+      <h1 style={h1}>{t("detailsTitle")}</h1>
       <p style={{ ...muted, marginTop: 8 }}>
-        Συνδέθηκες με Google{identity?.email ? ` ως ${identity.email}` : ""}.
+        {identity?.email ? t("connectedAs", { email: identity.email }) : t("connected")}
       </p>
 
       <form onSubmit={submit} style={{ ...card, marginTop: 20 }}>
         {asParam !== "professional" && asParam !== "client" && (
           <div style={{ marginBottom: 20 }}>
-            <span style={label}>Είμαι</span>
+            <span style={label}>{t("iAm")}</span>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="button" style={chip(kind === "client")} onClick={() => setKind("client")}>
-                Πελάτης
+                {t("client")}
               </button>
               <button type="button" style={chip(kind === "professional")} onClick={() => setKind("professional")}>
-                Επαγγελματίας
+                {t("professional")}
               </button>
             </div>
           </div>
@@ -222,7 +223,7 @@ function GoogleReturn() {
 
         {isProfessional && (
           <div style={{ marginBottom: 20 }}>
-            <span style={label}>Ιδιότητα</span>
+            <span style={label}>{t("capacity")}</span>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {CREW_ROLES.map((r) => (
                 <button key={r.key} type="button" style={chip(crewRole === r.key)} onClick={() => setCrewRole(r.key)}>
@@ -232,15 +233,14 @@ function GoogleReturn() {
             </div>
             {crewRole && !CREW_ROLES.find((r) => r.key === crewRole)?.supported && (
               <p style={{ ...muted, fontSize: 13, marginTop: 10 }}>
-                Οι εγγραφές για αυτή την ιδιότητα ανοίγουν σύντομα. Προς το παρόν θα δημιουργηθεί ο λογαριασμός σου
-                χωρίς προφίλ.
+                {t("comingSoon")}
               </p>
             )}
           </div>
         )}
 
         <label style={label} htmlFor="g-name">
-          Ονοματεπώνυμο
+          {t("fullName")}
         </label>
         <input
           id="g-name"
@@ -252,7 +252,7 @@ function GoogleReturn() {
         />
 
         <label style={label} htmlFor="g-phone">
-          Κινητό τηλέφωνο
+          {t("phoneLabel")}
         </label>
         <div style={{ marginBottom: isProfessional ? 4 : 20 }}>
           <PhoneField
@@ -266,18 +266,18 @@ function GoogleReturn() {
         </div>
         {isProfessional && (
           <p style={{ ...muted, fontSize: 12.5, margin: "0 0 20px" }}>
-            Τον βλέπει μόνο ο πελάτης και μόνο αφού κλείσει κράτηση μαζί σου.
+            {t("phoneVisibility")}
           </p>
         )}
 
         <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%", minHeight: 52 }}>
-          {busy ? "Αποστολή…" : "Συνέχεια"}
+          {busy ? t("sending") : t("continue")}
         </button>
         {error && <p style={{ color: colors.danger, marginTop: 12, marginBottom: 0 }}>{error}</p>}
       </form>
 
       <div style={{ ...muted, fontSize: 13, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <span>Έχεις ήδη λογαριασμό;</span>
+        <span>{t("haveAccount")}</span>
         <button
           type="button"
           style={{ ...button("secondary"), minHeight: 44 }}
@@ -286,7 +286,7 @@ function GoogleReturn() {
             await signOut("/platform/login");
           }}
         >
-          Σύνδεση με τηλέφωνο και κωδικό
+          {t("signInWithPhone")}
         </button>
       </div>
     </div>
