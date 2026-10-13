@@ -147,6 +147,8 @@ for (const code of Object.keys(LANGUAGES)) {
   }
   if (code !== DEFAULT_LOCALE && base) for (const k of Object.keys(base)) if (!(k in msgs)) missing.push(k);
   completeness[code] = { missing };
+  // Ό,τι μπαίνει στα ελληνικά μπαίνει ταυτόχρονα και στις άλλες γλώσσες (CLAUDE.md).
+  if (missing.length) problems.push(`${file}: λείπουν ${missing.length} μηνύματα που υπάρχουν στα ελληνικά (π.χ. ${missing.slice(0, 3).join(", ")}). Κάθε κείμενο γράφεται και στις δύο γλώσσες.`);
 }
 
 // ── 2. Φράχτης: το ελληνικό κείμενο μέσα σε κώδικα μόνο μειώνεται ─────────
