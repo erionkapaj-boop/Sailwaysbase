@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import { useAuth } from "../AuthContext";
 import {
   listMyWalletTransactions,
@@ -32,6 +33,7 @@ const TYPE_KEY = {
 export default function WalletPage() {
   const t = useTranslations("WalletPage");
   const f = useFormat();
+  const L = useLocalData();
   const { session, userRow, loading, refresh, readOnly } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [pending, setPending] = useState(null);
@@ -148,7 +150,7 @@ export default function WalletPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <span>
               <span style={{ fontSize: 14 }}>{TYPE_KEY[tx.type] ? t(TYPE_KEY[tx.type]) : tx.type}</span>
-              {tx.note && <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>{tx.note}</span>}
+              {tx.note && <span data-user-text style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>{L.text(tx.note)}</span>}
               <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>{f.date(tx.created_at?.slice(0, 10))}</span>
             </span>
             <span style={badge(tx.amount > 0 ? "success" : "neutral")}>{tx.amount > 0 ? "+" : ""}{formatCredits(tx.amount)}</span>

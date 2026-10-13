@@ -3,6 +3,7 @@ import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
+import { useLocalData } from "../../useLocalData";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import Link from "next/link";
 import { Panel, Row, RowMain, Empty, colors, muted, button } from "../ui";
@@ -52,6 +53,7 @@ function searchTerm(contact) {
 export default function AdminMessagesPage() {
   const t = useTranslations("AdminMessages");
   const f = useFormat();
+  const L = useLocalData();
   const topicLabel = (topic) => (TOPICS.includes(topic) ? t(`topic_${topic}`) : topic);
   const refreshCounts = useRefreshAdminCounts();
   const [list, setList] = useState([]);
@@ -110,7 +112,7 @@ export default function AdminMessagesPage() {
             }}
           >
             <RowMain
-              title={`${m.name} · ${topicLabel(m.topic)}`}
+              title={`${L.name(m.name)} · ${topicLabel(m.topic)}`}
               meta={
                 <>
                   {m.contact} · {f.timeAgo(m.created_at)}
@@ -118,7 +120,7 @@ export default function AdminMessagesPage() {
                 </>
               }
             />
-            <p style={{ fontSize: 13.5, margin: "10px 0 0", color: colors.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+            <p data-user-text style={{ fontSize: 13.5, margin: "10px 0 0", color: colors.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
               {m.message}
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
@@ -164,8 +166,9 @@ export default function AdminMessagesPage() {
         {done.map((m) => (
           <Row key={m.id}>
             <RowMain
-              title={`${m.name} · ${topicLabel(m.topic)}`}
+              title={`${L.name(m.name)} · ${topicLabel(m.topic)}`}
               meta={m.admin_note || m.contact}
+              metaUser
             />
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
               <span style={{ ...muted, fontSize: 11.5 }}>{f.timeAgo(m.handled_at || m.created_at)}</span>

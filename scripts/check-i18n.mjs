@@ -39,6 +39,8 @@ const SCOPE = ["app/platform", "app/api/platform", "lib/platform", "i18n"];
 // (είναι ό,τι ψάχνει ο πελάτης), και μερικά αρχεία φτιάχνουν σταθερές λίστες.
 const EXCLUDED = [
   /^lib\/platform\/countries\//,
+  // Λεξικά δεδομένων ανά γλώσσα (κλειδί: το ελληνικό όνομα στη βάση): δεδομένα, όχι κείμενα οθόνης.
+  /^lib\/platform\/localData\//,
   /^lib\/platform\/places\.js$/,
   /^lib\/platform\/placeSearch\.js$/,
   // Πίνακες γλώσσας (μήνες, αλφάβητο, όνομα γλώσσας): δεδομένα, όχι κείμενα οθόνης.

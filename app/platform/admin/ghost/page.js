@@ -1,8 +1,9 @@
 "use client";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { useLocalData } from "../../useLocalData";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import { Panel, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { adminListAccounts, adminSeedDemoUsers } from "../../../../lib/platform/db";
@@ -15,11 +16,11 @@ import { adminListAccounts, adminSeedDemoUsers } from "../../../../lib/platform/
 
 function TestPhoneRow({ u }) {
   const t = useTranslations("AdminGhost");
-  const locale = useLocale();
+  const L = useLocalData();
   return (
     <Row>
       <RowMain
-        title={(locale === "en" && u.full_name_latin) || u.full_name || t("noName")}
+        title={L.person(u) || t("noName")}
         meta={
           <>
             <span style={money}>{u.phone_number}</span>

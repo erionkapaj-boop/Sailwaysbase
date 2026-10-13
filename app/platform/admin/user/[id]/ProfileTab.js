@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../../useFormat";
+import { useLocalData } from "../../../useLocalData";
 import Link from "next/link";
 import { Panel, ProCredentials, Status, colors, muted, button, safeImageUrl } from "../../ui";
 import { labelForRole, computeCrewHighlights } from "../../../../../lib/platform/roles";
@@ -15,8 +16,9 @@ import { InfoGrid, Field, fieldInput, Chips, Hint, useErrorLabel, badge } from "
 export default function ProfileTab({ data, id, reload, confirm }) {
   const t = useTranslations("AdminUser");
   const f = useFormat();
+  const L = useLocalData();
   const errorLabel = useErrorLabel();
-  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
+  const personName = (p) => L.person(p);
   const u = data.user;
   const sp = data.skipper_profile;
   const photo = safeImageUrl(u.photo_url);

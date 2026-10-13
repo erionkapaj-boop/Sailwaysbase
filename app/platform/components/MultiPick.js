@@ -2,6 +2,7 @@
 import { useId, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { colors, muted } from "../../../lib/platform/theme";
+import { useLocalData } from "../useLocalData";
 
 // Πολλαπλή επιλογή από μεγάλη λίστα (π.χ. γλώσσες) χωρίς σύννεφο από κουμπιά
 // (docs/DESIGN.md, κανόνας 1): οι επιλεγμένες ως λίγα tags με «×», από κάτω
@@ -33,6 +34,7 @@ const plain = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").to
 
 export default function MultiPick({ options = [], value = [], onChange, common = [], placeholder, label }) {
   const t = useTranslations("MultiPick");
+  const L = useLocalData();
   placeholder = placeholder ?? t("search");
   const [query, setQuery] = useState("");
   const listId = useId();
@@ -42,7 +44,7 @@ export default function MultiPick({ options = [], value = [], onChange, common =
 
   const q = plain(query.trim());
   const shown = q
-    ? rest.filter((o) => plain(o.name).includes(q)).slice(0, 8)
+    ? rest.filter((o) => plain(o.name).includes(q) || plain(L.text(o.name)).includes(q)).slice(0, 8)
     : common
         .map((n) => rest.find((o) => o.name === n))
         .filter(Boolean)
@@ -61,8 +63,8 @@ export default function MultiPick({ options = [], value = [], onChange, common =
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }} aria-label={label ? t("selectedLabel", { label }) : undefined}>
           {selected.map((o) => (
             <span key={o.id} className="sf-mp-tag">
-              {o.name}
-              <button type="button" className="sf-mp-x" aria-label={t("removeLabel", { name: o.name })} onClick={() => remove(o.id)}>
+              {L.text(o.name)}
+              <button type="button" className="sf-mp-x" aria-label={t("removeLabel", { name: L.text(o.name) })} onClick={() => remove(o.id)}>
                 ×
               </button>
             </span>
@@ -98,7 +100,7 @@ export default function MultiPick({ options = [], value = [], onChange, common =
           {shown.map((o) => (
             <li key={o.id} style={{ display: "contents" }}>
               <button type="button" className="sf-mp-row" onClick={() => add(o.id)}>
-                {o.name}
+                {L.text(o.name)}
                 <span className="sf-mp-plus" aria-hidden="true">+</span>
               </button>
             </li>

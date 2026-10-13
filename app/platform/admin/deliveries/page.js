@@ -4,6 +4,7 @@ import { formatCredits } from "../../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
+import { useLocalData } from "../../useLocalData";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import { Panel, Empty, colors, muted, money } from "../ui";
 import { adminListDeliveryRequests } from "../../../../lib/platform/db";
@@ -20,6 +21,7 @@ const BOOKING_STATUSES = ["confirmed", "completed", "cancelled"];
 export default function AdminDeliveriesPage() {
   const t = useTranslations("AdminDeliveries");
   const f = useFormat();
+  const L = useLocalData();
   const counts = useAdminCounts();
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
@@ -40,9 +42,9 @@ export default function AdminDeliveriesPage() {
           <div key={request.id} style={{ padding: "14px 16px", borderTop: `1px solid ${colors.border}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
               <span style={{ fontWeight: 600, fontSize: 14.5 }}>
-                {request.origin_point} → {request.destination_point}
+                {L.text(request.origin_point)} → {L.text(request.destination_point)}
               </span>
-              <span style={{ ...muted, fontSize: 12.5 }}>{client_name}</span>
+              <span style={{ ...muted, fontSize: 12.5 }}>{L.name(client_name)}</span>
             </div>
             <p style={{ ...muted, fontSize: 13, margin: "4px 0 10px" }}>
               <span style={{ ...money, color: colors.ink }}>{t("miles", { count: request.distance_miles })}</span> ·{" "}
@@ -76,13 +78,13 @@ export default function AdminDeliveriesPage() {
                 </span>
                 {rr.booking && (
                   <span style={{ width: "100%", ...muted }}>
-                    {t("tookOver")}: {rr.booking.skipper_name} · {BOOKING_STATUSES.includes(rr.booking.status) ? t(`bookingStatus_${rr.booking.status}`) : rr.booking.status}
+                    {t("tookOver")}: {L.name(rr.booking.skipper_name)} · {BOOKING_STATUSES.includes(rr.booking.status) ? t(`bookingStatus_${rr.booking.status}`) : rr.booking.status}
                   </span>
                 )}
               </div>
             ))}
 
-            {request.notes && <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>«{request.notes}»</p>}
+            {request.notes && <p data-user-text style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>«{request.notes}»</p>}
           </div>
         ))}
       </Panel>

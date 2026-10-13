@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useAuth } from "../AuthContext";
+import { useLocalData } from "../useLocalData";
 import Stars from "../components/Stars";
 import BackButton from "../components/BackButton";
 import { SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
@@ -39,11 +40,11 @@ const REQUEST_ERRORS = ["account_not_verified", "no_client_profile", "invalid_di
 
 const ROLE_ERRORS = ["invalid_price", "no_candidates_selected", "invalid_candidate_selection", "insufficient_wallet", "not_owner"];
 
-function identityLine(s, t) {
+function identityLine(s, t, L) {
   const parts = [];
-  if (s.nationality_country) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${s.nationality_country}`);
+  if (s.nationality_country) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${L.text(s.nationality_country)}`);
   if (s.age) parts.push(t("age", { age: s.age }));
-  if (s.languages?.length > 0) parts.push(s.languages.join(", "));
+  if (s.languages?.length > 0) parts.push(s.languages.map(L.text).join(", "));
   return parts.join(" · ");
 }
 
@@ -77,6 +78,7 @@ function addDays(isoDate, days) {
 
 function CandidateCard({ s, selected, onToggle }) {
   const t = useTranslations("Delivery");
+  const L = useLocalData();
   return (
     <div
       style={{
@@ -101,7 +103,7 @@ function CandidateCard({ s, selected, onToggle }) {
         }}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
-        {identityLine(s, t) && <div style={{ fontSize: 13.5 }}>{identityLine(s, t)}</div>}
+        {identityLine(s, t, L) && <div style={{ fontSize: 13.5 }}>{identityLine(s, t, L)}</div>}
         <div style={{ marginTop: 3 }}>
           <Stars rating={s.rating_avg} count={s.rating_count} size={12} />
         </div>
@@ -600,6 +602,7 @@ function RolePickerStep({ onContinue }) {
 function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated, restoredBlock }) {
   const router = useRouter();
   const t = useTranslations("Delivery");
+  const L = useLocalData();
   const { session, userRow, isAdmin } = useAuth();
   // Ίδιος κανόνας με την αναζήτηση πληρώματος (0075/0083): λογαριασμός σε
   // αναμονή επαλήθευσης δεν στέλνει — αλλά η φόρμα του κρατιέται, ώστε να τη
@@ -648,7 +651,7 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
     <div>
       <div style={{ ...card, background: colors.bgSoft || "#F7F5F0", marginBottom: 14 }}>
         <p style={{ margin: 0, fontSize: 13.5 }}>
-          {formValues.origin} → {formValues.destination} · {t("miles", { miles: formValues.distanceMiles })}
+          {L.text(formValues.origin)} → {L.text(formValues.destination)} · {t("miles", { miles: formValues.distanceMiles })}
         </p>
       </div>
 

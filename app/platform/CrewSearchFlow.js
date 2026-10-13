@@ -8,6 +8,7 @@ import { CREW_ROLES } from "../../lib/platform/roles";
 import BackButton from "./components/BackButton";
 import PlacePicker from "./components/PlacePicker";
 import { Mark } from "./components/Logo";
+import { useLocalData } from "./useLocalData";
 import { COUNTRIES } from "../../lib/platform/places";
 import { button, colors, input, label, muted, radius, select, h2 } from "../../lib/platform/theme";
 
@@ -76,6 +77,7 @@ function StepHeading({ children }) {
 export default function CrewSearchFlow() {
   const router = useRouter();
   const t = useTranslations("CrewSearchFlow");
+  const L = useLocalData();
   const [step, setStep] = useState(0);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [], languages: [] });
   const [roles, setRoles] = useState([]);
@@ -272,7 +274,7 @@ export default function CrewSearchFlow() {
               }}
             >
               <Mark size={22} />
-              <span style={{ flex: 1 }}>{c.name}</span>
+              <span style={{ flex: 1 }}>{L.text(c.name)}</span>
               <svg width="7" height="12" viewBox="0 0 7 12" fill="none" aria-hidden="true" style={{ color: "#A9B3BD" }}>
                 <path d="M1 1l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -349,7 +351,7 @@ export default function CrewSearchFlow() {
                 next();
               }}
             >
-              {b.name}
+              {L.text(b.name)}
             </button>
           ))}
           {lookups.boatTypes.length === 0 && lookupsError && (
@@ -373,7 +375,7 @@ export default function CrewSearchFlow() {
               <option value="">{t("languageAny")}</option>
               {lookups.languages.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.name}
+                  {L.text(l.name)}
                 </option>
               ))}
             </select>

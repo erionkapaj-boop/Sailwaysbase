@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import LoadError from "./LoadError";
 import { useAuth } from "../AuthContext";
 import {
@@ -45,7 +46,8 @@ export default function BookingPanel({
   const { refreshNotifications } = useAuth();
   const t = useTranslations("BookingPanel");
   const f = useFormat();
-  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
+  const L = useLocalData();
+  const personName = (p) => (p ? L.person(p) : "");
   const rootRef = useRef(null);
   const [expanded, setExpanded] = useState(autoExpand);
   const [counterpart, setCounterpart] = useState(null);
@@ -269,7 +271,7 @@ export default function BookingPanel({
           }}
         >
           <span style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap", flex: "1 1 200px" }}>
-            <span style={{ fontSize: 14, fontWeight: 500 }}>{departureLabel(booking)}</span>
+            <span style={{ fontSize: 14, fontWeight: 500 }}>{L.text(departureLabel(booking))}</span>
             <span style={{ ...money, fontSize: 13, color: colors.inkSoft }}>
               {f.dateRange(booking.start_date, booking.end_date)}
             </span>
@@ -498,6 +500,7 @@ export default function BookingPanel({
                 }}
               >
                 <span
+                  data-user-text={m.auto ? undefined : true}
                   style={{
                     display: "inline-block",
                     padding: "8px 12px",
@@ -508,7 +511,7 @@ export default function BookingPanel({
                     color: m.sender_id === viewerUserId ? "#fff" : colors.ink,
                   }}
                 >
-                  {m.content}
+                  {m.auto ? L.text(m.content) : m.content}
                   {m.auto && (
                     <span style={{ display: "block", fontSize: 11, opacity: 0.7, marginTop: 4 }}>{t("autoMessage")}</span>
                   )}
@@ -604,9 +607,9 @@ export default function BookingPanel({
               </div>
             </details>
           )}
-          <p style={{ ...muted, marginTop: 6 }}>{reviewOfMe.comment}</p>
+          <p data-user-text style={{ ...muted, marginTop: 6 }}>{reviewOfMe.comment}</p>
           {reviewOfMe.reply ? (
-            <p style={{ fontSize: 13, fontStyle: "italic" }}>{t("yourReply", { reply: reviewOfMe.reply })}</p>
+            <p data-user-text style={{ fontSize: 13, fontStyle: "italic" }}>{t("yourReply", { reply: reviewOfMe.reply })}</p>
           ) : (
             <div>
               <input

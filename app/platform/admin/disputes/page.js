@@ -2,8 +2,9 @@
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
+import { useLocalData } from "../../useLocalData";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
 import { tapTarget } from "../../../../lib/platform/theme";
@@ -11,12 +12,12 @@ import { adminListCancellationReports, adminResolveReport, departureLabel } from
 
 function People({ people }) {
   const t = useTranslations("AdminDisputes");
-  const locale = useLocale();
+  const L = useLocalData();
   if (!people?.client && !people?.pro) return null;
   const item = (label, p) =>
     p && (
       <Link href={`/platform/admin/user/${p.id}`} style={{ ...tapTarget, color: colors.ink, textDecoration: "underline" }}>
-        {label}: {(locale === "en" && p.name_latin) || p.name || t("noName")}
+        {label}: {L.person({ full_name: p.name, full_name_latin: p.name_latin }) || t("noName")}
       </Link>
     );
   return (
@@ -64,6 +65,7 @@ export default function DisputesPage() {
     }
   }
 
+  const L = useLocalData();
   const open = list.filter((r) => !r.resolved_at);
   const done = list.filter((r) => r.resolved_at);
 
@@ -82,13 +84,13 @@ export default function DisputesPage() {
             <RowMain
               title={
                 r.bookings
-                  ? `${departureLabel(r.bookings)} · ${f.date(r.bookings.start_date)} → ${f.date(r.bookings.end_date)}`
+                  ? `${L.text(departureLabel(r.bookings))} · ${f.date(r.bookings.start_date)} → ${f.date(r.bookings.end_date)}`
                   : t("booking")
               }
               meta={t(r.at_fault_party === "client" ? "cancelledByClient" : "cancelledByPro", { ago: f.timeAgo(r.created_at) })}
             />
             <People people={r.people} />
-            <p style={{ fontSize: 13, margin: "10px 0 0", color: colors.ink }}>{r.reason}</p>
+            <p data-user-text style={{ fontSize: 13, margin: "10px 0 0", color: colors.ink }}>{r.reason}</p>
             <input
               placeholder={t("notePlaceholder")}
               value={notes[r.id] || ""}
@@ -122,8 +124,9 @@ export default function DisputesPage() {
         {done.map((r) => (
           <Row key={r.id}>
             <RowMain
-              title={`${r.bookings ? departureLabel(r.bookings) : t("booking")} · ${[r.people?.client?.name, r.people?.pro?.name].filter(Boolean).join(" ↔ ")}`}
+              title={`${r.bookings ? L.text(departureLabel(r.bookings)) : t("booking")} · ${[r.people?.client, r.people?.pro].filter(Boolean).map((p) => L.person({ full_name: p.name, full_name_latin: p.name_latin })).join(" ↔ ")}`}
               meta={r.resolution_note || r.reason}
+              metaUser
             />
             <span style={{ ...muted, fontSize: 11.5, flexShrink: 0 }}>{f.timeAgo(r.resolved_at)}</span>
           </Row>

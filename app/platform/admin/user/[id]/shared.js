@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useFormat } from "../../../useFormat";
 import { describeAuditEvent } from "../../../../../lib/platform/adminAudit";
 import { cssImage } from "../../ui";
+import { useLocalData } from "../../../useLocalData";
 
 // Ένα, ξεκάθαρο σύνολο ενοτήτων αντί για μία μακριά σελίδα (§5 του αιτήματος).
 // `count(data)` γεμίζει το διακριτικό badge δίπλα στο όνομα κάθε καρτέλας·
@@ -110,7 +111,7 @@ const TONE_DOT = { success: colors.success, danger: colors.danger, warn: colors.
 // κείμενο, εδώ μόνο η διάταξη (τελεία χρώματος, τίτλος, λεπτομέρεια, πότε).
 export function EventRow({ event }) {
   const f = useFormat();
-  const { title, body, tone } = describeAuditEvent(event);
+  const { title, body, tone, userText } = describeAuditEvent(event, f.locale);
   return (
     <div
       style={{
@@ -127,7 +128,7 @@ export function EventRow({ event }) {
       />
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 13.5, color: colors.ink, fontWeight: 500 }}>{title}</div>
-        {body && <div style={{ ...muted, fontSize: 12.5, marginTop: 2 }}>{body}</div>}
+        {body && <div {...(userText ? { "data-user-text": "" } : {})} style={{ ...muted, fontSize: 12.5, marginTop: 2 }}>{body}</div>}
       </div>
       <span style={{ ...muted, fontSize: 11.5, flexShrink: 0, whiteSpace: "nowrap" }} title={f.dateTime(event.at)}>
         {f.timeAgo(event.at)}
@@ -186,12 +187,13 @@ export function Avatar({ url, name, size = 40 }) {
 }
 
 export function Chips({ items }) {
+  const L = useLocalData();
   if (!items?.length) return <p style={{ ...muted, fontSize: 13 }}>—</p>;
   return (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
       {items.map((t) => (
         <span key={t} style={{ ...badge("neutral"), fontFamily: "inherit", fontWeight: 400 }}>
-          {t}
+          {L.text(t)}
         </span>
       ))}
     </div>
@@ -200,8 +202,8 @@ export function Chips({ items }) {
 
 // Ένα σημείωμα κάτω από έναν τίτλο ενότητας — ίδια θέση, ίδιο μέγεθος
 // παντού, αντί κάθε καρτέλα να το ξαναφτιάχνει.
-export function Hint({ children }) {
-  return <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5, lineHeight: 1.5 }}>{children}</p>;
+export function Hint({ children, user }) {
+  return <p {...(user ? { "data-user-text": "" } : {})} style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5, lineHeight: 1.5 }}>{children}</p>;
 }
 
 // Ένα κωδικοποιημένο σφάλμα (από RPC ή API route) -> κείμενο στη γλώσσα της

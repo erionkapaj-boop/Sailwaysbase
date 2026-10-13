@@ -3,6 +3,7 @@ import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import { getDeliveryBookingCounterpart, cancelDeliveryBooking } from "../../../lib/platform/db";
 import { useConfirm } from "./ConfirmDialog";
 import { friendlyError } from "../../../lib/platform/friendlyError";
@@ -20,7 +21,7 @@ const STATUS_KEYS = { confirmed: "statusConfirmed", completed: "statusCompleted"
 export default function DeliveryBookingCard({ booking: initial }) {
   const t = useTranslations("Delivery");
   const f = useFormat();
-  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
+  const L = useLocalData();
   const [booking, setBooking] = useState(initial);
   const [counterpart, setCounterpart] = useState(null);
   const [cancelling, setCancelling] = useState(false);
@@ -66,7 +67,7 @@ export default function DeliveryBookingCard({ booking: initial }) {
     <div style={card}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
         <span style={{ fontWeight: 500, fontSize: 15 }}>
-          {booking.origin_point} → {booking.destination_point} · {labelForRole(booking.crew_role)}
+          {L.text(booking.origin_point)} → {L.text(booking.destination_point)} · {labelForRole(booking.crew_role)}
         </span>
         <span style={badge(booking.status === "completed" ? "success" : booking.status === "cancelled" ? "danger" : "brand")}>
           {STATUS_KEYS[booking.status] ? t(STATUS_KEYS[booking.status]) : booking.status}
@@ -93,7 +94,7 @@ export default function DeliveryBookingCard({ booking: initial }) {
       </p>
       {counterpart && booking.status !== "cancelled" && (
         <p style={{ ...muted, fontSize: 13.5, margin: "8px 0 0" }}>
-          {t("contact")} <span style={{ ...money, color: colors.ink }}>{personName(counterpart)}</span>
+          {t("contact")} <span style={{ ...money, color: colors.ink }}>{L.person(counterpart)}</span>
           {counterpart.phone_number ? (
             <>
               {" · "}
@@ -107,7 +108,7 @@ export default function DeliveryBookingCard({ booking: initial }) {
         </p>
       )}
       {booking.status === "cancelled" && booking.cancelled_by && (
-        <p style={{ ...muted, fontSize: 13, margin: "8px 0 0" }}>
+        <p {...(booking.cancellation_reason ? { "data-user-text": true } : {})} style={{ ...muted, fontSize: 13, margin: "8px 0 0" }}>
           {(booking.cancelled_by === "professional") === !!iAmPro ? t("cancelledByYou") : booking.cancelled_by === "client" ? t("cancelledByClient") : t("cancelledByProfessional")}
           {booking.cancellation_reason ? ` — ${t("quotedNote", { note: booking.cancellation_reason })}` : ""}.
         </p>

@@ -4,6 +4,7 @@ import { formatCredits } from "../../../../../lib/platform/credits";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../../useFormat";
+import { useLocalData } from "../../../useLocalData";
 import Link from "next/link";
 import { Panel, MetricGrid, Metric, Row, RowMain, Status, Empty, colors, button } from "../../ui";
 import { adminCreditWallet } from "../../../../../lib/platform/db";
@@ -12,8 +13,9 @@ import { Field, fieldInput, useErrorLabel } from "./shared";
 export default function FinanceTab({ data, id, reload, confirm }) {
   const t = useTranslations("AdminUser");
   const f = useFormat();
+  const L = useLocalData();
   const errorLabel = useErrorLabel();
-  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
+  const personName = (p) => L.person(p);
   const { isOwner } = useAuth();
   const u = data.user;
   const wallet = data.wallet || [];
@@ -125,7 +127,8 @@ export default function FinanceTab({ data, id, reload, confirm }) {
         {disputes.map((d) => (
           <Row key={d.id}>
             <RowMain
-              title={[d.place, d.reason].filter(Boolean).join(" · ")}
+              title={[L.text(d.place), d.reason].filter(Boolean).join(" · ")}
+              titleUser={Boolean(d.reason)}
               meta={`${d.reported_by_self ? t("finance.reportedSelf") : t("finance.reportedAbout")} · ${f.dateTime(d.created_at)}`}
             />
             <Status value={d.resolved_at ? "completed" : "pending"} />

@@ -5,6 +5,7 @@ import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import { useAuth } from "../AuthContext";
 import { listMyDeliveryPings, acceptDeliveryRoleRequest, declineDeliveryRoleRequest } from "../../../lib/platform/db";
 import { labelForRole } from "../../../lib/platform/roles";
@@ -20,6 +21,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
   const t = useTranslations("DeliveryInbox");
   const td = useTranslations("Delivery");
   const f = useFormat();
+  const L = useLocalData();
   const { refreshNotifications, userRow } = useAuth();
   const balance = Number(userRow?.wallet_balance ?? 0);
   const [topUp, setTopUp] = useState(null);
@@ -96,7 +98,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
         return (
           <div key={role_request.id} style={card}>
             <div style={{ fontWeight: 500, fontSize: 15 }}>
-              {request.origin_point} → {request.destination_point} · {labelForRole(role_request.crew_role)}
+              {L.text(request.origin_point)} → {L.text(request.destination_point)} · {labelForRole(role_request.crew_role)}
             </div>
             <p style={{ ...muted, margin: "6px 0 0" }}>
               <span style={money}>{f.date(request.departure_date)}</span>

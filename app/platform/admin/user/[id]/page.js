@@ -3,6 +3,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../../useFormat";
+import { useLocalData } from "../../../useLocalData";
 import AdminShell from "../../AdminShell";
 import { useAuth } from "../../../AuthContext";
 import BackButton from "../../../components/BackButton";
@@ -32,7 +33,7 @@ const TAB_COMPONENTS = {
 
 // Ό,τι χρειάζεται προσοχή, σε μία στοίβα ψηλά στη σελίδα — αυτό απαντά αμέσως
 // στο "υπάρχει πρόβλημα;" χωρίς να χρειάζεται ο admin να ψάξει καρτέλα-καρτέλα.
-function IssueRow({ tone, text, onFix, fixLabel, onView }) {
+function IssueRow({ tone, text, onFix, fixLabel, onView, userText }) {
   const t = useTranslations("AdminUser");
   const toneColor = tone === "danger" ? colors.danger : colors.warn;
   return (
@@ -49,7 +50,7 @@ function IssueRow({ tone, text, onFix, fixLabel, onView }) {
         background: tone === "danger" ? "#F7EDEB" : "#F7F0E2",
       }}
     >
-      <span style={{ fontSize: 13.5, color: colors.ink }}>{text}</span>
+      <span {...(userText ? { "data-user-text": "" } : {})} style={{ fontSize: 13.5, color: colors.ink }}>{text}</span>
       <span style={{ display: "flex", gap: 6, flexShrink: 0 }}>
         {onFix && (
           <button type="button" style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }} onClick={onFix}>
@@ -69,8 +70,9 @@ function IssueRow({ tone, text, onFix, fixLabel, onView }) {
 function AdminUserInner() {
   const t = useTranslations("AdminUser");
   const f = useFormat();
+  const L = useLocalData();
   const errorLabel = useErrorLabel();
-  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
+  const personName = (p) => L.person(p);
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -164,9 +166,9 @@ function AdminUserInner() {
     if (data.skipper_profile?.approval_status === "rejected")
       problems.push({ tone: "warn", text: t("problems.proRejected"), view: "actions" });
     if (target.status === "suspended")
-      problems.push({ tone: "danger", text: target.suspension_reason ? t("problems.suspendedReason", { reason: target.suspension_reason }) : t("problems.suspended"), view: "actions" });
+      problems.push({ tone: "danger", text: target.suspension_reason ? t("problems.suspendedReason", { reason: target.suspension_reason }) : t("problems.suspended"), view: "actions", userText: Boolean(target.suspension_reason) });
     if (target.status === "deleted")
-      problems.push({ tone: "danger", text: target.deletion_reason ? t("problems.deletedReason", { reason: target.deletion_reason }) : t("problems.deleted"), view: "actions" });
+      problems.push({ tone: "danger", text: target.deletion_reason ? t("problems.deletedReason", { reason: target.deletion_reason }) : t("problems.deleted"), view: "actions", userText: Boolean(target.deletion_reason) });
     const openDisputes = (data.disputes || []).filter((d) => !d.resolved_at).length;
     if (openDisputes > 0)
       problems.push({ tone: "warn", text: t("problems.disputes", { count: openDisputes }), view: "finance" });
@@ -228,7 +230,7 @@ function AdminUserInner() {
           {problems.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               {problems.map((p, i) => (
-                <IssueRow key={i} tone={p.tone} text={p.text} onFix={p.onFix} fixLabel={p.fixLabel} onView={p.view ? () => goTab(p.view) : undefined} />
+                <IssueRow key={i} tone={p.tone} text={p.text} onFix={p.onFix} fixLabel={p.fixLabel} userText={p.userText} onView={p.view ? () => goTab(p.view) : undefined} />
               ))}
             </div>
           )}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import { useAuth } from "../AuthContext";
 import { listMyBookingRequests, getMyClientProfile, createMissingProfile, departureLabel } from "../../../lib/platform/db";
 import PingsInbox from "../components/PingsInbox";
@@ -39,6 +40,7 @@ const REQ_STATUS = {
 // δύο διαφορετικές σελίδες.
 export default function RequestsPage() {
   const t = useTranslations("RequestsPage");
+  const L = useLocalData();
   const f = useFormat();
   const { session, userRow, profile, isAdmin, loading, refresh, loadError } = useAuth();
   const [requests, setRequests] = useState([]);
@@ -171,7 +173,7 @@ export default function RequestsPage() {
                   <div key={r.id} style={{ ...card, opacity: 0.75 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                       <span>
-                        {departureLabel(r)} · <span style={money}>{f.dateRange(r.start_date, r.end_date)}</span>
+                        {L.text(departureLabel(r))} · <span style={money}>{f.dateRange(r.start_date, r.end_date)}</span>
                       </span>
                       <span style={badge(statusFor(r)[1])}>{statusFor(r)[0] ? t(statusFor(r)[0]) : r.status}</span>
                     </div>

@@ -4,6 +4,7 @@ import { formatCredits } from "../../../../lib/platform/credits";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
+import { useLocalData } from "../../useLocalData";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import OfferComposer from "../OfferComposer";
 import { Panel, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
@@ -54,6 +55,7 @@ const TRIP_STATUSES = ["confirmed", "completed", "cancelled_by_skipper", "cancel
 function CaseDetail({ bookingId }) {
   const t = useTranslations("AdminReplacements");
   const f = useFormat();
+  const L = useLocalData();
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState("");
 
@@ -72,7 +74,7 @@ function CaseDetail({ bookingId }) {
   return (
     <div style={{ padding: "4px 16px 16px" }}>
       <div style={{ ...muted, fontSize: 12.5, margin: "8px 0 12px", lineHeight: 1.6 }}>
-        {t.rich("clientLine", { name: detail.client_name, b: (c) => <b style={{ color: colors.ink, fontWeight: 500 }}>{c}</b> })}
+        {t.rich("clientLine", { name: L.name(detail.client_name), b: (c) => <b style={{ color: colors.ink, fontWeight: 500 }}>{c}</b> })}
         {fee > 0 && (
           <>
             {" · "}{t.rich("used", { credits: formatCredits(fee), m: (c) => <span style={money}>{c}</span> })}
@@ -100,7 +102,7 @@ function CaseDetail({ bookingId }) {
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <span>
-                {i === 0 ? t("originalBooking") : t("replacement")}: <b style={{ fontWeight: 600 }}>{b.skipper_name}</b>
+                {i === 0 ? t("originalBooking") : t("replacement")}: <b style={{ fontWeight: 600 }}>{L.name(b.skipper_name)}</b>
               </span>
               <span style={badge(b.status === "cancelled_by_skipper" ? "warn" : b.status === "confirmed" ? "success" : "neutral")}>
                 {TRIP_STATUSES.includes(b.status) ? t(`trip_${b.status}`) : b.status}
@@ -116,13 +118,13 @@ function CaseDetail({ bookingId }) {
               {b.cancelled_at && (
                 <>
                   {" · "}{t("cancelledAt", { date: f.dateTime(b.cancelled_at) })}
-                  {b.cancellation_reason && <> — «{b.cancellation_reason}»</>}
+                  {b.cancellation_reason && <> — <span data-user-text>«{b.cancellation_reason}»</span></>}
                 </>
               )}
               {b.replacement_closed_at && (
                 <>
                   {" · "}{t("caseClosedAt", { date: f.dateTime(b.replacement_closed_at) })}
-                  {b.replacement_closed_reason && <> — «{b.replacement_closed_reason}»</>}
+                  {b.replacement_closed_reason && <> — <span data-user-text>«{b.replacement_closed_reason}»</span></>}
                 </>
               )}
             </div>
@@ -151,10 +153,10 @@ function CaseDetail({ bookingId }) {
           >
             <span>
               {t("sentAt", { date: f.dateTime(o.created_at) })}
-              {o.created_by_name && <> {t("sentBy", { name: o.created_by_name })}</>} {t("toPeople", { count: o.recipients?.length || 0 })} · {t("answersBy", { date: f.dateTime(o.expires_at) })}
+              {o.created_by_name && <> {t("sentBy", { name: L.name(o.created_by_name) })}</>} {t("toPeople", { count: o.recipients?.length || 0 })} · {t("answersBy", { date: f.dateTime(o.expires_at) })}
               {o.client_decide_by && <> · {t("clientDecidesBy", { date: f.dateTime(o.client_decide_by) })}</>}
               {o.closed_reason && OFFER_CLOSED.includes(o.closed_reason) && <> · {t(`offerClosed_${o.closed_reason}`)}</>}
-              {o.note && <> · «{o.note}»</>}
+              {o.note && <> · <span data-user-text>«{o.note}»</span></>}
             </span>
             <Status value={o.status} />
           </div>
@@ -174,7 +176,7 @@ function CaseDetail({ bookingId }) {
                   flexWrap: "wrap",
                 }}
               >
-                <span>{r.name}</span>
+                <span>{L.name(r.name)}</span>
                 <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   {at && <span style={{ ...muted, fontSize: 12 }}>{f.dateTime(at)}</span>}
                   <span style={badge(tone)}>{t(label)}</span>
@@ -191,15 +193,16 @@ function CaseDetail({ bookingId }) {
 function CaseRow({ c, expanded, onToggle, children, rightMeta }) {
   const t = useTranslations("AdminReplacements");
   const f = useFormat();
+  const L = useLocalData();
   return (
     <>
       <Row tone={expanded ? undefined : c.stage === "needs_action" ? "attention" : undefined} onClick={onToggle}>
         <RowMain
-          title={`${c.port_name || "—"} · ${c.client_name || t("clientFallback")}`}
+          title={`${L.text(c.port_name) || "—"} · ${L.name(c.client_name) || t("clientFallback")}`}
           meta={
             <>
               <span style={money}>{f.date(c.start_date)}</span> → <span style={money}>{f.date(c.end_date)}</span> ·{" "}
-              {labelForRole(c.crew_role)} · {t("cancelledBy", { name: c.cancelled_skipper_name || "—" })}
+              {labelForRole(c.crew_role)} · {t("cancelledBy", { name: L.name(c.cancelled_skipper_name) || "—" })}
               {c.skipper_cancellations > 1 && <> ({t("nthCancellation", { n: c.skipper_cancellations })})</>}
               {rightMeta}
             </>
@@ -272,6 +275,7 @@ function CloseCase({ c, onClosed, confirm }) {
 export default function ReplacementsPage() {
   const t = useTranslations("AdminReplacements");
   const f = useFormat();
+  const L = useLocalData();
   const refreshCounts = useRefreshAdminCounts();
   const [confirm, confirmDialog] = useConfirm();
   const [cases, setCases] = useState([]);
@@ -471,13 +475,13 @@ export default function ReplacementsPage() {
             rightMeta={
               c.stage === "completed" ? (
                 <>
-                  {" · "}{t.rich("newSkipper", { name: c.new_skipper_name, credits: formatCredits(c.charged), m: (c) => <span style={money}>{c}</span> })}
+                  {" · "}{t.rich("newSkipper", { name: L.name(c.new_skipper_name), credits: formatCredits(c.charged), m: (c) => <span style={money}>{c}</span> })}
                   {c.confirmed_at && <> · {f.timeAgo(c.confirmed_at)}</>}
                 </>
               ) : (
                 <>
                   {" · "}
-                  {c.replacement_closed_reason || t("withoutReplacement")}
+                  {c.replacement_closed_reason ? <span data-user-text>{c.replacement_closed_reason}</span> : t("withoutReplacement")}
                 </>
               )
             }

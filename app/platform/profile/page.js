@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import MissingProfile from "../skipper/MissingProfile";
@@ -895,6 +896,7 @@ function BecomeProfessional() {
 function ClientIdentityProfile({ role }) {
   const { session, userRow, refresh } = useAuth();
   const t = useTranslations("Profile");
+  const L = useLocalData();
   const [lookups, setLookups] = useState({ nationalities: [], languages: [] });
   const [nationalityId, setNationalityId] = useState("");
   const [languageIds, setLanguageIds] = useState([]);
@@ -965,7 +967,7 @@ function ClientIdentityProfile({ role }) {
           <option value="">—</option>
           {lookups.nationalities.map((n) => (
             <option key={n.id} value={n.id}>
-              {n.name}
+              {L.text(n.name)}
             </option>
           ))}
         </select>

@@ -1,6 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { listRequestPings, withdrawPing, cancelBookingRequest, departureLabel } from "../../../lib/platform/db";
@@ -33,7 +34,8 @@ const PING_STATUS_LABEL = {
 export default function RequestPanel({ request, onChanged, onToastMessage }) {
   const t = useTranslations("RequestPanel");
   const f = useFormat();
-  const personName = (sp) => (f.locale === "en" && sp?.full_name_latin) || sp?.full_name;
+  const L = useLocalData();
+  const personName = (sp) => (sp ? L.person(sp) : "");
   const [expanded, setExpanded] = useState(false);
   const [pings, setPings] = useState([]);
   const [loadingPings, setLoadingPings] = useState(false);
@@ -115,7 +117,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
       >
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <span style={{ fontWeight: 500 }}>
-            {departureLabel(request)} · {request.boat_types?.name}
+            {L.text(departureLabel(request))} · {L.text(request.boat_types?.name)}
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={badge(statusTone)}>{statusLabel}</span>

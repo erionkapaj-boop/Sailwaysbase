@@ -4,6 +4,7 @@ import { trackFlow, noteFailure } from "../../../lib/platform/health";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import {
   listAvailabilityWindows,
   setAvailabilityPeriod,
@@ -66,6 +67,7 @@ const dot = (color, size = 8) => ({ width: size, height: size, borderRadius: "50
 export default function AvailabilityCalendar({ skipperId, bookings = [], onChanged }) {
   const t = useTranslations("AvailabilityCalendar");
   const f = useFormat();
+  const L = useLocalData();
   const [windows, setWindows] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [regions, setRegions] = useState([]);
@@ -249,7 +251,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
       tone: state === "available" ? toneFor(colorFor(key)) : state,
       strike: state === "blocked",
       ariaLabel: `${f.date(key)}: ${
-        state === "available" ? t("ariaAvailable", { regions: names.join(", ") }) : state === "blocked" ? t("ariaAbsence") : t("ariaBooking")
+        state === "available" ? t("ariaAvailable", { regions: names.map(L.text).join(", ") }) : state === "blocked" ? t("ariaAbsence") : t("ariaBooking")
       }`,
     };
   }
@@ -263,7 +265,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   const usedRegions = [...new Set(windows.filter((w) => w.end_date >= today).flatMap(namesOf))].sort();
 
   // Τι θα αλλάξει με την αποθήκευση: μέρες άλλων περιόδων που καλύπτει η νέα.
-  const selectedNames = regions.filter((r) => sheetRegionIds.includes(r.id)).map((r) => r.name);
+  const selectedNames = regions.filter((r) => sheetRegionIds.includes(r.id)).map((r) => L.text(r.name));
   const overlaps =
     sheet && range.startDate && range.endDate
       ? windows
@@ -300,7 +302,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         {usedRegions.map((n) => (
           <span key={n} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <i style={dot(regionColor(n))} />
-            {n}
+            {L.text(n)}
           </span>
         ))}
         {[
@@ -356,7 +358,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontSize: 14.5, fontWeight: 500, display: "block" }}>{f.dateRange(item.start_date, item.end_date)}</span>
                 <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 2 }}>
-                  {isPeriod ? names.join(" · ") : t("absence")}
+                  {isPeriod ? names.map(L.text).join(" · ") : t("absence")}
                 </span>
               </span>
               <span aria-hidden="true" style={{ color: colors.inkSoft, fontSize: 18 }}>
@@ -456,7 +458,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                         onClick={() => setSheetRegionIds((ids) => (ids.includes(r.id) ? ids.filter((x) => x !== r.id) : [...ids, r.id]))}
                       >
                         <i style={{ ...dot(regionColor(r.name, i)), boxShadow: on ? "0 0 0 1.5px #fff" : "none" }} />
-                        {r.name}
+                        {L.text(r.name)}
                       </button>
                     );
                   })}
@@ -468,7 +470,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
               <div style={{ marginTop: 14, padding: "10px 12px", background: colors.seaGlass, borderRadius: radius.md, fontSize: 13, lineHeight: 1.55 }}>
                 {overlaps.map((o, i) => (
                   <div key={i}>
-                    {f.dateRange(o.from, o.to)}: {o.names.join(" · ") || "—"} →{" "}
+                    {f.dateRange(o.from, o.to)}: {o.names.map(L.text).join(" · ") || "—"} →{" "}
                     {sheet.mode === "close" ? t("absence") : selectedNames.join(" · ") || t("newRegion")}
                   </div>
                 ))}

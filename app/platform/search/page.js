@@ -7,6 +7,7 @@ import LoadError from "../components/LoadError";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
@@ -70,11 +71,11 @@ function dayCount(start, end) {
 // Flag + nationality, age, languages — whichever of the three are actually
 // set, in that order, joined the same way everywhere it's shown (card and
 // detail sheet alike) instead of each place growing its own separator logic.
-function identityLine(s, t) {
+function identityLine(s, t, L) {
   const parts = [];
-  if (s.nationality_country) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${s.nationality_country}`);
+  if (s.nationality_country) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${L.text(s.nationality_country)}`);
   if (s.age) parts.push(t("ageYears", { age: s.age }));
-  if (s.languages?.length > 0) parts.push(s.languages.join(", "));
+  if (s.languages?.length > 0) parts.push(L.text(s.languages.join(", ")));
   return parts.join(" · ");
 }
 
@@ -157,6 +158,7 @@ function RatingStat({ s }) {
 // losing the ones already picked.
 function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
   const t = useTranslations("SearchPage");
+  const L = useLocalData();
   const total = days ? s.price_per_day * days : null;
   const highlights = computeCrewHighlights(s);
   const categories = reviewCategoriesForRole(s.role);
@@ -226,7 +228,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
                 {stayTotalText(t, total, days)}
               </div>
             )}
-            {identityLine(s, t) && <div style={{ ...muted, fontSize: 13, marginTop: 8, lineHeight: 1.4 }}>{identityLine(s, t)}</div>}
+            {identityLine(s, t, L) && <div style={{ ...muted, fontSize: 13, marginTop: 8, lineHeight: 1.4 }}>{identityLine(s, t, L)}</div>}
           </div>
         </div>
 
@@ -355,6 +357,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
 
 function ProfessionalCard({ s, selected, onToggle, days }) {
   const t = useTranslations("SearchPage");
+  const L = useLocalData();
   const total = days ? s.price_per_day * days : null;
   const highlights = computeCrewHighlights(s);
   const [showDetail, setShowDetail] = useState(false);
@@ -410,7 +413,7 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
               {stayTotalText(t, total, days)}
             </div>
           )}
-          {identityLine(s, t) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s, t)}</div>}
+          {identityLine(s, t, L) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s, t, L)}</div>}
 
                     <div style={{ margin: "10px 0" }}>
             <RatingLine s={s} />
@@ -479,6 +482,7 @@ function RoleSection({
   onPositionsChange,
 }) {
   const t = useTranslations("SearchPage");
+  const L = useLocalData();
   const [boatTypeId, setBoatTypeId] = useState("");
   const [boatTypeError, setBoatTypeError] = useState(false);
   const [results, setResults] = useState(null);
@@ -664,7 +668,7 @@ function RoleSection({
                 <option value="">{t("choose")}</option>
                 {lookups.boatTypes.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name}
+                    {L.text(b.name)}
                   </option>
                 ))}
               </select>
@@ -1210,6 +1214,7 @@ function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, f
 
 function SearchPageInner() {
   const t = useTranslations("SearchPage");
+  const L = useLocalData();
   const fmt = useFormat();
   const router = useRouter();
   const params = useSearchParams();
@@ -1549,7 +1554,7 @@ function SearchPageInner() {
               <option value="">{t("languageAny")}</option>
               {lookups.languages.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.name}
+                  {L.text(l.name)}
                 </option>
               ))}
             </select>
@@ -1605,19 +1610,19 @@ function SearchPageInner() {
             <span style={muted}>
               {" · "}
               {filters.departurePoint && filters.departurePoint !== regionName
-                ? `${filters.departurePoint}${
+                ? `${L.text(filters.departurePoint)}${
                     filters.arrivalPoint && filters.arrivalPoint !== filters.departurePoint
-                      ? ` → ${filters.arrivalPoint}`
+                      ? ` → ${L.text(filters.arrivalPoint)}`
                       : ""
-                  } · ${regionName || ""}`
-                : `${regionName || ""}${
-                    filters.arrivalPoint && filters.arrivalPoint !== filters.departurePoint ? ` → ${filters.arrivalPoint}` : ""
+                  } · ${L.text(regionName || "")}`
+                : `${L.text(regionName || "")}${
+                    filters.arrivalPoint && filters.arrivalPoint !== filters.departurePoint ? ` → ${L.text(filters.arrivalPoint)}` : ""
                   }`}
               {" · "}
               {t("people", { count: Number(filters.partySize) })}
               {" · "}
               {t("cabinValue", { value: filters.privateCabin ? t("yes") : t("no") })}
-              {boatTypeName ? ` · ${boatTypeName}` : ""}
+              {boatTypeName ? ` · ${L.text(boatTypeName)}` : ""}
             </span>
           </div>
           <button

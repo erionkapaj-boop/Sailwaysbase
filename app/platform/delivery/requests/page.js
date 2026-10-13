@@ -3,6 +3,7 @@ import { formatCredits } from "../../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
+import { useLocalData } from "../../useLocalData";
 import { useAuth } from "../../AuthContext";
 import BackButton from "../../components/BackButton";
 import { labelForRole } from "../../../../lib/platform/roles";
@@ -49,6 +50,7 @@ function addDays(isoDate, days) {
 
 function RelistForm({ roleRequest, request, onDone }) {
   const t = useTranslations("DeliveryRequests");
+  const L = useLocalData();
   const [price, setPrice] = useState(String(formatMoney(roleRequest.offered_price)));
   const [candidates, setCandidates] = useState(null);
   const [selected, setSelected] = useState(
@@ -104,7 +106,7 @@ function RelistForm({ roleRequest, request, onDone }) {
         {candidates?.map((s) => (
           <label key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
             <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggle(s.id)} />
-            {s.nationality_country || t("candidate")}
+            {s.nationality_country ? L.text(s.nationality_country) : t("candidate")}
             {known.has(s.id) && (
               <span style={{ fontSize: 12, color: PING_LABEL[known.get(s.id)]?.[1] }}>
                 ({PING_LABEL[known.get(s.id)] ? t(PING_LABEL[known.get(s.id)][0]) : known.get(s.id)})
@@ -125,7 +127,8 @@ function RelistForm({ roleRequest, request, onDone }) {
 function RoleRequestRow({ roleRequest, request, onChanged }) {
   const t = useTranslations("DeliveryRequests");
   const f = useFormat();
-  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
+  const L = useLocalData();
+  const personName = (p) => (p ? L.person(p) : "");
   const [relisting, setRelisting] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
   const [busy, setBusy] = useState(false);
@@ -244,6 +247,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
 export default function MyDeliveryRequestsPage() {
   const t = useTranslations("DeliveryRequests");
   const f = useFormat();
+  const L = useLocalData();
   const { session, loading } = useAuth();
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
@@ -272,7 +276,7 @@ export default function MyDeliveryRequestsPage() {
       {rows?.map(({ request, role_requests }) => (
         <div key={request.id} style={card}>
           <h2 style={{ ...h2, fontSize: 16, margin: "0 0 4px" }}>
-            {request.origin_point} → {request.destination_point}
+            {L.text(request.origin_point)} → {L.text(request.destination_point)}
           </h2>
           <p style={{ ...muted, fontSize: 13, margin: 0 }}>
             {t("miles", { miles: request.distance_miles })} · {f.date(request.departure_date)}

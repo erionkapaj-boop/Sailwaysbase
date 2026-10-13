@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import {
   listMyPings,
   claimBookingRequest,
@@ -186,6 +187,7 @@ export default function PingsInbox({ skipperId }) {
 function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
   const t = useTranslations("PingsInbox");
   const f = useFormat();
+  const L = useLocalData();
   const [showBreakdown, setShowBreakdown] = useState(false);
   const r = p.booking_requests;
   const cp = r.client_profiles;
@@ -213,7 +215,7 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
         <div>
           <div style={{ fontWeight: 500, fontSize: 15 }}>
-            {departureLabel(r)} · {r.boat_types?.name}
+            {L.text(departureLabel(r))} · {L.text(r.boat_types?.name)}
           </div>
           {(r.party_size != null || r.private_cabin != null) && (
             <p style={{ ...muted, fontSize: 13, margin: "2px 0 0" }}>
@@ -227,7 +229,7 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
           </p>
           <p style={{ ...muted, fontSize: 12, margin: "2px 0 0" }}>{t("sentAt", { date: f.dateTime(r.created_at) })}</p>
           {isOffer ? (
-            <p style={{ ...muted, margin: "4px 0 0" }}>
+            <p {...(r.note ? { "data-user-text": true } : {})} style={{ ...muted, margin: "4px 0 0" }}>
               {isReplacement
                 ? t("replacementIntro")
                 : t("directIntro")}
@@ -295,9 +297,9 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
               {(cp?.users?.nationalities?.country_name || cp?.users?.user_languages?.length > 0) && (
                 <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
                   {cp?.users?.nationalities?.flag_emoji ? `${cp.users.nationalities.flag_emoji} ` : ""}
-                  {cp?.users?.nationalities?.country_name}
+                  {L.text(cp?.users?.nationalities?.country_name)}
                   {cp?.users?.nationalities?.country_name && cp?.users?.user_languages?.length > 0 ? " · " : ""}
-                  {cp?.users?.user_languages?.map((ul) => ul.languages?.name).filter(Boolean).join(", ")}
+                  {cp?.users?.user_languages?.map((ul) => ul.languages?.name).filter(Boolean).map(L.text).join(", ")}
                 </p>
               )}
             </>

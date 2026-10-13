@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useLocalData } from "../useLocalData";
 import { tNow } from "../../../lib/platform/tNow";
 import { colors, radius, muted, money, fontSans, badge, button } from "../../../lib/platform/theme";
 
@@ -200,7 +201,7 @@ export function cssImage(url) {
 
 // photoUrl is opt-in — only the accounts list passes it today. Every other
 // Row/RowMain caller (bookings, disputes, offers, coverage) is unaffected.
-export function RowMain({ title, meta, photoUrl }) {
+export function RowMain({ title, meta, photoUrl, titleUser, metaUser }) {
   return (
     <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 160, flex: "1 1 200px" }}>
       {photoUrl !== undefined && (
@@ -222,6 +223,7 @@ export function RowMain({ title, meta, photoUrl }) {
           sliver. */}
       <span style={{ minWidth: 0, flex: 1 }}>
         <span
+          {...(titleUser ? { "data-user-text": "" } : {})}
           style={{
             display: "block",
             fontSize: 14,
@@ -235,7 +237,7 @@ export function RowMain({ title, meta, photoUrl }) {
           {title}
         </span>
         {meta && (
-          <span style={{ ...muted, fontSize: 12.5, display: "block", marginTop: 3 }}>{meta}</span>
+          <span {...(metaUser ? { "data-user-text": "" } : {})} style={{ ...muted, fontSize: 12.5, display: "block", marginTop: 3 }}>{meta}</span>
         )}
       </span>
     </span>
@@ -360,13 +362,14 @@ export function ageFrom(dob) {
 // δέχεται και την εμφανιζόμενη ετικέτα, για οθόνες που τη στέλνουν ακόμα.
 export function ProCredentials({ profile, roleLabel, omit = [] }) {
   const t = useTranslations("AdminUi");
+  const L = useLocalData();
   if (!profile) return null;
   const age = ageFrom(profile.date_of_birth);
   const items = [
     ["role", roleLabel],
     [
       "license",
-      [profile.license_number, profile.license_type && t("credentials.licenseType", { type: profile.license_type })]
+      [profile.license_number, profile.license_type && t("credentials.licenseType", { type: L.text(profile.license_type) })]
         .filter(Boolean)
         .join(" · ") || "—",
     ],
@@ -374,7 +377,7 @@ export function ProCredentials({ profile, roleLabel, omit = [] }) {
     ["age", age != null ? t("credentials.age", { n: age }) : "—"],
     [
       "gender",
-      GENDER_KEYS.includes(profile.gender) ? t(`gender.${profile.gender}`) : profile.gender || "—",
+      GENDER_KEYS.includes(profile.gender) ? t(`gender.${profile.gender}`) : L.text(profile.gender) || "—",
     ],
     ["price", profile.price_per_day != null ? t("credentials.price", { price: profile.price_per_day }) : "—"],
   ].filter(([k]) => !omit.includes(k) && !omit.includes(t(`credentials.label.${k}`)));

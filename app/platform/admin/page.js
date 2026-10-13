@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import AdminShell, { useAdminCounts } from "./AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted } from "./ui";
 import { useAuth } from "../AuthContext";
@@ -81,10 +82,12 @@ const linkStyle = {
 };
 
 function PersonLink({ id, name }) {
-  if (!id) return <span>{name || "—"}</span>;
+  const L = useLocalData();
+  const shown = L.name(name);
+  if (!id) return <span>{shown || "—"}</span>;
   return (
     <Link href={`/platform/admin/user/${id}`} style={linkStyle}>
-      {name || "—"}
+      {shown || "—"}
     </Link>
   );
 }
@@ -244,6 +247,7 @@ function Pulse({ waiting, expiring, upcoming, loaded }) {
 function QuickSearch() {
   const t = useTranslations("AdminHome");
   const f = useFormat();
+  const L = useLocalData();
   const router = useRouter();
   const [q, setQ] = useState("");
   const [results, setResults] = useState([]);
@@ -368,7 +372,7 @@ function QuickSearch() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {(f.locale === "en" && u.full_name_latin) || u.full_name || "—"}
+                  {L.person(u) || "—"}
                   <span style={{ ...muted, fontSize: 12.5, marginLeft: 8 }}>
                     {u.role === "skipper"
                       ? labelForRole(u.crew_role || "skipper")
@@ -552,6 +556,7 @@ function WaitingOnYou({ rows }) {
 function ExpiringCard({ item, now }) {
   const t = useTranslations("AdminHome");
   const f = useFormat();
+  const L = useLocalData();
   const hoursLeft = (new Date(item.expires_at).getTime() - now) / 3600e3;
   const hot = hoursLeft < 3;
   const waiting = item.waiting || [];
@@ -592,7 +597,7 @@ function ExpiringCard({ item, now }) {
             <PersonLink id={item.client_id} name={item.client_name} /> {t("requests", { what })}
           </div>
           <div style={{ ...muted, fontSize: 13, marginTop: 3 }}>
-            {[item.place, item.region && item.region !== item.place ? item.region : null].filter(Boolean).join(", ")}
+            {[L.text(item.place), item.region && item.region !== item.place ? L.text(item.region) : null].filter(Boolean).join(", ")}
             {item.place ? " · " : ""}
             {item.start === item.end ? f.date(item.start) : `${f.date(item.start)} → ${f.date(item.end)}`}
           </div>
@@ -627,7 +632,7 @@ function ExpiringCard({ item, now }) {
         <Tel phone={item.client_phone}>{t("client")}</Tel>
         {waiting.map((w) => (
           <Tel key={w.id} phone={w.phone}>
-            {w.name}
+            {L.name(w.name)}
           </Tel>
         ))}
       </div>
@@ -666,6 +671,7 @@ function AtRisk({ items, now }) {
 // ---------------------------------------------------------------------------
 function Upcoming({ items, loaded }) {
   const t = useTranslations("AdminHome");
+  const L = useLocalData();
   const [focus, setFocus] = useState(null);
   const days = useMemo(() => {
     const base = todayStart();
@@ -781,7 +787,7 @@ function Upcoming({ items, loaded }) {
                       minWidth: 0,
                     }}
                   >
-                    {it.place || "—"}
+                    {L.text(it.place) || "—"}
                     <span style={{ ...muted, fontWeight: 400, fontSize: 13 }}> · {labelForRole(it.role)}</span>
                   </span>
                   <span style={{ ...muted, fontSize: 12.5, flexShrink: 0 }}>
@@ -967,7 +973,7 @@ function Legend({ color, children }) {
 // συγκρίνοντας νούμερα, και τα αιτήματα που χάθηκαν (ένα τηλέφωνο στον
 // πελάτη μπορεί να τον κρατήσει).
 // ---------------------------------------------------------------------------
-function buildInsights(dash, counts, t) {
+function buildInsights(dash, counts, t, L) {
   const out = [];
   // Οι ελλείψεις ανά ιδιότητα φαίνονται ήδη (με κόκκινο) στην «Αγορά» —
   // εδώ μόνο ό,τι δεν φαίνεται αλλού.
@@ -977,14 +983,14 @@ function buildInsights(dash, counts, t) {
   if (weak) {
     out.push({
       tone: "warn",
-      text: t("insightWeak", { region: weak.region, lost: weak.lost, requests: weak.requests }),
+      text: t("insightWeak", { region: L.text(weak.region), lost: weak.lost, requests: weak.requests }),
     });
   }
   const top = (dash.regions || [])[0];
   if (top && Number(top.requests) >= 3 && top !== weak) {
     out.push({
       tone: "plain",
-      text: t("insightTop", { region: top.region, requests: top.requests }),
+      text: t("insightTop", { region: L.text(top.region), requests: top.requests }),
     });
   }
   if (dash.dormant_clients > 0) {
@@ -1077,6 +1083,7 @@ function Insights({ insights, lost }) {
 function LostList({ lost }) {
   const t = useTranslations("AdminHome");
   const f = useFormat();
+  const L = useLocalData();
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -1149,7 +1156,7 @@ function LostList({ lost }) {
                     <span style={{ ...muted, fontSize: 13 }}> · {labelForRole(l.role)}</span>
                   </div>
                   <div style={{ ...muted, fontSize: 12.5, marginTop: 2 }}>
-                    {[l.place || l.region, `${f.date(l.start)} → ${f.date(l.end)}`].filter(Boolean).join(" · ")}
+                    {[L.text(l.place || l.region), `${f.date(l.start)} → ${f.date(l.end)}`].filter(Boolean).join(" · ")}
                     {Number(l.pinged) === 0 ? ` · ${t("notSent")}` : ""}
                   </div>
                 </div>
@@ -1270,6 +1277,7 @@ function Week({ week }) {
 function Activity({ activity }) {
   const t = useTranslations("AdminHome");
   const f = useFormat();
+  const L = useLocalData();
   const [all, setAll] = useState(false);
   const list = all ? activity : activity.slice(0, 6);
   return (
@@ -1300,8 +1308,8 @@ function Activity({ activity }) {
                 }}
               />
               <RowMain
-                title={a.label}
-                meta={`${ACTIVITY_KINDS.includes(a.kind) ? t(`activity.${a.kind}`) : a.kind}${a.detail ? ` · ${a.kind === "signup" && SIGNUP_ROLE[a.detail] ? t(`activity.signupRole.${SIGNUP_ROLE[a.detail]}`) : a.detail}` : ""}`}
+                title={a.kind === "signup" ? L.name(a.label) : L.text(a.label)}
+                meta={`${ACTIVITY_KINDS.includes(a.kind) ? t(`activity.${a.kind}`) : a.kind}${a.detail ? ` · ${a.kind === "signup" && SIGNUP_ROLE[a.detail] ? t(`activity.signupRole.${SIGNUP_ROLE[a.detail]}`) : L.text(a.detail)}` : ""}`}
               />
             </span>
             <span style={{ ...muted, fontSize: 11.5, flexShrink: 0 }}>{f.timeAgo(a.at)}</span>
@@ -1344,6 +1352,7 @@ function Activity({ activity }) {
 export default function AdminOverview() {
   const t = useTranslations("AdminHome");
   const f = useFormat();
+  const L = useLocalData();
   const menuCounts = useAdminCounts();
   const [invisible, setInvisible] = useState(0);
   const counts = { ...menuCounts, profiles_invisible: invisible };
@@ -1385,9 +1394,9 @@ export default function AdminOverview() {
   const upcoming = d.upcoming || [];
   const rows = waitingRows(counts, t);
   const waitingTotal = rows.reduce((n, r) => n + r.n, 0);
-  const insights = loaded ? buildInsights(d, counts, t) : [];
+  const insights = loaded ? buildInsights(d, counts, t, L) : [];
 
-  const nameOf = f.locale === "en" ? userRow?.full_name_latin || userRow?.full_name : userRow?.full_name;
+  const nameOf = L.person(userRow);
   const firstName = (nameOf || "").trim().split(/\s+/)[0];
   const today = new Date();
   const dateLine = `${t(`weekdayLong.${today.getDay()}`)} ${today.getDate()} ${f.monthNames("genitive")[today.getMonth()]}`;

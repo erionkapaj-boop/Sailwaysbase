@@ -3,6 +3,7 @@ import { useAuth } from "../../../AuthContext";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../../useFormat";
+import { useLocalData } from "../../../useLocalData";
 import { Panel, ProCredentials, colors, muted, button } from "../../ui";
 import { badge } from "../../../../../lib/platform/theme";
 import { labelForRole } from "../../../../../lib/platform/roles";
@@ -25,8 +26,9 @@ import { Hint, fieldInput, useErrorLabel } from "./shared";
 export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
   const t = useTranslations("AdminUser");
   const f = useFormat();
+  const L = useLocalData();
   const errorLabel = useErrorLabel();
-  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
+  const personName = (p) => L.person(p);
   const { isOwner } = useAuth();
   const u = data.user;
   const sp = data.skipper_profile;
@@ -207,7 +209,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
 
       {u.status === "deleted" ? (
         <Panel title={t("actions.deletedTitle")}>
-          <Hint>
+          <Hint user={Boolean(u.deletion_reason)}>
             {u.deleted_at && <>{t("actions.deletedAt", { date: f.dateTime(u.deleted_at) })}<br /></>}
             {u.deletion_reason && <>{t("actions.reasonLine", { reason: u.deletion_reason })}<br /></>}
             {t("actions.deletedHint")}
@@ -222,7 +224,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
         <>
           {u.status === "suspended" ? (
             <Panel title={t("actions.suspendedTitle")}>
-              <Hint>{u.suspension_reason || t("actions.noReason")}</Hint>
+              <Hint user={Boolean(u.suspension_reason)}>{u.suspension_reason || t("actions.noReason")}</Hint>
               <button style={button("primary")} disabled={busy} onClick={handleReactivate}>
                 {busy ? "…" : t("actions.reactivate")}
               </button>

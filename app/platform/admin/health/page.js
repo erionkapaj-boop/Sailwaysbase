@@ -3,6 +3,7 @@ import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
+import { useLocalData } from "../../useLocalData";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Empty, colors, muted, button } from "../ui";
 import { adminHealthIssues, adminResolveHealthIssue, adminRunHealthChecks, adminFlowStats, adminPlaceMisses, adminHealthEvents } from "../../../../lib/platform/db";
@@ -41,15 +42,16 @@ const mono = { fontFamily: "var(--font-platform-mono), monospace", fontSize: 11.
 // αναπαραχθεί και να διορθωθεί ένα σφάλμα.
 function Context({ ctx, compact = false }) {
   const t = useTranslations("AdminHealth");
+  const L = useLocalData();
   if (!ctx) return null;
-  const facts = [ctx.v && t("version", { v: ctx.v }), ctx.d, ctx.va && t("viewAs")].filter(Boolean);
+  const facts = [ctx.v && t("version", { v: ctx.v }), L.text(ctx.d), ctx.va && t("viewAs")].filter(Boolean);
   return (
     <div style={{ marginTop: compact ? 4 : 8 }}>
       {facts.length > 0 && <div style={{ ...muted, fontSize: 12.5 }}>{facts.join(" · ")}</div>}
       {ctx.t?.length > 0 && (
         <ol style={{ margin: "6px 0 0", paddingLeft: 20, ...mono, lineHeight: 1.6 }}>
           {ctx.t.map((step, i) => (
-            <li key={i} style={{ color: i === ctx.t.length - 1 ? colors.ink : colors.inkSoft }}>{step}</li>
+            <li key={i} style={{ color: i === ctx.t.length - 1 ? colors.ink : colors.inkSoft }}>{L.text(step)}</li>
           ))}
         </ol>
       )}
@@ -57,29 +59,30 @@ function Context({ ctx, compact = false }) {
   );
 }
 
-function reportText(issue, events, t, f) {
+function reportText(issue, events, t, f, L) {
   const s = issue.sample || {};
   const lines = [
-    t("reportSubject", { title: issue.title }),
+    t("reportSubject", { title: L.text(issue.title) }),
     t("reportCode", { code: issue.fingerprint }),
-    t("reportPage", { page: issue.area || "—" }),
+    t("reportPage", { page: L.text(issue.area) || "—" }),
     t("reportStats", { occurrences: issue.occurrences, users: issue.affected_users || 0, first: f.dateTime(issue.first_seen), last: f.dateTime(issue.last_seen) }),
   ];
-  if (s.detail) lines.push(t("reportMessage", { detail: s.detail }));
+  if (s.detail) lines.push(t("reportMessage", { detail: L.text(s.detail) }));
   const add = (ctx, label) => {
     if (!ctx) return;
     lines.push(label);
-    if (ctx.v || ctx.d || ctx.va) lines.push(`  ${[ctx.v && t("version", { v: ctx.v }), ctx.d, ctx.va && t("viewAs")].filter(Boolean).join(" · ")}`);
-    (ctx.t || []).forEach((step, i) => lines.push(`  ${i + 1}. ${step}`));
+    if (ctx.v || ctx.d || ctx.va) lines.push(`  ${[ctx.v && t("version", { v: ctx.v }), L.text(ctx.d), ctx.va && t("viewAs")].filter(Boolean).join(" · ")}`);
+    (ctx.t || []).forEach((step, i) => lines.push(`  ${i + 1}. ${L.text(step)}`));
   };
   add(s.context, t("reportLastTime"));
-  (events || []).slice(1).forEach((e, i) => add(e.context, t("reportPrevTime", { n: i + 1, when: `${f.dateTime(e.created_at)}${e.detail && e.detail !== s.detail ? ` · ${e.detail}` : ""}` })));
+  (events || []).slice(1).forEach((e, i) => add(e.context, t("reportPrevTime", { n: i + 1, when: `${f.dateTime(e.created_at)}${e.detail && e.detail !== s.detail ? ` · ${L.text(e.detail)}` : ""}` })));
   return lines.join("\n");
 }
 
 function Issue({ issue, busy, onResolve }) {
   const t = useTranslations("AdminHealth");
   const f = useFormat();
+  const L = useLocalData();
   const open = issue.status === "open";
   const count =
     issue.source === "data"
@@ -94,8 +97,8 @@ function Issue({ issue, busy, onResolve }) {
   const s = issue.sample || {};
   const detail =
     issue.source === "flow"
-      ? t("flowDetail", { started: s.started, completed: s.completed, stop: s.stop_step ? ` · ${t("stopsAt", { step: stepText(t, s.stop_step) })}` : "" })
-      : s.detail;
+      ? t("flowDetail", { started: s.started, completed: s.completed, stop: s.stop_step ? ` · ${t("stopsAt", { step: L.text(stepText(t, s.stop_step)) })}` : "" })
+      : L.text(s.detail);
   const ids = Array.isArray(issue.sample?.ids) ? issue.sample.ids : [];
 
   return (
@@ -110,9 +113,9 @@ function Issue({ issue, busy, onResolve }) {
       }}
     >
       <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink }}>{issue.title}</div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink }}>{L.text(issue.title)}</div>
         <div style={{ ...muted, fontSize: 12.5, marginTop: 3 }}>
-          {[sourceLabel(issue, t), issue.area, count, users].filter(Boolean).join(" · ")}
+          {[sourceLabel(issue, t), L.text(issue.area), count, users].filter(Boolean).join(" · ")}
         </div>
         <div style={{ ...muted, fontSize: 12.5, marginTop: 2 }}>
           {open
@@ -156,6 +159,7 @@ function Issue({ issue, busy, onResolve }) {
 function IssueTools({ issue }) {
   const t = useTranslations("AdminHealth");
   const f = useFormat();
+  const L = useLocalData();
   const [events, setEvents] = useState(null);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -176,7 +180,7 @@ function IssueTools({ issue }) {
   async function copy() {
     const list = events || (await loadEvents());
     try {
-      await navigator.clipboard.writeText(reportText(issue, list, t, f));
+      await navigator.clipboard.writeText(reportText(issue, list, t, f, L));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -208,7 +212,7 @@ function IssueTools({ issue }) {
         <div style={{ marginTop: 8 }}>
           {events.slice(1).map((e, i) => (
             <div key={i} style={{ borderTop: `1px solid ${colors.border}`, padding: "8px 0" }}>
-              <div style={{ ...muted, fontSize: 12.5 }}>{f.dateTime(e.created_at)}{e.detail ? ` · ${e.detail}` : ""}</div>
+              <div style={{ ...muted, fontSize: 12.5 }}>{f.dateTime(e.created_at)}{e.detail ? ` · ${L.text(e.detail)}` : ""}</div>
               <Context ctx={e.context} compact />
             </div>
           ))}
@@ -222,6 +226,7 @@ function IssueTools({ issue }) {
 export default function HealthPage() {
   const t = useTranslations("AdminHealth");
   const f = useFormat();
+  const L = useLocalData();
   const refreshCounts = useRefreshAdminCounts();
   const [issues, setIssues] = useState([]);
   const [showClosed, setShowClosed] = useState(false);
@@ -330,10 +335,10 @@ export default function HealthPage() {
                 }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink }}>{FLOW_KEY[fl.flow_label] ? t(`flowName.${FLOW_KEY[fl.flow_label]}`) : fl.flow_label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink }}>{FLOW_KEY[fl.flow_label] ? t(`flowName.${FLOW_KEY[fl.flow_label]}`) : L.text(fl.flow_label)}</div>
                   <div style={{ ...muted, fontSize: 12.5, marginTop: 3 }}>
                     {t("flowCounts", { started: fl.started, completed: fl.completed })}
-                    {fl.stop_step && fl.completed < fl.started ? ` · ${t("stopsAt", { step: stepText(t, fl.stop_step) })}` : ""}
+                    {fl.stop_step && fl.completed < fl.started ? ` · ${t("stopsAt", { step: L.text(stepText(t, fl.stop_step)) })}` : ""}
                   </div>
                 </div>
                 <div
@@ -371,9 +376,9 @@ export default function HealthPage() {
             }}
           >
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink, wordBreak: "break-word" }}>{m.query}</div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink, wordBreak: "break-word" }} data-user-text>{m.query}</div>
               <div style={{ ...muted, fontSize: 12.5, marginTop: 3 }}>
-                {[m.regions, t("lastAgo", { ago: f.timeAgo(m.last_at) })].filter(Boolean).join(" · ")}
+                {[L.text(m.regions), t("lastAgo", { ago: f.timeAgo(m.last_at) })].filter(Boolean).join(" · ")}
               </div>
             </div>
             <div style={{ fontSize: 14, fontWeight: 600, color: colors.ink, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>

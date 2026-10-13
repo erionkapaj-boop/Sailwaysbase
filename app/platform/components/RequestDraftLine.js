@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import { useAuth } from "../AuthContext";
 import { getMyRequestDraft, getMyPendingCreditPurchase } from "../../../lib/platform/db";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
@@ -16,6 +17,7 @@ import { card, colors, muted } from "../../../lib/platform/theme";
 export default function RequestDraftLine({ style }) {
   const t = useTranslations("RequestDraftLine");
   const fmt = useFormat();
+  const L = useLocalData();
   const { session, viewingAs } = useAuth();
   const [draft, setDraft] = useState(null);
   const [waitingCredits, setWaitingCredits] = useState(false);
@@ -43,7 +45,7 @@ export default function RequestDraftLine({ style }) {
   const summary = [
     Object.keys(draft.selections).map(labelForRole).join(", "),
     fmt.dateRange(f.startDate, f.endDate),
-    f.departurePoint,
+    L.text(f.departurePoint),
   ]
     .filter(Boolean)
     .join(" · ");

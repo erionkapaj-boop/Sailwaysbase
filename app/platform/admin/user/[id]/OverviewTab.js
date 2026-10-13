@@ -3,6 +3,7 @@ import { formatCredits } from "../../../../../lib/platform/credits";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../../useFormat";
+import { useLocalData } from "../../../useLocalData";
 import Link from "next/link";
 import { Panel, MetricGrid, Metric, Empty, colors, muted, button } from "../../ui";
 import { adminResolveFlag } from "../../../../../lib/platform/db";
@@ -17,6 +18,7 @@ import { EventRow, useErrorLabel } from "./shared";
 export default function OverviewTab({ data, onSelectTab, reload }) {
   const t = useTranslations("AdminUser");
   const f = useFormat();
+  const L = useLocalData();
   const errorLabel = useErrorLabel();
   const [flagBusy, setFlagBusy] = useState(null);
   const [flagError, setFlagError] = useState("");
@@ -74,7 +76,7 @@ export default function OverviewTab({ data, onSelectTab, reload }) {
                   <>
                     {" · "}
                     <Link href={`/platform/admin/user/${fl.related_user_id}`} style={{ color: colors.ink }}>
-                      {fl.related_name || t("overview.otherAccount")}
+                      {L.name(fl.related_name) || t("overview.otherAccount")}
                     </Link>
                   </>
                 )}
@@ -108,8 +110,8 @@ export default function OverviewTab({ data, onSelectTab, reload }) {
                 color: colors.ink,
               }}
             >
-              {t("overview.openDispute")}{d.place ? ` · ${d.place}` : ""}
-              {d.reason && <div style={{ ...muted, fontSize: 12.5, marginTop: 2 }}>{d.reason}</div>}
+              {t("overview.openDispute")}{d.place ? ` · ${L.text(d.place)}` : ""}
+              {d.reason && <div data-user-text style={{ ...muted, fontSize: 12.5, marginTop: 2 }}>{d.reason}</div>}
             </button>
           ))}
           {newMsgs.map((m) => (
@@ -120,7 +122,7 @@ export default function OverviewTab({ data, onSelectTab, reload }) {
             >
               {t("overview.unansweredMessage")}
               {m.message && (
-                <span style={{ ...muted, display: "block", fontSize: 12.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span data-user-text style={{ ...muted, display: "block", fontSize: 12.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {t("overview.quote", { text: m.message })}
                 </span>
               )}

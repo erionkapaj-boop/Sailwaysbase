@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { tNow } from "../../../lib/platform/tNow";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import { Toolbar, Row, RowMain, Empty, colors, muted, money, button } from "./ui";
 import { CREW_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { adminSearchAvailability, adminCreateOffer, adminListSettings, listLookups } from "../../../lib/platform/db";
@@ -82,6 +83,7 @@ function Field({ label, basis = "140px", children }) {
 export default function OfferComposer({ job = null, onDone }) {
   const t = useTranslations("AdminOfferComposer");
   const f = useFormat();
+  const L = useLocalData();
   const replacing = Boolean(job);
 
   const [lookups, setLookups] = useState({ boatTypes: [], ports: [] });
@@ -230,7 +232,7 @@ export default function OfferComposer({ job = null, onDone }) {
                   <option value="">{t("anyPort")}</option>
                   {lookups.ports.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name}
+                      {L.text(p.name)}
                     </option>
                   ))}
                 </select>
@@ -241,7 +243,7 @@ export default function OfferComposer({ job = null, onDone }) {
                     <option value="">{t("anyBoat")}</option>
                     {lookups.boatTypes.map((b) => (
                       <option key={b.id} value={b.id}>
-                        {b.name}
+                        {L.text(b.name)}
                       </option>
                     ))}
                   </select>
@@ -271,7 +273,7 @@ export default function OfferComposer({ job = null, onDone }) {
                 style={{ width: 16, height: 16, flexShrink: 0, accentColor: colors.ink }}
               />
               <RowMain
-                title={(f.locale === "en" && s.full_name_latin) || s.full_name || t("noName")}
+                title={L.person(s) || t("noName")}
                 meta={
                   <>
                     <span style={money}>{s.phone_number}</span> · <span style={money}>{s.price_per_day != null ? `${s.price_per_day}€` : "—"}</span>{t("perDay")} ·{" "}

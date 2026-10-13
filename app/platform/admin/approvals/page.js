@@ -1,8 +1,9 @@
 "use client";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { useLocalData } from "../../useLocalData";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import { Panel, RowMain, Empty, colors, muted, money, button, ProCredentials, VERIFY_HINT, STATUS_LABEL, waitingFor, safeImageUrl } from "../ui";
 import {
@@ -51,8 +52,8 @@ function DetailsLink({ userId }) {
 // after two weeks away it wasn't clear which was which.
 export default function PendingPage() {
   const t = useTranslations("AdminApprovals");
-  const locale = useLocale();
-  const nm = (o) => (locale === "en" && o?.full_name_latin) || o?.full_name;
+  const L = useLocalData();
+  const nm = (o) => L.person(o);
   const refreshCounts = useRefreshAdminCounts();
   const [confirm, confirmDialog] = useConfirm();
   const [signups, setSignups] = useState([]);

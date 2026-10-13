@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import HeaderPanel from "./HeaderPanel";
 import LoadError from "./LoadError";
 import { listMyConversations } from "../../../lib/platform/db";
@@ -27,6 +28,7 @@ export default function MessagesPanel({ count = 0 }) {
   const router = useRouter();
   const t = useTranslations("MessagesPanel");
   const f = useFormat();
+  const L = useLocalData();
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -74,7 +76,7 @@ export default function MessagesPanel({ count = 0 }) {
               >
                 <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                   <span style={{ fontSize: 14, fontWeight: unread ? 600 : 400, color: colors.ink }}>
-                    {c.port_name || t("booking")}
+                    {c.port_name ? L.text(c.port_name) : t("booking")}
                   </span>
                   {unread && (
                     <span
@@ -102,6 +104,7 @@ export default function MessagesPanel({ count = 0 }) {
                 </span>
                 {c.last_message && (
                   <span
+                    data-user-text
                     style={{
                       ...muted,
                       fontSize: 13,

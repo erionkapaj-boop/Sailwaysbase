@@ -2,13 +2,14 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import AdminShell from "../AdminShell";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { adminListBookings, departureLabel } from "../../../../lib/platform/db";
 import LoadError from "../../components/LoadError";
 import { useFormat } from "../../useFormat";
+import { useLocalData } from "../../useLocalData";
 
 const FILTERS = [
   ["upcoming", "filterUpcoming"],
@@ -20,11 +21,11 @@ const FILTERS = [
 
 function PersonLink({ label, p }) {
   const t = useTranslations("AdminBookings");
-  const locale = useLocale();
+  const L = useLocalData();
   if (!p) return null;
   return (
     <Link href={`/platform/admin/user/${p.id}`} style={{ color: colors.ink }}>
-      {label}: {(locale === "en" && p.name_latin) || p.name || t("noName")}
+      {label}: {L.person({ full_name: p.name, full_name_latin: p.name_latin }) || t("noName")}
     </Link>
   );
 }
@@ -32,6 +33,7 @@ function PersonLink({ label, p }) {
 function BookingsInner() {
   const t = useTranslations("AdminBookings");
   const f = useFormat();
+  const L = useLocalData();
   const searchParams = useSearchParams();
   // Δίνει στα κουτιά της Επισκόπησης («Επερχόμενες», «Ολοκληρωμένες»,
   // «Ακυρώσεις») έναν σύνδεσμο που ανοίγει κατευθείαν στο σωστό φίλτρο.
@@ -98,7 +100,7 @@ function BookingsInner() {
         {list.map((b) => (
           <Row key={b.id}>
             <RowMain
-              title={`${departureLabel(b)}${b.boat_types?.name ? " · " + b.boat_types.name : ""}`}
+              title={L.text(`${departureLabel(b)}${b.boat_types?.name ? " · " + b.boat_types.name : ""}`)}
               meta={
                 <>
                   <span style={money}>{f.date(b.start_date)}</span> → <span style={money}>{f.date(b.end_date)}</span>

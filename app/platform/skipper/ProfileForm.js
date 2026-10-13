@@ -4,6 +4,7 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useLocalData } from "../useLocalData";
 import {
   listLookups,
   updateSkipperProfile,
@@ -142,6 +143,7 @@ const COMMON_LANGUAGES = ["\u0395\u03bb\u03bb\u03b7\u03bd\u03b9\u03ba\u03ac", "\
 
 export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 }) {
   const t = useTranslations("ProfileForm");
+  const L = useLocalData();
   const [lookups, setLookups] = useState({ languages: [], boatTypes: [], ports: [], nationalities: [] });
   const [form, setForm] = useState({
     full_name: profile.full_name || "",
@@ -369,7 +371,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
               <option value="">—</option>
               {lookups.nationalities?.map((n) => (
                 <option key={n.id} value={n.id}>
-                  {n.name}
+                  {L.text(n.name)}
                 </option>
               ))}
             </select>
@@ -438,7 +440,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
                 style={chip(boatTypeIds.includes(b.id))}
                 onClick={() => toggleIn(boatTypeIds, setBoatTypeIds, b.id)}
               >
-                {b.name}
+                {L.text(b.name)}
               </button>
             ))}
           </div>

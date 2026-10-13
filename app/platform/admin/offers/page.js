@@ -4,6 +4,7 @@ import { formatCredits } from "../../../../lib/platform/credits";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
+import { useLocalData } from "../../useLocalData";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import OfferComposer from "../OfferComposer";
 import { Panel, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
@@ -24,6 +25,7 @@ function expiryText(iso, t) {
 export default function OffersPage() {
   const t = useTranslations("AdminOffers");
   const f = useFormat();
+  const L = useLocalData();
   const counts = useAdminCounts();
   const [offers, setOffers] = useState([]);
   const [showClosed, setShowClosed] = useState(false);
@@ -95,7 +97,7 @@ export default function OffersPage() {
         {offers.map((o) => (
           <Row key={o.request_id}>
             <RowMain
-              title={`${o.port_name || "—"} · ${labelForRole(o.crew_role)}`}
+              title={`${L.text(o.port_name) || "—"} · ${labelForRole(o.crew_role)}`}
               meta={
                 <>
                   <span style={money}>{f.date(o.start_date)}</span> → <span style={money}>{f.date(o.end_date)}</span> ·{" "}
@@ -122,14 +124,14 @@ export default function OffersPage() {
                       {expiryText(o.expires_at, t)}
                     </>
                   ) : o.claimed_by ? (
-                    <span style={{ color: colors.success }}>{t("claimedBy", { name: o.claimed_by })}</span>
+                    <span style={{ color: colors.success }}>{t("claimedBy", { name: L.name(o.claimed_by) })}</span>
                   ) : (
                     <>{t.rich(Number(o.recipients) === 1 ? "sentToOne" : "sentTo", { ago: f.timeAgo(o.created_at), n: o.recipients, m })}</>
                   )}
                   {o.note && (
                     <>
                       <br />
-                      «{o.note}»
+                      <span data-user-text>«{o.note}»</span>
                     </>
                   )}
                 </>

@@ -13,6 +13,7 @@ import {
 import { COUNTRIES, regionExamples, regionIn } from "../../../lib/platform/places";
 import { logPlaceMiss } from "../../../lib/platform/health";
 import { colors, muted, select } from "../../../lib/platform/theme";
+import { useLocalData } from "../useLocalData";
 
 // «Από πού ξεκινά το ταξίδι;» — ένα πεδίο για νησί, πόλη ή λιμάνι.
 //
@@ -80,11 +81,11 @@ const SearchIcon = () => (
   </svg>
 );
 
-function placeMeta(e, t) {
+function placeMeta(e, t, L) {
   if (e.type === "country") return t("allRegions");
   if (e.type === "region")
-    return [t("region"), e.covered ? regionExamples(e.name, 3).join(", ") : t("noProfessionalsYet")].filter(Boolean).join(" · ");
-  return [e.parent, e.regionName, e.countryName, e.covered ? null : t("noProfessionalsYet")].filter(Boolean).join(" · ");
+    return [t("region"), e.covered ? L.text(regionExamples(e.name, 3).join(", ")) : t("noProfessionalsYet")].filter(Boolean).join(" · ");
+  return [e.parent, e.regionName, e.countryName, e.covered ? null : t("noProfessionalsYet")].filter(Boolean).map((x) => L.text(x)).join(" · ");
 }
 
 export default function PlacePicker({
@@ -102,8 +103,9 @@ export default function PlacePicker({
 }) {
   const t = useTranslations("PlacePicker");
   const locale = useLocale();
+  const L = useLocalData();
   // Η πτώση «στις Κυκλάδες» υπάρχει μόνο για τα ελληνικά· αλλού μένει το όνομα.
-  const inRegion = (name) => (locale === "el" ? regionIn(name) : name);
+  const inRegion = (name) => (locale === "el" ? regionIn(name) : L.text(name));
   const arrival = mode === "arrival";
   const index = useMemo(() => buildPlaceIndex(regions), [regions]);
   const choice = arrival ? null : describeChoice(index, value || {});
@@ -235,15 +237,15 @@ export default function PlacePicker({
   const regionEntries = index
     .filter((e) => e.type === "region" && e.covered && e.countryCode === country)
     .sort((a, b) => a.popular - b.popular);
-  const countryName = COUNTRIES.find((c) => c.code === country)?.name || "";
+  const countryName = L.text(COUNTRIES.find((c) => c.code === country)?.name || "");
   const styleTag = <style dangerouslySetInnerHTML={{ __html: CSS }} />;
 
   const regionRows = (onPick) =>
     regionEntries.map((r) => (
       <button key={r.id} type="button" className="sf-pp-row" onClick={() => onPick(r)}>
         <span>
-          <span className="sf-pp-name">{r.name}</span>
-          <span className="sf-pp-sub">{regionExamples(r.name, 3).join(", ")}</span>
+          <span className="sf-pp-name">{L.text(r.name)}</span>
+          <span className="sf-pp-sub">{L.text(regionExamples(r.name, 3).join(", "))}</span>
         </span>
         <Chevron />
       </button>
@@ -257,18 +259,18 @@ export default function PlacePicker({
       return (
         <>
           {styleTag}
-          <Summary title={value} sub={same && match.type === "place" ? placeMeta(match, t) : null} onChange={startEditing} invalid={invalid} />
+          <Summary title={L.text(value)} sub={same && match.type === "place" ? placeMeta(match, t, L) : null} onChange={startEditing} invalid={invalid} />
         </>
       );
     }
     const regionName = choice.region?.name || "";
     const sub =
       choice.kind === "region"
-        ? `${t("wholeRegion")} · ${choice.region?.countryName || ""}`
+        ? `${t("wholeRegion")} · ${L.text(choice.region?.countryName || "")}`
         : choice.kind === "place"
-          ? placeMeta(choice.entry, t)
-          : [regionName, choice.region?.countryName].filter(Boolean).join(" · ");
-    const title = choice.kind === "place" ? choice.entry.name : choice.kind === "region" ? regionName : choice.text;
+          ? placeMeta(choice.entry, t, L)
+          : [regionName, choice.region?.countryName].filter(Boolean).map((x) => L.text(x)).join(" · ");
+    const title = L.text(choice.kind === "place" ? choice.entry.name : choice.kind === "region" ? regionName : choice.text);
     const ports = choice.kind === "place" ? choice.entry.ports : null;
     const nearby = choice.kind === "region" ? placesInRegion(index, value.regionId, 12) : null;
     return (
@@ -287,7 +289,7 @@ export default function PlacePicker({
               {ports.map((p) => (
                 <button key={p} type="button" className="sf-pp-row" aria-pressed={choice.port === p}
                   onClick={() => onChange({ regionId: value.regionId, point: pointFor(choice.entry, p) })}>
-                  <span className="sf-pp-name">{p}</span>
+                  <span className="sf-pp-name">{L.text(p)}</span>
                   <span className="sf-pp-radio" aria-hidden="true" />
                 </button>
               ))}
@@ -300,7 +302,7 @@ export default function PlacePicker({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, margin: "0 -12px" }}>
               {nearby.map((e) => (
                 <button key={e.id} type="button" className="sf-pp-cell" onClick={() => onChange({ regionId: e.regionId, point: e.name })}>
-                  {e.name}
+                  {L.text(e.name)}
                 </button>
               ))}
             </div>
@@ -322,8 +324,8 @@ export default function PlacePicker({
       <div data-place-picker="uncovered">
         {styleTag}
         <Summary
-          title={uncovered.name}
-          sub={[uncovered.type === "place" ? uncovered.regionName : null, uncovered.countryName].filter(Boolean).join(" · ")}
+          title={L.text(uncovered.name)}
+          sub={[uncovered.type === "place" ? uncovered.regionName : null, uncovered.countryName].filter(Boolean).map((x) => L.text(x)).join(" · ")}
           onChange={startEditing}
         />
         <p style={{ fontSize: 15, fontWeight: 500, margin: "24px 0 4px", color: colors.ink }}>
@@ -335,7 +337,7 @@ export default function PlacePicker({
         <div className="sf-pp-list">
           {nearRegions.map((r) => (
             <button key={r.regionId} type="button" className="sf-pp-row" onClick={() => done({ regionId: r.regionId, point: uncovered.name })}>
-              <span className="sf-pp-name">{r.name}</span>
+              <span className="sf-pp-name">{L.text(r.name)}</span>
               <Chevron />
             </button>
           ))}
@@ -370,8 +372,8 @@ export default function PlacePicker({
               <div key={r.id}>
                 <button type="button" className="sf-pp-row" aria-expanded={open} onClick={() => setOpenRegion(open ? null : r.regionId)}>
                   <span>
-                    <span className="sf-pp-name">{r.name}</span>
-                    <span className="sf-pp-sub">{regionExamples(r.name, 3).join(", ")}</span>
+                    <span className="sf-pp-name">{L.text(r.name)}</span>
+                    <span className="sf-pp-sub">{L.text(regionExamples(r.name, 3).join(", "))}</span>
                   </span>
                   <Chevron />
                 </button>
@@ -388,7 +390,7 @@ export default function PlacePicker({
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
                       {placesInRegion(index, r.regionId, 80).map((e) => (
                         <button key={e.id} type="button" className="sf-pp-cell" onClick={() => done({ regionId: e.regionId, point: e.name })}>
-                          {e.name}
+                          {L.text(e.name)}
                         </button>
                       ))}
                     </div>
@@ -413,7 +415,7 @@ export default function PlacePicker({
       {showCountryChoice && (
         <select aria-label={t("country")} style={{ ...select, marginBottom: 12, height: 52 }} value={country} onChange={(e) => setOwnCountry(e.target.value)}>
           {COUNTRIES.map((c) => (
-            <option key={c.code} value={c.code}>{c.name}</option>
+            <option key={c.code} value={c.code}>{L.text(c.name)}</option>
           ))}
         </select>
       )}
@@ -472,8 +474,8 @@ export default function PlacePicker({
                 </span>
               ) : (
                 <span>
-                  <span className="sf-pp-name">{o.name}</span>
-                  <span className="sf-pp-sub">{placeMeta(o, t)}</span>
+                  <span className="sf-pp-name">{L.text(o.name)}</span>
+                  <span className="sf-pp-sub">{placeMeta(o, t, L)}</span>
                 </span>
               )}
             </li>
@@ -502,8 +504,8 @@ export default function PlacePicker({
             {suggested.map((e) => (
               <button key={e.id} type="button" className="sf-pp-row" onClick={() => pick(e)}>
                 <span>
-                  <span className="sf-pp-name">{e.child ? e.parent : e.name}</span>
-                  <span className="sf-pp-sub">{[e.child ? e.name : e.parent, e.regionName].filter(Boolean).join(" · ")}</span>
+                  <span className="sf-pp-name">{L.text(e.child ? e.parent : e.name)}</span>
+                  <span className="sf-pp-sub">{[e.child ? e.name : e.parent, e.regionName].filter(Boolean).map((x) => L.text(x)).join(" · ")}</span>
                 </span>
                 <Chevron />
               </button>

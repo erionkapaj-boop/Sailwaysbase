@@ -4,7 +4,6 @@
 // κείμενα (Όροι, Απόρρητο), που περιμένουν δικό τους αγγλικό κείμενο.
 // Με SWEEP_SHOTS=1 βγάζει και στιγμιότυπα 390px/1280px για τον έλεγχο σχεδίου.
 import { chromium } from "playwright";
-import { readFileSync, readdirSync } from "node:fs";
 import { BASE, as, check, finish, OUT, sql } from "./lib.mjs";
 
 const GREEK = /[Ͱ-Ͽἀ-῿]/;
@@ -15,23 +14,6 @@ const GUEST = ["/platform", "/platform/login", "/platform/register", "/platform/
 const CLIENT = ["/platform", "/platform/search", "/platform/requests", "/platform/wallet", "/platform/wallet/buy", "/platform/profile", "/platform/bookings", "/platform/delivery", "/platform/delivery/requests"];
 const PRO = ["/platform", "/platform/profile", "/platform/availability", "/platform/bookings", "/platform/wallet"];
 const ADMINP = ["/platform/admin", "/platform/admin/approvals", "/platform/admin/messages", "/platform/admin/disputes", "/platform/admin/replacements", "/platform/admin/offers", "/platform/admin/bookings", "/platform/admin/deliveries", "/platform/admin/users", "/platform/admin/finance", "/platform/admin/settings", "/platform/admin/health", "/platform/admin/ghost"];
-
-const wordsOf = (t) => (t.match(/[\u0370-\u03ff\u1f00-\u1fff]+/g) || []).map((w) => w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-// Όλες οι ελληνικές λέξεις που υπάρχουν ως δεδομένο στη βάση (πίνακες public).
-const DATA = new Set();
-for (const t of sql("select tablename from pg_tables where schemaname = 'public'").split("\n").filter(Boolean)) {
-  try {
-    for (const w of wordsOf(sql(`select coalesce(string_agg(row_to_json(x)::text, ' '), '') from ${t} x`))) DATA.add(w);
-  } catch {}
-}
-
-// Ονόματα τόπων και χωρών που ζουν στον κώδικα (δεδομένα, όχι κείμενο οθόνης).
-const dataFiles = ["places.js", "countryCodes.js", "placeSearch.js", ...readdirSync(new URL("../../lib/platform/countries/", import.meta.url)).map((f) => `countries/${f}`)];
-for (const f of dataFiles.map((n) => `../../lib/platform/${n}`)) {
-  try {
-    for (const w of wordsOf(readFileSync(new URL(f, import.meta.url), "utf8"))) DATA.add(w);
-  } catch {}
-}
 
 const slug = (p) => p.replace(/^\/platform\/?/, "").replace(/\//g, "-") || "home";
 
@@ -59,9 +41,10 @@ async function sweep(page, who, paths) {
       }
       return out;
     });
-    // Δεδομένα (ονόματα, τόποι, σημειώσεις στη βάση) δεν μεταφράζονται εδώ: ένα κομμάτι
-    // κειμένου με ελληνικά περνά μόνο αν όλες οι λέξεις του υπάρχουν ως δεδομένο στη βάση.
-    const greek = [...new Set(nodes.filter((l) => GREEK.test(l) && !wordsOf(l).every((w) => DATA.has(w))))];
+    // Κανένα ελληνικό γράμμα: ούτε στα δεδομένα (τόποι, ονόματα, τύποι σκαφών, γλώσσες…),
+    // που περνούν από το lib/platform/localData.js. Μόνο ό,τι έγραψε ο ίδιος ο χρήστης
+    // (μηνύματα, σημειώσεις) σημαίνεται με data-user-text και μένει όπως γράφτηκε.
+    const greek = [...new Set(nodes.filter((l) => GREEK.test(l)))];
     check(`${who} ${path}: αγγλικά, χωρίς ελληνικά γράμματα`, lang === "en" && greek.length === 0, `lang=${lang} · ${greek.slice(0, 8).join(" | ")}`);
     if (SHOTS) {
       for (const [w, h, tag] of [[390, 844, "m"], [1280, 900, "d"]]) {

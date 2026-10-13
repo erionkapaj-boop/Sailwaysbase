@@ -3,6 +3,7 @@ import TrustLine from "./TrustLine";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
+import { useLocalData } from "../useLocalData";
 import {
   getOpenReplacementOffer,
   clientListReplacementCandidates,
@@ -25,11 +26,11 @@ const SELECT_ERROR_CODES = [
   "candidate_cannot_pay",
 ];
 
-function identityLine(s, t) {
+function identityLine(s, t, L) {
   const parts = [];
-  if (s.nationality_country) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${s.nationality_country}`);
+  if (s.nationality_country) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${L.text(s.nationality_country)}`);
   if (s.age) parts.push(t("age", { age: s.age }));
-  if (s.languages?.length > 0) parts.push(s.languages.join(", "));
+  if (s.languages?.length > 0) parts.push(L.text(s.languages.join(", ")));
   return parts.join(" · ");
 }
 
@@ -38,6 +39,7 @@ function identityLine(s, t) {
 // μόνο μετά την επιβεβαίωση, ακριβώς όπως σε κάθε άλλη κράτηση.
 function CandidateCard({ s, days, busy, onSelect }) {
   const t = useTranslations("ReplacementCandidates");
+  const L = useLocalData();
   const highlights = computeCrewHighlights(s);
   return (
     <div style={{ ...card, marginBottom: 10 }}>
@@ -51,7 +53,7 @@ function CandidateCard({ s, days, busy, onSelect }) {
               <span style={money}>{Number(s.price_per_day) * days}€</span> {t("forDays", { days })}
             </div>
           )}
-          {identityLine(s, t) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s, t)}</div>}
+          {identityLine(s, t, L) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s, t, L)}</div>}
           <div style={{ margin: "8px 0" }}>
             <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
           </div>

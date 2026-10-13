@@ -1,8 +1,9 @@
 "use client";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
+import { useLocalData } from "../../useLocalData";
 import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Metric, MetricGrid, Row, RowMain, Empty, colors, muted, money, button, STATUS_LABEL } from "../ui";
 import {
@@ -37,7 +38,7 @@ const inputStyle = {
 
 function Topup({ onDone }) {
   const t = useTranslations("AdminFinance");
-  const locale = useLocale();
+  const L = useLocalData();
   const [phone, setPhone] = useState("");
   const [results, setResults] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -116,7 +117,7 @@ function Topup({ onDone }) {
       setError(t("err_reason_required"));
       return;
     }
-    const who = (locale === "en" && selected.full_name_latin) || selected.full_name || selected.phone_number;
+    const who = L.person(selected) || selected.phone_number;
     if (value > LARGE_CREDITS) {
       if (!window.confirm(t(mode === "correct" ? "confirmLargeRemove" : "confirmLargeCredit", { credits: formatCredits(value), who }))) return;
     }
@@ -200,7 +201,7 @@ function Topup({ onDone }) {
             fontSize: 14,
           }}
         >
-          {(locale === "en" && u.full_name_latin) || u.full_name || t("noName")} · <span style={money}>{u.phone_number}</span> · {STATUS_LABEL[u.role] || u.role}
+          {L.person(u) || t("noName")} · <span style={money}>{u.phone_number}</span> · {STATUS_LABEL[u.role] || u.role}
           {` · ${t("balance")} `}<span style={money}>{formatCredits(u.wallet_balance)}</span>
         </button>
       ))}
@@ -265,8 +266,8 @@ function Topup({ onDone }) {
 function PurchaseRequests({ onDone }) {
   const t = useTranslations("AdminFinance");
   const f = useFormat();
-  const locale = useLocale();
-  const nm = (r) => (locale === "en" && r.full_name_latin) || r.full_name || r.phone_number;
+  const L = useLocalData();
+  const nm = (r) => L.person(r) || r.phone_number;
   const [rows, setRows] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");

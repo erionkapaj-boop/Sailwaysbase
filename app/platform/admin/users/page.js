@@ -3,6 +3,7 @@ import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
+import { useLocalData } from "../../useLocalData";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
@@ -74,7 +75,8 @@ function ageFrom(dob) {
 function UsersInner() {
   const t = useTranslations("AdminUsers");
   const f = useFormat();
-  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
+  const L = useLocalData();
+  const personName = (p) => L.person(p);
   const refreshCounts = useRefreshAdminCounts();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -317,7 +319,7 @@ function UsersInner() {
                     {u.status === "suspended" && u.suspension_reason && (
                       <>
                         <br />
-                        <span style={{ color: colors.warn }}>{t("suspension", { reason: u.suspension_reason })}</span>
+                        <span data-user-text style={{ color: colors.warn }}>{t("suspension", { reason: u.suspension_reason })}</span>
                       </>
                     )}
                   </>
