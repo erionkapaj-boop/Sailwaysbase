@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { getMyPendingReviewCount } from "../../../lib/platform/db";
 import { colors, muted } from "../../../lib/platform/theme";
 
@@ -15,6 +16,7 @@ import { colors, muted } from "../../../lib/platform/theme";
 // would tell someone to look "below" on a page that no longer has bookings
 // on it at all.
 export default function PendingReviewBanner({ bookingsHref }) {
+  const t = useTranslations("PendingReviewBanner");
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -34,20 +36,18 @@ export default function PendingReviewBanner({ bookingsHref }) {
       }}
     >
       <b style={{ fontSize: 14, fontWeight: 600 }}>
-        {count === 1
-          ? "Ένα ταξίδι σου ολοκληρώθηκε και περιμένει την αξιολόγησή σου."
-          : `${count} ταξίδια σου ολοκληρώθηκαν και περιμένουν την αξιολόγησή σου.`}
+        {t("title", { count })}
       </b>
       <p style={{ ...muted, fontSize: 13, margin: "4px 0 0" }}>
-        Άνοιξε την κράτηση στις{" "}
-        {bookingsHref ? (
-          <Link href={bookingsHref} style={{ color: colors.accent }}>
-            «Κρατήσεις»
-          </Link>
-        ) : (
-          "«Κρατήσεις»"
-        )}{" "}
-        για να την αφήσεις.
+        {bookingsHref
+          ? t.rich("openLinked", {
+              link: (chunks) => (
+                <Link href={bookingsHref} style={{ color: colors.accent }}>
+                  {chunks}
+                </Link>
+              ),
+            })
+          : t("openPlain")}
       </p>
     </div>
   );

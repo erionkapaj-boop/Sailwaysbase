@@ -89,13 +89,13 @@ function AccountNavBar({ name, photoUrl, loading, items, activeHref, onSignOut, 
 // ενότητες μπαίνουν εδώ, σε ομάδες με επικεφαλίδα — ένα μόνο μενού, παντού.
 // Το admin_SECTIONS ζει στο AdminShell.js (χρειάζεται και εκεί, για το ποια
 // σελίδα είναι «ενεργή»), οπότε εισάγεται αντί να ξαναγραφτεί.
-function buildMenuItems({ role, isAdmin, isOwner, adminCounts }) {
-  const items = [{ href: "/platform", label: "Αρχική" }];
+function buildMenuItems({ role, isAdmin, isOwner, adminCounts, t }) {
+  const items = [{ href: "/platform", label: t("menuHome") }];
   const own = [];
-  own.push({ href: "/platform/requests", label: "Αιτήματα" });
-  own.push({ href: "/platform/bookings", label: isAdmin ? "Οι κρατήσεις μου" : "Κρατήσεις" });
-  if (role === "skipper" || isAdmin) own.push({ href: "/platform/availability", label: "Η διαθεσιμότητά μου" });
-  own.push({ href: "/platform/profile", label: "Το προφίλ μου" });
+  own.push({ href: "/platform/requests", label: t("menuRequests") });
+  own.push({ href: "/platform/bookings", label: isAdmin ? t("menuMyBookings") : t("menuBookings") });
+  if (role === "skipper" || isAdmin) own.push({ href: "/platform/availability", label: t("menuAvailability") });
+  own.push({ href: "/platform/profile", label: t("menuProfile") });
   own.push({ href: "/platform/wallet", label: "Credits" });
 
   if (!isAdmin) {
@@ -113,13 +113,14 @@ function buildMenuItems({ role, isAdmin, isOwner, adminCounts }) {
       prefix: !s.exact,
       badge: badgeCount(s.badge, adminCounts),
     });
-  own[0].heading = "Ο λογαριασμός μου";
+  own[0].heading = t("menuAccount");
   return [...items, ...own];
 }
 
 function NavBar() {
   const { session, userRow, profile, loading, signOut, role, isAdmin, isOwner, notifications, refreshNotifications } = useAuth();
   const t = useTranslations("Nav");
+  const ts = useTranslations("Shell");
   const pathname = usePathname();
   // Δεν διαβάζεται από το AdminCountsContext: αυτό το provider ζει μέσα στο
   // app/platform/admin/layout.js, πιο βαθιά στο δέντρο από εδώ (το μενού
@@ -137,11 +138,11 @@ function NavBar() {
   }, [isAdmin, pathname]);
 
   if (session && (isAdmin || role === "skipper" || role === "client")) {
-    const menuItems = buildMenuItems({ role, isAdmin, isOwner, adminCounts });
+    const menuItems = buildMenuItems({ role, isAdmin, isOwner, adminCounts, t: ts });
     return (
       <>
         <AccountNavBar
-          name={profile?.full_name || userRow?.full_name || (isAdmin ? "Διαχειριστής" : undefined)}
+          name={profile?.full_name || userRow?.full_name || (isAdmin ? ts("adminName") : undefined)}
           photoUrl={profile?.photo_url || userRow?.photo_url}
           loading={loading}
           items={menuItems}
@@ -210,6 +211,7 @@ ${SIDENAV_CSS}
 // what makes forgetting you are in it easy — so the one difference has to be
 // impossible to miss.
 function ViewAsBanner() {
+  const t = useTranslations("Shell");
   const { viewingAs, stopViewAs } = useAuth();
   if (!viewingAs) return null;
   return (
@@ -230,7 +232,7 @@ function ViewAsBanner() {
       }}
     >
       <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        Βλέπεις ως <b>{viewingAs.name || viewingAs.phone}</b>. Μόνο ανάγνωση.
+        {t.rich("viewingAs", { name: viewingAs.name || viewingAs.phone, b: (c) => <b>{c}</b> })}
       </span>
       <button
         type="button"
@@ -247,7 +249,7 @@ function ViewAsBanner() {
           flexShrink: 0,
         }}
       >
-        Έξοδος
+        {t("viewAsExit")}
       </button>
     </div>
   );
@@ -272,6 +274,7 @@ const VERIFICATION_GATED_PREFIXES = [
 ];
 
 function VerificationGate({ children }) {
+  const t = useTranslations("Shell");
   const { userRow, isAdmin, signOut } = useAuth();
   const pathname = usePathname();
   // Read after mount only — localStorage doesn't exist during the server render.
@@ -291,20 +294,19 @@ function VerificationGate({ children }) {
   return (
     <div style={{ ...container, maxWidth: 460 }}>
       <div style={{ ...card, marginTop: 20, textAlign: "center" }}>
-        <h1 style={{ ...h1, fontSize: 20 }}>Ο λογαριασμός σου ελέγχεται</h1>
+        <h1 style={{ ...h1, fontSize: 20 }}>{t("pendingTitle")}</h1>
         <p style={{ ...muted, margin: "10px 0 0", lineHeight: 1.55 }}>
-          Η εγγραφή σου είναι σε έλεγχο.
+          {t("pendingLine1")}
         </p>
         <p style={{ ...muted, margin: "10px 0 0", lineHeight: 1.55 }}>
-          Μέχρι τότε μπορείς να ψάχνεις και να διαλέγεις επαγγελματίες· η αποστολή αιτήματος ενεργοποιείται μόλις
-          εγκριθεί ο λογαριασμός σου.
+          {t("pendingLine2")}
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
           <Link href={resume || "/platform"} style={{ ...button("primary"), textDecoration: "none" }}>
-            {resume ? "Γύρνα στις επιλογές σου" : "Συνέχισε την αναζήτηση"}
+            {resume ? t("backToChoices") : t("continueSearch")}
           </Link>
           <Link href="/platform/contact" style={{ ...button("secondary"), textDecoration: "none" }}>
-            Επικοινώνησε μαζί μας
+            {t("contactUs")}
           </Link>
         </div>
         <button
@@ -312,7 +314,7 @@ function VerificationGate({ children }) {
           onClick={signOut}
           style={{ background: "none", border: "none", padding: 0, marginTop: 16, cursor: "pointer", color: colors.inkSoft, fontSize: 13, textDecoration: "underline", fontFamily: "inherit" }}
         >
-          Αποσύνδεση
+          {t("logout")}
         </button>
       </div>
     </div>
@@ -324,21 +326,22 @@ function VerificationGate({ children }) {
 // page except set-pin itself asks for it first. Skipped while an admin is
 // only viewing as someone (userRow is theirs then, the session isn't).
 function PinChangeGate({ children }) {
+  const t = useTranslations("Shell");
   const { userRow, viewingAs } = useAuth();
   const pathname = usePathname();
   if (!userRow?.pin_change_required || viewingAs || pathname.startsWith("/platform/set-pin")) return children;
   return (
     <div style={{ ...container, maxWidth: 460 }}>
       <div style={{ ...card, marginTop: 20, textAlign: "center" }}>
-        <h1 style={{ ...h1, fontSize: 20 }}>Όρισε τον δικό σου κωδικό</h1>
+        <h1 style={{ ...h1, fontSize: 20 }}>{t("pinTitle")}</h1>
         <p style={{ ...muted, margin: "10px 0 0", lineHeight: 1.55 }}>
-          Μπήκες με προσωρινό κωδικό. Όρισε τώρα τον δικό σου.
+          {t("pinBody")}
         </p>
         <Link
           href="/platform/set-pin?change=1&required=1"
           style={{ ...button("primary"), textDecoration: "none", display: "block", marginTop: 20 }}
         >
-          Ορισμός κωδικού
+          {t("pinSet")}
         </Link>
       </div>
     </div>

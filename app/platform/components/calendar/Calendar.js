@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { colors, fontSans } from "../../../../lib/platform/theme";
 import { useFormat } from "../../useFormat";
 
@@ -91,11 +92,12 @@ function Chevron({ dir }) {
 
 // Μήνας/μήνες με βελάκια. `count` μήνες δίπλα-δίπλα (2 σε φαρδιά οθόνη).
 export function MonthNav({ month, count = 1, onPrev, onNext, prevDisabled }) {
+  const t = useTranslations("Calendar");
   const f = useFormat();
   const months = f.monthNames("long");
   return (
     <div style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: 14, minHeight: 36 }}>
-      <button type="button" className="sf-cal-nav" aria-label="Προηγούμενος μήνας" onClick={onPrev} disabled={prevDisabled}>
+      <button type="button" className="sf-cal-nav" aria-label={t("prevMonth")} onClick={onPrev} disabled={prevDisabled}>
         <Chevron dir="left" />
       </button>
       <div style={{ flex: 1, display: "flex", justifyContent: "space-around" }}>
@@ -108,7 +110,7 @@ export function MonthNav({ month, count = 1, onPrev, onNext, prevDisabled }) {
           );
         })}
       </div>
-      <button type="button" className="sf-cal-nav" aria-label="Επόμενος μήνας" onClick={onNext}>
+      <button type="button" className="sf-cal-nav" aria-label={t("nextMonth")} onClick={onNext}>
         <Chevron dir="right" />
       </button>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import LegalPage, { Section, P, UL, LI, Note } from "../components/LegalPage";
 import { colors } from "../../../lib/platform/theme";
 import { company } from "../../../lib/platform/company";
@@ -12,116 +13,67 @@ const link = { color: colors.accent };
 // τη στιγμή που αφορούν τον χρήστη· δημοσιευμένα εδώ θα ήταν απλώς έτοιμη
 // προδιαγραφή για όποιον θέλει να την αντιγράψει.
 export default function AboutBody() {
+  const t = useTranslations("About");
+  const rich = {
+    b: (c) => <strong>{c}</strong>,
+    terms: (c) => (
+      <Link href="/platform/terms#fees" style={link}>
+        {c}
+      </Link>
+    ),
+    termsPage: (c) => (
+      <Link href="/platform/terms" style={link}>
+        {c}
+      </Link>
+    ),
+    privacy: (c) => (
+      <Link href="/platform/privacy" style={link}>
+        {c}
+      </Link>
+    ),
+    contact: (c) => (
+      <Link href="/platform/contact" style={link}>
+        {c}
+      </Link>
+    ),
+  };
   return (
-    <LegalPage
-      title="Σχετικά & βοήθεια"
-      showUpdated={false}
-      intro={`Το ${company.brandName} συνδέει όποιον χρειάζεται πλήρωμα για ένα σκάφος με επαγγελματίες που είναι διαθέσιμοι εκείνες τις ημερομηνίες. Παρακάτω, πώς δουλεύει στην πράξη.`}
-    >
-      <Section id="how-client" title="Αν ψάχνεις πλήρωμα">
+    <LegalPage title={t("title")} showUpdated={false} intro={t("intro", { brand: company.brandName })}>
+      <Section id="how-client" title={t("clientTitle")}>
         <UL>
-          <LI>
-            <strong>Λες τι χρειάζεσαι:</strong> ειδικότητα, ημερομηνίες, σημείο αναχώρησης και τύπο
-            σκάφους.
-          </LI>
-          <LI>
-            <strong>Βλέπεις ποιοι είναι διαθέσιμοι</strong> για αυτές ακριβώς τις ημερομηνίες, με
-            βαθμολογίες, εμπειρία, γλώσσες και τιμή.
-          </LI>
-          <LI>
-            <strong>Στέλνεις αίτημα</strong> σε έναν ή σε πολλούς μαζί, και το αναλαμβάνει όποιος
-            απαντήσει πρώτος.
-          </LI>
-          <LI>
-            <strong>Μόλις κλείσει</strong>, βλέπεις τα στοιχεία επικοινωνίας του και μπορείτε να
-            συνεννοηθείτε μέσα από την εφαρμογή.
-          </LI>
+          <LI>{t.rich("client1", rich)}</LI>
+          <LI>{t.rich("client2", rich)}</LI>
+          <LI>{t.rich("client3", rich)}</LI>
+          <LI>{t.rich("client4", rich)}</LI>
         </UL>
-        <Note>
-          Το credit δεσμεύεται με την αποστολή και <strong>χρεώνεται μόνο όταν ένας επαγγελματίας
-          αποδεχτεί</strong> το αίτημα. Αν δεν το αποδεχτεί κανείς, ή αν το ακυρώσεις όσο είναι ακόμη
-          ανοιχτό, ελευθερώνεται. Αν ο επαγγελματίας ακυρώσει αργότερα, ψάχνουμε αντικαταστάτη χωρίς
-          νέα χρέωση· αν δεν βρεθεί, το credit επιστρέφεται.
-        </Note>
+        <Note>{t.rich("clientNote", rich)}</Note>
       </Section>
 
-      <Section id="how-pro" title="Αν είσαι επαγγελματίας">
+      <Section id="how-pro" title={t("proTitle")}>
         <UL>
-          <LI>
-            <strong>Φτιάχνεις προφίλ</strong> με την ειδικότητα, την άδειά σου, την εμπειρία και την
-            τιμή σου. Η διαχείριση το ελέγχει πριν γίνει ορατό.
-          </LI>
-          <LI>
-            <strong>Δηλώνεις πότε είσαι διαθέσιμος.</strong> Εμφανίζεσαι μόνο σε αναζητήσεις που
-            ταιριάζουν με όσα έχεις δηλώσει.
-          </LI>
-          <LI>
-            <strong>Δέχεσαι αιτήματα</strong> και απαντάς. Η ανάληψη είναι δεσμευτική και χρησιμοποιεί
-            credits· ο αριθμός φαίνεται πάντα δίπλα στο κουμπί, πριν το πατήσεις.
-          </LI>
-          <LI>
-            <strong>Αντικαταστάσεις.</strong> Όταν συνάδελφος ακυρώσει, μπορεί να σου προταθεί η θέση.
-            Δηλώνεις διαθεσιμότητα χωρίς χρέωση και χωρίς δέσμευση· χρεώνεσαι μόνο αν σε διαλέξει ο
-            πελάτης, και μέχρι τότε μπορείς να ανακαλέσεις ή να αναλάβεις άλλη δουλειά.
-          </LI>
+          <LI>{t.rich("pro1", rich)}</LI>
+          <LI>{t.rich("pro2", rich)}</LI>
+          <LI>{t.rich("pro3", rich)}</LI>
+          <LI>{t.rich("pro4", rich)}</LI>
         </UL>
       </Section>
 
-      <Section id="fees" title="Credits">
-        <P>
-          Η πλατφόρμα λειτουργεί με <strong>credits</strong>. Το credit χρησιμοποιείται όταν ένας
-          επαγγελματίας αποδεχτεί το αίτημα: από τον πελάτη, που το είχε δεσμεύσει με την αποστολή,
-          και από τον επαγγελματία, με την ανάληψη.{" "}
-          <strong>Ο αριθμός credits εμφανίζεται πάντα πριν</strong> πατήσεις το κουμπί. Τα credits δεν
-          λήγουν.
-        </P>
-        <P>
-          Η αμοιβή για την ίδια την εργασία <strong>δεν περνάει από την πλατφόρμα</strong>: τη
-          συμφωνείτε και την εξοφλείτε απευθείας μεταξύ σας. Οι λεπτομέρειες, στους{" "}
-          <Link href="/platform/terms#fees" style={link}>
-            όρους χρήσης
-          </Link>
-          .
-        </P>
+      <Section id="fees" title={t("feesTitle")}>
+        <P>{t.rich("fees1", rich)}</P>
+        <P>{t.rich("fees2", rich)}</P>
       </Section>
 
-      <Section id="trust" title="Εμπιστοσύνη">
+      <Section id="trust" title={t("trustTitle")}>
         <UL>
-          <LI>
-            <strong>Αξιολογούν μόνο όσοι συνεργάστηκαν πραγματικά</strong>, μετά από ολοκληρωμένη
-            κράτηση. Αξιολογούνται και οι δύο πλευρές, και ο πελάτης.
-          </LI>
-          
-          <LI>
-            <strong>Η κατάταξη δεν πουλιέται.</strong> Καμία θέση στα αποτελέσματα δεν αγοράζεται.
-          </LI>
-          <LI>
-            <strong>Τα τηλέφωνα δεν είναι δημόσια.</strong> Αποκαλύπτονται μόνο μεταξύ των δύο πλευρών,
-            και μόνο αφού κλείσει η κράτηση.
-          </LI>
+          <LI>{t.rich("trust1", rich)}</LI>
+          <LI>{t.rich("trust2", rich)}</LI>
+          <LI>{t.rich("trust3", rich)}</LI>
         </UL>
       </Section>
 
-      <Section id="help" title="Χρειάζεσαι βοήθεια;">
-        <P>
-          Για πρόβλημα σε κράτηση, ερώτηση για χρέωση, αναφορά συμπεριφοράς ή τα δεδομένα σου, γράψε μας από
-          τη{" "}
-          <Link href="/platform/contact" style={link}>
-            φόρμα επικοινωνίας
-          </Link>
-          . Το μήνυμα πάει απευθείας στη διαχείριση.
-        </P>
-        <P>
-          Δες επίσης τους{" "}
-          <Link href="/platform/terms" style={link}>
-            όρους χρήσης
-          </Link>{" "}
-          και την{" "}
-          <Link href="/platform/privacy" style={link}>
-            πολιτική απορρήτου
-          </Link>
-          .
-        </P>
+      <Section id="help" title={t("helpTitle")}>
+        <P>{t.rich("help1", rich)}</P>
+        <P>{t.rich("help2", rich)}</P>
       </Section>
     </LegalPage>
   );

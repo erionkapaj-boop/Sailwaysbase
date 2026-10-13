@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import { useAuth } from "../AuthContext";
 import { getMyRequestDraft, getMyPendingCreditPurchase } from "../../../lib/platform/db";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
 import { labelForRole } from "../../../lib/platform/roles";
-import { formatDateRange } from "../../../lib/platform/notifications";
 import { card, colors, muted } from "../../../lib/platform/theme";
 
 // Αίτημα που ξεκίνησε και δεν ολοκληρώθηκε (0122): μία ήσυχη γραμμή που
@@ -13,6 +14,8 @@ import { card, colors, muted } from "../../../lib/platform/theme";
 // συσκευή κι αν ξεκίνησε. Όταν οι επιλογές περιμένουν ακόμα στη συσκευή
 // (πριν την έγκριση λογαριασμού), τις δείχνει το PendingReadyBanner.
 export default function RequestDraftLine({ style }) {
+  const t = useTranslations("RequestDraftLine");
+  const fmt = useFormat();
   const { session, viewingAs } = useAuth();
   const [draft, setDraft] = useState(null);
   const [waitingCredits, setWaitingCredits] = useState(false);
@@ -39,7 +42,7 @@ export default function RequestDraftLine({ style }) {
   const f = draft.filters || {};
   const summary = [
     Object.keys(draft.selections).map(labelForRole).join(", "),
-    formatDateRange(f.startDate, f.endDate),
+    fmt.dateRange(f.startDate, f.endDate),
     f.departurePoint,
   ]
     .filter(Boolean)
@@ -63,13 +66,13 @@ export default function RequestDraftLine({ style }) {
       }}
     >
       <span style={{ minWidth: 0 }}>
-        <b style={{ fontWeight: 600 }}>Αίτημα σε εξέλιξη</b>
+        <b style={{ fontWeight: 600 }}>{t("title")}</b>
         <span style={{ ...muted, display: "block", fontSize: 13, marginTop: 2 }}>{summary}</span>
         <span style={{ display: "block", fontSize: 13, marginTop: 2, color: waitingCredits ? colors.warn : colors.inkSoft }}>
-          {waitingCredits ? "Περιμένει την πίστωση των credits" : "Δεν έχει σταλεί ακόμα"}
+          {waitingCredits ? t("waitingCredits") : t("notSent")}
         </span>
       </span>
-      <span style={{ fontSize: 13.5, whiteSpace: "nowrap" }}>Συνέχεια ›</span>
+      <span style={{ fontSize: 13.5, whiteSpace: "nowrap" }}>{t("continue")}</span>
     </Link>
   );
 }

@@ -4,6 +4,7 @@ import { formatCredits } from "../../../lib/platform/credits";
 import DateField from "../components/calendar/DateField";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
@@ -34,25 +35,14 @@ import {
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
 
-const REQUEST_ERRORS = {
-  account_not_verified: "Ο λογαριασμός σου ελέγχεται ακόμα. Θα μπορείς να στείλεις το αίτημα μόλις ενεργοποιηθεί.",
-  no_client_profile: "Χρειάζεται λογαριασμός πελάτη.",
-  invalid_distance: "Τα μίλια πρέπει να είναι θετικός αριθμός.",
-  invalid_date_mode: "Μη έγκυρος τύπος ημερομηνίας.",
-};
+const REQUEST_ERRORS = ["account_not_verified", "no_client_profile", "invalid_distance", "invalid_date_mode"];
 
-const ROLE_ERRORS = {
-  invalid_price: "Μη έγκυρη τιμή.",
-  no_candidates_selected: "Επίλεξε τουλάχιστον έναν υποψήφιο.",
-  invalid_candidate_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος για μεταφορές.",
-  insufficient_wallet: "Δεν έχεις αρκετά credits. Απόκτησε credits από τη σελίδα Credits.",
-  not_owner: "Δεν έχεις πρόσβαση σε αυτό το αίτημα.",
-};
+const ROLE_ERRORS = ["invalid_price", "no_candidates_selected", "invalid_candidate_selection", "insufficient_wallet", "not_owner"];
 
-function identityLine(s) {
+function identityLine(s, t) {
   const parts = [];
   if (s.nationality_country) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${s.nationality_country}`);
-  if (s.age) parts.push(`${s.age} ετών`);
+  if (s.age) parts.push(t("age", { age: s.age }));
   if (s.languages?.length > 0) parts.push(s.languages.join(", "));
   return parts.join(" · ");
 }
@@ -86,6 +76,7 @@ function addDays(isoDate, days) {
 }
 
 function CandidateCard({ s, selected, onToggle }) {
+  const t = useTranslations("Delivery");
   return (
     <div
       style={{
@@ -110,7 +101,7 @@ function CandidateCard({ s, selected, onToggle }) {
         }}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
-        {identityLine(s) && <div style={{ fontSize: 13.5 }}>{identityLine(s)}</div>}
+        {identityLine(s, t) && <div style={{ fontSize: 13.5 }}>{identityLine(s, t)}</div>}
         <div style={{ marginTop: 3 }}>
           <Stars rating={s.rating_avg} count={s.rating_count} size={12} />
         </div>
@@ -123,7 +114,7 @@ function CandidateCard({ s, selected, onToggle }) {
         }}
         style={{ ...button(selected ? "primary" : "secondary"), padding: "6px 14px", fontSize: 13, flexShrink: 0 }}
       >
-        {selected ? "Επιλέχθηκε" : "Επιλογή"}
+        {selected ? t("selected") : t("select")}
       </button>
     </div>
   );
@@ -166,6 +157,7 @@ function RoleBlock({
   const [sent, setSent] = useState(null);
   const [restoredNotice] = useState(Boolean(initialPrice));
   const [topUpNeed, setTopUpNeed] = useState(0);
+  const t = useTranslations("Delivery");
   const { userRow } = useAuth();
   const balance = Number(userRow?.wallet_balance ?? 0);
 
@@ -186,11 +178,11 @@ function RoleBlock({
   async function handleSend() {
     setError("");
     if (!price || Number(price) < 0) {
-      setError("Συμπλήρωσε προσφερόμενη τιμή.");
+      setError(t("errOfferedPrice"));
       return;
     }
     if (selected.size === 0) {
-      setError("Επίλεξε τουλάχιστον έναν υποψήφιο.");
+      setError(t("errPickCandidate"));
       return;
     }
     // Τίποτα δεν έχει χρεωθεί ακόμα — δεν χάνεται τίποτα στέλνοντας στο
@@ -220,8 +212,9 @@ function RoleBlock({
       if (err.message === "insufficient_wallet") setTopUpNeed(Math.max(1, Number(estimate) || 1));
       else {
         // Όσα δεν περνούν από το friendlyError μετρούν εδώ για το «κολλάει».
-        if (REQUEST_ERRORS[err.message] || ROLE_ERRORS[err.message]) noteFailure(err.message);
-        setError(REQUEST_ERRORS[err.message] || ROLE_ERRORS[err.message] || friendlyError(err));
+        const known = REQUEST_ERRORS.includes(err.message) || ROLE_ERRORS.includes(err.message);
+        if (known) noteFailure(err.message);
+        setError(known ? t(`err_${err.message}`) : friendlyError(err));
       }
     } finally {
       setBusy(false);
@@ -232,12 +225,14 @@ function RoleBlock({
     return (
       <div style={{ ...card, borderLeft: `3px solid ${colors.accent}` }}>
         <p style={{ margin: 0, fontWeight: 600 }}>
-          Στάλθηκε το αίτημα για {labelForRole(role)} σε {selected.size}{" "}
-          {selected.size === 1 ? "υποψήφιο" : "υποψηφίους"}
+          {t("sentTo", { role: labelForRole(role), count: selected.size })}
         </p>
         <p style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>
-          Προσφερόμενη τιμή: <span style={{ ...money, color: colors.ink }}>{formatMoney(sent.offered_price)}€</span> ·{" "}
-          <span style={{ ...money, color: colors.ink }}>{formatCredits(sent.client_fee)}</span>.
+          {t.rich("sentSummary", {
+            price: `${formatMoney(sent.offered_price)}€`,
+            credits: formatCredits(sent.client_fee),
+            m: (c) => <span style={{ ...money, color: colors.ink }}>{c}</span>,
+          })}
         </p>
       </div>
     );
@@ -250,7 +245,7 @@ function RoleBlock({
         need={topUpNeed}
         balance={balance}
         onClose={() => setTopUpNeed(0)}
-        continueLabel="Συνέχεια: Αποστολή"
+        continueLabel={t("continueSend")}
         onContinue={() => handleSend()}
       />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
@@ -263,43 +258,42 @@ function RoleBlock({
             onClick={onRemove}
             style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 13 }}
           >
-            Αφαίρεση
+            {t("remove")}
           </button>
         )}
       </div>
 
       {restoredNotice && (
         <p style={{ ...muted, fontSize: 13, margin: "-4px 0 12px", color: colors.accent }}>
-          Οι επιλογές σου κρατήθηκαν. Πάτησε ξανά «Αποστολή».
+          {t("restored")}
         </p>
       )}
 
-      <label style={label}>Προσφερόμενη τιμή (€)</label>
+      <label style={label}>{t("offeredPrice")}</label>
       <input
         type="number"
         min={0}
         style={{ ...input, maxWidth: 180, marginBottom: 6 }}
         value={price}
         onChange={(e) => setPrice(e.target.value)}
-        placeholder="π.χ. 1500"
+        placeholder={t("exPrice")}
       />
       <p style={{ ...muted, fontSize: 12.5, margin: "0 0 14px" }}>
-        Η αμοιβή που προτείνεις. Την πληρώνεις απευθείας στον επαγγελματία.
+        {t("offeredPriceNote")}
       </p>
 
       {estimate != null && (
         <div style={{ padding: "10px 12px", background: colors.seaGlass, borderRadius: radius.md, marginBottom: 14, fontSize: 13 }}>
-          Credits: <span style={{ ...money, color: colors.ink }}>{formatCredits(estimate)}</span>. Υπολογίζονται από τα
-          μίλια, όχι από την αμοιβή.
+          {t.rich("creditsEstimate", { credits: formatCredits(estimate), m: (c) => <span style={{ ...money, color: colors.ink }}>{c}</span> })}
         </div>
       )}
 
       <p style={{ ...sectionLabel, margin: "0 0 8px" }}>
-        Διαθέσιμοι για μεταφορές {candidates == null ? "" : `(${candidates.length})`}
+        {t("candidatesHeading")} {candidates == null ? "" : `(${candidates.length})`}
       </p>
-      {candidates == null && <p style={muted}>Φόρτωση...</p>}
+      {candidates == null && <p style={muted}>{t("loading")}</p>}
       {candidates?.length === 0 && (
-        <p style={muted}>Κανείς δεν έχει δηλώσει διαθεσιμότητα για μεταφορές σε αυτόν τον ρόλο αυτή τη στιγμή.</p>
+        <p style={muted}>{t("noCandidates")}</p>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
         {candidates?.map((s) => (
@@ -310,16 +304,16 @@ function RoleBlock({
       {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 10px" }}>{error}</p>}
       {awaitingVerification ? (
         <div style={{ padding: "12px 14px", border: `1px solid ${colors.warn}`, background: "#F7F0E2", borderRadius: radius.md, fontSize: 13.5, lineHeight: 1.5 }}>
-          <b style={{ display: "block", fontSize: 14, marginBottom: 4 }}>Ο λογαριασμός σου ελέγχεται</b>
-          Η φόρμα σου κρατήθηκε.
+          <b style={{ display: "block", fontSize: 14, marginBottom: 4 }}>{t("pendingTitle")}</b>
+          {t("pendingBody")}
         </div>
       ) : (
         <button style={button("primary")} disabled={busy || !candidates?.length} onClick={handleSend}>
           {busy
             ? "..."
             : !session
-              ? "Σύνδεση για αποστολή"
-              : `Αποστολή σε ${selected.size || 0} επιλεγμέν${selected.size === 1 ? "ο" : "ους"}`}
+              ? t("loginToSend")
+              : t("sendTo", { count: selected.size || 0 })}
         </button>
       )}
     </div>
@@ -332,6 +326,7 @@ function RoleBlock({
 // επισκέπτης απλώς φτιάχνει το αίτημα και βλέπει υποψηφίους, χωρίς καμία
 // χρέωση.
 function DeliveryForm({ onCreated }) {
+  const t = useTranslations("Delivery");
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [distanceMiles, setDistanceMiles] = useState("");
@@ -355,19 +350,19 @@ function DeliveryForm({ onCreated }) {
     e.preventDefault();
     setError("");
     if (!origin.trim() || !destination.trim()) {
-      setError("Συμπλήρωσε αφετηρία και προορισμό.");
+      setError(t("errPorts"));
       return;
     }
     if (!distanceMiles || Number(distanceMiles) <= 0) {
-      setError("Συμπλήρωσε απόσταση σε μίλια.");
+      setError(t("errDistance"));
       return;
     }
     if (!departureDate) {
-      setError("Επίλεξε ημερομηνία.");
+      setError(t("errDate"));
       return;
     }
     if (coversFood && foodAllowanceAmount && Number(foodAllowanceAmount) < 0) {
-      setError("Το ποσό διατροφής δεν μπορεί να είναι αρνητικό.");
+      setError(t("errFood"));
       return;
     }
     onCreated({
@@ -391,32 +386,31 @@ function DeliveryForm({ onCreated }) {
     <form onSubmit={handleSubmit} style={card}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px,1fr))", gap: 14 }}>
         <div>
-          <label style={label}>Αφετηρία</label>
-          <input type="text" style={input} placeholder="π.χ. Άλιμος" value={origin} onChange={(e) => setOrigin(e.target.value)} />
+          <label style={label}>{t("origin")}</label>
+          <input type="text" style={input} placeholder={t("exOrigin")} value={origin} onChange={(e) => setOrigin(e.target.value)} />
         </div>
         <div>
-          <label style={label}>Προορισμός</label>
-          <input type="text" style={input} placeholder="π.χ. Ρόδος" value={destination} onChange={(e) => setDestination(e.target.value)} />
+          <label style={label}>{t("destination")}</label>
+          <input type="text" style={input} placeholder={t("exDestination")} value={destination} onChange={(e) => setDestination(e.target.value)} />
         </div>
         <div>
-          <label style={label}>Απόσταση (ναυτικά μίλια)</label>
+          <label style={label}>{t("distance")}</label>
           <input
             type="number"
             min={1}
             style={input}
             value={distanceMiles}
             onChange={(e) => setDistanceMiles(e.target.value)}
-            placeholder="π.χ. 250"
+            placeholder={t("exDistance")}
           />
           <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-            Από αυτήν υπολογίζονται τα credits. Αν δεν την ξέρεις, μέτρησέ τη σε έναν ναυτικό χάρτη ή ρώτα τη
-            μαρίνα.
+            {t("distanceNote")}
           </p>
         </div>
       </div>
 
       <div style={{ margin: "18px 0" }}>
-        <label style={label}>Ημερομηνία</label>
+        <label style={label}>{t("date")}</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
           <button
             type="button"
@@ -427,7 +421,7 @@ function DeliveryForm({ onCreated }) {
               fontSize: 13,
             }}
           >
-            Συγκεκριμένη
+            {t("dateFixed")}
           </button>
           <button
             type="button"
@@ -438,22 +432,22 @@ function DeliveryForm({ onCreated }) {
               fontSize: 13,
             }}
           >
-            Ευέλικτη (±)
+            {t("dateFlexible")}
           </button>
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 220px", minWidth: 0 }}>
-            <label style={{ ...label, fontSize: 12 }}>{dateMode === "flexible" ? "Γύρω από" : "Αναχώρηση"}</label>
+            <label style={{ ...label, fontSize: 12 }}>{dateMode === "flexible" ? t("around") : t("departure")}</label>
             <DateField
               mode="single"
-              title="Ημερομηνία αναχώρησης"
+              title={t("departureDate")}
               value={departureDate}
               onChange={setDepartureDate}
             />
           </div>
           {dateMode === "flexible" && (
             <div>
-              <label style={{ ...label, fontSize: 12 }}>± ημέρες</label>
+              <label style={{ ...label, fontSize: 12 }}>{t("plusMinusDays")}</label>
               <input
                 type="number"
                 min={1}
@@ -467,23 +461,23 @@ function DeliveryForm({ onCreated }) {
       </div>
 
       <div style={{ margin: "18px 0" }}>
-        <label style={label}>Τι καλύπτεται</label>
+        <label style={label}>{t("covered")}</label>
         <p style={{ ...muted, fontSize: 12.5, margin: "2px 0 10px" }}>
-          Ποια έξοδα του πληρώματος αναλαμβάνεις εσύ. Τα βλέπει ο υποψήφιος πριν αποφασίσει.
+          {t("coveredNote")}
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
             <input type="checkbox" checked={coversTickets} onChange={(e) => setCoversTickets(e.target.checked)} />
-            Εισιτήρια μέχρι την αφετηρία
+            {t("covers_tickets")}
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
             <input type="checkbox" checked={coversTravel} onChange={(e) => setCoversTravel(e.target.checked)} />
-            Έξοδα ταξιδιού μέχρι την αφετηρία
+            {t("covers_travel")}
           </label>
           <div>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
               <input type="checkbox" checked={coversFood} onChange={(e) => setCoversFood(e.target.checked)} />
-              Έξοδα διατροφής κατά το ταξίδι
+              {t("formFood")}
             </label>
             {coversFood && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0 0 26px" }}>
@@ -493,36 +487,36 @@ function DeliveryForm({ onCreated }) {
                   style={{ ...input, width: 110 }}
                   value={foodAllowanceAmount}
                   onChange={(e) => setFoodAllowanceAmount(e.target.value)}
-                  placeholder="π.χ. 30"
+                  placeholder={t("exFood")}
                 />
-                <span style={{ ...muted, fontSize: 13 }}>€ συνολικά</span>
+                <span style={{ ...muted, fontSize: 13 }}>{t("eurTotal")}</span>
               </div>
             )}
           </div>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
             <input type="checkbox" checked={coversFuel} onChange={(e) => setCoversFuel(e.target.checked)} />
-            Καύσιμα
+            {t("covers_fuel")}
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
             <input type="checkbox" checked={coversPortExpenses} onChange={(e) => setCoversPortExpenses(e.target.checked)} />
-            Λιμενικά, ανεφοδιασμός, νερό
+            {t("formPort")}
           </label>
         </div>
       </div>
 
-      <label style={label}>Σημειώσεις (προαιρετικό)</label>
+      <label style={label}>{t("notes")}</label>
       <textarea
         style={{ ...input, minHeight: 70, resize: "vertical", marginBottom: 6 }}
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
       />
       <p style={{ ...muted, fontSize: 12, margin: "0 0 14px" }}>
-        Τα βλέπει ο υποψήφιος πριν αποφασίσει.
+        {t("notesNote")}
       </p>
 
       {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}
       <button style={{ ...button("primary"), width: "100%" }} type="submit">
-        Συνέχεια
+        {t("continue")}
       </button>
     </form>
   );
@@ -543,6 +537,7 @@ const EXTRA_ROLES = SUPPORTED_ROLES.filter((r) => r !== "skipper");
 // εδώ· λύνεται στο επόμενο βήμα με τα κουμπιά "+ ρόλος" που μπορούν να
 // πατηθούν όσες φορές χρειάζεται.
 function RolePickerStep({ onContinue }) {
+  const t = useTranslations("Delivery");
   const [picked, setPicked] = useState(new Set());
 
   function toggle(role) {
@@ -556,7 +551,7 @@ function RolePickerStep({ onContinue }) {
   return (
     <div style={card}>
       <p style={{ ...muted, margin: "0 0 16px" }}>
-        Ο skipper χρειάζεται πάντα. Πρόσθεσε όποιον άλλον θέλεις στο πλήρωμα.
+        {t("pickerNote")}
       </p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
         <span
@@ -592,7 +587,7 @@ function RolePickerStep({ onContinue }) {
         ))}
       </div>
       <button style={{ ...button("primary"), width: "100%" }} onClick={() => onContinue(Array.from(picked))}>
-        Συνέχεια
+        {t("continue")}
       </button>
     </div>
   );
@@ -604,6 +599,7 @@ function RolePickerStep({ onContinue }) {
 // πραγματικά· από εκεί και πέρα κάθε επόμενο block το χρησιμοποιεί έτοιμο.
 function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated, restoredBlock }) {
   const router = useRouter();
+  const t = useTranslations("Delivery");
   const { session, userRow, isAdmin } = useAuth();
   // Ίδιος κανόνας με την αναζήτηση πληρώματος (0075/0083): λογαριασμός σε
   // αναμονή επαλήθευσης δεν στέλνει — αλλά η φόρμα του κρατιέται, ώστε να τη
@@ -652,7 +648,7 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
     <div>
       <div style={{ ...card, background: colors.bgSoft || "#F7F5F0", marginBottom: 14 }}>
         <p style={{ margin: 0, fontSize: 13.5 }}>
-          {formValues.origin} → {formValues.destination} · {formValues.distanceMiles} μίλια
+          {formValues.origin} → {formValues.destination} · {t("miles", { miles: formValues.distanceMiles })}
         </p>
       </div>
 
@@ -693,10 +689,9 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
         />
       ))}
 
-      {/* Ένα κουμπί ανά ρόλο, καθένα προσθέτει ένα νέο μπλοκ κάθε φορά που
-          πατιέται — έτσι "δύο ναύτες" είναι απλώς δύο πατήματα στο ίδιο
-          κουμπί, όχι δύο διαφορετικά βήματα. Πάντα ορατά, όχι μόνο μετά την
-          αποστολή του skipper. */}
+      {/* One button per role; each press adds a new block, so "two deckhands"
+          is just two presses of the same button. Always visible, not only
+          after the skipper request is sent. */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
         {EXTRA_ROLES.map((role) => (
           <button
@@ -712,7 +707,7 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
 
       {deliveryRequest && (
         <button style={{ ...button("primary"), width: "100%" }} onClick={() => router.push("/platform/delivery/requests")}>
-          Τα αιτήματά μου
+          {t("myRequests")}
         </button>
       )}
     </div>
@@ -720,6 +715,7 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
 }
 
 export default function DeliveryPage() {
+  const t = useTranslations("Delivery");
   const { loading } = useAuth();
   const [pickedRoles, setPickedRoles] = useState(null);
   const [formValues, setFormValues] = useState(null);
@@ -740,7 +736,7 @@ export default function DeliveryPage() {
     }
   }, []);
 
-  if (loading) return <div style={container}>Φόρτωση...</div>;
+  if (loading) return <div style={container}>{t("loading")}</div>;
 
   // Γυρίζοντας πίσω ξεκινάει καθαρά ένα βήμα τη φορά — αν είχε ήδη σταλεί
   // κάτι (deliveryRequest πια όχι null) και ξαναπατήσει με άλλα στοιχεία,
@@ -761,13 +757,13 @@ export default function DeliveryPage() {
     <div style={container}>
       {(pickedRoles != null || formValues) && <BackButton onClick={formValues ? backToForm : backToPicker} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-        <h1 style={{ ...h1, marginTop: pickedRoles != null ? 14 : 0 }}>Μεταφορά σκάφους</h1>
+        <h1 style={{ ...h1, marginTop: pickedRoles != null ? 14 : 0 }}>{t("title")}</h1>
         <Link href="/platform/delivery/requests" style={{ ...tapTarget, fontSize: 13.5, color: colors.accent, textDecoration: "none" }}>
-          Τα αιτήματά μου
+          {t("myRequests")}
         </Link>
       </div>
       <p style={muted}>
-        Πλήρωμα για να πάει το σκάφος σου από ένα λιμάνι σε άλλο. Λογαριασμό χρειάζεσαι μόνο για την αποστολή.
+        {t("intro")}
       </p>
       {pickedRoles == null ? (
         <RolePickerStep onContinue={setPickedRoles} />

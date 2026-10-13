@@ -1,11 +1,13 @@
+import { useTranslations } from "next-intl";
 import { muted, money, colors } from "../../../lib/platform/theme";
 
 // Αξιοπιστία και ανταπόκριση ενός επαγγελματία, τη στιγμή που τον διαλέγεις.
 // Ό,τι δεν έχει ακόμα αρκετό ιστορικό απλώς δεν εμφανίζεται.
 export default function TrustLine({ s }) {
+  const t = useTranslations("TrustLine");
   const parts = [];
-  if (s?.reliability_percentage != null) parts.push([s.reliability_percentage, "αξιοπιστία"]);
-  if (s?.response_percentage != null) parts.push([s.response_percentage, "ανταπόκριση"]);
+  if (s?.reliability_percentage != null) parts.push([s.reliability_percentage, t("reliability")]);
+  if (s?.response_percentage != null) parts.push([s.response_percentage, t("response")]);
   if (!parts.length) return null;
   return (
     <div style={{ ...muted, fontSize: 12.5 }}>

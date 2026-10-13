@@ -1,10 +1,12 @@
 "use client";
-import { formatCredits, verbFor } from "../../../../lib/platform/credits";
+import { formatCredits } from "../../../../lib/platform/credits";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../../useFormat";
 import { useAuth } from "../../AuthContext";
 import BackButton from "../../components/BackButton";
 import { labelForRole } from "../../../../lib/platform/roles";
-import { formatDate, formatDateTime, formatMoney } from "../../../../lib/platform/notifications";
+import { formatMoney } from "../../../../lib/platform/notifications";
 import {
   listMyDeliveryRequests,
   relistDeliveryRoleRequest,
@@ -17,34 +19,23 @@ import SignedOutNotice from "../../components/SignedOutNotice";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 
 const PING_LABEL = {
-  pending: ["Αναμονή", colors.inkSoft],
-  accepted: ["Αποδέχτηκε", colors.success || colors.accent],
-  declined: ["Απέρριψε", colors.danger],
+  pending: ["pingPending", colors.inkSoft],
+  accepted: ["pingAccepted", colors.success || colors.accent],
+  declined: ["pingDeclined", colors.danger],
 };
 
-const ROLE_REQUEST_LABEL = {
-  open: "Ανοιχτό",
-  filled: "Καλύφθηκε",
-  cancelled: "Αποσύρθηκε",
-  expired: "Έληξε, τα credits επιστράφηκαν",
+const ROLE_REQUEST_KEYS = {
+  open: "rrOpen",
+  filled: "rrFilled",
+  cancelled: "rrCancelled",
+  expired: "rrExpired",
 };
 
-const BOOKING_STATUS_LABEL = { confirmed: "Επιβεβαιωμένη", completed: "Ολοκληρώθηκε", cancelled: "Ακυρώθηκε" };
+const BOOKING_STATUS_KEYS = { confirmed: "statusConfirmed", completed: "statusCompleted", cancelled: "statusCancelled" };
 
-const COVER_LABEL = {
-  covers_tickets: "Εισιτήρια μέχρι την αφετηρία",
-  covers_travel: "Έξοδα ταξιδιού μέχρι την αφετηρία",
-  covers_food: "Διατροφή",
-  covers_fuel: "Καύσιμα",
-  covers_port_expenses: "Λοιπά έξοδα μεταφοράς",
-};
+const COVER_KEYS = ["covers_tickets", "covers_travel", "covers_food", "covers_fuel", "covers_port_expenses"];
 
-const RELIST_ERRORS = {
-  not_open: "Αυτή η θέση έκλεισε. Για νέα αναζήτηση στείλε νέο αίτημα μεταφοράς.",
-  invalid_price: "Μη έγκυρη τιμή.",
-  no_candidates_selected: "Επίλεξε τουλάχιστον έναν υποψήφιο.",
-  invalid_candidate_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος για μεταφορές.",
-};
+const RELIST_ERRORS = ["not_open", "invalid_price", "no_candidates_selected", "invalid_candidate_selection"];
 
 // Ίδιο σκεπτικό με το delivery/page.js — αριθμητική σε strings ημερομηνιών,
 // χωρίς Date/timezone εκπλήξεις.
@@ -57,6 +48,7 @@ function addDays(isoDate, days) {
 }
 
 function RelistForm({ roleRequest, request, onDone }) {
+  const t = useTranslations("DeliveryRequests");
   const [price, setPrice] = useState(String(formatMoney(roleRequest.offered_price)));
   const [candidates, setCandidates] = useState(null);
   const [selected, setSelected] = useState(
@@ -82,11 +74,11 @@ function RelistForm({ roleRequest, request, onDone }) {
   async function handleSubmit() {
     setError("");
     if (!price || Number(price) < 0) {
-      setError("Συμπλήρωσε τιμή.");
+      setError(t("errPrice"));
       return;
     }
     if (selected.size === 0) {
-      setError("Επίλεξε τουλάχιστον έναν υποψήφιο.");
+      setError(t("err_no_candidates_selected"));
       return;
     }
     setBusy(true);
@@ -94,7 +86,7 @@ function RelistForm({ roleRequest, request, onDone }) {
       await relistDeliveryRoleRequest(roleRequest.id, Number(price), Array.from(selected));
       onDone();
     } catch (err) {
-      setError(RELIST_ERRORS[err.message] || friendlyError(err));
+      setError(RELIST_ERRORS.includes(err.message) ? t(`err_${err.message}`) : friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -104,18 +96,18 @@ function RelistForm({ roleRequest, request, onDone }) {
 
   return (
     <div style={{ marginTop: 12, padding: "12px 14px", background: colors.bgSoft || "#F7F5F0", borderRadius: 10 }}>
-      <label style={{ fontSize: 12.5, color: colors.inkSoft, display: "block", marginBottom: 4 }}>Νέα τιμή (€)</label>
+      <label style={{ fontSize: 12.5, color: colors.inkSoft, display: "block", marginBottom: 4 }}>{t("newPrice")}</label>
       <input type="number" min={0} style={{ ...input, maxWidth: 160, marginBottom: 10 }} value={price} onChange={(e) => setPrice(e.target.value)} />
 
-      {candidates == null && <p style={muted}>Φόρτωση...</p>}
+      {candidates == null && <p style={muted}>{t("loading")}</p>}
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
         {candidates?.map((s) => (
           <label key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
             <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggle(s.id)} />
-            {s.nationality_country || "Υποψήφιος"}
+            {s.nationality_country || t("candidate")}
             {known.has(s.id) && (
               <span style={{ fontSize: 12, color: PING_LABEL[known.get(s.id)]?.[1] }}>
-                ({PING_LABEL[known.get(s.id)]?.[0]})
+                ({PING_LABEL[known.get(s.id)] ? t(PING_LABEL[known.get(s.id)][0]) : known.get(s.id)})
               </span>
             )}
           </label>
@@ -124,13 +116,16 @@ function RelistForm({ roleRequest, request, onDone }) {
 
       {error && <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 10px" }}>{error}</p>}
       <button style={{ ...button("primary"), padding: "7px 16px", fontSize: 13 }} disabled={busy} onClick={handleSubmit}>
-        {busy ? "..." : "Αποστολή νέας τιμής"}
+        {busy ? "..." : t("sendNewPrice")}
       </button>
     </div>
   );
 }
 
 function RoleRequestRow({ roleRequest, request, onChanged }) {
+  const t = useTranslations("DeliveryRequests");
+  const f = useFormat();
+  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
   const [relisting, setRelisting] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
   const [busy, setBusy] = useState(false);
@@ -142,9 +137,9 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
   // του τέλους (0089) — π.χ. βρήκες άνθρωπο εκτός εφαρμογής.
   async function withdraw() {
     const ok = await confirm(
-      `Να αποσυρθεί η θέση ${labelForRole(roleRequest.crew_role)};` +
-        (fee > 0 ? `\n\n${verbFor(fee, "Επιστρέφεται", "Επιστρέφονται")} ${formatCredits(fee)}.` : ""),
-      { confirmLabel: "Απόσυρση", cancelLabel: "Πίσω" }
+      t("withdrawQuestion", { role: labelForRole(roleRequest.crew_role) }) +
+        (fee > 0 ? `\n\n${t("withdrawRefund", { fee, credits: formatCredits(fee) })}` : ""),
+      { confirmLabel: t("withdrawConfirm"), cancelLabel: t("back") }
     );
     if (!ok) return;
     setBusy(true);
@@ -153,7 +148,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
       await cancelDeliveryRoleRequest(roleRequest.id);
       onChanged();
     } catch (err) {
-      setError(RELIST_ERRORS[err.message] || friendlyError(err));
+      setError(RELIST_ERRORS.includes(err.message) ? t(`err_${err.message}`) : friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -174,7 +169,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
               : "neutral"
           )}
         >
-          {ROLE_REQUEST_LABEL[roleRequest.status] || roleRequest.status}
+          {ROLE_REQUEST_KEYS[roleRequest.status] ? t(ROLE_REQUEST_KEYS[roleRequest.status]) : roleRequest.status}
         </span>
       </div>
 
@@ -182,7 +177,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
         <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 10 }}>
           {roleRequest.pings.map((p) => (
             <span key={p.skipper_id} style={{ fontSize: 12.5, color: PING_LABEL[p.status]?.[1] || colors.inkSoft }}>
-              {p.full_name || "Υποψήφιος"}: {PING_LABEL[p.status]?.[0] || p.status}
+              {personName(p) || t("candidate")}: {PING_LABEL[p.status] ? t(PING_LABEL[p.status][0]) : p.status}
             </span>
           ))}
         </div>
@@ -192,20 +187,16 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
         <p style={{ ...muted, fontSize: 13, margin: "8px 0 0" }}>
           {roleRequest.booking.status === "cancelled" ? (
             roleRequest.booking.cancelled_by === "professional" ? (
-              <>
-                Ο επαγγελματίας ακύρωσε{fee > 0 ? ` και ${verbFor(fee, "επιστράφηκε", "επιστράφηκαν")} ${formatCredits(fee)}` : ""}.
-                Για άλλον άνθρωπο στείλε νέο αίτημα μεταφοράς.
-              </>
+              fee > 0 ? t("proCancelledRefund", { fee, credits: formatCredits(fee) }) : t("proCancelled")
             ) : (
-              "Την ακύρωσες."
+              t("youCancelled")
             )
           ) : (
             <>
-              Ανέλαβε:{" "}
-              <span style={{ ...money, color: colors.ink }}>
-                {BOOKING_STATUS_LABEL[roleRequest.booking.status] || roleRequest.booking.status}
-              </span>
-              . Τα στοιχεία επικοινωνίας είναι στις Κρατήσεις.
+              {t.rich("accepted", {
+                status: BOOKING_STATUS_KEYS[roleRequest.booking.status] ? t(BOOKING_STATUS_KEYS[roleRequest.booking.status]) : roleRequest.booking.status,
+                m: (c) => <span style={{ ...money, color: colors.ink }}>{c}</span>,
+              })}
             </>
           )}
         </p>
@@ -213,7 +204,9 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
 
       {roleRequest.status === "open" && roleRequest.expires_at && (
         <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
-          Ισχύει έως {formatDateTime(roleRequest.expires_at)}. Αν δεν την αναλάβει κανείς ως τότε, {fee > 0 ? `τα ${formatCredits(fee)} επιστρέφονται` : "δεν υπάρχει χρέωση"} αυτόματα.
+          {fee > 0
+            ? t("expiresRefund", { date: f.dateTime(roleRequest.expires_at), credits: formatCredits(fee) })
+            : t("expiresNoFee", { date: f.dateTime(roleRequest.expires_at) })}
         </p>
       )}
       {error && <p style={{ color: colors.danger, fontSize: 13, margin: "6px 0 0" }}>{error}</p>}
@@ -228,7 +221,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
               onClick={withdraw}
               style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 13 }}
             >
-              {busy ? "…" : "Απόσυρση θέσης"}
+              {busy ? "…" : t("withdraw")}
             </button>
           )}
           {relisting ? (
@@ -239,7 +232,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
               onClick={() => setRelisting(true)}
               style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.accent, fontSize: 13 }}
             >
-              Αύξηση τιμής και νέα αποστολή
+              {t("raisePrice")}
             </button>
           )}
         </div>
@@ -249,6 +242,8 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
 }
 
 export default function MyDeliveryRequestsPage() {
+  const t = useTranslations("DeliveryRequests");
+  const f = useFormat();
   const { session, loading } = useAuth();
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
@@ -264,36 +259,36 @@ export default function MyDeliveryRequestsPage() {
     if (session) load();
   }, [session]);
 
-  if (loading) return <div style={container}>Φόρτωση...</div>;
+  if (loading) return <div style={container}>{t("loading")}</div>;
   if (!session) return <SignedOutNotice />;
 
   return (
     <div style={container}>
       <BackButton />
-      <h1 style={{ ...h1, marginTop: 14 }}>Τα αιτήματα μεταφοράς μου</h1>
+      <h1 style={{ ...h1, marginTop: 14 }}>{t("title")}</h1>
       {error && <p style={{ color: colors.danger }}>{error}</p>}
-      {rows == null && <p style={muted}>Φόρτωση...</p>}
-      {rows?.length === 0 && <div style={{ ...card, textAlign: "center", padding: "20px 22px" }}><p style={{ ...muted, margin: 0 }}>Δεν έχεις στείλει ακόμα αίτημα μεταφοράς.</p></div>}
+      {rows == null && <p style={muted}>{t("loading")}</p>}
+      {rows?.length === 0 && <div style={{ ...card, textAlign: "center", padding: "20px 22px" }}><p style={{ ...muted, margin: 0 }}>{t("empty")}</p></div>}
       {rows?.map(({ request, role_requests }) => (
         <div key={request.id} style={card}>
           <h2 style={{ ...h2, fontSize: 16, margin: "0 0 4px" }}>
             {request.origin_point} → {request.destination_point}
           </h2>
           <p style={{ ...muted, fontSize: 13, margin: 0 }}>
-            {request.distance_miles} μίλια · {formatDate(request.departure_date)}
-            {request.flexible_days > 0 ? ` (±${request.flexible_days} μέρες)` : ""}
+            {t("miles", { miles: request.distance_miles })} · {f.date(request.departure_date)}
+            {request.flexible_days > 0 ? ` (${t("flexDays", { days: request.flexible_days })})` : ""}
           </p>
           {(() => {
-            const covers = Object.keys(COVER_LABEL).filter((k) => request[k]);
+            const covers = COVER_KEYS.filter((k) => request[k]);
             if (covers.length === 0) return null;
             return (
               <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-                Καλύπτεται:{" "}
+                {t("covered")}{" "}
                 {covers
                   .map((k) =>
                     k === "covers_food" && request.food_allowance_amount != null
-                      ? `${COVER_LABEL[k]} (${formatMoney(request.food_allowance_amount)}€)`
-                      : COVER_LABEL[k]
+                      ? `${t(k)} (${formatMoney(request.food_allowance_amount)}€)`
+                      : t(k)
                   )
                   .join(", ")}
               </p>

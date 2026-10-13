@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { colors, money } from "../../../lib/platform/theme";
 
 function StarRow({ size, color }) {
@@ -18,6 +19,7 @@ function StarRow({ size, color }) {
 // decoration — 5.0 from one review and 5.0 from two hundred are very
 // different claims, and the row should let someone tell them apart.
 export default function Stars({ rating, count = 0, size = 15, showEmptyLabel = true }) {
+  const t = useTranslations("Stars");
   const value = count > 0 && rating != null ? Number(rating) : 0;
   const pct = Math.max(0, Math.min(100, (value / 5) * 100));
 
@@ -46,10 +48,11 @@ export default function Stars({ rating, count = 0, size = 15, showEmptyLabel = t
           <b style={{ ...money, color: colors.ink, fontWeight: 600 }}>{value.toFixed(1)}</b>
           {" / 5 · "}
           <span style={money}>{count}</span>
-          {count === 1 ? " αξιολόγηση" : " αξιολογήσεις"}
+          {" "}
+          {count === 1 ? t("review") : t("reviews")}
         </span>
       ) : (
-        showEmptyLabel && <span style={{ fontSize: 13, color: colors.inkSoft }}>Καμία αξιολόγηση ακόμα</span>
+        showEmptyLabel && <span style={{ fontSize: 13, color: colors.inkSoft }}>{t("none")}</span>
       )}
     </span>
   );

@@ -1,21 +1,16 @@
 "use client";
 import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import { getDeliveryBookingCounterpart, cancelDeliveryBooking } from "../../../lib/platform/db";
 import { useConfirm } from "./ConfirmDialog";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { labelForRole } from "../../../lib/platform/roles";
-import { formatDate, formatMoney } from "../../../lib/platform/notifications";
+import { formatMoney } from "../../../lib/platform/notifications";
 import { card, muted, colors, money, badge, input, button } from "../../../lib/platform/theme";
 
-const STATUS_LABEL = { confirmed: "Επιβεβαιωμένη", completed: "Ολοκληρώθηκε", cancelled: "Ακυρώθηκε" };
-const COVER_LABEL = {
-  covers_tickets: "Εισιτήρια μέχρι την αφετηρία",
-  covers_travel: "Έξοδα ταξιδιού μέχρι την αφετηρία",
-  covers_food: "Διατροφή",
-  covers_fuel: "Καύσιμα",
-  covers_port_expenses: "Λοιπά έξοδα μεταφοράς",
-};
+const STATUS_KEYS = { confirmed: "statusConfirmed", completed: "statusCompleted", cancelled: "statusCancelled" };
 
 // Ελαφριά κάρτα, ξεχωριστή από το BookingPanel των κρατήσεων πληρώματος —
 // η μεταφορά σκάφους έχει διαφορετικό σχήμα (διαδρομή/μίλια αντί για
@@ -23,6 +18,9 @@ const COVER_LABEL = {
 // μηνύματα/αξιολογήσεις, οπότε δεν έχει νόημα να ζοριστεί μέσα στο ίδιο
 // component.
 export default function DeliveryBookingCard({ booking: initial }) {
+  const t = useTranslations("Delivery");
+  const f = useFormat();
+  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
   const [booking, setBooking] = useState(initial);
   const [counterpart, setCounterpart] = useState(null);
   const [cancelling, setCancelling] = useState(false);
@@ -38,11 +36,10 @@ export default function DeliveryBookingCard({ booking: initial }) {
   async function doCancel() {
     const fee = formatCredits(booking.professional_fee_amount);
     const ok = await confirm(
-      "Να ακυρωθεί η μεταφορά;\n\n" +
-        (iAmPro
-          ? `Τα credits της ανάληψης (${fee}) δεν επιστρέφονται. Ο πελάτης ειδοποιείται και παίρνει πίσω τα δικά του.`
-          : "Τα credits που χρησιμοποίησες δεν επιστρέφονται. Ο επαγγελματίας ειδοποιείται και παίρνει πίσω τα δικά του."),
-      { confirmLabel: "Ακύρωση μεταφοράς", cancelLabel: "Πίσω" }
+      t("cancelQuestion") +
+        "\n\n" +
+        (iAmPro ? t("cancelBodyPro", { fee }) : t("cancelBodyClient")),
+      { confirmLabel: t("cancelDelivery"), cancelLabel: t("back") }
     );
     if (!ok) return;
     setBusy(true);
@@ -72,31 +69,31 @@ export default function DeliveryBookingCard({ booking: initial }) {
           {booking.origin_point} → {booking.destination_point} · {labelForRole(booking.crew_role)}
         </span>
         <span style={badge(booking.status === "completed" ? "success" : booking.status === "cancelled" ? "danger" : "brand")}>
-          {STATUS_LABEL[booking.status] || booking.status}
+          {STATUS_KEYS[booking.status] ? t(STATUS_KEYS[booking.status]) : booking.status}
         </span>
       </div>
       <p style={{ ...muted, margin: "6px 0 0" }}>
-        <span style={money}>{formatDate(booking.departure_date)}</span>
-        {booking.flexible_days > 0 ? ` (±${booking.flexible_days} μέρες)` : ""} · {booking.distance_miles} μίλια
+        <span style={money}>{f.date(booking.departure_date)}</span>
+        {booking.flexible_days > 0 ? ` (${t("flexDays", { days: booking.flexible_days })})` : ""} · {t("miles", { miles: booking.distance_miles })}
       </p>
       {covers.length > 0 && (
         <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-          Καλύπτεται:{" "}
+          {t("coveredLabel")}{" "}
           {covers
             .map((k) =>
               k === "covers_food" && booking.food_allowance_amount != null
-                ? `${COVER_LABEL[k]} (${formatMoney(booking.food_allowance_amount)}€)`
-                : COVER_LABEL[k]
+                ? `${t(k)} (${formatMoney(booking.food_allowance_amount)}€)`
+                : t(k)
             )
             .join(", ")}
         </p>
       )}
       <p style={{ margin: "8px 0 0", fontSize: 14 }}>
-        Συμφωνημένη τιμή: <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{formatMoney(booking.offered_price)}€</span>
+        {t.rich("agreedPrice", { price: `${formatMoney(booking.offered_price)}€`, m: (c) => <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{c}</span> })}
       </p>
       {counterpart && booking.status !== "cancelled" && (
         <p style={{ ...muted, fontSize: 13.5, margin: "8px 0 0" }}>
-          Επικοινωνία: <span style={{ ...money, color: colors.ink }}>{counterpart.full_name}</span>
+          {t("contact")} <span style={{ ...money, color: colors.ink }}>{personName(counterpart)}</span>
           {counterpart.phone_number ? (
             <>
               {" · "}
@@ -111,8 +108,8 @@ export default function DeliveryBookingCard({ booking: initial }) {
       )}
       {booking.status === "cancelled" && booking.cancelled_by && (
         <p style={{ ...muted, fontSize: 13, margin: "8px 0 0" }}>
-          {(booking.cancelled_by === "professional") === !!iAmPro ? "Την ακύρωσες εσύ" : `Ακυρώθηκε από ${booking.cancelled_by === "client" ? "τον πελάτη" : "τον επαγγελματία"}`}
-          {booking.cancellation_reason ? ` — «${booking.cancellation_reason}»` : ""}.
+          {(booking.cancelled_by === "professional") === !!iAmPro ? t("cancelledByYou") : booking.cancelled_by === "client" ? t("cancelledByClient") : t("cancelledByProfessional")}
+          {booking.cancellation_reason ? ` — ${t("quotedNote", { note: booking.cancellation_reason })}` : ""}.
         </p>
       )}
       {booking.status === "confirmed" && counterpart && (
@@ -121,16 +118,16 @@ export default function DeliveryBookingCard({ booking: initial }) {
             <div>
               <input
                 style={{ ...input, marginBottom: 8 }}
-                placeholder="Λόγος (προαιρετικά)"
+                placeholder={t("reasonOptional")}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
               />
               <div style={{ display: "flex", gap: 10 }}>
                 <button type="button" style={button("danger")} disabled={busy} onClick={doCancel}>
-                  {busy ? "…" : "Ακύρωση μεταφοράς"}
+                  {busy ? "…" : t("cancelDelivery")}
                 </button>
                 <button type="button" style={button("secondary")} disabled={busy} onClick={() => setCancelling(false)}>
-                  Πίσω
+                  {t("back")}
                 </button>
               </div>
             </div>
@@ -140,7 +137,7 @@ export default function DeliveryBookingCard({ booking: initial }) {
               onClick={() => setCancelling(true)}
               style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 13 }}
             >
-              Ακύρωση μεταφοράς
+              {t("cancelDelivery")}
             </button>
           )}
           {error && <p style={{ color: colors.danger, fontSize: 13, margin: "8px 0 0" }}>{error}</p>}

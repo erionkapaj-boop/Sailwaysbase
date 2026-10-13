@@ -1,6 +1,8 @@
 "use client";
 import TrustLine from "./TrustLine";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import {
   getOpenReplacementOffer,
   clientListReplacementCandidates,
@@ -11,23 +13,22 @@ import { card, muted, button, badge, colors, money } from "../../../lib/platform
 import Stars from "./Stars";
 import { useConfirm } from "./ConfirmDialog";
 import { friendlyError } from "../../../lib/platform/friendlyError";
-import { formatDateTime } from "../../../lib/platform/notifications";
 
-const SELECT_ERRORS = {
-  request_not_open: "Η επιλογή δεν έγινε — είτε διάλεξες ήδη, είτε η πρόταση έκλεισε.",
-  decision_window_closed: "Πέρασε η προθεσμία επιλογής. Ψάχνουμε ξανά και θα σε ειδοποιήσουμε.",
-  case_closed: "Η αναζήτηση αντικαταστάτη έχει κλείσει.",
-  already_covered: "Η κράτηση καλύφθηκε ήδη με άλλον τρόπο.",
-  not_a_candidate: "Αυτός δεν είναι πια διαθέσιμος. Διάλεξε από τη λίστα από κάτω.",
-  candidate_no_longer_eligible: "Αυτός ο επαγγελματίας δεν είναι πια διαθέσιμος.",
-  candidate_no_longer_available: "Αυτός ο επαγγελματίας έχει πλέον άλλη κράτηση στις ίδιες ημερομηνίες.",
-  candidate_cannot_pay: "Αυτός ο επαγγελματίας δεν μπορεί πλέον να αναλάβει.",
-};
+const SELECT_ERROR_CODES = [
+  "request_not_open",
+  "decision_window_closed",
+  "case_closed",
+  "already_covered",
+  "not_a_candidate",
+  "candidate_no_longer_eligible",
+  "candidate_no_longer_available",
+  "candidate_cannot_pay",
+];
 
-function identityLine(s) {
+function identityLine(s, t) {
   const parts = [];
   if (s.nationality_country) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${s.nationality_country}`);
-  if (s.age) parts.push(`${s.age} ετών`);
+  if (s.age) parts.push(t("age", { age: s.age }));
   if (s.languages?.length > 0) parts.push(s.languages.join(", "));
   return parts.join(" · ");
 }
@@ -36,20 +37,21 @@ function identityLine(s) {
 // (skipper_public): καμία φωτογραφία, όνομα ή τηλέφωνο. Αυτά αποκαλύπτονται
 // μόνο μετά την επιβεβαίωση, ακριβώς όπως σε κάθε άλλη κράτηση.
 function CandidateCard({ s, days, busy, onSelect }) {
+  const t = useTranslations("ReplacementCandidates");
   const highlights = computeCrewHighlights(s);
   return (
     <div style={{ ...card, marginBottom: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ ...money, fontSize: 18, fontWeight: 700 }}>
-            {s.price_per_day}€<span style={{ ...muted, fontFamily: "inherit", fontSize: 13, fontWeight: 400 }}> /ημέρα</span>
+            {s.price_per_day}€<span style={{ ...muted, fontFamily: "inherit", fontSize: 13, fontWeight: 400 }}> {t("perDay")}</span>
           </div>
           {days > 0 && (
             <div style={{ ...muted, fontSize: 12.5, marginTop: 2 }}>
-              <span style={money}>{Number(s.price_per_day) * days}€</span> για {days} {days === 1 ? "ημέρα" : "ημέρες"}
+              <span style={money}>{Number(s.price_per_day) * days}€</span> {t("forDays", { days })}
             </div>
           )}
-          {identityLine(s) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s)}</div>}
+          {identityLine(s, t) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s, t)}</div>}
           <div style={{ margin: "8px 0" }}>
             <Stars rating={s.rating_avg} count={s.rating_count} size={14} />
           </div>
@@ -65,7 +67,7 @@ function CandidateCard({ s, days, busy, onSelect }) {
           )}
         </div>
         <button style={{ ...button("primary"), flexShrink: 0 }} disabled={busy} onClick={onSelect}>
-          {busy ? "…" : "Επιβεβαίωση"}
+          {busy ? "…" : t("confirm")}
         </button>
       </div>
     </div>
@@ -83,6 +85,8 @@ function tripDays(start, end) {
 }
 
 export default function ReplacementCandidates({ bookingId, startDate, endDate, onChanged }) {
+  const t = useTranslations("ReplacementCandidates");
+  const f = useFormat();
   const [offer, setOffer] = useState(null);
   const [candidates, setCandidates] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -110,8 +114,8 @@ export default function ReplacementCandidates({ bookingId, startDate, endDate, o
   async function handleSelect(skipperId) {
     if (
       !(await confirm(
-        "Επιβεβαίωση αυτού του επαγγελματία; Η κράτηση κλειδώνει αμέσως μαζί του και δεν αλλάζει ξανά.",
-        { tone: "primary", confirmLabel: "Ναι, αυτόν" }
+        t("confirmQuestion"),
+        { tone: "primary", confirmLabel: t("confirmYes") }
       ))
     )
       return;
@@ -122,7 +126,7 @@ export default function ReplacementCandidates({ bookingId, startDate, endDate, o
       onChanged?.();
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
-      setError(SELECT_ERRORS[code] || friendlyError(err));
+      setError(SELECT_ERROR_CODES.includes(code) ? t(code) : friendlyError(err));
       await load();
     } finally {
       setBusyId(null);
@@ -135,17 +139,15 @@ export default function ReplacementCandidates({ bookingId, startDate, endDate, o
     <div style={{ padding: "0 18px 14px" }} onClick={(e) => e.stopPropagation()}>
       <div style={{ ...card, background: "#FBF6EC", borderColor: colors.accent, padding: "14px 16px", marginBottom: 12 }}>
         <b style={{ fontWeight: 600, fontSize: 14 }}>
-          {candidates.length === 1 ? "Βρέθηκε ένας διαθέσιμος αντικαταστάτης" : `Βρέθηκαν ${candidates.length} διαθέσιμοι αντικαταστάτες`}
+          {t("found", { count: candidates.length })}
         </b>
         {offer?.client_decide_by && (
           <p style={{ fontSize: 13, margin: "6px 0 0", color: colors.ink }}>
-            Διάλεξε έως <b style={{ fontWeight: 600 }}>{formatDateTime(offer.client_decide_by)}</b> — μετά οι επιλογές
-            λήγουν και ψάχνουμε ξανά.
+            {t.rich("decideBy", { date: f.dateTime(offer.client_decide_by), b: (c) => <b style={{ fontWeight: 600 }}>{c}</b> })}
           </p>
         )}
         <p style={{ ...muted, fontSize: 13, margin: "6px 0 0", lineHeight: 1.5 }}>
-          Χωρίς επιπλέον χρέωση. Μόλις
-          επιβεβαιώσεις έναν, η κράτηση κλειδώνει μαζί του και οι υπόλοιποι σταματούν να είναι διαθέσιμοι.
+          {t("noExtraCharge")}
         </p>
       </div>
       {error && <p style={{ color: colors.danger, fontSize: 13, marginBottom: 10 }}>{error}</p>}

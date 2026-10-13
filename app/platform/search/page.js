@@ -1,10 +1,12 @@
 "use client";
 import TopUpSheet from "../components/credits/TopUpSheet";
-import { formatCredits, verbFor } from "../../../lib/platform/credits";
+import { formatCredits } from "../../../lib/platform/credits";
 import TrustLine from "../components/TrustLine";
 import Avatar from "../components/Avatar";
 import LoadError from "../components/LoadError";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../AuthContext";
 import Stars from "../components/Stars";
@@ -14,7 +16,6 @@ import PlacePicker from "../components/PlacePicker";
 import { SUPPORTED_ROLES, labelForRole, computeCrewHighlights } from "../../../lib/platform/roles";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { savePendingBroadcast, takePendingBroadcast } from "../../../lib/platform/pendingBroadcast";
-import { formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import {
   listLookups,
   searchSkippers,
@@ -50,12 +51,12 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
 
 const BROADCAST_ERRORS = {
-  insufficient_wallet: "Δεν έχεις αρκετά credits. Απόκτησε credits από τη σελίδα Credits.",
-  invalid_skipper_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος.",
-  skipper_not_available: "Κανείς από τους επιλεγμένους δεν είναι πλέον διαθέσιμος αυτές τις ημέρες. Διάλεξε από τη λίστα.",
-  no_skippers_selected: "Επίλεξε τουλάχιστον έναν επαγγελματία.",
-  already_paid_or_closed: "Αυτό το αίτημα έχει ήδη σταλεί.",
-  account_not_verified: "Ο λογαριασμός σου ελέγχεται ακόμα. Θα μπορείς να στείλεις αίτημα μόλις ενεργοποιηθεί.",
+  insufficient_wallet: "errInsufficientWallet",
+  invalid_skipper_selection: "errInvalidSelection",
+  skipper_not_available: "errNotAvailable",
+  no_skippers_selected: "errNoneSelected",
+  already_paid_or_closed: "errAlreadySent",
+  account_not_verified: "errNotVerified",
 };
 
 // Inclusive day count: a 1st→3rd booking is three days of work, not two.
@@ -69,10 +70,10 @@ function dayCount(start, end) {
 // Flag + nationality, age, languages — whichever of the three are actually
 // set, in that order, joined the same way everywhere it's shown (card and
 // detail sheet alike) instead of each place growing its own separator logic.
-function identityLine(s) {
+function identityLine(s, t) {
   const parts = [];
   if (s.nationality_country) parts.push(`${s.nationality_flag ? s.nationality_flag + " " : ""}${s.nationality_country}`);
-  if (s.age) parts.push(`${s.age} ετών`);
+  if (s.age) parts.push(t("ageYears", { age: s.age }));
   if (s.languages?.length > 0) parts.push(s.languages.join(", "));
   return parts.join(" · ");
 }
@@ -101,6 +102,16 @@ const sheetStyle = {
   maxHeight: "85vh",
   overflowY: "auto",
 };
+
+// «25€ για 3 ημέρες»: ποσό και ημέρες με έμφαση, κοινό για κάρτα και φύλλο.
+function stayTotalText(t, total, days) {
+  return t.rich("stayTotal", {
+    total: String(total),
+    daysText: String(days),
+    days,
+    m: (chunks) => <span style={money}>{chunks}</span>,
+  });
+}
 
 function RatingLine({ s }) {
   return (
@@ -145,6 +156,7 @@ function RatingStat({ s }) {
 // it — comparing candidates means opening several of these in a row without
 // losing the ones already picked.
 function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
+  const t = useTranslations("SearchPage");
   const total = days ? s.price_per_day * days : null;
   const highlights = computeCrewHighlights(s);
   const categories = reviewCategoriesForRole(s.role);
@@ -162,7 +174,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
     <div style={sheetOverlayStyle} onClick={onClose}>
       {/* Tapping anywhere on the open card closes it again — the same
           gesture that opened it, not just the back button or the dark
-          backdrop around it. The photo and "Επιλογή" opt out below since
+          * backdrop around it. The photo and "Επιλογή" opt out below since
           they each already mean something else.
           stopPropagation here matters, not just style: without it this
           click also bubbles to the overlay's own onClose above, so a
@@ -192,7 +204,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
               e.stopPropagation();
               if (s.photo_url) setPhotoExpanded(true);
             }}
-            aria-label="Μεγέθυνση φωτογραφίας"
+            aria-label={t("enlargePhoto")}
             style={{
               width: 108,
               height: 108,
@@ -207,15 +219,14 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
           <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
             <div style={{ ...money, fontSize: 22, fontWeight: 700, lineHeight: 1.15 }}>
               {s.price_per_day}€
-              <span style={{ ...muted, fontFamily: "inherit", fontSize: 13, fontWeight: 400 }}> /ημέρα</span>
+              <span style={{ ...muted, fontFamily: "inherit", fontSize: 13, fontWeight: 400 }}> {t("perDay")}</span>
             </div>
             {total != null && (
               <div style={{ ...muted, fontSize: 13, marginTop: 3 }}>
-                <span style={money}>{total}€</span> για <span style={money}>{days}</span>{" "}
-                {days === 1 ? "ημέρα" : "ημέρες"}
+                {stayTotalText(t, total, days)}
               </div>
             )}
-            {identityLine(s) && <div style={{ ...muted, fontSize: 13, marginTop: 8, lineHeight: 1.4 }}>{identityLine(s)}</div>}
+            {identityLine(s, t) && <div style={{ ...muted, fontSize: 13, marginTop: 8, lineHeight: 1.4 }}>{identityLine(s, t)}</div>}
           </div>
         </div>
 
@@ -236,7 +247,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
           </div>
         )}
 
-        <h3 style={{ ...sectionLabel, margin: "0 0 6px" }}>Αναλυτική αξιολόγηση</h3>
+        <h3 style={{ ...sectionLabel, margin: "0 0 6px" }}>{t("detailedReview")}</h3>
         <div style={{ marginBottom: 24 }}>
           {categories.map((c, i) => {
             const rating = s[`rating_avg_${c.key}`];
@@ -255,7 +266,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
                       <span style={{ ...muted, fontFamily: "inherit", fontWeight: 400, fontSize: 12 }}> / 5</span>
                     </span>
                   ) : (
-                    <span style={{ ...muted, fontSize: 12.5, flexShrink: 0 }}>Καμία ακόμα</span>
+                    <span style={{ ...muted, fontSize: 12.5, flexShrink: 0 }}>{t("noneYet")}</span>
                   )}
                 </div>
                 {/* A bar per category reads at a glance without six rows of
@@ -285,7 +296,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
             onToggle(s.id);
           }}
         >
-          {selected ? "Επιλέχθηκε" : "Επιλογή"}
+          {selected ? t("selected") : t("select")}
         </button>
       </div>
 
@@ -318,7 +329,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
               e.stopPropagation();
               setPhotoExpanded(false);
             }}
-            aria-label="Κλείσιμο"
+            aria-label={t("close")}
             style={{
               position: "fixed",
               top: 18,
@@ -343,6 +354,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
 }
 
 function ProfessionalCard({ s, selected, onToggle, days }) {
+  const t = useTranslations("SearchPage");
   const total = days ? s.price_per_day * days : null;
   const highlights = computeCrewHighlights(s);
   const [showDetail, setShowDetail] = useState(false);
@@ -391,15 +403,14 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
               profile instead of two different layouts for the same data. */}
           <div style={{ ...money, fontSize: 19, fontWeight: 700, lineHeight: 1.15 }}>
             {s.price_per_day}€
-            <span style={{ ...muted, fontFamily: "inherit", fontSize: 13, fontWeight: 400 }}> /ημέρα</span>
+            <span style={{ ...muted, fontFamily: "inherit", fontSize: 13, fontWeight: 400 }}> {t("perDay")}</span>
           </div>
           {total != null && (
             <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
-              <span style={money}>{total}€</span> για <span style={money}>{days}</span>{" "}
-              {days === 1 ? "ημέρα" : "ημέρες"}
+              {stayTotalText(t, total, days)}
             </div>
           )}
-          {identityLine(s) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s)}</div>}
+          {identityLine(s, t) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s, t)}</div>}
 
                     <div style={{ margin: "10px 0" }}>
             <RatingLine s={s} />
@@ -427,13 +438,13 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
                 onToggle(s.id);
               }}
             >
-              {selected ? "Επιλέχθηκε" : "Επιλογή"}
+              {selected ? t("selected") : t("select")}
             </button>
             {/* The only thing on the card that says "there's more behind this"
                 — without it, tapping anywhere else looked identical to tapping
                 nothing at all. */}
             <span style={{ fontSize: 13, color: colors.inkSoft, textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: colors.border }}>
-              Προφίλ
+              {t("profile")}
             </span>
           </div>
         </div>
@@ -467,6 +478,7 @@ function RoleSection({
   positions,
   onPositionsChange,
 }) {
+  const t = useTranslations("SearchPage");
   const [boatTypeId, setBoatTypeId] = useState("");
   const [boatTypeError, setBoatTypeError] = useState(false);
   const [results, setResults] = useState(null);
@@ -582,26 +594,25 @@ function RoleSection({
       <h2 style={h2}>{roleLabel}</h2>
       {restoredNotice && (
         <p style={{ ...muted, fontSize: 13, margin: "-6px 0 12px", color: colors.accent }}>
-          Οι επιλογές σου κρατήθηκαν.
-          {restoredGone > 0 &&
-            ` ${restoredGone === 1 ? "1 επαγγελματίας δεν είναι" : `${restoredGone} επαγγελματίες δεν είναι`} πλέον διαθέσιμ${restoredGone === 1 ? "ος" : "οι"}.`}
+          {t("selectionsKept")}
+          {restoredGone > 0 && ` ${t("restoredGone", { count: restoredGone })}`}
         </p>
       )}
 
       {/* Ένα μεγάλο σκάφος μπορεί να χρειάζεται π.χ. δύο skipper — δύο
-          πραγματικές θέσεις, όχι έναν από δύο υποψήφιους. Κάθε θέση γίνεται
-          δικό της αίτημα στο checkout παρακάτω, ώστε να μην κλειδώνει μόνο
-          η μία. */}
+          * πραγματικές θέσεις, όχι έναν από δύο υποψήφιους. Κάθε θέση γίνεται
+          * δικό της αίτημα στο checkout παρακάτω, ώστε να μην κλειδώνει μόνο
+          * η μία. */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, margin: "0 0 14px" }}>
         <span style={{ fontSize: 13.5, color: colors.inkSoft }}>
-          Πόσα άτομα χρειάζεσαι ως {roleLabel.toLowerCase()};
+          {t("howManyNeeded", { role: roleLabel.toLowerCase() })}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button
             type="button"
             onClick={() => onPositionsChange(Math.max(1, positions - 1))}
             disabled={positions <= 1}
-            aria-label={`Λιγότερες θέσεις ${roleLabel.toLowerCase()}`}
+            aria-label={t("fewerPositions", { role: roleLabel.toLowerCase() })}
             style={{
               width: 30, height: 30, borderRadius: "50%", border: `1px solid ${colors.border}`,
               background: colors.card, cursor: positions <= 1 ? "default" : "pointer", fontSize: 16, lineHeight: 1,
@@ -614,7 +625,7 @@ function RoleSection({
           <button
             type="button"
             onClick={() => onPositionsChange(positions + 1)}
-            aria-label={`Περισσότερες θέσεις ${roleLabel.toLowerCase()}`}
+            aria-label={t("morePositions", { role: roleLabel.toLowerCase() })}
             style={{
               width: 30, height: 30, borderRadius: "50%", border: `1px solid ${colors.border}`,
               background: colors.card, cursor: "pointer", fontSize: 16, lineHeight: 1, color: colors.ink,
@@ -626,14 +637,14 @@ function RoleSection({
       </div>
       {positions > 1 && (
         <p style={{ ...muted, fontSize: 12.5, margin: "-8px 0 14px" }}>
-          Θα σταλούν {positions} αιτήματα, ένα για κάθε θέση. Κάθε επαγγελματίας μπορεί να πάρει μόνο μία.
+          {t("willSendRequests", { positions })}
         </p>
       )}
 
       {/* Same rule as the shared block above: a boat type that arrived
-          already chosen (the wizard's own "Τι σκάφος;" step) has no reason
+          * already chosen (the wizard's own "Τι σκάφος;" step) has no reason
           to be re-asked here too — the whole per-role form only reappears
-          once "Αλλαγή" reopens editing. */}
+          * once "Αλλαγή" reopens editing. */}
       {showFullFilters && (
         <form
           onSubmit={handleSearch}
@@ -641,7 +652,7 @@ function RoleSection({
         >
           {needsBoatType && (
             <div>
-              <label style={label}>Τύπος σκάφους</label>
+              <label style={label}>{t("boatType")}</label>
               <select
                 style={boatTypeError ? { ...select, border: `1px solid ${colors.danger}` } : select}
                 value={boatTypeId}
@@ -650,7 +661,7 @@ function RoleSection({
                   setBoatTypeError(false);
                 }}
               >
-                <option value="">Επιλογή...</option>
+                <option value="">{t("choose")}</option>
                 {lookups.boatTypes.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
@@ -658,13 +669,13 @@ function RoleSection({
                 ))}
               </select>
               {boatTypeError && (
-                <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+                <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>{t("requiredField")}</p>
               )}
             </div>
           )}
           <div style={{ alignSelf: "end" }}>
             <button style={{ ...button("primary"), width: "100%" }} disabled={busy} type="submit">
-              {busy ? "Αναζήτηση..." : "Αναζήτηση"}
+              {busy ? t("searching") : t("search")}
             </button>
           </div>
         </form>
@@ -676,17 +687,17 @@ function RoleSection({
         <div style={{ marginTop: 14 }}>
           {results.length > 0 ? (
             <p style={muted}>
-              {results.length} διαθέσιμ{results.length === 1 ? "ος" : "οι"} {roleLabel.toLowerCase()}
+              {t("availableCount", { count: results.length, role: roleLabel.toLowerCase() })}
             </p>
           ) : (
             <div data-no-results style={{ ...card, marginTop: 4 }}>
-              <b style={{ fontWeight: 600, fontSize: 15 }}>Κανένας διαθέσιμος {roleLabel.toLowerCase()} αυτές τις ημέρες</b>
+              <b style={{ fontWeight: 600, fontSize: 15 }}>{t("noneAvailable", { role: roleLabel.toLowerCase() })}</b>
               <p style={{ ...muted, margin: "6px 0 14px", fontSize: 13.5 }}>
-                Δοκίμασε άλλες ημερομηνίες ή μια κοντινή περιοχή. Πολλοί επαγγελματίες ανοίγουν διαθεσιμότητα κοντά στο ταξίδι.
+                {t("noneAvailableHint")}
               </p>
               {onEditFilters && (
                 <button type="button" style={button("secondary")} onClick={onEditFilters}>
-                  Αλλαγή αναζήτησης
+                  {t("changeSearch")}
                 </button>
               )}
             </div>
@@ -694,7 +705,7 @@ function RoleSection({
 
           {results.length > 0 && (
             <p style={{ ...muted, fontSize: 13.5, margin: "-4px 0 14px" }}>
-              Διάλεξε όσους θέλεις. Το αίτημα το αναλαμβάνει ο πρώτος που θα το αποδεχτεί.
+              {t("pickHint")}
             </p>
           )}
 
@@ -752,6 +763,7 @@ function Checkout({
   restoredSent,
   restored,
 }) {
+  const t = useTranslations("SearchPage");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sentSlots, setSentSlots] = useState(new Set());
@@ -861,10 +873,10 @@ function Checkout({
       return;
     }
     hadPicks.current = true;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       saveRequestDraft({ ...snapshot(), sent: [...sentSlots] }).catch(() => {});
     }, 600);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restoreSettled, session, viewingAs, done, selectionKey, filters, boatTypesByRole, sentKey]);
 
@@ -888,7 +900,7 @@ function Checkout({
     if (awaitingVerification) return;
     trackFlow("request", "send");
     if (!filters.partySize || filters.privateCabin === undefined) {
-      setError("Συμπλήρωσε αριθμό ατόμων και ιδιωτική καμπίνα πριν στείλεις το αίτημα.");
+      setError(t("needPartyAndCabin"));
       return;
     }
     setError("");
@@ -964,13 +976,13 @@ function Checkout({
       const sentNow = nowSent.size;
       const partial =
         sentNow > 0
-          ? ` Στάλθηκ${sentNow === 1 ? "ε ήδη 1 αίτημα" : `αν ήδη ${sentNow} αιτήματα`} από ${totalSlots}. Με νέα αποστολή φεύγουν μόνο όσα έμειναν, χωρίς δεύτερη χρέωση.`
+          ? ` ${t("partialSent", { sent: sentNow, total: totalSlots })}`
           : "";
       if (err.message === "insufficient_wallet") {
         setTopUpNeed(Math.max(1, (totalSlots - nowSent.size) * (Number(fee) || 1)));
         getMyReservedCredits().then(setReserved).catch(() => {});
       }
-      setError((BROADCAST_ERRORS[err.message] || friendlyError(err)) + partial);
+      setError((BROADCAST_ERRORS[err.message] ? t(BROADCAST_ERRORS[err.message]) : friendlyError(err)) + partial);
     } finally {
       setBusy(false);
     }
@@ -983,49 +995,47 @@ function Checkout({
         need={topUpNeed}
         balance={available}
         onClose={() => setTopUpNeed(0)}
-        shortTitle={`${verbFor(topUpNeed, "Χρειάζεται", "Χρειάζονται")} ${formatCredits(topUpNeed)}`}
-        shortNote={totalSlots === 1 ? "Για την αποστολή του αιτήματος" : "Για την αποστολή των αιτημάτων"}
-        waitingNote="Οι επιλογές σου κρατήθηκαν. Μόλις πιστωθούν τα credits, η αποστολή ολοκληρώνεται από εδώ."
-        continueLabel="Ολοκλήρωση αιτήματος"
+        shortTitle={t("topUpTitle", { count: topUpNeed })}
+        shortNote={t("topUpNote", { count: totalSlots })}
+        waitingNote={t("topUpWaiting")}
+        continueLabel={t("completeRequest")}
         onContinue={() => handleCheckout()}
       />
       <div style={{ ...card, boxShadow: shadow.raised }}>
         {done ? (
           <div>
             <p style={{ color: colors.ink, fontWeight: 600, fontSize: 17, margin: "0 0 6px" }}>
-              {totalSlots === 1 ? "Το αίτημά σου στάλθηκε" : `Στάλθηκαν ${totalSlots} αιτήματα`}
+              {t("sentTitle", { count: totalSlots })}
             </p>
             {activeRoles.length > 0 && (
               <p style={{ ...muted, fontSize: 13.5, margin: "0 0 12px" }}>
                 {activeRoles
-                  .map((r) => `${labelForRole(r)}: ${slotsFor(r)} ${slotsFor(r) === 1 ? "θέση" : "θέσεις"}`)
+                  .map((r) => `${labelForRole(r)}: ${t("slots", { count: slotsFor(r) })}`)
                   .join(" · ")}
               </p>
             )}
             {totalFee > 0 && (
               <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 8px" }}>
                 {totalSlots === 1
-                  ? `${formatCredits(totalFee)} δεσμεύτηκε και χρεώνεται όταν κάποιος επαγγελματίας αποδεχτεί το αίτημα. Αν δεν το αποδεχτεί κανείς, ελευθερώνεται.`
-                  : `${formatCredits(totalFee)} δεσμεύτηκαν, ${formatCredits(fee)} για κάθε αίτημα. Καθένα χρεώνεται όταν γίνει δεκτό το αίτημά του· όσα δεν γίνουν δεκτά ελευθερώνονται.`}
+                  ? t("reservedOne", { total: formatCredits(totalFee) })
+                  : t("reservedMany", { total: formatCredits(totalFee), fee: formatCredits(fee) })}
               </p>
             )}
             {notReached > 0 && (
               <p style={{ ...muted, fontSize: 13.5, lineHeight: 1.5, margin: "0 0 8px" }}>
-                {notReached === 1
-                  ? "Σε 1 από όσους διάλεξες δεν στάλθηκε: δεν είναι πλέον διαθέσιμος αυτές τις ημέρες."
-                  : `Σε ${notReached} από όσους διάλεξες δεν στάλθηκε: δεν είναι πλέον διαθέσιμοι αυτές τις ημέρες.`}
+                {t("notReached", { count: notReached })}
               </p>
             )}
             <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 16px" }}>
-              Θα σε ειδοποιήσουμε μόλις κάποιος το αποδεχτεί.
+              {t("notifyYou")}
             </p>
             <button style={button("primary")} onClick={() => router.push("/platform/requests")}>
-              Παρακολούθηση αιτήματος
+              {t("trackRequest")}
             </button>
           </div>
         ) : (
           <>
-            <h3 style={{ ...h2, fontSize: 16, margin: "0 0 12px" }}>Η παραγγελία σου</h3>
+            <h3 style={{ ...h2, fontSize: 16, margin: "0 0 12px" }}>{t("yourOrder")}</h3>
 
             {activeRoles.map((role) => (
               <div
@@ -1034,11 +1044,13 @@ function Checkout({
               >
                 <span>
                   {labelForRole(role)}
-                  {positionsFor(role) > 1 ? ` · ${positionsFor(role)} θέσεις` : ""}
+                  {positionsFor(role) > 1 ? ` · ${t("slots", { count: positionsFor(role) })}` : ""}
                 </span>
                 <span style={{ ...muted, fontSize: 13 }}>
-                  <span style={{ ...money, color: colors.ink }}>{selectionsByRole[role].size}</span>{" "}
-                  {selectionsByRole[role].size === 1 ? "επιλογή" : "επιλογές"}
+                  {t.rich("selectionCount", {
+                    count: selectionsByRole[role].size,
+                    m: (chunks) => <span style={{ ...money, color: colors.ink }}>{chunks}</span>,
+                  })}
                 </span>
               </div>
             ))}
@@ -1050,7 +1062,7 @@ function Checkout({
             {emptyRoles.length > 0 && (
               <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px" }}>
                 {emptyRoles
-                  .map((r) => `Για ${labelForRole(r)} δεν διάλεξες κανέναν, οπότε δεν στέλνεται αίτημα.`)
+                  .map((r) => t("emptyRole", { role: labelForRole(r) }))
                   .join(" ")}
               </p>
             )}
@@ -1058,11 +1070,13 @@ function Checkout({
             {shortRoles.length > 0 && (
               <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px" }}>
                 {shortRoles
-                  .map(
-                    (r) =>
-                      `Για ${labelForRole(r)} ζήτησες ${positionsFor(r)} θέσεις και διάλεξες ${selectionsByRole[r].size}. Στέλν${
-                        slotsFor(r) === 1 ? "εται 1 αίτημα" : `ονται ${slotsFor(r)} αιτήματα`
-                      }.`
+                  .map((r) =>
+                    t("shortRole", {
+                      role: labelForRole(r),
+                      requested: positionsFor(r),
+                      picked: selectionsByRole[r].size,
+                      slots: slotsFor(r),
+                    })
                   )
                   .join(" ")}
               </p>
@@ -1075,19 +1089,19 @@ function Checkout({
               </div>
               {fee != null && (
                 <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-                  {formatCredits(fee)} ανά θέση, ανεξάρτητα από το πόσους διάλεξες.
+                  {t("perPosition", { credits: formatCredits(fee) })}
                 </p>
               )}
               <p style={{ fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
-                Την αμοιβή του επαγγελματία την κανονίζεις απευθείας μαζί του.
+                {t("feeDirect")}
               </p>
               <p style={{ fontSize: 12.5, margin: "6px 0 0", lineHeight: 1.5 }}>
-                Το credit χρεώνεται όταν ένας επαγγελματίας αποδεχτεί το αίτημα. Αν ο επαγγελματίας ακυρώσει αργότερα, ψάχνουμε αντικαταστάτη χωρίς νέα χρέωση· αν δεν βρεθεί, το credit επιστρέφεται.
+                {t("chargeNote")}
               </p>
               {session && fee > 0 && (
                 <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0" }}>
-                  Διαθέσιμα <span style={{ ...money, color: colors.ink }}>{formatCredits(available)}</span>
-                  {reserved > 0 ? ` · ${formatCredits(reserved)} ${verbFor(reserved, "δεσμευμένο", "δεσμευμένα")} σε ανοιχτά αιτήματα` : ""}
+                  {t("availableLabel")} <span style={{ ...money, color: colors.ink }}>{formatCredits(available)}</span>
+                  {reserved > 0 ? ` · ${t("reservedNote", { credits: formatCredits(reserved), count: reserved })}` : ""}
                 </p>
               )}
             </div>
@@ -1096,29 +1110,29 @@ function Checkout({
 
             {awaitingVerification ? (
               <div style={{ padding: "12px 14px", border: `1px solid ${colors.warn}`, background: "#F7F0E2", borderRadius: radius.md }}>
-                <b style={{ display: "block", fontSize: 14, marginBottom: 4 }}>Ο λογαριασμός σου ελέγχεται</b>
+                <b style={{ display: "block", fontSize: 14, marginBottom: 4 }}>{t("underReview")}</b>
                 <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>
-                  Οι επιλογές σου κρατήθηκαν.
+                  {t("selectionsKept")}
                 </span>
               </div>
             ) : (
               <button style={{ ...button("primary"), width: "100%" }} disabled={busy} onClick={handleCheckout}>
-                {busy ? "Αποστολή…" : session ? "Ολοκλήρωση αιτήματος" : "Σύνδεση για αποστολή"}
+                {busy ? t("sending") : session ? t("completeRequest") : t("logInToSend")}
               </button>
             )}
             {!awaitingVerification && <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
-              {session
-                ? "Με την ολοκλήρωση αποδέχεσαι τη χρέωση και τους"
-                : "Οι επιλογές σου κρατιούνται μέχρι να συνδεθείς. Με την ολοκλήρωση αποδέχεσαι τη χρέωση και τους"}{" "}
-              <a
-                href="/platform/terms"
-                target="_blank"
-                rel="noopener"
-                style={{ color: colors.inkSoft, textDecoration: "underline", textUnderlineOffset: 2 }}
-              >
-                Όρους χρήσης
-              </a>
-              .
+              {t.rich(session ? "termsSignedIn" : "termsSignedOut", {
+                terms: (chunks) => (
+                  <a
+                    href="/platform/terms"
+                    target="_blank"
+                    rel="noopener"
+                    style={{ color: colors.inkSoft, textDecoration: "underline", textUnderlineOffset: 2 }}
+                  >
+                    {chunks}
+                  </a>
+                ),
+              })}
             </p>}
           </>
         )}
@@ -1140,6 +1154,7 @@ function Checkout({
 // already on screen, so there's never two of the same button visible at
 // once, and disappears entirely once the request has actually gone out.
 function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, fee, onGoToCheckout }) {
+  const t = useTranslations("SearchPage");
   const { totalSlots, totalFee } = computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, fee);
   // totalSlots is capped at how many positions were actually requested (see
   // computeOrderTotals) — picking 2 candidates for 1 requested position is
@@ -1173,7 +1188,7 @@ function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, f
         }}
       >
         <span style={{ fontSize: 13.5 }}>
-          <b style={money}>{totalSelected}</b> {totalSelected === 1 ? "επιλεγμένος" : "επιλεγμένοι"}
+          {t.rich("selectedCount", { count: totalSelected, m: (chunks) => <b style={money}>{chunks}</b> })}
           {totalFee != null && (
             <>
               {" · "}
@@ -1186,7 +1201,7 @@ function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, f
           onClick={onGoToCheckout}
           style={{ ...button("primary"), padding: "10px 18px", whiteSpace: "nowrap" }}
         >
-          Ολοκλήρωση αιτήματος ↓
+          {t("completeRequestDown")}
         </button>
       </div>
     </div>
@@ -1194,6 +1209,8 @@ function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, f
 }
 
 function SearchPageInner() {
+  const t = useTranslations("SearchPage");
+  const fmt = useFormat();
   const router = useRouter();
   const params = useSearchParams();
   const { session, loading: authLoading } = useAuth();
@@ -1427,19 +1444,19 @@ function SearchPageInner() {
   return (
     <div style={showStickyBar ? { ...container, paddingBottom: 76 } : container}>
       {/* Μόλις σταλεί το αίτημα, η σελίδα δείχνει μόνο την επιβεβαίωση. Κρυμμένα,
-          όχι αφαιρεμένα: η κατάσταση της σελίδας μένει όπως ήταν. */}
+          * όχι αφαιρεμένα: η κατάσταση της σελίδας μένει όπως ήταν. */}
       <div style={checkoutDone ? { display: "none" } : undefined}>
       <BackButton onClick={() => setShowFullFilters(true)} />
-      <h1 style={{ ...h1, marginTop: 14 }}>Αποτελέσματα</h1>
-      <p style={muted}>Η αναζήτηση είναι δωρεάν. Το credit χρεώνεται όταν ένας επαγγελματίας αποδεχτεί το αίτημα.</p>
-      {lookupsFailed && <LoadError what="οι περιοχές και οι τύποι σκαφών" onRetry={loadLookups} />}
+      <h1 style={{ ...h1, marginTop: 14 }}>{t("results")}</h1>
+      <p style={muted}>{t("searchFree")}</p>
+      {lookupsFailed && <LoadError what={t("loadWhat")} onRetry={loadLookups} />}
 
       {unsupportedRoles.length > 0 && (
         <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
           <p style={{ ...muted, margin: 0 }}>
-            Δεν είναι ακόμα διαθέσιμοι: {unsupportedRoles.map(labelForRole).join(", ")}.
+            {t("unsupportedRoles", { roles: unsupportedRoles.map(labelForRole).join(", ") })}
             {supportedRoles.length > 0
-              ? " Τα αποτελέσματα παρακάτω αφορούν μόνο " + supportedRoles.map(labelForRole).join(", ") + "."
+              ? " " + t("onlySupportedRoles", { roles: supportedRoles.map(labelForRole).join(", ") })
               : ""}
           </p>
         </div>
@@ -1448,12 +1465,12 @@ function SearchPageInner() {
       {/* Collapsed to a one-line recap whenever these arrived already
           answered (the wizard) — re-showing the whole form here made anyone
           coming from it re-read choices they'd just made a step earlier.
-          "Αλλαγή" reopens it in place for anyone who does want to change
+          * "Αλλαγή" reopens it in place for anyone who does want to change
           something. */}
       {showFullFilters ? (
         <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 10 }}>
           <div style={{ gridColumn: "1 / -1" }}>
-            <label style={label}>Από πού ξεκινά το ταξίδι</label>
+            <label style={label}>{t("fromLabel")}</label>
             <PlacePicker
               regions={lookups.regions}
               value={{ regionId: filters.regionId, point: filters.departurePoint || "" }}
@@ -1467,7 +1484,7 @@ function SearchPageInner() {
               onRetry={loadLookups}
             />
             {(fieldErrors.regionId || fieldErrors.departurePoint) && (
-              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>{t("requiredField")}</p>
             )}
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, margin: "6px 0 0", minHeight: 44, cursor: "pointer" }}>
               <input
@@ -1482,11 +1499,11 @@ function SearchPageInner() {
                   }
                 }}
               />
-              Τελειώνει σε άλλο σημείο
+              {t("endsElsewhere")}
             </label>
             {!sameDestination && (
               <div style={{ marginTop: 6 }}>
-                <label style={label}>Πού τελειώνει</label>
+                <label style={label}>{t("whereEndsLabel")}</label>
                 <PlacePicker
                   mode="arrival"
                   regions={lookups.regions}
@@ -1498,7 +1515,7 @@ function SearchPageInner() {
                   invalid={Boolean(fieldErrors.arrivalPoint)}
                 />
                 {fieldErrors.arrivalPoint && (
-                  <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+                  <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>{t("requiredField")}</p>
                 )}
               </div>
             )}
@@ -1509,7 +1526,7 @@ function SearchPageInner() {
               ...(fieldErrors.dates ? { border: `1px solid ${colors.danger}`, borderRadius: radius.md, padding: 10 } : {}),
             }}
           >
-            <label style={label}>Ημερομηνίες</label>
+            <label style={label}>{t("datesLabel")}</label>
             <DateRangeCalendar
               startDate={filters.startDate}
               endDate={filters.endDate}
@@ -1519,17 +1536,17 @@ function SearchPageInner() {
               }}
             />
             {fieldErrors.dates && (
-              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "6px 0 0" }}>Επίλεξε ημερομηνίες.</p>
+              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "6px 0 0" }}>{t("pickDates")}</p>
             )}
           </div>
           <div>
-            <label style={label}>Γλώσσα (προαιρετικό)</label>
+            <label style={label}>{t("languageLabel")}</label>
             <select
               style={select}
               value={filters.languageId || ""}
               onChange={(e) => setFilters((f) => ({ ...f, languageId: e.target.value }))}
             >
-              <option value="">Αδιάφορο</option>
+              <option value="">{t("languageAny")}</option>
               {lookups.languages.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
@@ -1537,11 +1554,11 @@ function SearchPageInner() {
               ))}
             </select>
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              Θα δεις μόνο επαγγελματίες που μιλάνε αυτή τη γλώσσα.
+              {t("languageHint")}
             </p>
           </div>
           <div>
-            <label style={label}>Αριθμός ατόμων</label>
+            <label style={label}>{t("partyLabel")}</label>
             <input
               type="number"
               min={1}
@@ -1553,15 +1570,15 @@ function SearchPageInner() {
               }}
             />
             {fieldErrors.partySize ? (
-              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>{t("requiredField")}</p>
             ) : (
               <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-                Όλοι όσοι θα είναι στο σκάφος. Ο επαγγελματίας το βλέπει πριν αποφασίσει.
+                {t("partyHint")}
               </p>
             )}
           </div>
           <div>
-            <label style={label}>Ιδιωτική καμπίνα για τον επαγγελματία</label>
+            <label style={label}>{t("cabinLabel")}</label>
             <select
               style={fieldErrors.privateCabin ? { ...select, border: `1px solid ${colors.danger}` } : select}
               value={filters.privateCabin === undefined ? "" : String(filters.privateCabin)}
@@ -1570,12 +1587,12 @@ function SearchPageInner() {
                 clearFieldError("privateCabin");
               }}
             >
-              <option value="">Επιλογή...</option>
-              <option value="true">Ναι</option>
-              <option value="false">Όχι</option>
+              <option value="">{t("choose")}</option>
+              <option value="true">{t("yes")}</option>
+              <option value="false">{t("no")}</option>
             </select>
             {fieldErrors.privateCabin && (
-              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>Υποχρεωτικό πεδίο.</p>
+              <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>{t("requiredField")}</p>
             )}
           </div>
         </div>
@@ -1583,7 +1600,7 @@ function SearchPageInner() {
         <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 14 }}>
             <b style={{ ...money, color: colors.ink }}>
-              {formatDateRange(filters.startDate, filters.endDate)}
+              {fmt.dateRange(filters.startDate, filters.endDate)}
             </b>
             <span style={muted}>
               {" · "}
@@ -1597,9 +1614,9 @@ function SearchPageInner() {
                     filters.arrivalPoint && filters.arrivalPoint !== filters.departurePoint ? ` → ${filters.arrivalPoint}` : ""
                   }`}
               {" · "}
-              {filters.partySize} άτομα
+              {t("people", { count: Number(filters.partySize) })}
               {" · "}
-              Ιδιωτική καμπίνα: {filters.privateCabin ? "Ναι" : "Όχι"}
+              {t("cabinValue", { value: filters.privateCabin ? t("yes") : t("no") })}
               {boatTypeName ? ` · ${boatTypeName}` : ""}
             </span>
           </div>
@@ -1608,7 +1625,7 @@ function SearchPageInner() {
             onClick={() => setShowFullFilters(true)}
             style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.accent, fontSize: 13.5, fontFamily: "inherit" }}
           >
-            Αλλαγή
+            {t("change")}
           </button>
         </div>
       )}
@@ -1675,8 +1692,9 @@ function SearchPageInner() {
 // useSearchParams needs a Suspense boundary to keep this route statically
 // prerenderable.
 export default function SearchPage() {
+  const t = useTranslations("SearchPage");
   return (
-    <Suspense fallback={<div style={container}>Φόρτωση…</div>}>
+    <Suspense fallback={<div style={container}>{t("loading")}</div>}>
       <SearchPageInner />
     </Suspense>
   );

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import DateRangeCalendar from "../DateRangeCalendar";
 import { CalendarStyles, MonthNav, MonthGrid, addMonths, startOfMonth, parseISO, todayKey } from "./Calendar";
 import { colors, radius, fontSans, button, shadow } from "../../../../lib/platform/theme";
@@ -56,10 +57,11 @@ export default function DateField({
   minDate,
   placeholder,
   title,
-  startLabel = "Από",
-  endLabel = "Έως",
+  startLabel,
+  endLabel,
   invalid = false,
 }) {
+  const t = useTranslations("DateField");
   const f = useFormat();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -149,13 +151,13 @@ export default function DateField({
                     startDate={draft?.startDate || ""}
                     endDate={draft?.endDate || ""}
                     minDate={minDate}
-                    startLabel={startLabel}
-                    endLabel={endLabel}
+                    startLabel={startLabel ?? t("from")}
+                    endLabel={endLabel ?? t("to")}
                     onChange={setDraft}
                   />
                   <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
                     <button type="button" style={button("secondary")} onClick={() => setOpen(false)}>
-                      Άκυρο
+                      {t("cancel")}
                     </button>
                     <button
                       type="button"
@@ -166,7 +168,7 @@ export default function DateField({
                         setOpen(false);
                       }}
                     >
-                      Εφαρμογή
+                      {t("apply")}
                     </button>
                   </div>
                 </>
@@ -201,7 +203,7 @@ export default function DateField({
         }}
       >
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {text || placeholder || (mode === "single" ? "Επίλεξε ημερομηνία" : "Επίλεξε διάστημα")}
+          {text || placeholder || (mode === "single" ? t("pickDate") : t("pickRange"))}
         </span>
         <CalendarIcon />
       </button>

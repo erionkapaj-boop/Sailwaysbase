@@ -2,6 +2,8 @@
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import {
   listAvailabilityWindows,
   setAvailabilityPeriod,
@@ -14,7 +16,6 @@ import {
 import DateRangeCalendar from "../components/DateRangeCalendar";
 import { CalendarStyles, MonthNav, MonthGrid, TONES, addDaysKey } from "../components/calendar/Calendar";
 import { card, sectionLabel, muted, button, colors, radius, shadow } from "../../../lib/platform/theme";
-import { formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { periodColor, regionColor, toneFor } from "../../../lib/platform/regionTones";
 
 function pad(n) {
@@ -63,6 +64,8 @@ const dot = (color, size = 8) => ({ width: size, height: size, borderRadius: "50
 // αποθήκευση.
 // ----------------------------------------------------------------------------
 export default function AvailabilityCalendar({ skipperId, bookings = [], onChanged }) {
+  const t = useTranslations("AvailabilityCalendar");
+  const f = useFormat();
   const [windows, setWindows] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [regions, setRegions] = useState([]);
@@ -164,14 +167,14 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
 
   async function save() {
     if (!range.startDate || !range.endDate) {
-      setError("Διάλεξε αρχή και τέλος στο ημερολόγιο.");
+      setError(t("pickRange"));
       noteFailure("missing_dates");
       return;
     }
     const editingAbsence = sheet.editKind === "absence";
     if (sheet.mode === "close") {
       if (bookedInRange(range.startDate, range.endDate)) {
-        setError("Το διάστημα περιλαμβάνει ημέρες με κράτηση. Διάλεξε άλλες μέρες.");
+        setError(t("rangeBooked"));
         noteFailure("booked_in_range");
         return;
       }
@@ -188,7 +191,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
       return;
     }
     if (sheetRegionIds.length === 0) {
-      setError("Διάλεξε τουλάχιστον μία περιοχή.");
+      setError(t("pickRegion"));
       noteFailure("region_required");
       return;
     }
@@ -245,8 +248,8 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
       band,
       tone: state === "available" ? toneFor(colorFor(key)) : state,
       strike: state === "blocked",
-      ariaLabel: `${formatDate(key)}: ${
-        state === "available" ? `διαθέσιμο · ${names.join(", ")}` : state === "blocked" ? "απουσία" : "κράτηση"
+      ariaLabel: `${f.date(key)}: ${
+        state === "available" ? t("ariaAvailable", { regions: names.join(", ") }) : state === "blocked" ? t("ariaAbsence") : t("ariaBooking")
       }`,
     };
   }
@@ -282,11 +285,11 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
   return (
     <div style={{ ...card, position: "relative" }}>
       <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-        Δήλωσε πού είσαι διαθέσιμος και πότε λείπεις. Κάθε περιοχή έχει το δικό της χρώμα.
+        {t("intro")}
       </p>
 
       <button type="button" style={{ ...button("primary"), width: "100%", marginBottom: 20 }} onClick={() => openNew()}>
-        + Νέα περίοδος
+        {t("newPeriodButton")}
       </button>
 
       <CalendarStyles />
@@ -301,8 +304,8 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
           </span>
         ))}
         {[
-          ["blocked", "Απουσία"],
-          ["booked", "Κράτηση"],
+          ["blocked", t("absence")],
+          ["booked", t("booking")],
         ].map(([tone, label]) => (
           <span key={tone} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <i style={{ width: 16, height: 8, borderRadius: 4, background: TONES[tone].band, display: "inline-block" }} />
@@ -313,8 +316,8 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
 
       {error && !sheet && <p style={{ color: colors.danger, fontSize: 13, marginTop: 12 }}>{error}</p>}
 
-      <h3 style={{ ...sectionLabel, margin: "26px 0 8px" }}>Οι περίοδοί μου</h3>
-      {upcoming.length === 0 && <p style={{ ...muted, fontSize: 13.5, margin: 0 }}>Δεν έχεις δηλώσει περιόδους.</p>}
+      <h3 style={{ ...sectionLabel, margin: "26px 0 8px" }}>{t("myPeriods")}</h3>
+      {upcoming.length === 0 && <p style={{ ...muted, fontSize: 13.5, margin: 0 }}>{t("noPeriods")}</p>}
       <div>
         {upcoming.map(({ type, item }) => {
           const isPeriod = type === "period";
@@ -351,9 +354,9 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                 }}
               />
               <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 14.5, fontWeight: 500, display: "block" }}>{formatDateRange(item.start_date, item.end_date)}</span>
+                <span style={{ fontSize: 14.5, fontWeight: 500, display: "block" }}>{f.dateRange(item.start_date, item.end_date)}</span>
                 <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 2 }}>
-                  {isPeriod ? names.join(" · ") : "Απουσία"}
+                  {isPeriod ? names.join(" · ") : t("absence")}
                 </span>
               </span>
               <span aria-hidden="true" style={{ color: colors.inkSoft, fontSize: 18 }}>
@@ -369,15 +372,15 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
         <div style={overlay} onClick={closeSheet}>
           <div role="dialog" aria-modal="true" style={{ ...sheetBox, maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ ...sectionLabel, margin: "0 0 12px" }}>
-              {sheet.mode === "close" ? "Απουσία" : sheet.editKind === "period" ? "Αλλαγή περιόδου" : "Νέα περίοδος"}
+              {sheet.mode === "close" ? t("absence") : sheet.editKind === "period" ? t("changePeriod") : t("newPeriod")}
             </h3>
 
             <DateRangeCalendar
               startDate={range.startDate}
               endDate={range.endDate}
               minDate={today}
-              startLabel="Από"
-              endLabel="Έως"
+              startLabel={t("from")}
+              endLabel={t("to")}
               bare
               maxMonths={1}
               onChange={({ startDate, endDate }) => {
@@ -389,12 +392,12 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
             {/* Διαθέσιμος ή απουσία, για τις μέρες που διάλεξες. */}
             <div
               role="radiogroup"
-              aria-label="Κατάσταση"
+              aria-label={t("status")}
               style={{ display: "flex", marginTop: 16, padding: 3, background: colors.seaGlass, borderRadius: radius.pill }}
             >
               {[
-                ["open", "Διαθέσιμος"],
-                ["close", "Απουσία"],
+                ["open", t("available")],
+                ["close", t("absence")],
               ].map(([m, label]) => {
                 const on = sheet.mode === m;
                 return (
@@ -427,7 +430,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
 
             {sheet.mode === "close" && (
               <p style={{ ...muted, fontSize: 13, margin: "12px 0 0", lineHeight: 1.5 }}>
-                Δεν εμφανίζεσαι σε αναζητήσεις αυτές τις μέρες. Ό,τι διαθεσιμότητα έχεις δηλώσει μένει από κάτω.
+                {t("absenceNote")}
               </p>
             )}
 
@@ -440,7 +443,7 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
                     style={chip(regions.length > 0 && sheetRegionIds.length === regions.length)}
                     onClick={() => setSheetRegionIds((ids) => (ids.length === regions.length ? [] : regions.map((r) => r.id)))}
                   >
-                    Όλες
+                    {t("allRegions")}
                   </button>
                   {regions.map((r, i) => {
                     const on = sheetRegionIds.includes(r.id);
@@ -465,8 +468,8 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
               <div style={{ marginTop: 14, padding: "10px 12px", background: colors.seaGlass, borderRadius: radius.md, fontSize: 13, lineHeight: 1.55 }}>
                 {overlaps.map((o, i) => (
                   <div key={i}>
-                    {formatDateRange(o.from, o.to)}: {o.names.join(" · ") || "—"} →{" "}
-                    {sheet.mode === "close" ? "Απουσία" : selectedNames.join(" · ") || "νέα περιοχή"}
+                    {f.dateRange(o.from, o.to)}: {o.names.join(" · ") || "—"} →{" "}
+                    {sheet.mode === "close" ? t("absence") : selectedNames.join(" · ") || t("newRegion")}
                   </div>
                 ))}
               </div>
@@ -476,17 +479,17 @@ export default function AvailabilityCalendar({ skipperId, bookings = [], onChang
 
             <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
               <button type="button" disabled={busy} style={{ ...button("primary"), flex: 1 }} onClick={save}>
-                {busy ? "Αποθήκευση…" : "Αποθήκευση"}
+                {busy ? t("saving") : t("save")}
               </button>
               <button type="button" style={button("secondary")} onClick={closeSheet}>
-                Άκυρο
+                {t("cancel")}
               </button>
             </div>
 
             {sheet.editId && (
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
                 <button type="button" disabled={busy} style={{ ...linkBtn, color: colors.danger }} onClick={removeCurrent}>
-                  {sheet.editKind === "absence" ? "Ακύρωση απουσίας" : "Διαγραφή περιόδου"}
+                  {sheet.editKind === "absence" ? t("cancelAbsence") : t("deletePeriod")}
                 </button>
               </div>
             )}

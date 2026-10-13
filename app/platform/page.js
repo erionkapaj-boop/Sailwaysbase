@@ -11,8 +11,8 @@ import { container } from "../../lib/platform/theme";
 export default function LandingPage() {
   return (
     <div style={{ ...container, maxWidth: 680 }}>
-      {/* Κεντραρισμένο μόνο το πρώτο σκαλοπάτι· ο οδηγός ξεκινά από πάνω, ώστε
-          η ερώτηση και η ενέργεια να χωράνε στην οθόνη χωρίς κύλιση. */}
+      {/* Only the first step is centred; the wizard starts at the top so the
+          question and the action fit on screen without scrolling. */}
       <style
         dangerouslySetInnerHTML={{
           __html: ".sf-home:has([data-sf-wizard]) { min-height: 0 !important; justify-content: flex-start !important; padding: 0 !important; }",

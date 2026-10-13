@@ -1,13 +1,14 @@
 "use client";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "../../AuthContext";
 import TopUpSheet from "./TopUpSheet";
-import { formatCredits } from "../../../../lib/platform/credits";
 import { colors, radius, button } from "../../../../lib/platform/theme";
 
 // Διακριτική υπενθύμιση όταν τα credits τελειώνουν, ώστε η επόμενη πρόταση
 // να βρίσκει τον επαγγελματία έτοιμο. Από 1 credit και κάτω.
 export default function LowCreditsBanner({ threshold = 1 }) {
+  const t = useTranslations("LowCreditsBanner");
   const { userRow, readOnly } = useAuth();
   const [open, setOpen] = useState(false);
   const balance = Number(userRow?.wallet_balance ?? 0);
@@ -32,11 +33,11 @@ export default function LowCreditsBanner({ threshold = 1 }) {
         }}
       >
         <span style={{ fontSize: 14, lineHeight: 1.45 }}>
-          {balance <= 0 ? "Δεν έχεις credits." : `Σου ${balance === 1 ? "έμεινε" : "έμειναν"} ${formatCredits(balance)}.`}{" "}
-          <span style={{ color: colors.inkSoft }}>Για την επόμενη πρόταση, απόκτησε credits από τώρα.</span>
+          {balance <= 0 ? t("none") : t("remaining", { count: balance })}{" "}
+          <span style={{ color: colors.inkSoft }}>{t("note")}</span>
         </span>
         <button type="button" style={button("primary")} onClick={() => setOpen(true)}>
-          Αγορά credits
+          {t("buy")}
         </button>
       </div>
       <TopUpSheet open={open} onClose={() => setOpen(false)} balance={balance} />

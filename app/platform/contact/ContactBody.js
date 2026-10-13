@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import BackButton from "../components/BackButton";
 import { useAuth } from "../AuthContext";
 import { submitContactMessage } from "../../../lib/platform/db";
@@ -20,26 +21,21 @@ import {
 } from "../../../lib/platform/theme";
 
 const TOPICS = [
-  { value: "general", label: "Γενική ερώτηση" },
-  { value: "booking", label: "Πρόβλημα με κράτηση ή αίτημα" },
-  { value: "payment", label: "Χρέωση, credits ή επιστροφή" },
-  { value: "report", label: "Αναφορά χρήστη ή περιεχομένου" },
-  { value: "privacy", label: "Προσωπικά δεδομένα (ΓΚΠΔ)" },
-  { value: "other", label: "Άλλο" },
+  { value: "general", key: "topicGeneral" },
+  { value: "booking", key: "topicBooking" },
+  { value: "payment", key: "topicPayment" },
+  { value: "report", key: "topicReport" },
+  { value: "privacy", key: "topicPrivacy" },
+  { value: "other", key: "topicOther" },
 ];
 
-const ERRORS = {
-  invalid_name: "Το όνομα πρέπει να έχει τουλάχιστον 2 χαρακτήρες.",
-  invalid_contact: "Συμπλήρωσε ένα email ή τηλέφωνο για να μπορέσουμε να απαντήσουμε.",
-  invalid_message: "Το μήνυμα πρέπει να έχει τουλάχιστον 10 χαρακτήρες.",
-  invalid_topic: "Διάλεξε θέμα από τη λίστα.",
-  too_many_messages: "Έχεις στείλει αρκετά μηνύματα την τελευταία ώρα. Δοκίμασε ξανά αργότερα.",
-};
+const ERROR_CODES = ["invalid_name", "invalid_contact", "invalid_message", "invalid_topic", "too_many_messages"];
 
 const MAX_MESSAGE = 4000;
 
 export default function ContactBody() {
   const router = useRouter();
+  const t = useTranslations("Contact");
   const { session, userRow } = useAuth();
 
   const [form, setForm] = useState({ name: "", contact: "", topic: "general", message: "" });
@@ -76,7 +72,7 @@ export default function ContactBody() {
       setSent(true);
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
-      setError(ERRORS[code] || "Η αποστολή δεν ολοκληρώθηκε. Δοκίμασε ξανά.");
+      setError(ERROR_CODES.includes(code) ? t(code) : t("sendFailed"));
     } finally {
       setBusy(false);
     }
@@ -87,15 +83,14 @@ export default function ContactBody() {
       <div style={{ ...container, maxWidth: 640 }}>
         <div style={{ padding: "24px 0 0" }}>
           <BackButton onClick={() => router.back()} />
-          <h1 style={{ ...h1, marginTop: 20 }}>Το μήνυμα στάλθηκε</h1>
+          <h1 style={{ ...h1, marginTop: 20 }}>{t("sentTitle")}</h1>
           <div style={{ ...card, borderLeft: `3px solid ${colors.success}` }}>
             <p style={{ margin: 0, lineHeight: 1.7 }}>
-              Το λάβαμε και θα απαντήσουμε στο{" "}
-              <strong>{form.contact}</strong> το συντομότερο δυνατό.
+              {t.rich("sentBody", { contact: form.contact, b: (c) => <strong>{c}</strong> })}
             </p>
           </div>
           <button style={button("secondary")} onClick={() => router.push("/platform")}>
-            Επιστροφή στην αρχική
+            {t("backHome")}
           </button>
         </div>
       </div>
@@ -109,15 +104,14 @@ export default function ContactBody() {
     <div style={{ ...container, maxWidth: 640 }}>
       <div style={{ padding: "24px 0 0" }}>
         <BackButton onClick={() => router.back()} />
-        <h1 style={{ ...h1, marginTop: 20 }}>Επικοινωνία</h1>
+        <h1 style={{ ...h1, marginTop: 20 }}>{t("title")}</h1>
         <p style={{ ...muted, lineHeight: 1.7, margin: "0 0 20px" }}>
-          Γράψε μας από εδώ. Το μήνυμα πηγαίνει απευθείας στη διαχείριση της πλατφόρμας. Δεν χρειάζεται
-          να έχεις λογαριασμό.
+          {t("intro")}
         </p>
 
         <form onSubmit={submit} style={card}>
           <label style={label} htmlFor="c-name">
-            Ονοματεπώνυμο
+            {t("name")}
           </label>
           <input
             id="c-name"
@@ -130,7 +124,7 @@ export default function ContactBody() {
           />
 
           <label style={label} htmlFor="c-contact">
-            Email ή τηλέφωνο για να σου απαντήσουμε
+            {t("contact")}
           </label>
           <input
             id="c-contact"
@@ -142,7 +136,7 @@ export default function ContactBody() {
           />
 
           <label style={label} htmlFor="c-topic">
-            Θέμα
+            {t("topic")}
           </label>
           <select
             id="c-topic"
@@ -150,15 +144,15 @@ export default function ContactBody() {
             value={form.topic}
             onChange={(e) => setField("topic", e.target.value)}
           >
-            {TOPICS.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
+            {TOPICS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {t(o.key)}
               </option>
             ))}
           </select>
 
           <label style={label} htmlFor="c-message">
-            Μήνυμα
+            {t("message")}
           </label>
           <textarea
             id="c-message"
@@ -170,14 +164,14 @@ export default function ContactBody() {
             onChange={(e) => setField("message", e.target.value)}
             placeholder={
               form.topic === "report"
-                ? "Πες μας πού βρίσκεται αυτό που αναφέρεις και γιατί."
-                : "Περίγραψέ μας τι χρειάζεσαι."
+                ? t("placeholderReport")
+                : t("placeholderDefault")
             }
           />
           <p style={{ ...muted, fontSize: 12, margin: "0 0 18px" }}>
             {form.message.length < 10
-              ? "Τουλάχιστον 10 χαρακτήρες."
-              : `Απομένουν ${remaining} χαρακτήρες.`}
+              ? t("minChars")
+              : t("remaining", { remaining })}
           </p>
 
           {/* Κρυφό από ανθρώπους και από αναγνώστες οθόνης· μόνο τα bots το γεμίζουν. */}
@@ -192,7 +186,7 @@ export default function ContactBody() {
           />
 
           <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%" }}>
-            {busy ? "Αποστολή…" : "Αποστολή μηνύματος"}
+            {busy ? t("sending") : t("send")}
           </button>
 
           {error && (
@@ -211,17 +205,17 @@ export default function ContactBody() {
           }}
         >
           <p style={{ ...muted, fontSize: 12.5, margin: 0, lineHeight: 1.7 }}>
-            Τα στοιχεία που συμπληρώνεις χρησιμοποιούνται αποκλειστικά για να απαντήσουμε στο μήνυμά σου
-            και διατηρούνται έως 2 έτη. Δες την{" "}
-            <Link href="/platform/privacy" style={{ color: colors.accent }}>
-              πολιτική απορρήτου
-            </Link>
-            .
+            {t.rich("privacyNote", {
+              privacy: (c) => (
+                <Link href="/platform/privacy" style={{ color: colors.accent }}>
+                  {c}
+                </Link>
+              ),
+            })}
             {privacyEmail && (
               <>
                 {" "}
-                Για αιτήματα σχετικά με τα προσωπικά σου δεδομένα μπορείς να γράψεις και απευθείας στο{" "}
-                <strong>{privacyEmail}</strong>.
+                {t.rich("privacyEmail", { email: privacyEmail, b: (c) => <strong>{c}</strong> })}
               </>
             )}
           </p>
@@ -229,11 +223,13 @@ export default function ContactBody() {
 
         {!session && (
           <p style={{ ...muted, fontSize: 12.5, marginTop: 14, lineHeight: 1.7 }}>
-            Αν το μήνυμα αφορά συγκεκριμένη κράτηση, η{" "}
-            <Link href="/platform/login" style={{ color: colors.accent }}>
-              σύνδεση
-            </Link>{" "}
-            πριν το στείλεις μας βοηθά να το εντοπίσουμε πιο γρήγορα.
+            {t.rich("loginHint", {
+              login: (c) => (
+                <Link href="/platform/login" style={{ color: colors.accent }}>
+                  {c}
+                </Link>
+              ),
+            })}
           </p>
         )}
       </div>

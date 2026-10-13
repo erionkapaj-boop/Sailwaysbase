@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import NavGroups from "./NavGroups";
 import { colors, fontSans } from "../../../lib/platform/theme";
 
@@ -22,6 +23,7 @@ export const SIDENAV_CSS = `
 `;
 
 export default function SideNav({ items, activeHref, onSignOut }) {
+  const t = useTranslations("SideNav");
   const ref = useRef(null);
   useEffect(() => {
     const place = () => {
@@ -41,7 +43,7 @@ export default function SideNav({ items, activeHref, onSignOut }) {
   }, []);
   return (
     <aside ref={ref} className="sf-sidenav">
-      <nav aria-label="Πλαϊνό μενού" style={{ flex: 1, overflowY: "auto", padding: "6px 10px 10px" }}>
+      <nav aria-label={t("menu")} style={{ flex: 1, overflowY: "auto", padding: "6px 10px 10px" }}>
         <NavGroups items={items} activeHref={activeHref} />
       </nav>
       <button
@@ -61,7 +63,7 @@ export default function SideNav({ items, activeHref, onSignOut }) {
           color: colors.ink,
         }}
       >
-        Αποσύνδεση
+        {t("logout")}
       </button>
     </aside>
   );

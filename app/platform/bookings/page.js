@@ -3,6 +3,7 @@ import { Suspense, useEffect, useState } from "react";
 import LoadError from "../components/LoadError";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
 import { listMyBookingsAsClient, listMyBookingsAsSkipper, listMyDeliveryBookings } from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
@@ -12,8 +13,9 @@ import { container, card, h1, sectionLabel, muted, button } from "../../../lib/p
 import SignedOutNotice from "../components/SignedOutNotice";
 
 export default function BookingsPage() {
+  const t = useTranslations("Bookings");
   return (
-    <Suspense fallback={<div style={container}>Φόρτωση...</div>}>
+    <Suspense fallback={<div style={container}>{t("loading")}</div>}>
       <BookingsInner />
     </Suspense>
   );
@@ -22,6 +24,7 @@ export default function BookingsPage() {
 // useSearchParams() (για ?focus=<bookingId>, από το κουδουνάκι μηνυμάτων)
 // χρειάζεται Suspense boundary γύρω του στο app router.
 function BookingsInner() {
+  const t = useTranslations("Bookings");
   const { session, userRow, profile, isAdmin, loading, notifications } = useAuth();
   const searchParams = useSearchParams();
   const focusBookingId = searchParams.get("focus");
@@ -57,20 +60,20 @@ function BookingsInner() {
     if (session) load();
   }, [session, profile?.id]);
 
-  if (loading) return <div style={container}>Φόρτωση...</div>;
+  if (loading) return <div style={container}>{t("loading")}</div>;
   if (!session) return <SignedOutNotice />;
 
   const unreadIds = notifications?.unreadBookingIds ?? [];
 
   return (
     <div style={container}>
-      <h1 style={{ ...h1, marginBottom: 24 }}>Κρατήσεις</h1>
+      <h1 style={{ ...h1, marginBottom: 24 }}>{t("title")}</h1>
       <PendingReviewBanner bookingsHref="/platform/bookings" />
-      {!busy && loadFailed && <LoadError what="οι κρατήσεις σου" onRetry={load} />}
+      {!busy && loadFailed && <LoadError what={t("loadWhat")} onRetry={load} />}
 
       {deliveryBookings.length > 0 && (
         <div style={{ marginTop: 8 }}>
-          <h2 style={sectionLabel}>Μεταφορές σκάφους<span style={{ marginLeft: 8, opacity: 0.55 }}>{deliveryBookings.length}</span></h2>
+          <h2 style={sectionLabel}>{t("deliveries")}<span style={{ marginLeft: 8, opacity: 0.55 }}>{deliveryBookings.length}</span></h2>
           {deliveryBookings.map((b) => (
             <DeliveryBookingCard key={b.id} booking={b} />
           ))}
@@ -79,9 +82,9 @@ function BookingsInner() {
 
       {isProfessional && (
         <div style={{ marginTop: 8, marginBottom: 32 }}>
-          <h2 style={sectionLabel}>Ως επαγγελματίας<span style={{ marginLeft: 8, opacity: 0.55 }}>{proBookings.length}</span></h2>
-          {busy && <p style={muted}>Φόρτωση...</p>}
-          {!busy && !loadFailed && proBookings.length === 0 && <div style={{ ...card, textAlign: "center", padding: "20px 22px" }}><p style={{ ...muted, margin: 0 }}>Δεν υπάρχουν κρατήσεις ακόμα.</p></div>}
+          <h2 style={sectionLabel}>{t("asProfessional")}<span style={{ marginLeft: 8, opacity: 0.55 }}>{proBookings.length}</span></h2>
+          {busy && <p style={muted}>{t("loading")}</p>}
+          {!busy && !loadFailed && proBookings.length === 0 && <div style={{ ...card, textAlign: "center", padding: "20px 22px" }}><p style={{ ...muted, margin: 0 }}>{t("noBookings")}</p></div>}
           {proBookings.map((b) => (
             <BookingPanel
               key={b.id}
@@ -97,15 +100,15 @@ function BookingsInner() {
       )}
 
       <div>
-        <h2 style={sectionLabel}>Ως πελάτης<span style={{ marginLeft: 8, opacity: 0.55 }}>{clientBookings.length}</span></h2>
-        {busy && <p style={muted}>Φόρτωση...</p>}
+        <h2 style={sectionLabel}>{t("asClient")}<span style={{ marginLeft: 8, opacity: 0.55 }}>{clientBookings.length}</span></h2>
+        {busy && <p style={muted}>{t("loading")}</p>}
         {!busy && !loadFailed && clientBookings.length === 0 && (
           <div style={{ ...card, textAlign: "center" }}>
             <p style={{ ...muted, margin: "0 0 14px" }}>
-              Εδώ θα δεις τις κρατήσεις σου, μόλις κάποιος επαγγελματίας αναλάβει ένα αίτημά σου.
+              {t("clientEmpty")}
             </p>
             <Link href="/platform" style={{ ...button("secondary"), textDecoration: "none" }}>
-              Βρες πλήρωμα
+              {t("findCrew")}
             </Link>
           </div>
         )}

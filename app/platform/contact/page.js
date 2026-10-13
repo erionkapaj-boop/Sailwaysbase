@@ -1,10 +1,10 @@
+import { getTranslations } from "next-intl/server";
 import ContactBody from "./ContactBody";
 
-export const metadata = {
-  title: "Επικοινωνία",
-  description:
-    "Φόρμα επικοινωνίας του SkipperFinder. Το μήνυμα πηγαίνει απευθείας στη διαχείριση της πλατφόρμας.",
-};
+export async function generateMetadata() {
+  const t = await getTranslations("ContactMeta");
+  return { title: t("title"), description: t("description") };
+}
 
 export default function ContactPage() {
   return <ContactBody />;

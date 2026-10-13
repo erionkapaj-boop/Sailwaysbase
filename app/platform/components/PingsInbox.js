@@ -3,7 +3,9 @@ import TopUpSheet from "./credits/TopUpSheet";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
+import { useFormat } from "../useFormat";
 import {
   listMyPings,
   claimBookingRequest,
@@ -16,34 +18,34 @@ import {
 import Stars from "./Stars";
 import { card, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 import LoadError from "./LoadError";
-import { formatDateTime, formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 
 const CLIENT_CATEGORIES = reviewCategoriesForRole("client");
 
-const CLAIM_ERRORS = {
-  request_not_open: "Το αίτημα έκλεισε. Το ανέλαβε κάποιος άλλος ή έληξε.",
-  already_resolved: "Έχεις ήδη απαντήσει σε αυτό το αίτημα.",
-  date_overlap: "Έχεις ήδη επιβεβαιωμένη κράτηση που επικαλύπτεται με αυτές τις ημερομηνίες.",
-  insufficient_wallet: "Δεν έχεις αρκετά credits. Απόκτησε credits από τη σελίδα Credits.",
-  not_pinged: "Αυτό το αίτημα δεν απευθύνεται πια σε εσένα.",
-  skipper_not_eligible: "Το προφίλ σου δεν είναι εγκεκριμένο.",
-  request_expired: "Η πρόταση έληξε.",
-  already_covered: "Η δουλειά καλύφθηκε ήδη από κάποιον άλλον.",
-  not_a_replacement_offer: "Η πρόταση δεν είναι πλέον διαθέσιμη.",
-  not_a_candidate: "Δεν είσαι πια υποψήφιος σε αυτή την πρόταση.",
-  client_cannot_pay: "Το αίτημα δεν είναι πλέον διαθέσιμο.",
-};
+const CLAIM_ERROR_CODES = [
+  "request_not_open",
+  "already_resolved",
+  "date_overlap",
+  "insufficient_wallet",
+  "not_pinged",
+  "skipper_not_eligible",
+  "request_expired",
+  "already_covered",
+  "not_a_replacement_offer",
+  "not_a_candidate",
+  "client_cannot_pay",
+];
 
 // Πρόταση από τη διαχείριση, όχι αίτημα πελάτη: ήρθε επειδή σε διάλεξαν
 // ονομαστικά, και αξίζει να διαβάζεται διαφορετικά από ένα ερώτημα που έφυγε
 // σε πολλούς.
-const OFFER_LABEL = {
-  admin_direct: "Πρόταση από τη διαχείριση",
-  admin_replacement: "Αντικατάσταση",
+const OFFER_LABEL_KEYS = {
+  admin_direct: "offerDirect",
+  admin_replacement: "offerReplacement",
 };
 
 export default function PingsInbox({ skipperId }) {
+  const t = useTranslations("PingsInbox");
   const { refreshNotifications, userRow } = useAuth();
   const balance = Number(userRow?.wallet_balance ?? 0);
   // Όταν τα credits δεν φτάνουν: αγορά επιτόπου, χωρίς να φύγεις από εδώ.
@@ -89,7 +91,7 @@ export default function PingsInbox({ skipperId }) {
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
       if (code === "insufficient_wallet") setTopUp({ need: Math.max(1, Number(fee) || 1), requestId, fee });
-      else setError(CLAIM_ERRORS[code] || friendlyError(err));
+      else setError(CLAIM_ERROR_CODES.includes(code) ? t(code) : friendlyError(err));
       await load();
     } finally {
       setBusyId(null);
@@ -105,7 +107,7 @@ export default function PingsInbox({ skipperId }) {
       refreshNotifications();
     } catch (err) {
       const code = (err.message || "").match(/[a-z_]+/)?.[0];
-      setError(CLAIM_ERRORS[code] || friendlyError(err));
+      setError(CLAIM_ERROR_CODES.includes(code) ? t(code) : friendlyError(err));
       await load();
     } finally {
       setBusyId(null);
@@ -143,10 +145,10 @@ export default function PingsInbox({ skipperId }) {
 
   return (
     <div>
-      <h2 style={sectionLabel}>Εισερχόμενα αιτήματα<span style={{ marginLeft: 8, opacity: 0.55 }}>{pending.length}</span></h2>
+      <h2 style={sectionLabel}>{t("title")}<span style={{ marginLeft: 8, opacity: 0.55 }}>{pending.length}</span></h2>
       {error && <p style={{ color: colors.danger }}>{error}</p>}
-      {loadFailed && <LoadError what="τα εισερχόμενα αιτήματα" onRetry={load} compact />}
-      {!loadFailed && pending.length === 0 && <div style={{ ...card, textAlign: "center", padding: "20px 22px" }}><p style={{ ...muted, margin: 0 }}>Δεν υπάρχουν εκκρεμή αιτήματα αυτή τη στιγμή.</p></div>}
+      {loadFailed && <LoadError what={t("loadWhat")} onRetry={load} compact />}
+      {!loadFailed && pending.length === 0 && <div style={{ ...card, textAlign: "center", padding: "20px 22px" }}><p style={{ ...muted, margin: 0 }}>{t("empty")}</p></div>}
       {pending.map((p) => (
         <PingCard
           key={p.id}
@@ -169,7 +171,7 @@ export default function PingsInbox({ skipperId }) {
         need={topUp?.need || 0}
         balance={balance}
         onClose={() => setTopUp(null)}
-        continueLabel="Συνέχεια: Διεκδίκηση"
+        continueLabel={t("continueClaim")}
         onContinue={() => topUp && handleClaim(topUp.requestId, false, topUp.fee)}
       />
     </div>
@@ -182,6 +184,8 @@ export default function PingsInbox({ skipperId }) {
 // οπότε ο επαγγελματίας πρέπει συμμετρικά να μπορεί να δει την ανάλυση του
 // πελάτη πριν αποφασίσει να διεκδικήσει.
 function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
+  const t = useTranslations("PingsInbox");
+  const f = useFormat();
   const [showBreakdown, setShowBreakdown] = useState(false);
   const r = p.booking_requests;
   const cp = r.client_profiles;
@@ -203,7 +207,7 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
     >
       {isOffer && (
         <p style={{ ...muted, fontSize: 12, margin: "0 0 8px", color: colors.ink, fontWeight: 500 }}>
-          {OFFER_LABEL[r.origin] || "Πρόταση από τη διαχείριση"}
+          {t(OFFER_LABEL_KEYS[r.origin] || "offerDirect")}
         </p>
       )}
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
@@ -213,32 +217,33 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
           </div>
           {(r.party_size != null || r.private_cabin != null) && (
             <p style={{ ...muted, fontSize: 13, margin: "2px 0 0" }}>
-              {r.party_size != null && <>Άτομα: {r.party_size}</>}
+              {r.party_size != null && <>{t("partySize", { count: r.party_size })}</>}
               {r.party_size != null && r.private_cabin != null ? " · " : ""}
-              {r.private_cabin != null && <>Ιδιωτική καμπίνα: {r.private_cabin ? "Ναι" : "Όχι"}</>}
+              {r.private_cabin != null && <>{t("privateCabin", { value: r.private_cabin ? t("yes") : t("no") })}</>}
             </p>
           )}
           <p style={{ ...muted, margin: "6px 0 0" }}>
-            <span style={money}>{formatDateRange(r.start_date, r.end_date)}</span>
+            <span style={money}>{f.dateRange(r.start_date, r.end_date)}</span>
           </p>
-          <p style={{ ...muted, fontSize: 12, margin: "2px 0 0" }}>Στάλθηκε {formatDateTime(r.created_at)}</p>
+          <p style={{ ...muted, fontSize: 12, margin: "2px 0 0" }}>{t("sentAt", { date: f.dateTime(r.created_at) })}</p>
           {isOffer ? (
             <p style={{ ...muted, margin: "4px 0 0" }}>
               {isReplacement
-                ? "Ο επαγγελματίας του πελάτη ακύρωσε. Αν σε ενδιαφέρει, δήλωσέ το — ο πελάτης διαλέγει ανάμεσα σε όσους δηλώσουν."
-                : "Σε επέλεξαν απευθείας για αυτή τη δουλειά."}
-              {r.note && <> «{r.note}»</>}
+                ? t("replacementIntro")
+                : t("directIntro")}
+              {r.note && <> {t("quotedNote", { note: r.note })}</>}
             </p>
           ) : (
             <>
               <p style={{ ...muted, margin: "4px 0 0" }}>
-                Πελάτης:{" "}
+                {t("client")}{" "}
                 {cp?.reliability_percentage != null ? (
-                  <>
-                    <span style={{ ...money, color: colors.ink }}>{cp.reliability_percentage}%</span> αξιοπιστία
-                  </>
+                  t.rich("clientReliability", {
+                    pct: cp.reliability_percentage,
+                    m: (c) => <span style={{ ...money, color: colors.ink }}>{c}</span>,
+                  })
                 ) : (
-                  "νέος πελάτης"
+                  t("newClient")
                 )}
                 {" · "}
                 {cp?.rating_count > 0 ? (
@@ -280,7 +285,7 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
                         {catRating != null ? (
                           <Stars rating={catRating} count={cp.rating_count} size={11} showEmptyLabel={false} />
                         ) : (
-                          <span style={{ fontSize: 12, color: colors.inkSoft }}>Καμία ακόμα</span>
+                          <span style={{ fontSize: 12, color: colors.inkSoft }}>{t("noneYet")}</span>
                         )}
                       </div>
                     );
@@ -297,22 +302,23 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
               )}
             </>
           )}
-          {/* Το ποσό δίπλα στην απόφαση, όχι στο πορτοφόλι μετά. Στην
-              αντικατάσταση η χρέωση γίνεται μόνο αν σε επιλέξει ο πελάτης,
-              όχι τώρα — διαφορετικό κείμενο για να μην ξεγελάει. */}
+          {/* The amount next to the decision, not in the wallet afterwards. For a
+              replacement the charge happens only if the client chooses you,
+              not now, so the text differs to avoid misleading. */}
           {fee != null && (
             <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
               {Number(fee) === 0 ? (
-                "Χωρίς χρέωση."
+                t("noFee")
               ) : isReplacement ? (
-                <>
-                  Αν σε επιλέξει ο πελάτης, χρησιμοποιείς <span style={{ ...money, color: colors.ink }}>{formatCredits(fee)}</span> τη
-                  στιγμή της επιλογής.
-                </>
+                t.rich("feeReplacement", {
+                  credits: formatCredits(fee),
+                  m: (c) => <span style={{ ...money, color: colors.ink }}>{c}</span>,
+                })
               ) : (
-                <>
-                  Με τη διεκδίκηση χρησιμοποιείς <span style={{ ...money, color: colors.ink }}>{formatCredits(fee)}</span>.
-                </>
+                t.rich("feeClaim", {
+                  credits: formatCredits(fee),
+                  m: (c) => <span style={{ ...money, color: colors.ink }}>{c}</span>,
+                })
               )}
             </p>
           )}
@@ -323,24 +329,24 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
         {isWaitingAsCandidate ? (
           <div style={{ flex: "0 1 300px" }}>
             <p style={{ fontSize: 13, color: colors.ink, margin: 0 }}>
-              ✓ Δήλωσες ενδιαφέρον — περιμένεις την επιλογή του πελάτη
-              {r.client_decide_by && <> (έως {formatDateTime(r.client_decide_by)})</>}.
+              {r.client_decide_by
+                ? t("waitingUntil", { date: f.dateTime(r.client_decide_by) })
+                : t("waiting")}
             </p>
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 8px", lineHeight: 1.5 }}>
-              Χωρίς χρέωση μέχρι την επιλογή. Αν κλειστείς αλλού τις ίδιες μέρες, η υποψηφιότητά σου αποσύρεται
-              αυτόματα.
+              {t("waitingNote")}
             </p>
             <button style={button("secondary")} disabled={busy} onClick={onWithdraw}>
-              {busy ? "..." : "Ανάκληση διαθεσιμότητας"}
+              {busy ? "..." : t("withdraw")}
             </button>
           </div>
         ) : (
           <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
             <button style={button("primary")} disabled={busy} onClick={onClaim}>
-              {busy ? "..." : isReplacement ? "Δήλωση ενδιαφέροντος" : "Διεκδίκηση"}
+              {busy ? "..." : isReplacement ? t("interest") : t("claim")}
             </button>
             <button style={button("secondary")} disabled={busy} onClick={onDecline}>
-              Απόρριψη
+              {t("decline")}
             </button>
           </div>
         )}

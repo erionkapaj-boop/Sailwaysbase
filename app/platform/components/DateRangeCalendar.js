@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { colors, fontSans, radius } from "../../../lib/platform/theme";
 import { useFormat } from "../useFormat";
 import {
@@ -24,12 +25,15 @@ export default function DateRangeCalendar({
   endDate,
   onChange,
   minDate,
-  startLabel = "Αναχώρηση",
-  endLabel = "Επιστροφή",
+  startLabel: startLabelProp,
+  endLabel: endLabelProp,
   bare = false,
   maxMonths = 2,
 }) {
+  const t = useTranslations("DateRangeCalendar");
   const f = useFormat();
+  const startLabel = startLabelProp ?? t("departure");
+  const endLabel = endLabelProp ?? t("return");
   const floor = minDate || todayKey();
   const [month, setMonth] = useState(() => startOfMonth(startDate ? parseISO(startDate) : new Date()));
   // "start" | "end" | "done" (διάστημα πλήρες: καμία θέση δεν περιμένει)
@@ -134,9 +138,9 @@ export default function DateRangeCalendar({
   };
 
   const prompt = !startDate
-    ? `Πάτησε την ημέρα ${startLabel === "Αναχώρηση" ? "αναχώρησης" : "έναρξης"}.`
+    ? t(startLabelProp == null ? "promptDeparture" : "promptStart")
     : !endDate
-    ? `Τώρα πάτησε την ημέρα ${endLabel === "Επιστροφή" ? "επιστροφής" : "λήξης"}.`
+    ? t(endLabelProp == null ? "promptReturn" : "promptEnd")
     : null;
 
   return (
@@ -166,8 +170,8 @@ export default function DateRangeCalendar({
           borderRadius: radius.md + 4,
         }}
       >
-        {slot("start", startLabel, startDate, "Επίλεξε")}
-        {slot("end", endLabel, endDate, "Επίλεξε")}
+        {slot("start", startLabel, startDate, t("select"))}
+        {slot("end", endLabel, endDate, t("select"))}
       </div>
 
       <MonthNav
@@ -197,7 +201,7 @@ export default function DateRangeCalendar({
       >
         <span style={{ color: prompt ? colors.ink : colors.inkSoft, fontWeight: prompt ? 500 : 400 }}>
           {prompt ||
-            `${days} ${days === 1 ? "ημέρα" : "ημέρες"} · ${f.dateRange(startDate, endDate)}`}
+            `${t("days", { count: days })} · ${f.dateRange(startDate, endDate)}`}
         </span>
         {startDate && (
           <button
@@ -219,7 +223,7 @@ export default function DateRangeCalendar({
               flexShrink: 0,
             }}
           >
-            Καθαρισμός
+            {t("clear")}
           </button>
         )}
       </div>

@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import LoadError from "./LoadError";
 import { useAuth } from "../AuthContext";
 import {
@@ -16,7 +18,6 @@ import {
   departureLabel,
 } from "../../../lib/platform/db";
 import { card, muted, button, input, select, badge, colors, money, radius, tapTarget } from "../../../lib/platform/theme";
-import { formatDateTime, formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { labelForRole } from "../../../lib/platform/roles";
 import { useConfirm } from "./ConfirmDialog";
@@ -25,10 +26,10 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 import ReplacementCandidates from "./ReplacementCandidates";
 
 const STATUS_LABEL = {
-  confirmed: ["Επιβεβαιωμένη", "success"],
-  completed: ["Ολοκληρώθηκε", "neutral"],
-  cancelled_by_client: ["Ακυρώθηκε από τον πελάτη", "danger"],
-  cancelled_by_skipper: ["Ακυρώθηκε από τον επαγγελματία", "danger"],
+  confirmed: ["statusConfirmed", "success"],
+  completed: ["statusCompleted", "neutral"],
+  cancelled_by_client: ["statusCancelledByClient", "danger"],
+  cancelled_by_skipper: ["statusCancelledBySkipper", "danger"],
 };
 
 export default function BookingPanel({
@@ -42,6 +43,9 @@ export default function BookingPanel({
   supersededBy = null,
 }) {
   const { refreshNotifications } = useAuth();
+  const t = useTranslations("BookingPanel");
+  const f = useFormat();
+  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
   const rootRef = useRef(null);
   const [expanded, setExpanded] = useState(autoExpand);
   const [counterpart, setCounterpart] = useState(null);
@@ -129,19 +133,19 @@ export default function BookingPanel({
     // Ο επαγγελματίας εξηγεί πάντα γιατί ακυρώνει: ο admin το χρειάζεται για
     // την αντικατάσταση και για την αναφορά ακύρωσης.
     if (viewerRole !== "client" && !cancelReason.trim()) {
-      setError("Γράψε τον λόγο της ακύρωσης — είναι υποχρεωτικός.");
+      setError(t("reasonRequired"));
       return;
     }
     if (
       !(await confirm(
-        "Ακύρωση της κράτησης; Το ποσό που πλήρωσες δεν επιστρέφεται."
+        t("confirmCancel")
       ))
     )
       return;
     setBusy(true);
     setError("");
     try {
-      await cancelBooking(booking.id, cancelReason || "Χωρίς αναφερόμενο λόγο");
+      await cancelBooking(booking.id, cancelReason || t("noReason"));
       onChanged?.();
     } catch (err) {
       setError(friendlyError(err));
@@ -153,7 +157,7 @@ export default function BookingPanel({
   async function handleNoResponse() {
     if (
       !(await confirm(
-        "Ακύρωση λόγω μη απάντησης; Τα credits του αιτήματος δεν επιστρέφονται."
+        t("confirmNoResponse")
       ))
     )
       return;
@@ -222,7 +226,8 @@ export default function BookingPanel({
     }
   }
 
-  const [statusLabel, statusTone] = STATUS_LABEL[booking.status] || [booking.status, "neutral"];
+  const [statusKey, statusTone] = STATUS_LABEL[booking.status] || [null, "neutral"];
+  const statusLabel = statusKey ? t(statusKey) : booking.status;
 
   return (
     // Collapsed by default: a row per booking, not a full card, so a list
@@ -266,13 +271,13 @@ export default function BookingPanel({
           <span style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap", flex: "1 1 200px" }}>
             <span style={{ fontSize: 14, fontWeight: 500 }}>{departureLabel(booking)}</span>
             <span style={{ ...money, fontSize: 13, color: colors.inkSoft }}>
-              {formatDateRange(booking.start_date, booking.end_date)}
+              {f.dateRange(booking.start_date, booking.end_date)}
             </span>
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: "auto" }}>
             {hasUnread && !expanded && (
               <span
-                aria-label="Νέο μήνυμα"
+                aria-label={t("newMessage")}
                 style={{ width: 7, height: 7, borderRadius: "50%", background: colors.danger, flexShrink: 0 }}
               />
             )}
@@ -293,21 +298,21 @@ export default function BookingPanel({
 
         {viewerRole === "client" && booking.replaces_booking_id && booking.status === "confirmed" && (
           <p style={{ margin: "0 18px 12px", fontSize: 13, color: colors.success }}>
-            Αντικατάσταση: ανέλαβε τη θέση του επαγγελματία που ακύρωσε.
+            {t("replacementTook")}
           </p>
         )}
         {viewerRole !== "client" && booking.replaces_booking_id && booking.status === "confirmed" && (
-          <p style={{ ...muted, margin: "0 18px 12px", fontSize: 13 }}>Ανέλαβες τη θέση ενός επαγγελματία που ακύρωσε.</p>
+          <p style={{ ...muted, margin: "0 18px 12px", fontSize: 13 }}>{t("youTookOver")}</p>
         )}
         {viewerRole === "client" && booking.status === "cancelled_by_skipper" && (
           <p style={{ margin: "0 18px 12px", fontSize: 13, color: replacedBy ? colors.success : colors.ink, lineHeight: 1.5 }}>
             {replacedBy
-              ? "Βρέθηκε αντικαταστάτης. Θα τον δεις στην κράτηση με τις ίδιες ημερομηνίες."
+              ? t("replacementFound")
               : supersededBy
-              ? "Ακύρωσε και ο αντικαταστάτης. Η αναζήτηση συνεχίζεται στην πιο πρόσφατη κράτηση με τις ίδιες ημερομηνίες."
+              ? t("replacementSuperseded")
               : booking.replacement_closed_at
-              ? "Δεν βρέθηκε αντικαταστάτης. Τα credits του αιτήματος επιστράφηκαν."
-              : "Αναζήτηση αντικαταστάτη σε εξέλιξη, χωρίς νέα χρέωση. Αν δεν βρεθεί, τα credits επιστρέφονται."}
+              ? t("replacementNone")
+              : t("replacementSearching")}
           </p>
         )}
         {viewerRole === "client" &&
@@ -335,7 +340,7 @@ export default function BookingPanel({
                   e.stopPropagation();
                   setPhotoExpanded(true);
                 }}
-                aria-label="Μεγέθυνση φωτογραφίας"
+                aria-label={t("enlargePhoto")}
                 style={{ padding: 0, border: "none", background: "none", cursor: "pointer", flexShrink: 0, borderRadius: "50%" }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -346,13 +351,13 @@ export default function BookingPanel({
                 />
               </button>
             ) : (
-              <Avatar name={counterpart.full_name} size={44} />
+              <Avatar name={personName(counterpart)} size={44} />
             )}
             <div>
               <div style={{ ...muted, fontSize: 13 }}>
-                {viewerRole === "client" ? labelForRole(counterpart.crew_role) || "Επαγγελματίας" : "Πελάτης"}
+                {viewerRole === "client" ? labelForRole(counterpart.crew_role) || t("professional") : t("client")}
               </div>
-              <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>{counterpart.full_name || "—"}</div>
+              <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>{personName(counterpart) || "—"}</div>
               {counterpart.phone_number && !booking.status.startsWith("cancelled") && (
                 <a
                   href={`tel:${counterpart.phone_number}`}
@@ -386,13 +391,13 @@ export default function BookingPanel({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={counterpart.photo_url}
-            alt={counterpart.full_name || ""}
+            alt={personName(counterpart) || ""}
             style={{ maxWidth: "min(100%, 420px)", maxHeight: "80vh", borderRadius: radius.lg, objectFit: "contain" }}
           />
           <button
             type="button"
             onClick={() => setPhotoExpanded(false)}
-            aria-label="Κλείσιμο"
+            aria-label={t("close")}
             style={{
               position: "fixed",
               top: 18,
@@ -415,13 +420,13 @@ export default function BookingPanel({
       {revealed && counterpartError && (
         <div style={{ padding: "0 18px 14px" }}>
           <p style={{ ...muted, color: colors.danger, fontSize: 12.5, margin: 0 }}>
-            Δεν φορτώθηκαν τα στοιχεία επικοινωνίας.{" "}
+            {t("contactLoadFailed")}{" "}
             <button
               type="button"
               onClick={() => setCounterpartAttempt((n) => n + 1)}
               style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.accent, fontFamily: "inherit", fontSize: "inherit", textDecoration: "underline" }}
             >
-              Δοκίμασε ξανά
+              {t("retry")}
             </button>
           </p>
         </div>
@@ -429,14 +434,12 @@ export default function BookingPanel({
 
       {expanded && (
         <div style={{ padding: "0 18px 18px" }}>
-      {/* Πότε ακριβώς επιβεβαιώθηκε — διαφορετική στιγμή από το ναύλο που
-          κλείνει, χρήσιμη σε περίπτωση διαφωνίας για το ποιος ήξερε τι
-          πότε. confirmed_at λείπει μόνο σε ό,τι ήρθε από παλιά δεδομένα
-          πριν υπάρξει η στήλη· δεν εμφανίζεται τίποτα τότε αντί για
-          λανθασμένη ώρα. */}
+      {/* Exactly when it was confirmed: useful in a dispute about who knew
+          what when. confirmed_at is missing only on legacy data from before
+          the column existed; nothing is shown then rather than a wrong time. */}
       {booking.confirmed_at && (
         <p style={{ ...muted, fontSize: 12, margin: "10px 0 0" }}>
-          Επιβεβαιώθηκε {formatDateTime(booking.confirmed_at)}
+          {t("confirmedAt", { date: f.dateTime(booking.confirmed_at) })}
         </p>
       )}
 
@@ -444,20 +447,18 @@ export default function BookingPanel({
         <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: radius.md, background: "#F7F0E2", fontSize: 13.5 }}>
           {viewerRole === "client" ? (
             <>
-              Ο επαγγελματίας πρέπει να σου απαντήσει στα μηνύματα εδώ μέχρι{" "}
-              <b style={{ fontWeight: 600 }}>{formatDateTime(responseState.deadline)}</b>.
+              {t.rich("respondClient", { date: f.dateTime(responseState.deadline), b: (c) => <b style={{ fontWeight: 600 }}>{c}</b> })}
               {responseState.can_cancel_no_response && (
                 <div style={{ marginTop: 8 }}>
                   <button style={button("danger")} disabled={busy} onClick={handleNoResponse}>
-                    Δεν απάντησε: ακύρωση
+                    {t("noResponseCancel")}
                   </button>
                 </div>
               )}
             </>
           ) : (
             <>
-              Απάντησε στον πελάτη εδώ μέχρι <b style={{ fontWeight: 600 }}>{formatDateTime(responseState.deadline)}</b>.
-              
+              {t.rich("respondPro", { date: f.dateTime(responseState.deadline), b: (c) => <b style={{ fontWeight: 600 }}>{c}</b> })}
             </>
           )}
         </div>
@@ -465,7 +466,7 @@ export default function BookingPanel({
 
       {booking.status === "confirmed" && tripStarted && (
         <p style={{ ...muted, fontSize: 12.5, margin: "10px 0 0" }}>
-          Το ταξίδι έχει ξεκινήσει. Η κράτηση δεν ακυρώνεται πια.
+          {t("tripStarted")}
         </p>
       )}
 
@@ -473,19 +474,19 @@ export default function BookingPanel({
         <div style={{ marginTop: 10 }}>
           <input
             style={{ ...input, marginBottom: 6 }}
-            placeholder={viewerRole === "client" ? "Λόγος ακύρωσης (προαιρετικό)" : "Λόγος ακύρωσης (υποχρεωτικό)"}
+            placeholder={viewerRole === "client" ? t("reasonOptional") : t("reasonMandatory")}
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
           />
           <button style={button("danger")} disabled={busy} onClick={handleCancel}>
-            Ακύρωση κράτησης
+            {t("cancelBooking")}
           </button>
         </div>
       )}
 
       {(booking.status === "confirmed" || booking.status === "completed") && (
         <div style={{ marginTop: 14, borderTop: `1px solid ${colors.border}`, paddingTop: 10 }}>
-          <div style={{ ...muted, fontSize: 13, fontWeight: 500 }}>Μηνύματα</div>
+          <div style={{ ...muted, fontSize: 13, fontWeight: 500 }}>{t("messages")}</div>
           <div style={{ maxHeight: 180, overflowY: "auto", margin: "10px 0" }}>
             {messages.map((m) => (
               <div
@@ -509,26 +510,26 @@ export default function BookingPanel({
                 >
                   {m.content}
                   {m.auto && (
-                    <span style={{ display: "block", fontSize: 11, opacity: 0.7, marginTop: 4 }}>Αυτόματο μήνυμα</span>
+                    <span style={{ display: "block", fontSize: 11, opacity: 0.7, marginTop: 4 }}>{t("autoMessage")}</span>
                   )}
                 </span>
               </div>
             ))}
             {threadFailed && (
-              <LoadError what="τα μηνύματα και οι αξιολογήσεις" onRetry={() => setThreadAttempt((n) => n + 1)} />
+              <LoadError what={t("loadWhat")} onRetry={() => setThreadAttempt((n) => n + 1)} />
             )}
-            {!threadFailed && messages.length === 0 && <p style={muted}>Δεν υπάρχουν μηνύματα ακόμα.</p>}
+            {!threadFailed && messages.length === 0 && <p style={muted}>{t("noMessages")}</p>}
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <input
               style={input}
-              placeholder="Γράψε μήνυμα..."
+              placeholder={t("writeMessage")}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
             />
             <button style={button("secondary")} disabled={busy} onClick={handleSend}>
-              Αποστολή
+              {t("send")}
             </button>
           </div>
         </div>
@@ -536,7 +537,7 @@ export default function BookingPanel({
 
       {booking.status === "completed" && isPastEnd && !myReview && (
         <div style={{ marginTop: 14, borderTop: `1px solid ${colors.border}`, paddingTop: 10 }}>
-          <div style={{ ...muted, fontSize: 13, fontWeight: 500 }}>Άφησε αξιολόγηση</div>
+          <div style={{ ...muted, fontSize: 13, fontWeight: 500 }}>{t("leaveReview")}</div>
           <div style={{ margin: "10px 0" }}>
             {counterpartCategories.map((c) => (
               <div key={c.key} style={{ marginBottom: 10 }}>
@@ -562,18 +563,18 @@ export default function BookingPanel({
             ))}
             {categoryAverage != null && (
               <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 10px" }}>
-                Συνολική βαθμολογία: <b style={{ ...money, color: colors.ink }}>{categoryAverage.toFixed(2)}</b> / 5
+                {t.rich("overall", { value: categoryAverage.toFixed(2), b: (c) => <b style={{ ...money, color: colors.ink }}>{c}</b> })}
               </p>
             )}
             <textarea
               style={{ ...input, marginTop: 6, minHeight: 60 }}
-              placeholder="Σχόλιο"
+              placeholder={t("comment")}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
           </div>
           <button style={button("primary")} disabled={busy || !allCategoriesChosen} onClick={handleSubmitReview}>
-            Υποβολή αξιολόγησης
+            {t("submitReview")}
           </button>
         </div>
       )}
@@ -581,16 +582,15 @@ export default function BookingPanel({
       {reviewOfMe && (
         <div style={{ marginTop: 14, borderTop: `1px solid ${colors.border}`, paddingTop: 10 }}>
           <div style={{ ...muted, fontSize: 13, fontWeight: 500 }}>
-            Σε αξιολόγησαν{" "}
-            <span style={{ ...money, color: colors.ink }}>{Number(reviewOfMe.rating).toFixed(1)}</span> ★
+            {t.rich("reviewedYou", { rating: Number(reviewOfMe.rating).toFixed(1), m: (c) => <span style={{ ...money, color: colors.ink }}>{c}</span> })}
           </div>
-          {/* Κάθε ρόλος (client/skipper/hostess) έχει πλέον δικό του σετ
-              κατηγοριών — myCategories τις παίρνει από reviewCategoriesForRole
-              με βάση τον ίδιο τον viewerRole, εδώ γίνεται μόνο ο έλεγχος αν
-              όντως στάλθηκαν (trg_review_categories τις απαιτεί πάντα μαζί). */}
+          {/* Each role (client/skipper/hostess) has its own category set;
+              myCategories takes it from reviewCategoriesForRole by the viewer's
+              role, and this only checks that they were actually sent
+              (trg_review_categories always requires them together). */}
           {hasCategoryBreakdown && (
             <details style={{ marginTop: 6 }}>
-              <summary style={{ ...muted, fontSize: 12.5, cursor: "pointer" }}>Δες ανά κατηγορία</summary>
+              <summary style={{ ...muted, fontSize: 12.5, cursor: "pointer" }}>{t("byCategory")}</summary>
               <div style={{ marginTop: 6 }}>
                 {myCategories.map((c) => (
                   <div
@@ -606,18 +606,18 @@ export default function BookingPanel({
           )}
           <p style={{ ...muted, marginTop: 6 }}>{reviewOfMe.comment}</p>
           {reviewOfMe.reply ? (
-            <p style={{ fontSize: 13, fontStyle: "italic" }}>Απάντησή σου: {reviewOfMe.reply}</p>
+            <p style={{ fontSize: 13, fontStyle: "italic" }}>{t("yourReply", { reply: reviewOfMe.reply })}</p>
           ) : (
             <div>
               <input
                 style={input}
-                placeholder="Δημόσια απάντηση (έως 500 χαρακτήρες)"
+                placeholder={t("replyPlaceholder")}
                 maxLength={500}
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
               />
               <button style={{ ...button("secondary"), marginTop: 6 }} disabled={busy} onClick={handleReply}>
-                Απάντηση
+                {t("reply")}
               </button>
             </div>
           )}

@@ -1,5 +1,6 @@
 "use client";
 import { useId, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { colors, muted } from "../../../lib/platform/theme";
 
 // Πολλαπλή επιλογή από μεγάλη λίστα (π.χ. γλώσσες) χωρίς σύννεφο από κουμπιά
@@ -30,7 +31,9 @@ const CSS = `
 
 const plain = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export default function MultiPick({ options = [], value = [], onChange, common = [], placeholder = "Αναζήτηση", label }) {
+export default function MultiPick({ options = [], value = [], onChange, common = [], placeholder, label }) {
+  const t = useTranslations("MultiPick");
+  placeholder = placeholder ?? t("search");
   const [query, setQuery] = useState("");
   const listId = useId();
   const byId = useMemo(() => new Map(options.map((o) => [o.id, o])), [options]);
@@ -55,11 +58,11 @@ export default function MultiPick({ options = [], value = [], onChange, common =
     <div>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       {selected.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }} aria-label={label ? `${label}: επιλεγμένες` : undefined}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }} aria-label={label ? t("selectedLabel", { label }) : undefined}>
           {selected.map((o) => (
             <span key={o.id} className="sf-mp-tag">
               {o.name}
-              <button type="button" className="sf-mp-x" aria-label={`Αφαίρεση: ${o.name}`} onClick={() => remove(o.id)}>
+              <button type="button" className="sf-mp-x" aria-label={t("removeLabel", { name: o.name })} onClick={() => remove(o.id)}>
                 ×
               </button>
             </span>
@@ -102,7 +105,7 @@ export default function MultiPick({ options = [], value = [], onChange, common =
           ))}
         </ul>
       ) : (
-        q && <p style={{ ...muted, fontSize: 13, margin: "8px 0 0" }}>Δεν βρέθηκε.</p>
+        q && <p style={{ ...muted, fontSize: 13, margin: "8px 0 0" }}>{t("notFound")}</p>
       )}
     </div>
   );

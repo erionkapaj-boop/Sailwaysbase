@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import PackagePicker, { PurchaseSummary } from "./PackagePicker";
 import { useAuth } from "../../AuthContext";
 import { getCreditPurchase } from "../../../../lib/platform/db";
@@ -23,11 +24,12 @@ export default function TopUpSheet({
   need = 0,
   balance = 0,
   onContinue,
-  continueLabel = "Συνέχεια",
+  continueLabel,
   shortTitle,
   shortNote,
   waitingNote,
 }) {
+  const t = useTranslations("TopUpSheet");
   const { refresh } = useAuth();
   const [waiting, setWaiting] = useState(null); // το αίτημα αγοράς που περιμένει
   const [status, setStatus] = useState(null); // 'pending' | 'completed' | 'cancelled'
@@ -72,8 +74,8 @@ export default function TopUpSheet({
   if (waiting && (funded || status === "completed")) {
     body = (
       <>
-        <div style={{ fontSize: 18, fontWeight: 600 }}>Τα credits πιστώθηκαν</div>
-        <div style={{ ...muted, fontSize: 13.5, marginTop: 4 }}>Διαθέσιμα {formatCredits(balance)}</div>
+        <div style={{ fontSize: 18, fontWeight: 600 }}>{t("credited")}</div>
+        <div style={{ ...muted, fontSize: 13.5, marginTop: 4 }}>{t("available", { balance: formatCredits(balance) })}</div>
         {onContinue && funded ? (
           <button
             type="button"
@@ -83,11 +85,11 @@ export default function TopUpSheet({
               onContinue();
             }}
           >
-            {continueLabel}
+            {continueLabel ?? t("continue")}
           </button>
         ) : (
           <button type="button" style={{ ...button("primary"), width: "100%", marginTop: 18 }} onClick={onClose}>
-            Εντάξει
+            {t("ok")}
           </button>
         )}
       </>
@@ -95,7 +97,7 @@ export default function TopUpSheet({
   } else if (waiting && status === "cancelled") {
     body = (
       <>
-        <div style={{ fontSize: 18, fontWeight: 600 }}>Το αίτημα αγοράς δεν ολοκληρώθηκε</div>
+        <div style={{ fontSize: 18, fontWeight: 600 }}>{t("notCompleted")}</div>
         <div style={{ ...muted, fontSize: 13.5, margin: "4px 0 16px" }}>{waiting.reference}</div>
         <PackagePicker
           need={Math.max(need - balance, 0)}
@@ -109,7 +111,7 @@ export default function TopUpSheet({
   } else if (waiting) {
     body = (
       <>
-        <div style={{ fontSize: 18, fontWeight: 600 }}>Το αίτημα αγοράς καταχωρήθηκε</div>
+        <div style={{ fontSize: 18, fontWeight: 600 }}>{t("registered")}</div>
         <div style={{ marginTop: 12 }}>
           <PurchaseSummary row={waiting} />
         </div>
@@ -119,12 +121,12 @@ export default function TopUpSheet({
         >
           <span className="sf-topup-pulse" aria-hidden="true" />
           <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>
-            Αναμονή επιβεβαίωσης της πληρωμής.{" "}
-            {waitingNote || (onContinue ? "Μόλις πιστωθούν τα credits, συνεχίζεις από εδώ." : "")}
+            {t("awaitingPayment")}{" "}
+            {waitingNote || (onContinue ? t("continueHere") : "")}
           </span>
         </div>
         <button type="button" style={{ ...button("secondary"), width: "100%", marginTop: 16 }} onClick={onClose}>
-          Κλείσιμο
+          {t("close")}
         </button>
       </>
     );
@@ -133,16 +135,16 @@ export default function TopUpSheet({
       <>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 600 }}>{short ? shortTitle || "Δεν έχεις αρκετά credits" : "Αγορά credits"}</div>
+            <div style={{ fontSize: 18, fontWeight: 600 }}>{short ? shortTitle || t("notEnough") : t("buy")}</div>
             <div style={{ ...muted, fontSize: 13.5, marginTop: 4 }}>
               {short && !shortTitle
-                ? `Χρειάζεσαι ${formatCredits(need)} · διαθέσιμα ${formatCredits(balance)}`
-                : `${short && shortNote ? `${shortNote} · ` : ""}Διαθέσιμα ${formatCredits(balance)}`}
+                ? t("needLine", { need: formatCredits(need), balance: formatCredits(balance) })
+                : `${short && shortNote ? `${shortNote} · ` : ""}${t("available", { balance: formatCredits(balance) })}`}
             </div>
           </div>
           <button
             type="button"
-            aria-label="Κλείσιμο"
+            aria-label={t("close")}
             onClick={onClose}
             style={{ background: "none", border: "none", fontSize: 22, lineHeight: 1, cursor: "pointer", color: colors.inkSoft, minWidth: 40, minHeight: 40 }}
           >
@@ -183,7 +185,7 @@ export default function TopUpSheet({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Αγορά credits"
+        aria-label={t("buy")}
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",

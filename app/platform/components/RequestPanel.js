@@ -1,23 +1,24 @@
 "use client";
-import { formatCredits, verbFor } from "../../../lib/platform/credits";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
+import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { listRequestPings, withdrawPing, cancelBookingRequest, departureLabel } from "../../../lib/platform/db";
 import { labelForRole } from "../../../lib/platform/roles";
-import { formatDate, formatDateTime, formatDateRange } from "../../../lib/platform/notifications";
 import { card, muted, badge, button, colors, money } from "../../../lib/platform/theme";
 import { useConfirm } from "./ConfirmDialog";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const REQ_STATUS = {
-  open: ["Περιμένει απάντηση", "brand"],
-  matched: ["Βρέθηκε επαγγελματίας", "success"],
-  expired_unclaimed: ["Έληξε, τα credits επιστράφηκαν", "warn"],
-  cancelled: ["Ακυρώθηκε", "danger"],
+  open: ["statusOpen", "brand"],
+  matched: ["statusMatched", "success"],
+  expired_unclaimed: ["statusExpiredRefunded", "warn"],
+  cancelled: ["statusCancelled", "danger"],
 };
 
 const PING_STATUS_LABEL = {
-  pending: "Αναμονή απάντησης",
-  claimed: "Αποδέχτηκε",
+  pending: "pingPending",
+  claimed: "pingClaimed",
 };
 
 // An open request used to be a dead end: a card you could look at but never
@@ -30,6 +31,9 @@ const PING_STATUS_LABEL = {
 // with it before anyone saw it. The parent renders the toast at page level,
 // where it survives regardless of which list the request ends up in.
 export default function RequestPanel({ request, onChanged, onToastMessage }) {
+  const t = useTranslations("RequestPanel");
+  const f = useFormat();
+  const personName = (sp) => (f.locale === "en" && sp?.full_name_latin) || sp?.full_name;
   const [expanded, setExpanded] = useState(false);
   const [pings, setPings] = useState([]);
   const [loadingPings, setLoadingPings] = useState(false);
@@ -50,17 +54,8 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
 
   async function handleWithdraw(ping) {
     const remaining = pings.filter((p) => p.status === "pending").length;
-    if (
-      !(await confirm(
-        `Αφαίρεση ${ping.skipper_profiles?.full_name || "αυτού του υποψηφίου"} από το αίτημα; ` +
-          (remaining > 1
-            ? "Τα credits δεν αλλάζουν. Το αίτημα μένει ανοιχτό για τους υπόλοιπους."
-            : request.client_charged_at
-              ? "Είναι ο τελευταίος που περιμένει απάντηση. Με την αφαίρεση τα credits δεν επιστρέφονται· επιστρέφονται με ακύρωση ολόκληρου του αιτήματος."
-              : "Είναι ο τελευταίος που περιμένει απάντηση. Το credit μένει δεσμευμένο μέχρι να ακυρωθεί ή να λήξει το αίτημα.")
-      ))
-    )
-      return;
+    const withdrawKey = remaining > 1 ? "withdrawOthers" : request.client_charged_at ? "withdrawLastCharged" : "withdrawLastReserved";
+    if (!(await confirm(t(withdrawKey, { name: personName(ping.skipper_profiles) || t("thisCandidate") })))) return;
     setBusyId(ping.id);
     setError("");
     try {
@@ -79,19 +74,19 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
     const charged = Boolean(request.client_charged_at) && request.fee_amount > 0;
     const released = !request.client_charged_at && request.fee_paid_at && request.fee_amount > 0;
     const refundNote = charged
-      ? `\n\n${verbFor(request.fee_amount, "Επιστρέφεται", "Επιστρέφονται")} ${formatCredits(request.fee_amount)}.`
+      ? `\n\n${t("refundCharged", { count: Number(request.fee_amount) })}`
       : released
-        ? `\n\n${verbFor(request.fee_amount, "Το δεσμευμένο", "Τα δεσμευμένα")} ${formatCredits(request.fee_amount)} ${verbFor(request.fee_amount, "ελευθερώνεται", "ελευθερώνονται")}.`
+        ? `\n\n${t("refundReleased", { count: Number(request.fee_amount) })}`
         : "";
-    if (!(await confirm(`Να ακυρωθεί όλο το αίτημα;${refundNote}`))) return;
+    if (!(await confirm(`${t("cancelConfirm")}${refundNote}`))) return;
     setBusyId("__all__");
     setError("");
     try {
       await cancelBookingRequest(request.id);
       if (charged) {
-        onToastMessage?.(`${verbFor(request.fee_amount, "Επιστράφηκε", "Επιστράφηκαν")} ${formatCredits(request.fee_amount)}.`);
+        onToastMessage?.(t("toastRefunded", { count: Number(request.fee_amount) }));
       } else if (released) {
-        onToastMessage?.("Το αίτημα ακυρώθηκε.");
+        onToastMessage?.(t("toastCancelled"));
       }
       onChanged?.();
     } catch (err) {
@@ -101,7 +96,8 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
     }
   }
 
-  const [statusLabel, statusTone] = REQ_STATUS[request.status] || [request.status, "neutral"];
+  const [statusKey, statusTone] = REQ_STATUS[request.status] || [null, "neutral"];
+  const statusLabel = statusKey ? t(statusKey) : request.status;
 
   return (
     <div style={{ ...card, padding: 0, overflow: "hidden" }}>
@@ -137,32 +133,31 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
           </span>
         </div>
         <p style={{ ...muted, margin: "6px 0 0" }}>
-          <span style={money}>{formatDateRange(request.start_date, request.end_date)}</span>
+          <span style={money}>{f.dateRange(request.start_date, request.end_date)}</span>
           {" · "}
           {Number(request.fee_amount) === 0 ? (
-            "χωρίς χρέωση"
+            t("noCharge")
           ) : (
-            <>
-              <span style={{ ...money, color: colors.ink }}>{formatCredits(request.fee_amount)}</span>
-              {" · "}
-              {request.client_charged_at
-                ? verbFor(request.fee_amount, "χρησιμοποιήθηκε", "χρησιμοποιήθηκαν")
-                : request.fee_paid_at && request.status === "open"
-                  ? verbFor(request.fee_amount, "δεσμευμένο", "δεσμευμένα")
-                  : verbFor(request.fee_amount, "εκκρεμεί", "εκκρεμούν")}
-            </>
+            t.rich(
+              request.client_charged_at ? "feeUsed" : request.fee_paid_at && request.status === "open" ? "feeReserved" : "feePending",
+              {
+                credits: formatCredits(request.fee_amount),
+                count: Number(request.fee_amount),
+                m: (chunks) => <span style={{ ...money, color: colors.ink }}>{chunks}</span>,
+              }
+            )
           )}
         </p>
         <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>
-          Στάλθηκε {formatDateTime(request.created_at)}
-          {isOpen && request.expires_at && ` · Ισχύει έως ${formatDateTime(request.expires_at)}`}
+          {t("sentAt", { date: f.dateTime(request.created_at) })}
+          {isOpen && request.expires_at && ` · ${t("validUntil", { date: f.dateTime(request.expires_at) })}`}
         </p>
       </div>
 
       {expanded && (
         <div style={{ padding: "0 18px 18px", borderTop: `1px solid ${colors.border}`, paddingTop: 14 }}>
-          {loadingPings && <p style={muted}>Φόρτωση...</p>}
-          {!loadingPings && pings.length === 0 && <p style={muted}>Δεν στάλθηκε σε κανέναν επαγγελματία ακόμα.</p>}
+          {loadingPings && <p style={muted}>{t("loading")}</p>}
+          {!loadingPings && pings.length === 0 && <p style={muted}>{t("noPings")}</p>}
           {!loadingPings &&
             pings.map((p, i) => {
               const sp = p.skipper_profiles;
@@ -195,11 +190,11 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
                       />
                     )}
                     <span style={{ minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: 14, fontWeight: 500 }}>{sp?.full_name || `Υποψήφιος ${i + 1}`}</span>
+                      <span style={{ display: "block", fontSize: 14, fontWeight: 500 }}>{personName(sp) || t("candidate", { n: i + 1 })}</span>
                       <span style={{ ...muted, fontSize: 12.5 }}>
-                        {labelForRole(sp?.role || request.crew_role) || "Επαγγελματίας"}
+                        {labelForRole(sp?.role || request.crew_role) || t("professional")}
                         {" · "}
-                        {declined ? "Αρνήθηκε" : missedRace ? "Δεν πρόλαβε" : PING_STATUS_LABEL[p.status] || p.status}
+                        {declined ? t("declined") : missedRace ? t("missedRace") : PING_STATUS_LABEL[p.status] ? t(PING_STATUS_LABEL[p.status]) : p.status}
                       </span>
                     </span>
                   </span>
@@ -210,7 +205,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
                       onClick={() => handleWithdraw(p)}
                       style={{ ...button("secondary"), padding: "6px 12px", fontSize: 12.5, flexShrink: 0 }}
                     >
-                      {busyId === p.id ? "..." : "Αφαίρεση"}
+                      {busyId === p.id ? "..." : t("withdraw")}
                     </button>
                   )}
                 </div>
@@ -219,7 +214,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
 
           {!loadingPings && pings.length > 0 && pings.some((p) => !p.skipper_profiles?.full_name) && (
             <p style={{ ...muted, fontSize: 12.5, margin: "10px 0 0" }}>
-              Τα στοιχεία κάθε υποψηφίου εμφανίζονται μόλις αποδεχτεί το αίτημα.
+              {t("detailsAfterAccept")}
             </p>
           )}
 
@@ -231,7 +226,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
                 onClick={handleCancelRequest}
                 style={button("danger")}
               >
-                {busyId === "__all__" ? "..." : "Ακύρωση ολόκληρου αιτήματος"}
+                {busyId === "__all__" ? "..." : t("cancelRequest")}
               </button>
             </div>
           )}

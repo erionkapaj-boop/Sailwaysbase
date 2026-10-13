@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "../../AuthContext";
 import { getCreditOffer, getMyPendingCreditPurchase, requestCreditPurchase } from "../../../../lib/platform/db";
 import { formatCredits, PACKAGES } from "../../../../lib/platform/credits";
@@ -20,6 +21,7 @@ function initialChoice(packages, need) {
 }
 
 export function PurchaseSummary({ row }) {
+  const t = useTranslations("PackagePicker");
   return (
     <>
       <div style={{ fontSize: 15 }}>
@@ -28,7 +30,7 @@ export function PurchaseSummary({ row }) {
           .join(" · ")}
       </div>
       <div style={{ ...muted, fontSize: 13.5, marginTop: 6 }}>
-        Κωδικός αιτήματος <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{row.reference}</span>
+        {t("reference")} <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{row.reference}</span>
       </div>
     </>
   );
@@ -37,6 +39,7 @@ export function PurchaseSummary({ row }) {
 // Επιλογή πακέτου και αίτημα αγοράς. Οι τιμές έρχονται από τις Ρυθμίσεις·
 // το ποσό το υπολογίζει ξανά η βάση. need: πόσα credits χρειάζονται τώρα.
 export default function PackagePicker({ need = 0, onSent, onPending }) {
+  const t = useTranslations("PackagePicker");
   const { readOnly } = useAuth();
   const [offer, setOffer] = useState(null);
   const [pending, setPending] = useState(undefined);
@@ -64,15 +67,15 @@ export default function PackagePicker({ need = 0, onSent, onPending }) {
   }, []);
 
   if (pending === undefined || !offer) {
-    return error ? <p style={{ color: colors.danger, fontSize: 14 }}>{error}</p> : <p style={muted}>Φόρτωση...</p>;
+    return error ? <p style={{ color: colors.danger, fontSize: 14 }}>{error}</p> : <p style={muted}>{t("loading")}</p>;
   }
   if (pending) {
     return (
       <div style={{ ...card, marginBottom: 0, borderLeft: `3px solid ${colors.accent}` }}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Αίτημα αγοράς σε εκκρεμότητα</div>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>{t("pendingTitle")}</div>
         <PurchaseSummary row={pending} />
         <p style={{ ...muted, fontSize: 13, margin: "10px 0 0", lineHeight: 1.5 }}>
-          Τα credits πιστώνονται με την επιβεβαίωση της πληρωμής.
+          {t("pendingNote")}
         </p>
       </div>
     );
@@ -144,7 +147,7 @@ export default function PackagePicker({ need = 0, onSent, onPending }) {
 
   return (
     <>
-      <div role="radiogroup" aria-label="Πακέτο">
+      <div role="radiogroup" aria-label={t("packageLabel")}>
         {packages.map((p) => {
           const per = p.price / p.credits;
           const off = price ? Math.round((1 - per / price) * 100) : 0;
@@ -153,9 +156,9 @@ export default function PackagePicker({ need = 0, onSent, onPending }) {
             <span style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
               <span>
                 <span style={{ fontSize: 15, fontWeight: 600 }}>{PACKAGES.find((x) => x.key === p.key)?.name}</span>
-                {p.key === POPULAR && <span style={{ ...badge("neutral"), marginLeft: 8 }}>Δημοφιλές</span>}
+                {p.key === POPULAR && <span style={{ ...badge("neutral"), marginLeft: 8 }}>{t("popular")}</span>}
                 <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 3 }}>
-                  {formatCredits(p.credits)} · {Math.round(per * 100) / 100}€ το credit
+                  {formatCredits(p.credits)} · {t("perCredit", { price: String(Math.round(per * 100) / 100) })}
                 </span>
               </span>
               <span style={{ textAlign: "right" }}>
@@ -170,8 +173,8 @@ export default function PackagePicker({ need = 0, onSent, onPending }) {
             "custom",
             <span style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <span>
-                <span style={{ fontSize: 15, fontWeight: 600 }}>Άλλος αριθμός</span>
-                <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 3 }}>{price}€ το credit</span>
+                <span style={{ fontSize: 15, fontWeight: 600 }}>{t("customTitle")}</span>
+                <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 3 }}>{t("perCredit", { price: String(price) })}</span>
               </span>
               {choice === "custom" && (
                 <input
@@ -180,7 +183,7 @@ export default function PackagePicker({ need = 0, onSent, onPending }) {
                   max={MAX_CUSTOM}
                   step={1}
                   value={custom}
-                  aria-label="Αριθμός credits"
+                  aria-label={t("creditsCount")}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => setCustom(e.target.value)}
                   style={{
@@ -209,7 +212,7 @@ export default function PackagePicker({ need = 0, onSent, onPending }) {
             borderTop: `1px solid ${colors.border}`,
           }}
         >
-          <span style={{ fontSize: 15 }}>Σύνολο · {formatCredits(selected.credits)}</span>
+          <span style={{ fontSize: 15 }}>{t("total", { credits: formatCredits(selected.credits) })}</span>
           <span style={{ ...money, fontSize: 22, fontWeight: 700 }}>{selected.price}€</span>
         </div>
       )}
@@ -221,10 +224,10 @@ export default function PackagePicker({ need = 0, onSent, onPending }) {
         disabled={busy || readOnly || !selected}
         onClick={send}
       >
-        {busy ? "…" : "Αποστολή αιτήματος αγοράς"}
+        {busy ? "…" : t("send")}
       </button>
       <p style={{ ...muted, fontSize: 12.5, margin: "12px 0 0", lineHeight: 1.5, textAlign: "center" }}>
-        Τα credits πιστώνονται με την επιβεβαίωση της πληρωμής. Δεν λήγουν.
+        {t("footNote")}
       </p>
     </>
   );

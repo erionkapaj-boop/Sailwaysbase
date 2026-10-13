@@ -1,10 +1,12 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import HeaderPanel from "./HeaderPanel";
 import LoadError from "./LoadError";
 import { listMyNotifications, markNotificationsRead, getViewAsUser } from "../../../lib/platform/db";
-import { describeNotification, timeAgo } from "../../../lib/platform/notifications";
+import { describeNotification } from "../../../lib/platform/notifications";
 import { colors, muted } from "../../../lib/platform/theme";
 
 const BellIcon = (
@@ -16,6 +18,8 @@ const BellIcon = (
 
 export default function NotificationPanel({ count = 0, onRead }) {
   const router = useRouter();
+  const t = useTranslations("NotificationPanel");
+  const f = useFormat();
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -57,20 +61,20 @@ export default function NotificationPanel({ count = 0, onRead }) {
     <HeaderPanel
       icon={BellIcon}
       count={count}
-      ariaLabel="Ειδοποιήσεις"
-      title="Ειδοποιήσεις"
+      ariaLabel={t("title")}
+      title={t("title")}
       onOpen={load}
       // Σε «προβολή ως χρήστη» οι αλλαγές είναι απενεργοποιημένες: το κουμπί δεν εμφανίζεται.
-      action={count > 0 && !getViewAsUser() ? { label: "Όλα ως διαβασμένα", onClick: markAll, busy } : null}
+      action={count > 0 && !getViewAsUser() ? { label: t("markAll"), onClick: markAll, busy } : null}
     >
       {(close) => (
         <>
-          {busy && items.length === 0 && <p style={{ ...muted, padding: 14, margin: 0 }}>Φόρτωση…</p>}
+          {busy && items.length === 0 && <p style={{ ...muted, padding: 14, margin: 0 }}>{t("loading")}</p>}
           {!busy && failed && (
-            <div style={{ padding: 10 }}><LoadError compact what="οι ειδοποιήσεις" onRetry={load} /></div>
+            <div style={{ padding: 10 }}><LoadError compact what={t("loadWhat")} onRetry={load} /></div>
           )}
           {!busy && !failed && items.length === 0 && (
-            <p style={{ ...muted, padding: 14, margin: 0 }}>Καμία ειδοποίηση ακόμα.</p>
+            <p style={{ ...muted, padding: 14, margin: 0 }}>{t("empty")}</p>
           )}
           {items.map((n) => {
             const { title, body, urgent } = describeNotification(n);
@@ -112,7 +116,7 @@ export default function NotificationPanel({ count = 0, onRead }) {
                 </span>
                 {body && <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 2 }}>{body}</span>}
                 <span style={{ ...muted, fontSize: 11, display: "block", marginTop: 3 }}>
-                  {timeAgo(n.created_at)}
+                  {f.timeAgo(n.created_at)}
                 </span>
               </button>
             );

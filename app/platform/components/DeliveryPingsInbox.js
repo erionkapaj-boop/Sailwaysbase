@@ -3,33 +3,23 @@ import TopUpSheet from "./credits/TopUpSheet";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import { useAuth } from "../AuthContext";
 import { listMyDeliveryPings, acceptDeliveryRoleRequest, declineDeliveryRoleRequest } from "../../../lib/platform/db";
 import { labelForRole } from "../../../lib/platform/roles";
-import { formatDate, formatDateTime, formatMoney } from "../../../lib/platform/notifications";
+import { formatMoney } from "../../../lib/platform/notifications";
 import { card, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 
-const ACCEPT_ERRORS = {
-  not_open: "Αυτή η θέση δεν είναι πια ανοιχτή.",
-  already_resolved: "Έχεις ήδη απαντήσει σε αυτή την προσφορά.",
-  expired: "Η προσφορά έληξε.",
-  date_overlap: "Έχεις ήδη επιβεβαιωμένη κράτηση ή μεταφορά που επικαλύπτεται με αυτές τις ημερομηνίες.",
-  insufficient_wallet: "Δεν έχεις αρκετά credits. Απόκτησε credits από τη σελίδα Credits.",
-  skipper_not_eligible: "Το προφίλ σου δεν είναι εγκεκριμένο.",
-};
-
-const COVER_LABEL = {
-  covers_tickets: "Εισιτήρια μέχρι την αφετηρία",
-  covers_travel: "Έξοδα ταξιδιού μέχρι την αφετηρία",
-  covers_food: "Διατροφή",
-  covers_fuel: "Καύσιμα",
-  covers_port_expenses: "Λοιπά έξοδα μεταφοράς",
-};
+const ACCEPT_ERRORS = ["not_open", "already_resolved", "expired", "date_overlap", "insufficient_wallet", "skipper_not_eligible"];
 
 // Ίδιο σχήμα κάρτας με το PingsInbox για τα κανονικά αιτήματα, αλλά για
 // προτάσεις μεταφοράς σκάφους — δικά τους πεδία (διαδρομή, μίλια, τιμή),
 // δικές τους ενέργειες (accept/decline_delivery_role_request), ίδιο ύφος.
 export default function DeliveryPingsInbox({ skipperId }) {
+  const t = useTranslations("DeliveryInbox");
+  const td = useTranslations("Delivery");
+  const f = useFormat();
   const { refreshNotifications, userRow } = useAuth();
   const balance = Number(userRow?.wallet_balance ?? 0);
   const [topUp, setTopUp] = useState(null);
@@ -71,7 +61,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
       refreshNotifications();
     } catch (err) {
       if (err.message === "insufficient_wallet") setTopUp({ need: Math.max(1, Number(fee) || 1), roleRequestId, fee });
-      else setError(ACCEPT_ERRORS[err.message] || friendlyError(err));
+      else setError(ACCEPT_ERRORS.includes(err.message) ? t(`err_${err.message}`) : friendlyError(err));
       await load();
     } finally {
       setBusyId(null);
@@ -97,7 +87,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
 
   return (
     <div style={{ marginTop: 24 }}>
-      <h2 style={sectionLabel}>Προτάσεις μεταφοράς σκάφους<span style={{ marginLeft: 8, opacity: 0.55 }}>{pending.length}</span></h2>
+      <h2 style={sectionLabel}>{t("title")}<span style={{ marginLeft: 8, opacity: 0.55 }}>{pending.length}</span></h2>
       {error && <p style={{ color: colors.danger }}>{error}</p>}
       {pending.map(({ ping, role_request, request }) => {
         const covers = ["covers_tickets", "covers_travel", "covers_food", "covers_fuel", "covers_port_expenses"].filter(
@@ -109,40 +99,39 @@ export default function DeliveryPingsInbox({ skipperId }) {
               {request.origin_point} → {request.destination_point} · {labelForRole(role_request.crew_role)}
             </div>
             <p style={{ ...muted, margin: "6px 0 0" }}>
-              <span style={money}>{formatDate(request.departure_date)}</span>
-              {request.flexible_days > 0 ? ` (±${request.flexible_days} μέρες)` : ""} · {request.distance_miles} μίλια
+              <span style={money}>{f.date(request.departure_date)}</span>
+              {request.flexible_days > 0 ? ` (${td("flexDays", { days: request.flexible_days })})` : ""} · {td("miles", { miles: request.distance_miles })}
             </p>
             {covers.length > 0 && (
               <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-                Καλύπτεται:{" "}
+                {td("coveredLabel")}{" "}
                 {covers
                   .map((k) =>
                     k === "covers_food" && request.food_allowance_amount != null
-                      ? `${COVER_LABEL[k]} (${formatMoney(request.food_allowance_amount)}€)`
-                      : COVER_LABEL[k]
+                      ? `${td(k)} (${formatMoney(request.food_allowance_amount)}€)`
+                      : td(k)
                   )
                   .join(", ")}
               </p>
             )}
-            <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>Στάλθηκε {formatDateTime(ping.sent_at)}</p>
-            {/* Οι σημειώσεις του πελάτη ΔΕΝ εμφανίζονται εδώ, σκόπιμα: είναι
-                ελεύθερο κείμενο και θα μπορούσε να περιέχει στοιχεία
-                επικοινωνίας, που αποκαλύπτονται μόνο μετά την επιβεβαίωση
-                κράτησης — 0071 τις μηδενίζει ήδη στο ίδιο το RPC. */}
+            <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>{t("sentAt", { date: f.dateTime(ping.sent_at) })}</p>
+            {/* The client's notes are deliberately NOT shown here: free text could
+                contain contact details, which are revealed only after the booking
+                is confirmed (0071 already blanks them in the RPC itself). */}
 
             <p style={{ margin: "10px 0 0", fontSize: 14 }}>
-              Προσφερόμενη τιμή: <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{formatMoney(role_request.offered_price)}€</span>
+              {t.rich("offeredPrice", { price: `${formatMoney(role_request.offered_price)}€`, m: (c) => <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{c}</span> })}
             </p>
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              Με την ανάληψη χρησιμοποιείς <span style={{ ...money, color: colors.ink }}>{formatCredits(role_request.professional_fee)}</span>.
+              {t.rich("feeNote", { credits: formatCredits(role_request.professional_fee), m: (c) => <span style={{ ...money, color: colors.ink }}>{c}</span> })}
             </p>
 
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
               <button style={button("primary")} disabled={busyId === role_request.id} onClick={() => handleAccept(role_request.id, Number(role_request.professional_fee) || 0)}>
-                {busyId === role_request.id ? "..." : "Αποδοχή"}
+                {busyId === role_request.id ? "..." : t("accept")}
               </button>
               <button style={button("secondary")} disabled={busyId === role_request.id} onClick={() => handleDecline(role_request.id)}>
-                Απόρριψη
+                {t("decline")}
               </button>
             </div>
           </div>
@@ -153,7 +142,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
         need={topUp?.need || 0}
         balance={balance}
         onClose={() => setTopUp(null)}
-        continueLabel="Συνέχεια: Αποδοχή"
+        continueLabel={t("continueAccept")}
         onContinue={() => topUp && handleAccept(topUp.roleRequestId, topUp.fee)}
       />
     </div>

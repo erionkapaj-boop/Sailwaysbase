@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   buildPlaceIndex,
   describeChoice,
@@ -79,11 +80,11 @@ const SearchIcon = () => (
   </svg>
 );
 
-function placeMeta(e) {
-  if (e.type === "country") return "Όλες οι περιοχές";
+function placeMeta(e, t) {
+  if (e.type === "country") return t("allRegions");
   if (e.type === "region")
-    return ["Περιοχή", e.covered ? regionExamples(e.name, 3).join(", ") : "Χωρίς επαγγελματίες ακόμα"].filter(Boolean).join(" · ");
-  return [e.parent, e.regionName, e.countryName, e.covered ? null : "Χωρίς επαγγελματίες ακόμα"].filter(Boolean).join(" · ");
+    return [t("region"), e.covered ? regionExamples(e.name, 3).join(", ") : t("noProfessionalsYet")].filter(Boolean).join(" · ");
+  return [e.parent, e.regionName, e.countryName, e.covered ? null : t("noProfessionalsYet")].filter(Boolean).join(" · ");
 }
 
 export default function PlacePicker({
@@ -99,6 +100,10 @@ export default function PlacePicker({
   onEditingChange,
   country: countryProp,
 }) {
+  const t = useTranslations("PlacePicker");
+  const locale = useLocale();
+  // Η πτώση «στις Κυκλάδες» υπάρχει μόνο για τα ελληνικά· αλλού μένει το όνομα.
+  const inRegion = (name) => (locale === "el" ? regionIn(name) : name);
   const arrival = mode === "arrival";
   const index = useMemo(() => buildPlaceIndex(regions), [regions]);
   const choice = arrival ? null : describeChoice(index, value || {});
@@ -252,16 +257,16 @@ export default function PlacePicker({
       return (
         <>
           {styleTag}
-          <Summary title={value} sub={same && match.type === "place" ? placeMeta(match) : null} onChange={startEditing} invalid={invalid} />
+          <Summary title={value} sub={same && match.type === "place" ? placeMeta(match, t) : null} onChange={startEditing} invalid={invalid} />
         </>
       );
     }
     const regionName = choice.region?.name || "";
     const sub =
       choice.kind === "region"
-        ? `Όλη η περιοχή · ${choice.region?.countryName || ""}`
+        ? `${t("wholeRegion")} · ${choice.region?.countryName || ""}`
         : choice.kind === "place"
-          ? placeMeta(choice.entry)
+          ? placeMeta(choice.entry, t)
           : [regionName, choice.region?.countryName].filter(Boolean).join(" · ");
     const title = choice.kind === "place" ? choice.entry.name : choice.kind === "region" ? regionName : choice.text;
     const ports = choice.kind === "place" ? choice.entry.ports : null;
@@ -272,11 +277,11 @@ export default function PlacePicker({
         <Summary title={title} sub={sub} onChange={startEditing} invalid={invalid} />
         {ports && (
           <div style={{ marginTop: 24 }}>
-            <p style={label}>Λιμάνι</p>
+            <p style={label}>{t("port")}</p>
             <div className="sf-pp-list">
               <button type="button" className="sf-pp-row" aria-pressed={!choice.port}
                 onClick={() => onChange({ regionId: value.regionId, point: choice.entry.name })}>
-                <span className="sf-pp-name">Όπου βολεύει</span>
+                <span className="sf-pp-name">{t("anyPort")}</span>
                 <span className="sf-pp-radio" aria-hidden="true" />
               </button>
               {ports.map((p) => (
@@ -291,7 +296,7 @@ export default function PlacePicker({
         )}
         {nearby && nearby.length > 0 && (
           <div style={{ marginTop: 24 }}>
-            <p style={label}>Πιο συγκεκριμένα (προαιρετικό)</p>
+            <p style={label}>{t("moreSpecific")}</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, margin: "0 -12px" }}>
               {nearby.map((e) => (
                 <button key={e.id} type="button" className="sf-pp-cell" onClick={() => onChange({ regionId: e.regionId, point: e.name })}>
@@ -302,7 +307,7 @@ export default function PlacePicker({
           </div>
         )}
         {regionName && (
-          <p style={{ ...muted, fontSize: 13, margin: "20px 0 0" }}>Επαγγελματίες διαθέσιμοι {regionIn(regionName)}.</p>
+          <p style={{ ...muted, fontSize: 13, margin: "20px 0 0" }}>{t("professionalsIn", { place: inRegion(regionName) })}</p>
         )}
       </div>
     );
@@ -322,10 +327,10 @@ export default function PlacePicker({
           onChange={startEditing}
         />
         <p style={{ fontSize: 15, fontWeight: 500, margin: "24px 0 4px", color: colors.ink }}>
-          Δεν έχουμε ακόμα επαγγελματίες σε αυτή την περιοχή.
+          {t("noneInRegion")}
         </p>
         <p style={{ ...muted, fontSize: 13, margin: "0 0 12px" }}>
-          {uncovered.near.length ? "Δες όσους είναι κοντά:" : "Δες πού έχουμε επαγγελματίες:"}
+          {uncovered.near.length ? t("nearby") : t("whereWeHave")}
         </p>
         <div className="sf-pp-list">
           {nearRegions.map((r) => (
@@ -345,7 +350,7 @@ export default function PlacePicker({
       <div data-place-picker="browse">
         {styleTag}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
-          <p style={{ ...label, margin: 0 }}>Περιοχές · {countryName}</p>
+          <p style={{ ...label, margin: 0 }}>{t("regionsIn", { country: countryName })}</p>
           <button
             type="button"
             className="sf-pp-ghost"
@@ -355,7 +360,7 @@ export default function PlacePicker({
               setOpenRegion(null);
             }}
           >
-            Αναζήτηση μέρους
+            {t("searchPlace")}
           </button>
         </div>
         <div className="sf-pp-list">
@@ -378,7 +383,7 @@ export default function PlacePicker({
                       style={{ display: "block", width: "100%", fontWeight: 500 }}
                       onClick={() => done({ regionId: r.regionId, point: r.name })}
                     >
-                      Οπουδήποτε {regionIn(r.name)}
+                      {t("anywhereIn", { place: inRegion(r.name) })}
                     </button>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
                       {placesInRegion(index, r.regionId, 80).map((e) => (
@@ -406,7 +411,7 @@ export default function PlacePicker({
     <div data-place-picker="edit">
       {styleTag}
       {showCountryChoice && (
-        <select aria-label="Χώρα" style={{ ...select, marginBottom: 12, height: 52 }} value={country} onChange={(e) => setOwnCountry(e.target.value)}>
+        <select aria-label={t("country")} style={{ ...select, marginBottom: 12, height: 52 }} value={country} onChange={(e) => setOwnCountry(e.target.value)}>
           {COUNTRIES.map((c) => (
             <option key={c.code} value={c.code}>{c.name}</option>
           ))}
@@ -428,7 +433,7 @@ export default function PlacePicker({
           autoCorrect="off"
           spellCheck={false}
           enterKeyHint="search"
-          placeholder={placeholder || (arrival ? "π.χ. Μύκονος" : "Νησί, πόλη ή λιμάνι")}
+          placeholder={placeholder || (arrival ? t("exampleArrival") : t("placeholder"))}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
@@ -443,7 +448,7 @@ export default function PlacePicker({
               setEditing(false);
             }}
           >
-            Άκυρο
+            {t("cancel")}
           </button>
         )}
       </div>
@@ -463,12 +468,12 @@ export default function PlacePicker({
             >
               {o.type === "unlisted" ? (
                 <span style={{ color: colors.inkSoft, fontSize: 14.5 }}>
-                  {arrival ? <>Χρήση «{o.name}»</> : <>Άλλο μέρος: «{o.name}»</>}
+                  {arrival ? t("useText", { name: o.name }) : t("otherPlace", { name: o.name })}
                 </span>
               ) : (
                 <span>
                   <span className="sf-pp-name">{o.name}</span>
-                  <span className="sf-pp-sub">{placeMeta(o)}</span>
+                  <span className="sf-pp-sub">{placeMeta(o, t)}</span>
                 </span>
               )}
             </li>
@@ -479,13 +484,13 @@ export default function PlacePicker({
       {askRegion && regions.length > 0 && (
         <div data-place-picker="unlisted" style={{ marginTop: 20 }}>
           <p style={{ fontSize: 15, fontWeight: 500, margin: "0 0 4px", color: colors.ink }}>
-            {noMatch ? "Δεν το βρήκαμε στη λίστα. " : ""}Σε ποια περιοχή είναι το «{trimmed}»;
+            {noMatch ? `${t("notInList")} ` : ""}{t("whichRegion", { text: trimmed })}
           </p>
-          <p style={{ ...muted, fontSize: 13, margin: "0 0 12px" }}>Κρατάμε το σημείο όπως το έγραψες.</p>
+          <p style={{ ...muted, fontSize: 13, margin: "0 0 12px" }}>{t("keepAsTyped")}</p>
           <div className="sf-pp-list">{regionRows(pickUnlistedRegion)}</div>
           {!noMatch && (
             <button type="button" className="sf-pp-ghost" onClick={() => setUnlisted(false)}>
-              Πίσω στις προτάσεις
+              {t("backToSuggestions")}
             </button>
           )}
         </div>
@@ -514,7 +519,7 @@ export default function PlacePicker({
                 setBrowsing(true);
               }}
             >
-              Άλλο μέρος; Δες όλες τις περιοχές
+              {t("otherPlaceBrowse")}
             </button>
           )}
         </div>
@@ -525,6 +530,7 @@ export default function PlacePicker({
 }
 
 function Summary({ title, sub, onChange, invalid }) {
+  const t = useTranslations("PlacePicker");
   return (
     <div
       style={{
@@ -544,25 +550,26 @@ function Summary({ title, sub, onChange, invalid }) {
         {sub && <span className="sf-pp-sub">{sub}</span>}
       </div>
       <button type="button" className="sf-pp-ghost" style={{ padding: "8px 12px", color: colors.ink }} onClick={onChange}>
-        Αλλαγή
+        {t("change")}
       </button>
     </div>
   );
 }
 
 function RegionsState({ regions, failed, onRetry }) {
+  const t = useTranslations("PlacePicker");
   if (regions.length > 0) return null;
   if (failed) {
     return (
       <p style={{ ...muted, color: colors.danger, fontSize: 13, margin: "16px 0 0" }}>
-        Οι περιοχές δεν φορτώθηκαν.{" "}
+        {t("regionsFailed")}{" "}
         {onRetry && (
           <button type="button" className="sf-pp-ghost" style={{ padding: 0, minHeight: 0, color: colors.ink, textDecoration: "underline" }} onClick={onRetry}>
-            Δοκίμασε ξανά
+            {t("retry")}
           </button>
         )}
       </p>
     );
   }
-  return <p style={{ ...muted, fontSize: 13, margin: "16px 0 0" }}>Φόρτωση περιοχών…</p>;
+  return <p style={{ ...muted, fontSize: 13, margin: "16px 0 0" }}>{t("regionsLoading")}</p>;
 }

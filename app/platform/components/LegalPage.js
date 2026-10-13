@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import BackButton from "./BackButton";
 import { container, h1, muted, colors, fontSans } from "../../../lib/platform/theme";
 import { legalLastUpdated } from "../../../lib/platform/company";
@@ -10,6 +11,7 @@ import { legalLastUpdated } from "../../../lib/platform/company";
 // όρο (π.χ. .../terms#fees), και ημερομηνία αναθεώρησης στην κορυφή.
 export default function LegalPage({ title, intro, children, showUpdated = true }) {
   const router = useRouter();
+  const t = useTranslations("Legal");
   return (
     <div style={{ ...container, maxWidth: 720 }}>
       <div style={{ padding: "24px 0 0" }}>
@@ -17,7 +19,7 @@ export default function LegalPage({ title, intro, children, showUpdated = true }
         <h1 style={{ ...h1, marginTop: 20 }}>{title}</h1>
         {showUpdated && (
           <p style={{ ...muted, fontSize: 13, margin: "0 0 18px" }}>
-            Τελευταία ενημέρωση: {legalLastUpdated}
+            {t("updated", { date: legalLastUpdated })}
           </p>
         )}
         {intro && (

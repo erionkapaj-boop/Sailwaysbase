@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import { useAuth } from "../AuthContext";
 import {
   listMyWalletTransactions,
@@ -10,25 +12,26 @@ import {
 } from "../../../lib/platform/db";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { useConfirm } from "../components/ConfirmDialog";
-import { formatCredits, PACKAGES, verbFor } from "../../../lib/platform/credits";
-import { formatDate } from "../../../lib/platform/notifications";
+import { formatCredits, PACKAGES } from "../../../lib/platform/credits";
 import Link from "next/link";
 import { container, card, h1, sectionLabel, muted, badge, colors, money, button } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
 import LoadError from "../components/LoadError";
 
-const TYPE_LABEL = {
-  purchase: "Αγορά credits",
-  deposit: "Πίστωση credits",
-  request_fee: "Credits για αίτημα",
-  claim_fee: "Credits για ανάληψη",
-  refund_credit: "Επιστροφή credits",
-  adjustment: "Διόρθωση credits",
+const TYPE_KEY = {
+  purchase: "typePurchase",
+  deposit: "typeDeposit",
+  request_fee: "typeRequestFee",
+  claim_fee: "typeClaimFee",
+  refund_credit: "typeRefund",
+  adjustment: "typeAdjustment",
 };
 
 // Υπόλοιπο, αγορά, ιστορικό — τίποτα άλλο. Τα πακέτα και οι τιμές ζουν
 // στην οθόνη αγοράς (/platform/wallet/buy), όπου διαλέγεις.
 export default function WalletPage() {
+  const t = useTranslations("WalletPage");
+  const f = useFormat();
   const { session, userRow, loading, refresh, readOnly } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [pending, setPending] = useState(null);
@@ -66,7 +69,7 @@ export default function WalletPage() {
   }, [session]);
 
   async function cancelPending() {
-    if (!(await confirm(`Ακύρωση του αιτήματος ${pending.reference};`, { confirmLabel: "Ακύρωση αιτήματος" }))) return;
+    if (!(await confirm(t("cancelConfirm", { reference: pending.reference }), { confirmLabel: t("cancelRequest") }))) return;
     setCancelling(true);
     setError("");
     try {
@@ -79,7 +82,7 @@ export default function WalletPage() {
     }
   }
 
-  if (loading) return <div style={container}>Φόρτωση...</div>;
+  if (loading) return <div style={container}>{t("loading")}</div>;
   if (!session) return <SignedOutNotice />;
 
   const packName = pending?.package_key ? PACKAGES.find((x) => x.key === pending.package_key)?.name : null;
@@ -90,62 +93,65 @@ export default function WalletPage() {
 
       <div style={{ ...card, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <div style={muted}>Διαθέσιμα</div>
+          <div style={muted}>{t("available")}</div>
           <div style={{ ...money, fontSize: 32, fontWeight: 600, marginTop: 6 }}>
             {formatCredits(Math.max(0, Number(userRow?.wallet_balance ?? 0) - reserved))}
           </div>
           {reserved > 0 && (
             <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>
-              <span style={{ ...money, color: colors.ink }}>{formatCredits(reserved)}</span>{" "}
-              {verbFor(reserved, "δεσμευμένο", "δεσμευμένα")} σε ανοιχτά αιτήματα
+              {t.rich("reservedNote", {
+                credits: formatCredits(reserved),
+                count: reserved,
+                m: (chunks) => <span style={{ ...money, color: colors.ink }}>{chunks}</span>,
+              })}
             </div>
           )}
           <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
-            Το credit δεσμεύεται με την αποστολή του αιτήματος και χρεώνεται όταν ένας επαγγελματίας το αποδεχτεί. Τα credits δεν λήγουν.
+            {t("howItWorks")}
           </p>
         </div>
         {!pending && !readOnly && (
           <Link href="/platform/wallet/buy" style={{ ...button("primary"), textDecoration: "none" }}>
-            Αγορά credits
+            {t("buy")}
           </Link>
         )}
       </div>
 
       {pending && (
         <div style={{ ...card, borderLeft: `3px solid ${colors.accent}` }}>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>Αίτημα αγοράς σε εκκρεμότητα</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("pendingTitle")}</div>
           <div style={{ fontSize: 14, marginTop: 6 }}>
             {[packName, formatCredits(pending.credits), `${pending.price_eur}€`].filter(Boolean).join(" · ")}
           </div>
           <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>
-            Κωδικός <span style={{ ...money, color: colors.ink }}>{pending.reference}</span> ·{" "}
-            {formatDate(pending.created_at?.slice(0, 10))}
+            {t("code")} <span style={{ ...money, color: colors.ink }}>{pending.reference}</span> ·{" "}
+            {f.date(pending.created_at?.slice(0, 10))}
           </div>
           <p style={{ ...muted, fontSize: 13, margin: "10px 0 0", lineHeight: 1.5 }}>
-            Τα credits πιστώνονται με την επιβεβαίωση της πληρωμής.
+            {t("pendingNote")}
           </p>
           {!readOnly && (
             <button type="button" style={{ ...button("secondary"), marginTop: 12 }} disabled={cancelling} onClick={cancelPending}>
-              {cancelling ? "…" : "Ακύρωση αιτήματος"}
+              {cancelling ? "…" : t("cancelRequest")}
             </button>
           )}
           {error && <p style={{ color: colors.danger, fontSize: 13, margin: "8px 0 0" }}>{error}</p>}
         </div>
       )}
 
-      <h2 style={{ ...sectionLabel, marginTop: 32 }}>Κινήσεις</h2>
-      {busy && <p style={muted}>Φόρτωση...</p>}
-      {!busy && loadFailed && <LoadError what="οι κινήσεις σου" onRetry={loadTransactions} />}
-      {!busy && !loadFailed && transactions.length === 0 && <p style={muted}>Καμία κίνηση ακόμα.</p>}
-      {transactions.map((t) => (
-        <div key={t.id} style={card}>
+      <h2 style={{ ...sectionLabel, marginTop: 32 }}>{t("movements")}</h2>
+      {busy && <p style={muted}>{t("loading")}</p>}
+      {!busy && loadFailed && <LoadError what={t("loadWhat")} onRetry={loadTransactions} />}
+      {!busy && !loadFailed && transactions.length === 0 && <p style={muted}>{t("noMovements")}</p>}
+      {transactions.map((tx) => (
+        <div key={tx.id} style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <span>
-              <span style={{ fontSize: 14 }}>{TYPE_LABEL[t.type] || t.type}</span>
-              {t.note && <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>{t.note}</span>}
-              <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>{formatDate(t.created_at?.slice(0, 10))}</span>
+              <span style={{ fontSize: 14 }}>{TYPE_KEY[tx.type] ? t(TYPE_KEY[tx.type]) : tx.type}</span>
+              {tx.note && <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>{tx.note}</span>}
+              <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>{f.date(tx.created_at?.slice(0, 10))}</span>
             </span>
-            <span style={badge(t.amount > 0 ? "success" : "neutral")}>{t.amount > 0 ? "+" : ""}{formatCredits(t.amount)}</span>
+            <span style={badge(tx.amount > 0 ? "success" : "neutral")}>{tx.amount > 0 ? "+" : ""}{formatCredits(tx.amount)}</span>
           </div>
         </div>
       ))}

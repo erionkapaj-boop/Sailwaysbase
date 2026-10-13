@@ -1,10 +1,10 @@
+import { getTranslations } from "next-intl/server";
 import AboutBody from "./AboutBody";
 
-export const metadata = {
-  title: "Σχετικά & βοήθεια",
-  description:
-    "Πώς λειτουργεί το SkipperFinder: αναζήτηση πληρώματος, αιτήματα, τέλη, αξιολογήσεις και πώς κρατιέται η εμπιστοσύνη.",
-};
+export async function generateMetadata() {
+  const t = await getTranslations("AboutMeta");
+  return { title: t("title"), description: t("description") };
+}
 
 export default function AboutPage() {
   return <AboutBody />;

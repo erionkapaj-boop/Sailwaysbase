@@ -2,13 +2,14 @@
 import LowCreditsBanner from "../components/credits/LowCreditsBanner";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import { useAuth } from "../AuthContext";
 import { listMyBookingRequests, getMyClientProfile, createMissingProfile, departureLabel } from "../../../lib/platform/db";
 import PingsInbox from "../components/PingsInbox";
 import DeliveryPingsInbox from "../components/DeliveryPingsInbox";
 import RequestPanel from "../components/RequestPanel";
 import Toast from "../components/Toast";
-import { formatDateTime, formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
 import PendingReadyBanner from "../components/PendingReadyBanner";
@@ -19,17 +20,17 @@ import { noteFailure } from "../../../lib/platform/health";
 
 function statusFor(r) {
   if (r.status === "expired_unclaimed" && r.client_charged_at && r.fee_amount > 0) {
-    return ["Έληξε, τα credits επιστράφηκαν", "warn"];
+    return ["statusExpiredRefunded", "warn"];
   }
-  return REQ_STATUS[r.status] || [r.status, "neutral"];
+  return REQ_STATUS[r.status] || [null, "neutral"];
 }
 
 const REQ_STATUS = {
-  matched: ["Βρέθηκε επαγγελματίας", "success"],
+  matched: ["statusMatched", "success"],
   // Τα αιτήματα από το 0122 δεν χρεώνονται αν δεν γίνουν δεκτά· μόνο τα
   // παλιότερα, χρεωμένα στην αποστολή, είχαν επιστροφή (statusFor).
-  expired_unclaimed: ["Έληξε", "warn"],
-  cancelled: ["Ακυρώθηκε", "danger"],
+  expired_unclaimed: ["statusExpired", "warn"],
+  cancelled: ["statusCancelled", "danger"],
 };
 
 // Ένας λογαριασμός μπορεί ταυτόχρονα να δέχεται αιτήματα (ως επαγγελματίας)
@@ -37,6 +38,8 @@ const REQ_STATUS = {
 // σκάφος) — δύο κατευθύνσεις του ίδιου πράγματος, όχι δύο άσχετες λίστες σε
 // δύο διαφορετικές σελίδες.
 export default function RequestsPage() {
+  const t = useTranslations("RequestsPage");
+  const f = useFormat();
   const { session, userRow, profile, isAdmin, loading, refresh, loadError } = useAuth();
   const [requests, setRequests] = useState([]);
   const [clientProfile, setClientProfile] = useState(null);
@@ -75,7 +78,7 @@ export default function RequestsPage() {
     if (session) load();
   }, [session]);
 
-  if (loading) return <div style={container}>Φόρτωση...</div>;
+  if (loading) return <div style={container}>{t("loading")}</div>;
   if (!session) return <SignedOutNotice />;
 
   const isProfessional = userRow?.role === "skipper" || isAdmin;
@@ -98,27 +101,27 @@ export default function RequestsPage() {
 
   return (
     <div style={container}>
-      <h1 style={{ ...h1, marginBottom: 24 }}>Αιτήματα</h1>
+      <h1 style={{ ...h1, marginBottom: 24 }}>{t("title")}</h1>
       <PendingReadyBanner />
       <RequestDraftLine />
 
       {isProfessional && (
         <div style={{ marginBottom: 32 }}>
           {!profile && (
-            <p style={muted}>Χρειάζεται επαγγελματικό προφίλ για να δέχεσαι αιτήματα.</p>
+            <p style={muted}>{t("needsProfile")}</p>
           )}
           {profile?.approval_status === "pending" && (
             <div style={{ ...card, borderLeft: `3px solid ${colors.warn}` }}>
-              <b style={{ fontWeight: 600 }}>Το προφίλ σου περιμένει έγκριση.</b>
+              <b style={{ fontWeight: 600 }}>{t("pendingTitle")}</b>
               <p style={{ ...muted, margin: "6px 0 0" }}>
-                Μέχρι τότε δεν εμφανίζεσαι σε αναζητήσεις και δεν λαμβάνεις αιτήματα.
+                {t("pendingBody")}
               </p>
             </div>
           )}
           {profile?.approval_status === "rejected" && (
             <div style={{ ...card, borderLeft: `3px solid ${colors.danger}` }}>
-              <b style={{ fontWeight: 600 }}>Το προφίλ σου απορρίφθηκε.</b>
-              <p style={{ ...muted, margin: "6px 0 0" }}>Για πληροφορίες, επικοινώνησε μαζί μας.</p>
+              <b style={{ fontWeight: 600 }}>{t("rejectedTitle")}</b>
+              <p style={{ ...muted, margin: "6px 0 0" }}>{t("rejectedBody")}</p>
             </div>
           )}
           {profile?.approval_status === "approved" && (
@@ -133,27 +136,27 @@ export default function RequestsPage() {
 
       <div>
         {loadFailed ? (
-          <LoadError what="τα αιτήματα" onRetry={load} />
+          <LoadError what={t("loadWhat")} onRetry={load} />
         ) : !clientProfile && !busy ? (
           <div style={card}>
-            <b>Ο λογαριασμός σου δεν είναι έτοιμος για αιτήματα.</b>
-            <p style={muted}>Ολοκλήρωσέ τον με ένα πάτημα.</p>
+            <b>{t("notReadyTitle")}</b>
+            <p style={muted}>{t("notReadyBody")}</p>
             <button style={button("primary")} disabled={creating} onClick={recreateClientProfile}>
-              {creating ? "Ολοκλήρωση…" : "Ολοκλήρωση"}
+              {creating ? t("completing") : t("complete")}
             </button>
             {createError && <p style={{ color: colors.danger, marginTop: 8 }}>{createError}</p>}
           </div>
         ) : (
           <>
-            <h2 style={sectionLabel}>Αιτήματα που έστειλες<span style={{ marginLeft: 8, opacity: 0.55 }}>{openRequests.length}</span></h2>
-            {busy && <p style={muted}>Φόρτωση...</p>}
+            <h2 style={sectionLabel}>{t("sentTitle")}<span style={{ marginLeft: 8, opacity: 0.55 }}>{openRequests.length}</span></h2>
+            {busy && <p style={muted}>{t("loading")}</p>}
             {openRequests.length === 0 && !busy && (
               <div style={{ ...card, textAlign: "center" }}>
                 <p style={{ ...muted, margin: "0 0 14px" }}>
-                  Εδώ θα δεις τα αιτήματα που έχεις στείλει σε επαγγελματίες, μέχρι κάποιος να τα αναλάβει.
+                  {t("emptyBody")}
                 </p>
                 <Link href="/platform" style={{ ...button("secondary"), textDecoration: "none" }}>
-                  Βρες πλήρωμα
+                  {t("findCrew")}
                 </Link>
               </div>
             )}
@@ -163,16 +166,16 @@ export default function RequestsPage() {
 
             {closedRequests.length > 0 && (
               <>
-                <h2 style={{ ...sectionLabel, marginTop: 32 }}>Ιστορικό αιτημάτων</h2>
+                <h2 style={{ ...sectionLabel, marginTop: 32 }}>{t("historyTitle")}</h2>
                 {closedRequests.map((r) => (
                   <div key={r.id} style={{ ...card, opacity: 0.75 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                       <span>
-                        {departureLabel(r)} · <span style={money}>{formatDateRange(r.start_date, r.end_date)}</span>
+                        {departureLabel(r)} · <span style={money}>{f.dateRange(r.start_date, r.end_date)}</span>
                       </span>
-                      <span style={badge(statusFor(r)[1])}>{statusFor(r)[0]}</span>
+                      <span style={badge(statusFor(r)[1])}>{statusFor(r)[0] ? t(statusFor(r)[0]) : r.status}</span>
                     </div>
-                    <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>Στάλθηκε {formatDateTime(r.created_at)}</p>
+                    <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>{t("sentAt", { date: f.dateTime(r.created_at) })}</p>
                   </div>
                 ))}
               </>

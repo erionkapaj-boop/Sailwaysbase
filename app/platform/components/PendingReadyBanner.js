@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
 import { hasPendingBroadcast } from "../../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../../lib/platform/pendingDelivery";
@@ -11,6 +12,7 @@ import { card, muted, button, colors } from "../../../lib/platform/theme";
 // Αιτήματα list and no sign their choices were still waiting. localStorage
 // is read in an effect so server and first client render agree.
 export default function PendingReadyBanner() {
+  const t = useTranslations("PendingReadyBanner");
   const { session, userRow } = useAuth();
   const [href, setHref] = useState(null);
 
@@ -24,12 +26,12 @@ export default function PendingReadyBanner() {
   if (!href) return null;
   return (
     <div style={{ ...card, borderLeft: `3px solid ${colors.accent}`, textAlign: "left", marginBottom: 24 }}>
-      <b style={{ fontWeight: 600 }}>Ο λογαριασμός σου εγκρίθηκε</b>
+      <b style={{ fontWeight: 600 }}>{t("title")}</b>
       <p style={{ ...muted, margin: "6px 0 12px" }}>
-        Οι επιλογές σου σε περιμένουν. Δεν έχουν σταλεί ακόμα.
+        {t("body")}
       </p>
       <Link href={href} style={{ ...button("primary"), textDecoration: "none", display: "inline-block" }}>
-        Συνέχεια στην αποστολή
+        {t("continue")}
       </Link>
     </div>
   );

@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import HeaderPanel from "./HeaderPanel";
 import LoadError from "./LoadError";
 import { listMyConversations } from "../../../lib/platform/db";
-import { timeAgo, formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { colors, muted, money } from "../../../lib/platform/theme";
 
 const EnvelopeIcon = (
@@ -24,6 +25,8 @@ const EnvelopeIcon = (
 // as_client flag says which side that particular booking is on.
 export default function MessagesPanel({ count = 0 }) {
   const router = useRouter();
+  const t = useTranslations("MessagesPanel");
+  const f = useFormat();
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -37,15 +40,15 @@ export default function MessagesPanel({ count = 0 }) {
   }
 
   return (
-    <HeaderPanel icon={EnvelopeIcon} count={count} ariaLabel="Μηνύματα" title="Μηνύματα" onOpen={load}>
+    <HeaderPanel icon={EnvelopeIcon} count={count} ariaLabel={t("title")} title={t("title")} onOpen={load}>
       {(close) => (
         <>
-          {busy && items.length === 0 && <p style={{ ...muted, padding: 14, margin: 0 }}>Φόρτωση…</p>}
+          {busy && items.length === 0 && <p style={{ ...muted, padding: 14, margin: 0 }}>{t("loading")}</p>}
           {!busy && failed && (
-            <div style={{ padding: 10 }}><LoadError compact what="οι συνομιλίες" onRetry={load} /></div>
+            <div style={{ padding: 10 }}><LoadError compact what={t("loadWhat")} onRetry={load} /></div>
           )}
           {!busy && !failed && items.length === 0 && (
-            <p style={{ ...muted, padding: 14, margin: 0 }}>Καμία συνομιλία ακόμα.</p>
+            <p style={{ ...muted, padding: 14, margin: 0 }}>{t("empty")}</p>
           )}
           {items.map((c) => {
             const unread = (c.unread ?? 0) > 0;
@@ -71,7 +74,7 @@ export default function MessagesPanel({ count = 0 }) {
               >
                 <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                   <span style={{ fontSize: 14, fontWeight: unread ? 600 : 400, color: colors.ink }}>
-                    {c.port_name || "Κράτηση"}
+                    {c.port_name || t("booking")}
                   </span>
                   {unread && (
                     <span
@@ -95,7 +98,7 @@ export default function MessagesPanel({ count = 0 }) {
                   )}
                 </span>
                 <span style={{ ...muted, fontSize: 12, display: "block", marginTop: 2 }}>
-                  <span style={money}>{formatDateRange(c.start_date, c.end_date)}</span>
+                  <span style={money}>{f.dateRange(c.start_date, c.end_date)}</span>
                 </span>
                 {c.last_message && (
                   <span
@@ -112,7 +115,7 @@ export default function MessagesPanel({ count = 0 }) {
                     {c.last_message}
                   </span>
                 )}
-                <span style={{ ...muted, fontSize: 11, display: "block", marginTop: 3 }}>{timeAgo(c.last_at)}</span>
+                <span style={{ ...muted, fontSize: 11, display: "block", marginTop: 3 }}>{f.timeAgo(c.last_at)}</span>
               </button>
             );
           })}

@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { supabase } from "../../../lib/platform/supabaseClient";
 import { colors, muted, button, radius } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
@@ -39,7 +40,7 @@ function resizeImage(file) {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("Δεν μπόρεσε να διαβαστεί η εικόνα."));
+      reject(new Error("image_unreadable"));
     };
     img.src = url;
   });
@@ -49,6 +50,7 @@ function resizeImage(file) {
 // Files land under <uid>/… because the bucket policy only lets a user write
 // inside their own folder.
 export default function PhotoUpload({ value, onUploaded }) {
+  const t = useTranslations("PhotoUpload");
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -61,7 +63,7 @@ export default function PhotoUpload({ value, onUploaded }) {
     if (!file) return;
 
     setError("");
-    if (!file.type.startsWith("image/")) return setError("Επίλεξε αρχείο εικόνας.");
+    if (!file.type.startsWith("image/")) return setError(t("notImage"));
 
     // Show it immediately; the upload can take a moment on mobile data.
     setPreview(URL.createObjectURL(file));
@@ -73,7 +75,7 @@ export default function PhotoUpload({ value, onUploaded }) {
       const resized = await resizeImage(file);
       // Only conceivable if someone feeds in an enormous canvas; the resize
       // itself normally brings anything well under this.
-      if (resized.size > HARD_LIMIT) throw new Error("Η εικόνα είναι πολύ μεγάλη.");
+      if (resized.size > HARD_LIMIT) throw new Error("image_too_large");
 
       // Timestamped name so a replacement can't be served from cache under
       // the old URL. Always .jpg — the resize re-encodes to JPEG.
@@ -87,7 +89,11 @@ export default function PhotoUpload({ value, onUploaded }) {
       const { data } = supabase.storage.from("crew-photos").getPublicUrl(path);
       onUploaded(data.publicUrl);
     } catch (err) {
-      setError(friendlyError(err));
+      setError(
+        err?.message === "image_unreadable" ? t("unreadable")
+        : err?.message === "image_too_large" ? t("tooLarge")
+        : friendlyError(err)
+      );
       setPreview(null);
     } finally {
       setBusy(false);
@@ -98,7 +104,7 @@ export default function PhotoUpload({ value, onUploaded }) {
     <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
       <button
         type="button"
-        aria-label={shown ? "Αλλαγή φωτογραφίας" : "Ανέβασμα φωτογραφίας"}
+        aria-label={shown ? t("change") : t("upload")}
         disabled={busy}
         onClick={() => inputRef.current?.click()}
         style={{
@@ -143,10 +149,10 @@ export default function PhotoUpload({ value, onUploaded }) {
           disabled={busy}
           onClick={() => inputRef.current?.click()}
         >
-          {busy ? "Ανέβασμα…" : shown ? "Αλλαγή φωτογραφίας" : "Ανέβασμα φωτογραφίας"}
+          {busy ? t("uploading") : shown ? t("change") : t("upload")}
         </button>
         <p style={{ ...muted, fontSize: 12, margin: "8px 0 0", maxWidth: 320, lineHeight: 1.45 }}>
-          Προσαρμόζεται αυτόματα.
+          {t("autoFit")}
         </p>
         {error && <p style={{ color: colors.danger, fontSize: 13, margin: "6px 0 0" }}>{error}</p>}
       </div>

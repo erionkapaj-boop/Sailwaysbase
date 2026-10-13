@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
@@ -74,6 +75,7 @@ function StepHeading({ children }) {
 
 export default function CrewSearchFlow() {
   const router = useRouter();
+  const t = useTranslations("CrewSearchFlow");
   const [step, setStep] = useState(0);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [], languages: [] });
   const [roles, setRoles] = useState([]);
@@ -189,7 +191,7 @@ export default function CrewSearchFlow() {
           [data-sf-step] { animation: none !important; }
         }
         /* Η ενέργεια του βήματος μένει πάντα ορατή στο κάτω μέρος της οθόνης,
-           χωρίς κύλιση για να βρεθεί. */
+           * χωρίς κύλιση για να βρεθεί. */
         .sf-step-footer {
           position: sticky; bottom: 0; z-index: 5;
           margin: 24px -20px 0; padding: 20px 20px calc(16px + env(safe-area-inset-bottom));
@@ -207,7 +209,7 @@ export default function CrewSearchFlow() {
 
       {current === "role" && (
         <div key="role" data-sf-step style={stepWrap}>
-          <StepHeading>Ποιον ψάχνεις;</StepHeading>
+          <StepHeading>{t("whoTitle")}</StepHeading>
           {CREW_ROLES.map((r) => (
             <button
               key={r.key}
@@ -224,11 +226,11 @@ export default function CrewSearchFlow() {
             </button>
           ))}
           <p style={{ ...muted, fontSize: 13, margin: "12px 0 0" }}>
-            Μπορείς να επιλέξεις περισσότερους από έναν.
+            {t("whoHint")}
           </p>
           <div className="sf-step-footer">
             <button type="button" disabled={roles.length === 0} onClick={next} style={cta}>
-              Συνέχεια
+              {t("continue")}
             </button>
           </div>
         </div>
@@ -236,7 +238,7 @@ export default function CrewSearchFlow() {
 
       {current === "dates" && (
         <div key="dates" data-sf-step style={stepWrap}>
-          <StepHeading>Πότε;</StepHeading>
+          <StepHeading>{t("whenTitle")}</StepHeading>
           <DateRangeCalendar
             startDate={dates.start}
             endDate={dates.end}
@@ -244,7 +246,7 @@ export default function CrewSearchFlow() {
           />
           <div className="sf-step-footer">
             <button type="button" disabled={!dates.start || !dates.end || dates.end < dates.start} onClick={next} style={cta}>
-              Συνέχεια
+              {t("continue")}
             </button>
           </div>
         </div>
@@ -252,7 +254,7 @@ export default function CrewSearchFlow() {
 
       {current === "country" && (
         <div key="country" data-sf-step style={stepWrap}>
-          <StepHeading>Ποια χώρα;</StepHeading>
+          <StepHeading>{t("countryTitle")}</StepHeading>
           {COUNTRIES.map((c) => (
             <button
               key={c.code}
@@ -281,7 +283,7 @@ export default function CrewSearchFlow() {
 
       {current === "where" && (
         <div key="where" data-sf-step style={stepWrap}>
-          <StepHeading>Από πού ξεκινά το ταξίδι;</StepHeading>
+          <StepHeading>{t("fromTitle")}</StepHeading>
           <PlacePicker
             regions={lookups.regions}
             country={country || COUNTRIES[0].code}
@@ -309,12 +311,12 @@ export default function CrewSearchFlow() {
                     if (!different) setArrivalPoint("");
                   }}
                 />
-                Τελειώνει σε άλλο σημείο
+                {t("endsElsewhere")}
               </label>
 
               {!sameDestination && (
                 <div style={{ marginTop: 8 }}>
-                  <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>Πού τελειώνει;</p>
+                  <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>{t("whereEnds")}</p>
                   <PlacePicker mode="arrival" regions={lookups.regions} value={arrivalPoint} onChange={setArrivalPoint} autoFocus />
                 </div>
               )}
@@ -328,7 +330,7 @@ export default function CrewSearchFlow() {
               onClick={next}
               style={cta}
             >
-              Συνέχεια
+              {t("continue")}
             </button>
           </div>
         </div>
@@ -336,7 +338,7 @@ export default function CrewSearchFlow() {
 
       {current === "boat" && (
         <div key="boat" data-sf-step style={stepWrap}>
-          <StepHeading>Τι σκάφος;</StepHeading>
+          <StepHeading>{t("boatTitle")}</StepHeading>
           {lookups.boatTypes.map((b) => (
             <button
               key={b.id}
@@ -352,23 +354,23 @@ export default function CrewSearchFlow() {
           ))}
           {lookups.boatTypes.length === 0 && lookupsError && (
             <div>
-              <p style={{ ...muted, color: colors.danger }}>Οι τύποι σκάφους δεν φορτώθηκαν.</p>
+              <p style={{ ...muted, color: colors.danger }}>{t("boatTypesFailed")}</p>
               <button type="button" style={chip(false)} onClick={() => setLookupsAttempt((n) => n + 1)}>
-                Δοκίμασε ξανά
+                {t("retry")}
               </button>
             </div>
           )}
-          {lookups.boatTypes.length === 0 && !lookupsError && <p style={muted}>Φόρτωση τύπων σκάφους…</p>}
+          {lookups.boatTypes.length === 0 && !lookupsError && <p style={muted}>{t("boatTypesLoading")}</p>}
         </div>
       )}
 
       {current === "extras" && (
         <div key="extras" data-sf-step style={stepWrap}>
-          <StepHeading>Λίγες τελευταίες λεπτομέρειες</StepHeading>
+          <StepHeading>{t("extrasTitle")}</StepHeading>
           <div style={{ marginBottom: 16 }}>
-            <label style={label}>Γλώσσα (προαιρετικό)</label>
+            <label style={label}>{t("languageLabel")}</label>
             <select style={select} value={languageId} onChange={(e) => setLanguageId(e.target.value)}>
-              <option value="">Αδιάφορο</option>
+              <option value="">{t("languageAny")}</option>
               {lookups.languages.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
@@ -376,11 +378,11 @@ export default function CrewSearchFlow() {
               ))}
             </select>
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              Θα δεις μόνο επαγγελματίες που μιλάνε αυτή τη γλώσσα.
+              {t("languageHint")}
             </p>
           </div>
           <div style={{ marginBottom: 16 }}>
-            <label style={label}>Αριθμός ατόμων</label>
+            <label style={label}>{t("partyLabel")}</label>
             <input
               type="number"
               min={1}
@@ -389,36 +391,36 @@ export default function CrewSearchFlow() {
               onChange={(e) => setPartySize(e.target.value)}
             />
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              Όλοι όσοι θα είναι στο σκάφος. Ο επαγγελματίας το βλέπει πριν αποφασίσει.
+              {t("partyHint")}
             </p>
           </div>
           <div style={{ marginBottom: 24 }}>
-            <label style={label}>Ιδιωτική καμπίνα για τον επαγγελματία</label>
+            <label style={label}>{t("cabinLabel")}</label>
             <select
               style={select}
               value={privateCabin === undefined ? "" : String(privateCabin)}
               onChange={(e) => setPrivateCabin(e.target.value === "true")}
             >
-              <option value="">Επιλογή...</option>
-              <option value="true">Ναι</option>
-              <option value="false">Όχι</option>
+              <option value="">{t("cabinChoose")}</option>
+              <option value="true">{t("yes")}</option>
+              <option value="false">{t("no")}</option>
             </select>
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              Συνήθως το πλήρωμα μένει στο σκάφος. Θα έχει δική του καμπίνα ή κοινό χώρο;
+              {t("cabinHint")}
             </p>
           </div>
           <div className="sf-step-footer">
             {(!partySize || privateCabin === undefined) && (
               <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px", textAlign: "center" }}>
                 {!partySize && privateCabin === undefined
-                  ? "Συμπλήρωσε τον αριθμό ατόμων και την καμπίνα."
+                  ? t("missingBoth")
                   : !partySize
-                    ? "Συμπλήρωσε τον αριθμό ατόμων."
-                    : "Απάντησε για την καμπίνα."}
+                    ? t("missingParty")
+                    : t("missingCabin")}
               </p>
             )}
             <button type="button" disabled={!partySize || privateCabin === undefined} onClick={finish} style={cta}>
-              Ολοκλήρωση
+              {t("finish")}
             </button>
           </div>
         </div>

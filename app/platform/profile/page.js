@@ -4,6 +4,8 @@ import Stars from "../components/Stars";
 import DateField from "../components/calendar/DateField";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import Link from "next/link";
 import { useAuth } from "../AuthContext";
 import MissingProfile from "../skipper/MissingProfile";
@@ -37,7 +39,6 @@ import {
   GOOGLE_LOGIN_ENABLED,
 } from "../../../lib/platform/db";
 import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform/roles";
-import { formatDate, formatDateRange } from "../../../lib/platform/notifications";
 import { container, card, h1, h2, muted, colors, radius, select, label, button, input, tapTarget } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
 import { friendlyError } from "../../../lib/platform/friendlyError";
@@ -46,11 +47,14 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 // role goes through the same admin review as the main profile (0065), so it
 // needs the same three-state story, just compressed into one line per role
 // instead of its own page.
-function statusLabel(role) {
-  if (role.deleted_at) return { text: "Δεν εγκρίθηκε", color: colors.danger };
-  if (role.approval_status === "approved") return { text: "Εγκρίθηκε", color: colors.success || colors.accent };
-  return { text: "Σε αναμονή έγκρισης", color: colors.warn || colors.inkSoft };
+function statusLabel(role, t) {
+  if (role.deleted_at) return { text: t("roleRejected"), color: colors.danger };
+  if (role.approval_status === "approved") return { text: t("roleApproved"), color: colors.success || colors.accent };
+  return { text: t("rolePending"), color: colors.warn || colors.inkSoft };
 }
+
+// Names of the common languages, matching the Greek names in the languages list (data, not screen text).
+const COMMON_LANGUAGES = ["\u0395\u03bb\u03bb\u03b7\u03bd\u03b9\u03ba\u03ac", "\u0391\u03b3\u03b3\u03bb\u03b9\u03ba\u03ac", "\u0393\u03b5\u03c1\u03bc\u03b1\u03bd\u03b9\u03ba\u03ac", "\u0393\u03b1\u03bb\u03bb\u03b9\u03ba\u03ac", "\u0399\u03c4\u03b1\u03bb\u03b9\u03ba\u03ac", "\u0399\u03c3\u03c0\u03b1\u03bd\u03b9\u03ba\u03ac"];
 
 // A second (third...) specialty on the same account — its own price and,
 // for skipper, its own license, but everything else (photo, languages,
@@ -59,6 +63,7 @@ function statusLabel(role) {
 // side (0065) — working as cook doesn't touch the skipper rating and vice
 // versa.
 function SecondaryRoles({ profile }) {
+  const t = useTranslations("Profile");
   const [roles, setRoles] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -87,7 +92,7 @@ function SecondaryRoles({ profile }) {
     setError("");
     if (!newRole) return;
     if (!(Number(newPrice) > 0)) {
-      setError("Γράψε την τιμή σου ανά ημέρα.");
+      setError(t("errPrice"));
       return;
     }
     setBusy(true);
@@ -117,7 +122,7 @@ function SecondaryRoles({ profile }) {
 
   async function handlePriceSave(id, value) {
     if (!(Number(value) > 0)) {
-      setError("Γράψε την τιμή σου ανά ημέρα.");
+      setError(t("errPrice"));
       return;
     }
     try {
@@ -146,16 +151,15 @@ function SecondaryRoles({ profile }) {
     // closes, so it needs the same clearance or its own buttons end up
     // hidden behind that bar once someone scrolls this far down.
     <div style={{ ...card, marginBottom: 88 }}>
-      <h2 style={{ ...h2, fontSize: 17 }}>Επιπλέον ρόλοι</h2>
+      <h2 style={{ ...h2, fontSize: 17 }}>{t("rolesTitle")}</h2>
       <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-        Δούλεψε και σε άλλη ειδικότητα με τον ίδιο λογαριασμό. Κάθε ρόλος έχει δική του τιμή και αξιολόγηση. Σε
-        ένα ταξίδι αναλαμβάνεις πάντα έναν ρόλο.
+        {t("rolesIntro")}
       </p>
 
       {error && <p style={{ color: colors.danger, fontSize: 13, marginBottom: 12 }}>{error}</p>}
 
       {roles.map((r) => {
-        const st = statusLabel(r);
+        const st = statusLabel(r, t);
         return (
           <div
             key={r.id}
@@ -171,10 +175,10 @@ function SecondaryRoles({ profile }) {
               onBlur={(e) => handlePriceSave(r.id, e.target.value)}
               disabled={busy}
             />
-            <span style={{ ...muted, fontSize: 13 }}>€/ημέρα</span>
+            <span style={{ ...muted, fontSize: 13 }}>{t("eurPerDayShort")}</span>
             <span style={{ fontSize: 12.5, color: st.color, marginLeft: "auto" }}>{st.text}</span>
             <button type="button" style={{ ...button("secondary"), padding: "6px 12px", fontSize: 13 }} disabled={busy} onClick={() => handleRemove(r.id)}>
-              Αφαίρεση
+              {t("remove")}
             </button>
           </div>
         );
@@ -182,9 +186,9 @@ function SecondaryRoles({ profile }) {
 
       {adding ? (
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${colors.border}` }}>
-          <label style={label}>Ρόλος</label>
+          <label style={label}>{t("role")}</label>
           <select style={{ ...select, marginBottom: 12 }} value={newRole} onChange={(e) => setNewRole(e.target.value)}>
-            <option value="">Επιλογή...</option>
+            <option value="">{t("choose")}</option>
             {availableRoles.map((r) => (
               <option key={r.key} value={r.key}>
                 {r.label}
@@ -192,7 +196,7 @@ function SecondaryRoles({ profile }) {
             ))}
           </select>
 
-          <label style={label}>Τιμή ανά ημέρα (€)</label>
+          <label style={label}>{t("priceLabel")}</label>
           <input
             type="number"
             min={1}
@@ -203,14 +207,14 @@ function SecondaryRoles({ profile }) {
 
           {newRole === "skipper" && (
             <>
-              <label style={label}>Αριθμός άδειας</label>
+              <label style={label}>{t("licenseNumber")}</label>
               <input
                 type="text"
                 style={{ ...input, marginBottom: 12 }}
                 value={newLicenseNumber}
                 onChange={(e) => setNewLicenseNumber(e.target.value)}
               />
-              <label style={label}>Τύπος άδειας</label>
+              <label style={label}>{t("licenseType")}</label>
               <input
                 type="text"
                 style={{ ...input, marginBottom: 12 }}
@@ -222,19 +226,19 @@ function SecondaryRoles({ profile }) {
 
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" style={button("primary")} disabled={busy || !newRole} onClick={handleAdd}>
-              {busy ? "Αποθήκευση…" : "Προσθήκη ρόλου"}
+              {busy ? t("saving") : t("addRole")}
             </button>
             <button type="button" style={button("secondary")} onClick={() => setAdding(false)}>
-              Άκυρο
+              {t("cancel")}
             </button>
           </div>
         </div>
       ) : availableRoles.length > 0 ? (
         <button type="button" style={{ ...button("secondary"), marginTop: roles.length > 0 ? 14 : 0 }} onClick={() => setAdding(true)}>
-          + Προσθήκη ρόλου
+          {t("addRolePlus")}
         </button>
       ) : (
-        roles.length === 0 && <p style={{ ...muted, fontSize: 13 }}>Καλύπτεις ήδη όλους τους διαθέσιμους ρόλους.</p>
+        roles.length === 0 && <p style={{ ...muted, fontSize: 13 }}>{t("allRolesCovered")}</p>
       )}
     </div>
   );
@@ -253,6 +257,8 @@ function SecondaryRoles({ profile }) {
 const DELIVERY_ROLES = new Set(SUPPORTED_ROLES);
 
 function DeliveryAvailability({ profile }) {
+  const t = useTranslations("Profile");
+  const f = useFormat();
   const [secondary, setSecondary] = useState([]);
   const [windows, setWindows] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -289,11 +295,11 @@ function DeliveryAvailability({ profile }) {
   async function handleAdd() {
     setError("");
     if (!newRole) {
-      setError("Επίλεξε ρόλο.");
+      setError(t("errRole"));
       return;
     }
     if (!newStart || !newEnd || newEnd < newStart) {
-      setError("Συμπλήρωσε έγκυρο διάστημα ημερομηνιών.");
+      setError(t("errRange"));
       return;
     }
     setBusy(true);
@@ -325,15 +331,14 @@ function DeliveryAvailability({ profile }) {
 
   return (
     <div style={card}>
-      <h2 style={{ ...h2, fontSize: 17 }}>Μεταφορές σκάφους</h2>
+      <h2 style={{ ...h2, fontSize: 17 }}>{t("deliveryTitle")}</h2>
       <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-        Πότε μπορείς να αναλάβεις μεταφορά σκάφους από λιμάνι σε λιμάνι. Είναι ξεχωριστό από τη διαθεσιμότητά
-        σου για ναύλα.
+        {t("deliveryIntro")}
       </p>
       {error && <p style={{ color: colors.danger, fontSize: 13, marginBottom: 12 }}>{error}</p>}
 
       {windows.length === 0 && !adding && (
-        <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>Δεν έχεις δηλώσει κανένα διάστημα ακόμα.</p>
+        <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>{t("noRanges")}</p>
       )}
 
       {windows.map((w) => (
@@ -343,7 +348,7 @@ function DeliveryAvailability({ profile }) {
         >
           <span style={{ minWidth: 80, fontWeight: 600 }}>{labelForRole(w.crew_role)}</span>
           <span style={{ fontSize: 13.5 }}>
-            {formatDateRange(w.start_date, w.end_date)}
+            {f.dateRange(w.start_date, w.end_date)}
           </span>
           <button
             type="button"
@@ -351,16 +356,16 @@ function DeliveryAvailability({ profile }) {
             disabled={busy}
             onClick={() => handleRemove(w.id)}
           >
-            Αφαίρεση
+            {t("remove")}
           </button>
         </div>
       ))}
 
       {adding ? (
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${colors.border}` }}>
-          <label style={label}>Ρόλος</label>
+          <label style={label}>{t("role")}</label>
           <select style={{ ...select, marginBottom: 12 }} value={newRole} onChange={(e) => setNewRole(e.target.value)}>
-            <option value="">Επιλογή...</option>
+            <option value="">{t("choose")}</option>
             {roles.map((r) => (
               <option key={r.role} value={r.role}>
                 {labelForRole(r.role)}
@@ -368,10 +373,10 @@ function DeliveryAvailability({ profile }) {
             ))}
           </select>
           <div style={{ marginBottom: 12 }}>
-            <label style={label}>Διάστημα</label>
+            <label style={label}>{t("range")}</label>
             <DateField
               mode="range"
-              title="Διαθέσιμος για μεταφορές"
+              title={t("availableForDeliveries")}
               value={{ startDate: newStart, endDate: newEnd }}
               onChange={({ startDate, endDate }) => {
                 setNewStart(startDate);
@@ -381,16 +386,16 @@ function DeliveryAvailability({ profile }) {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" style={button("primary")} disabled={busy} onClick={handleAdd}>
-              {busy ? "Αποθήκευση…" : "Προσθήκη διαστήματος"}
+              {busy ? t("saving") : t("addRange")}
             </button>
             <button type="button" style={button("secondary")} onClick={() => setAdding(false)}>
-              Άκυρο
+              {t("cancel")}
             </button>
           </div>
         </div>
       ) : (
         <button type="button" style={{ ...button("secondary"), marginTop: windows.length > 0 ? 14 : 0 }} onClick={() => setAdding(true)}>
-          + Προσθήκη διαστήματος
+          {t("addRangePlus")}
         </button>
       )}
     </div>
@@ -415,14 +420,10 @@ const chip = (active) => ({
 // updateSkipperProfile/setSkipperLookups). Μόνο ένας απλός λογαριασμός
 // πελάτη — χωρίς κανένα επαγγελματικό προφίλ να αντλήσει — συμπληρώνει αυτά
 // τα στοιχεία εδώ ο ίδιος.
-const DELETE_ERRORS = {
-  has_pending_activity: "Έχεις ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση. Ολοκλήρωσέ τα ή ακύρωσέ τα και δοκίμασε ξανά.",
-  already_deleted: "Ο λογαριασμός έχει ήδη διαγραφεί.",
-  user_not_found: "Δεν βρέθηκε ο λογαριασμός.",
-  wrong_pin: "Ο κωδικός δεν είναι σωστός.",
-  missing_fields: "Γράψε τον κωδικό σου για να επιβεβαιώσεις.",
-  locked_out: "Πολλές λάθος προσπάθειες. Δοκίμασε ξανά σε λίγα λεπτά.",
-};
+const DELETE_ERRORS = ["has_pending_activity", "already_deleted", "user_not_found", "wrong_pin", "missing_fields", "locked_out"];
+
+// Error text for a database code: the message \"err_<code>\" when this form knows the code.
+const errText = (t, codes, code) => (codes.includes(code) ? t(`err_${code}`) : null);
 
 // Αυτοεξυπηρέτηση διαγραφής — δικαίωμα που ήδη αναφέρει η πολιτική
 // απορρήτου ("Μπορείς οποτεδήποτε να ζητήσεις διαγραφή"), εδώ πραγματικό
@@ -431,6 +432,7 @@ const DELETE_ERRORS = {
 // σβήσει κάποιος τον λογαριασμό σου.
 function DeleteAccount() {
   const router = useRouter();
+  const t = useTranslations("Profile");
   const [open, setOpen] = useState(false);
   const [pin, setPinValue] = useState("");
   const [busy, setBusy] = useState(false);
@@ -444,7 +446,7 @@ function DeleteAccount() {
       await signOut();
       router.push("/platform");
     } catch (err) {
-      setError(DELETE_ERRORS[err.message] || friendlyError(err));
+      setError(errText(t, DELETE_ERRORS, err.message) || friendlyError(err));
       setBusy(false);
     }
   }
@@ -457,7 +459,7 @@ function DeleteAccount() {
           onClick={() => setOpen(true)}
           style={{ ...tapTarget, background: "none", border: "none", padding: 0, cursor: "pointer", color: colors.inkSoft, fontSize: 13, textDecoration: "underline" }}
         >
-          Διαγραφή λογαριασμού
+          {t("deleteAccount")}
         </button>
       </div>
     );
@@ -465,13 +467,11 @@ function DeleteAccount() {
 
   return (
     <div style={{ ...card, borderLeft: `3px solid ${colors.danger}`, marginTop: 28 }}>
-      <h2 style={{ ...h2, fontSize: 16 }}>Διαγραφή λογαριασμού</h2>
+      <h2 style={{ ...h2, fontSize: 16 }}>{t("deleteAccount")}</h2>
       <p style={{ ...muted, fontSize: 13.5, margin: "0 0 14px" }}>
-        Το προφίλ σου σταματά αμέσως να είναι ορατό στην πλατφόρμα. Αν κάποια στιγμή ξαναγραφτείς με το ίδιο
-        τηλέφωνο, επανέρχεται ο ίδιος λογαριασμός με το ιστορικό και τις αξιολογήσεις σου. Πριν τη διαγραφή
-        δεν πρέπει να έχεις ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση.
+        {t("deleteBody")}
       </p>
-      <label htmlFor="delete-pin" style={label}>Ο κωδικός σου (PIN), για επιβεβαίωση</label>
+      <label htmlFor="delete-pin" style={label}>{t("deletePinLabel")}</label>
       <input
         id="delete-pin"
         type="password"
@@ -488,37 +488,26 @@ function DeleteAccount() {
           onClick={handleDelete}
           style={{ ...button("primary"), background: colors.danger, borderColor: colors.danger }}
         >
-          {busy ? "…" : "Οριστική διαγραφή"}
+          {busy ? "…" : t("deleteFinal")}
         </button>
         <button type="button" disabled={busy} onClick={() => setOpen(false)} style={button("secondary")}>
-          Άκυρο
+          {t("cancel")}
         </button>
       </div>
     </div>
   );
 }
 
-const PHONE_ERRORS = {
-  phone_taken: "Αυτό το τηλέφωνο ανήκει ή ανήκε σε άλλον λογαριασμό και δεν μπορεί να χρησιμοποιηθεί.",
-  same_phone: "Αυτό είναι ήδη το τηλέφωνό σου.",
-  invalid_phone: "Το τηλέφωνο δεν φαίνεται σωστό. Γράψ' το με τον κωδικό χώρας αν δεν είναι ελληνικό (π.χ. +44…).",
-  wrong_pin: "Ο κωδικός δεν είναι σωστός.",
-  locked_out: "Πολλές λάθος προσπάθειες. Δοκίμασε ξανά σε λίγα λεπτά.",
-  account_not_active: "Ο λογαριασμός σου δεν είναι ενεργός αυτή τη στιγμή.",
-};
+const PHONE_ERRORS = ["phone_taken", "same_phone", "invalid_phone", "wrong_pin", "locked_out", "account_not_active"];
 
-const EMAIL_ERRORS = {
-  invalid_email: "Το email δεν φαίνεται σωστό.",
-  wrong_pin: "Ο κωδικός δεν είναι σωστός.",
-  locked_out: "Πολλές λάθος προσπάθειες. Δοκίμασε ξανά σε λίγα λεπτά.",
-  account_not_active: "Ο λογαριασμός σου δεν είναι ενεργός αυτή τη στιγμή.",
-};
+const EMAIL_ERRORS = ["invalid_email", "wrong_pin", "locked_out", "account_not_active"];
 
 // Το email κάνει δύο δουλειές: εκεί φτάνουν οι ειδοποιήσεις όταν δεν έχεις
 // ανοιχτή την εφαρμογή, κι εκεί έρχεται ο κωδικός αν ξεχάσεις το PIN — γι'
 // αυτό αλλάζει μόνο με τον κωδικό, όπως το τηλέφωνο.
 function EmailSettings() {
   const { userRow, refresh } = useAuth();
+  const t = useTranslations("Profile");
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [pin, setPinValue] = useState("");
@@ -542,9 +531,9 @@ function EmailSettings() {
       await changeMyEmail(email, pin);
       await refresh();
       close();
-      setNotice(email.trim() ? "Το email σου άλλαξε." : "Το email σου αφαιρέθηκε.");
+      setNotice(email.trim() ? t("emailChanged") : t("emailRemoved"));
     } catch (err) {
-      setError(EMAIL_ERRORS[err.message] || friendlyError(err));
+      setError(errText(t, EMAIL_ERRORS, err.message) || friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -563,31 +552,31 @@ function EmailSettings() {
   const row = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" };
   return (
     <div style={card}>
-      <h2 style={{ ...h2, fontSize: 17 }}>Email &amp; ειδοποιήσεις</h2>
+      <h2 style={{ ...h2, fontSize: 17 }}>{t("emailTitle")}</h2>
       {notice && <p style={{ color: colors.success, fontSize: 13.5, margin: "0 0 12px" }}>{notice}</p>}
 
       <div style={row}>
         <div>
-          <div style={{ ...muted, fontSize: 13 }}>Email</div>
-          <div style={{ fontSize: 15, marginTop: 2 }}>{userRow?.email || "Δεν έχεις δηλώσει email"}</div>
+          <div style={{ ...muted, fontSize: 13 }}>{t("email")}</div>
+          <div style={{ fontSize: 15, marginTop: 2 }}>{userRow?.email || t("noEmail")}</div>
         </div>
         {!open && (
           <button type="button" style={button("secondary")} onClick={() => { setOpen(true); setNotice(""); setEmail(userRow?.email || ""); }}>
-            {userRow?.email ? "Αλλαγή" : "Προσθήκη"}
+            {userRow?.email ? t("change") : t("add")}
           </button>
         )}
       </div>
 
       {open && (
         <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
-          <label style={label} htmlFor="new-email">Email</label>
+          <label style={label} htmlFor="new-email">{t("email")}</label>
           <input id="new-email" type="email" inputMode="email" autoComplete="email" style={{ ...input, marginBottom: 14 }} value={email} onChange={(e) => setEmail(e.target.value)} />
-          <label style={label} htmlFor="email-pin">Ο τωρινός σου κωδικός</label>
+          <label style={label} htmlFor="email-pin">{t("currentPin")}</label>
           <input id="email-pin" required type="password" autoComplete="current-password" style={{ ...input, marginBottom: 16 }} value={pin} onChange={(e) => setPinValue(e.target.value)} />
           {error && <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 12px" }}>{error}</p>}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button type="submit" disabled={busy} style={button("primary")}>{busy ? "…" : "Αποθήκευση email"}</button>
-            <button type="button" disabled={busy} onClick={close} style={button("secondary")}>Άκυρο</button>
+            <button type="submit" disabled={busy} style={button("primary")}>{busy ? "…" : t("saveEmail")}</button>
+            <button type="button" disabled={busy} onClick={close} style={button("secondary")}>{t("cancel")}</button>
           </div>
         </form>
       )}
@@ -595,11 +584,11 @@ function EmailSettings() {
       <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 18, paddingTop: 16, borderTop: `1px solid ${colors.border}`, cursor: userRow?.email ? "pointer" : "default" }}>
         <input type="checkbox" checked={on && Boolean(userRow?.email)} disabled={!userRow?.email} onChange={toggle} style={{ marginTop: 3 }} />
         <span>
-          <span style={{ fontSize: 15 }}>Ειδοποιήσεις με email</span>
+          <span style={{ fontSize: 15 }}>{t("emailNotifications")}</span>
           <span style={{ ...muted, fontSize: 13, display: "block", marginTop: 2, lineHeight: 1.5 }}>
             {userRow?.email
-              ? "Νέα αιτήματα, προτάσεις, ακυρώσεις και προθεσμίες, όταν δεν τα έχεις ήδη δει στην εφαρμογή."
-              : "Πρόσθεσε email για να λαμβάνεις ειδοποιήσεις όταν δεν έχεις ανοιχτή την εφαρμογή."}
+              ? t("emailNotificationsOn")
+              : t("emailNotificationsOff")}
           </span>
         </span>
       </label>
@@ -613,6 +602,7 @@ function EmailSettings() {
 // κωδικός ένα μικρό link δίπλα στη διαγραφή λογαριασμού).
 function AccountAccess() {
   const { userRow, refresh } = useAuth();
+  const t = useTranslations("Profile");
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [phoneAgain, setPhoneAgain] = useState("");
@@ -642,15 +632,15 @@ function AccountAccess() {
     // here would move the account to a number its owner can't sign in with.
     setTried(true);
     if (!phoneOk) return document.getElementById("new-phone")?.focus();
-    if (normalizePhone(phone) !== normalizePhone(phoneAgain) || !phoneAgainOk) return setError("Τα δύο τηλέφωνα δεν ταιριάζουν.");
+    if (normalizePhone(phone) !== normalizePhone(phoneAgain) || !phoneAgainOk) return setError(t("phonesMismatch"));
     setBusy(true);
     try {
       const res = await changeMyPhone(phone, pin);
       await refresh();
       close();
-      setNotice(`Το τηλέφωνό σου άλλαξε σε ${res.phone}. Από εδώ και πέρα συνδέεσαι με αυτό.`);
+      setNotice(t("phoneChanged", { phone: res.phone }));
     } catch (err) {
-      setError(PHONE_ERRORS[err.message] || friendlyError(err));
+      setError(errText(t, PHONE_ERRORS, err.message) || friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -659,17 +649,17 @@ function AccountAccess() {
   const row = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" };
   return (
     <div style={card}>
-      <h2 style={{ ...h2, fontSize: 17 }}>Σύνδεση &amp; ασφάλεια</h2>
+      <h2 style={{ ...h2, fontSize: 17 }}>{t("accessTitle")}</h2>
       {notice && <p style={{ color: colors.success, fontSize: 13.5, margin: "0 0 12px" }}>{notice}</p>}
 
       <div style={row}>
         <div>
-          <div style={{ ...muted, fontSize: 13 }}>Τηλέφωνο σύνδεσης</div>
+          <div style={{ ...muted, fontSize: 13 }}>{t("loginPhone")}</div>
           <div style={{ fontSize: 15, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>{userRow?.phone_number}</div>
         </div>
         {!open && (
           <button type="button" style={button("secondary")} onClick={() => { setOpen(true); setNotice(""); }}>
-            Αλλαγή
+            {t("change")}
           </button>
         )}
       </div>
@@ -677,29 +667,29 @@ function AccountAccess() {
       {open && (
         <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
           <p style={{ ...muted, fontSize: 13, margin: "0 0 14px", lineHeight: 1.5 }}>
-            Από εδώ και πέρα θα συνδέεσαι με το νέο τηλέφωνο.
+            {t("newPhoneNote")}
           </p>
-          <label style={label} htmlFor="new-phone">Νέο τηλέφωνο</label>
+          <label style={label} htmlFor="new-phone">{t("newPhone")}</label>
           <div style={{ marginBottom: 14 }}><PhoneField id="new-phone" showErrors={tried} onChange={({ phone: p, valid }) => { setPhone(p); setPhoneOk(valid); }} /></div>
-          <label style={label} htmlFor="new-phone-again">Ξανά το νέο τηλέφωνο</label>
+          <label style={label} htmlFor="new-phone-again">{t("newPhoneAgain")}</label>
           <div style={{ marginBottom: 14 }}><PhoneField id="new-phone-again" quiet onChange={({ phone: p, valid }) => { setPhoneAgain(p); setPhoneAgainOk(valid); }} /></div>
-          <label style={label} htmlFor="current-pin">Ο τωρινός σου κωδικός</label>
+          <label style={label} htmlFor="current-pin">{t("currentPin")}</label>
           <input id="current-pin" required type="password" autoComplete="current-password" style={{ ...input, marginBottom: 16 }} value={pin} onChange={(e) => setPinValue(e.target.value)} />
           {error && <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 12px" }}>{error}</p>}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button type="submit" disabled={busy} style={button("primary")}>{busy ? "…" : "Αλλαγή τηλεφώνου"}</button>
-            <button type="button" disabled={busy} onClick={close} style={button("secondary")}>Άκυρο</button>
+            <button type="submit" disabled={busy} style={button("primary")}>{busy ? "…" : t("changePhone")}</button>
+            <button type="button" disabled={busy} onClick={close} style={button("secondary")}>{t("cancel")}</button>
           </div>
         </form>
       )}
 
       <div style={{ ...row, marginTop: 18, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
         <div>
-          <div style={{ ...muted, fontSize: 13 }}>Κωδικός</div>
+          <div style={{ ...muted, fontSize: 13 }}>{t("pin")}</div>
           <div style={{ fontSize: 15, marginTop: 2, letterSpacing: "0.15em" }}>••••••</div>
         </div>
         <Link href="/platform/set-pin?change=1" style={{ ...button("secondary"), textDecoration: "none" }}>
-          Αλλαγή κωδικού
+          {t("changePin")}
         </Link>
       </div>
 
@@ -710,6 +700,7 @@ function AccountAccess() {
 
 // Σύνδεση του λογαριασμού με Google (0121): ο ίδιος λογαριασμός, δεύτερος τρόπος εισόδου.
 function GoogleLink({ rowStyle }) {
+  const t = useTranslations("Profile");
   const [identity, setIdentity] = useState(undefined); // undefined: φορτώνει · null: δεν έχει
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -722,8 +713,8 @@ function GoogleLink({ rowStyle }) {
     if (failed) {
       const message =
         failed === "identity_already_exists"
-          ? "Αυτός ο λογαριασμός Google είναι ήδη συνδεδεμένος με άλλον λογαριασμό."
-          : "Η σύνδεση με Google δεν ολοκληρώθηκε.";
+          ? t("googleTaken")
+          : t("googleFailed");
       setError(message);
       fail(message);
       const keep = new URLSearchParams(window.location.search);
@@ -750,26 +741,26 @@ function GoogleLink({ rowStyle }) {
     <div style={{ ...rowStyle, marginTop: 18, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
       <div>
         <div style={{ ...muted, fontSize: 13 }}>Google</div>
-        <div style={{ fontSize: 15, marginTop: 2, overflowWrap: "anywhere" }}>{identity ? identity.email : "Δεν έχει συνδεθεί"}</div>
+        <div style={{ fontSize: 15, marginTop: 2, overflowWrap: "anywhere" }}>{identity ? identity.email : t("googleNotLinked")}</div>
         {error && <p style={{ color: colors.danger, fontSize: 13, margin: "8px 0 0" }}>{error}</p>}
       </div>
       {!identity && (
         <button type="button" disabled={busy} onClick={connect} style={button("secondary")}>
-          {busy ? "…" : "Σύνδεση με Google"}
+          {busy ? "…" : t("googleLink")}
         </button>
       )}
     </div>
   );
 }
 
-const BECOME_PROFESSIONAL_ERRORS = {
-  already_professional: "Έχεις ήδη επαγγελματικό προφίλ.",
-  account_not_active: "Ο λογαριασμός σου δεν είναι ενεργός αυτή τη στιγμή.",
-  license_number_required: "Συμπλήρωσε αριθμό άδειας.",
-  license_type_required: "Συμπλήρωσε τύπο άδειας.",
-  license_already_registered: "Αυτός ο αριθμός άδειας χρησιμοποιείται ήδη από άλλο λογαριασμό.",
-  profile_already_exists: "Υπάρχει ήδη επαγγελματικό προφίλ συνδεδεμένο με τον λογαριασμό σου.",
-};
+const BECOME_PROFESSIONAL_ERRORS = [
+  "already_professional",
+  "account_not_active",
+  "license_number_required",
+  "license_type_required",
+  "license_already_registered",
+  "profile_already_exists",
+];
 
 // Ένας ήδη ζωντανός πελάτης δεν ξαναγράφεται από την αρχή για να αποκτήσει
 // επαγγελματικό προφίλ — απλό, ρητό κουμπί εδώ αντί γι' αυτό (βλ. σχόλιο στο
@@ -780,6 +771,7 @@ const BECOME_PROFESSIONAL_ERRORS = {
 // ίδια πορεία έγκρισης με κάθε νέο επαγγελματία.
 function BecomeProfessional() {
   const router = useRouter();
+  const t = useTranslations("Profile");
   const { refresh } = useAuth();
   const [open, setOpen] = useState(false);
   const [crewRole, setCrewRole] = useState("skipper");
@@ -793,10 +785,10 @@ function BecomeProfessional() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!licenseNumber.trim()) return setError("Συμπλήρωσε αριθμό άδειας.");
-    if (!licenseType.trim()) return setError("Συμπλήρωσε τύπο άδειας.");
+    if (!licenseNumber.trim()) return setError(t("err_license_number_required"));
+    if (!licenseType.trim()) return setError(t("err_license_type_required"));
     if (!(Number(pricePerDay) > 0)) {
-      return setError("Γράψε την τιμή σου ανά ημέρα.");
+      return setError(t("errPrice"));
     }
     setBusy(true);
     try {
@@ -810,7 +802,7 @@ function BecomeProfessional() {
       await refresh();
       router.push("/platform/profile");
     } catch (err) {
-      setError(BECOME_PROFESSIONAL_ERRORS[err.message] || friendlyError(err));
+      setError(errText(t, BECOME_PROFESSIONAL_ERRORS, err.message) || friendlyError(err));
       setBusy(false);
     }
   }
@@ -818,9 +810,9 @@ function BecomeProfessional() {
   if (!open) {
     return (
       <div style={{ ...card, textAlign: "center" }}>
-        <p style={{ margin: "0 0 12px", fontSize: 14.5 }}>Θέλεις να γίνεις επαγγελματίας;</p>
+        <p style={{ margin: "0 0 12px", fontSize: 14.5 }}>{t("becomeQuestion")}</p>
         <button type="button" style={button("secondary")} onClick={() => setOpen(true)}>
-          Ξεκίνα
+          {t("start")}
         </button>
       </div>
     );
@@ -828,13 +820,12 @@ function BecomeProfessional() {
 
   return (
     <div style={card}>
-      <h2 style={{ ...h2, fontSize: 17 }}>Γίνε επαγγελματίας</h2>
+      <h2 style={{ ...h2, fontSize: 17 }}>{t("becomeTitle")}</h2>
       <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-        Φωτογραφία, εθνικότητα και γλώσσες μεταφέρονται από το προφίλ σου. Συμπλήρωσε μόνο τα υπόλοιπα. Κάθε
-        νέος επαγγελματίας περνά από έγκριση.
+        {t("becomeIntro")}
       </p>
       <form onSubmit={handleSubmit}>
-        <label style={label}>Ιδιότητα</label>
+        <label style={label}>{t("capacity")}</label>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
           {CREW_ROLES.map((r) => (
             <button key={r.key} type="button" style={chip(crewRole === r.key)} onClick={() => setCrewRole(r.key)}>
@@ -844,7 +835,7 @@ function BecomeProfessional() {
         </div>
 
         <label style={label} htmlFor="bp-license-number">
-          Αριθμός άδειας
+          {t("licenseNumber")}
         </label>
         <input
           id="bp-license-number"
@@ -854,7 +845,7 @@ function BecomeProfessional() {
         />
 
         <label style={label} htmlFor="bp-license-type">
-          Τύπος άδειας
+          {t("licenseType")}
         </label>
         <input
           id="bp-license-type"
@@ -864,7 +855,7 @@ function BecomeProfessional() {
         />
 
         <label style={label} htmlFor="bp-years">
-          Χρόνια εμπειρίας
+          {t("yearsExperience")}
         </label>
         <input
           id="bp-years"
@@ -876,7 +867,7 @@ function BecomeProfessional() {
         />
 
         <label style={label} htmlFor="bp-price">
-          Τιμή ανά ημέρα (€)
+          {t("priceLabel")}
         </label>
         <input
           id="bp-price"
@@ -890,10 +881,10 @@ function BecomeProfessional() {
         {error && <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 12px" }}>{error}</p>}
         <div style={{ display: "flex", gap: 10 }}>
           <button type="submit" disabled={busy} style={button("primary")}>
-            {busy ? "…" : "Υποβολή"}
+            {busy ? "…" : t("submit")}
           </button>
           <button type="button" disabled={busy} style={button("secondary")} onClick={() => setOpen(false)}>
-            Άκυρο
+            {t("cancel")}
           </button>
         </div>
       </form>
@@ -903,6 +894,7 @@ function BecomeProfessional() {
 
 function ClientIdentityProfile({ role }) {
   const { session, userRow, refresh } = useAuth();
+  const t = useTranslations("Profile");
   const [lookups, setLookups] = useState({ nationalities: [], languages: [] });
   const [nationalityId, setNationalityId] = useState("");
   const [languageIds, setLanguageIds] = useState([]);
@@ -939,27 +931,27 @@ function ClientIdentityProfile({ role }) {
 
   return (
     <div style={container}>
-      <h1 style={h1}>Το προφίλ μου</h1>
+      <h1 style={h1}>{t("title")}</h1>
       <PinChangedNotice />
-      {role && role !== "client" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως πελάτης</p>}
+      {role && role !== "client" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>{t("asClient")}</p>}
       <MyRatings />
 
       <div style={card}>
-        <h2 style={{ ...h2, fontSize: 17 }}>Φωτογραφία</h2>
+        <h2 style={{ ...h2, fontSize: 17 }}>{t("photo")}</h2>
         <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-          Τη βλέπει η άλλη πλευρά μόλις επιβεβαιωθεί μια κράτηση.
+          {t("photoNote")}
         </p>
         <PhotoUpload value={userRow?.photo_url} onUploaded={handleUploaded} />
       </div>
 
       <div style={card}>
-        <h2 style={{ ...h2, fontSize: 17 }}>Εθνικότητα &amp; γλώσσες</h2>
+        <h2 style={{ ...h2, fontSize: 17 }}>{t("natLangTitle")}</h2>
         <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
-          Αυτά τα βλέπει ο επαγγελματίας πριν αποδεχτεί το αίτημά σου.
+          {t("natLangNote")}
         </p>
 
         <label style={label} htmlFor="c-nationality">
-          Εθνικότητα
+          {t("nationality")}
         </label>
         <select
           id="c-nationality"
@@ -978,14 +970,14 @@ function ClientIdentityProfile({ role }) {
           ))}
         </select>
 
-        <span style={label}>Γλώσσες</span>
+        <span style={label}>{t("languages")}</span>
         <div style={{ marginBottom: 20 }}>
           <MultiPick
-            label="Γλώσσες"
-            placeholder="Πρόσθεσε γλώσσα"
+            label={t("languages")}
+            placeholder={t("addLanguage")}
             options={lookups.languages}
             value={languageIds}
-            common={["Ελληνικά", "Αγγλικά", "Γερμανικά", "Γαλλικά", "Ιταλικά", "Ισπανικά"]}
+            common={COMMON_LANGUAGES}
             onChange={(ids) => {
               setLanguageIds(ids);
               setSaved(false);
@@ -994,7 +986,7 @@ function ClientIdentityProfile({ role }) {
         </div>
 
         <button type="button" disabled={busy} style={button("primary")} onClick={handleSave}>
-          {busy ? "Αποθήκευση…" : saved ? "Αποθηκεύτηκε" : "Αποθήκευση"}
+          {busy ? t("saving") : saved ? t("saved") : t("save")}
         </button>
         {error && <p style={{ color: colors.danger, marginTop: 10, fontSize: 13 }}>{error}</p>}
       </div>
@@ -1003,7 +995,7 @@ function ClientIdentityProfile({ role }) {
       <EmailSettings />
 
       <p style={{ ...muted, fontSize: 12.5, marginTop: 4, color: colors.inkSoft }}>
-        Το ονοματεπώνυμο έρχεται από την εγγραφή σου. Αν χρειάζεται διόρθωση, επικοινώνησε μαζί μας.
+        {t("nameNote")}
       </p>
 
       <BecomeProfessional />
@@ -1017,6 +1009,7 @@ function ClientIdentityProfile({ role }) {
 // window.location in an effect: this page has no Suspense boundary for
 // useSearchParams, and the note has nothing to render on the server anyway.
 function PinChangedNotice() {
+  const t = useTranslations("Profile");
   const [show, setShow] = useState(false);
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("pin") === "changed") setShow(true);
@@ -1024,13 +1017,14 @@ function PinChangedNotice() {
   if (!show) return null;
   return (
     <div style={{ ...card, borderLeft: `3px solid ${colors.success}`, marginBottom: 16 }}>
-      Ο κωδικός σου άλλαξε. Από εδώ και πέρα συνδέεσαι με τον νέο.
+      {t("pinChanged")}
     </div>
   );
 }
 
 // Οι αξιολογήσεις του χρήστη: ως επαγγελματίας (αν είναι) και ως πελάτης.
 function MyRatings({ proProfile }) {
+  const t = useTranslations("Profile");
   const [clientProfile, setClientProfile] = useState(null);
   useEffect(() => {
     getMyClientProfile().then(setClientProfile).catch(() => {});
@@ -1038,16 +1032,16 @@ function MyRatings({ proProfile }) {
   if (!proProfile && !clientProfile) return null;
   return (
     <div style={card}>
-      <h2 style={{ ...h2, fontSize: 17 }}>Αξιολογήσεις</h2>
+      <h2 style={{ ...h2, fontSize: 17 }}>{t("ratings")}</h2>
       {proProfile && (
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 6 }}>
-          <span style={{ ...muted, fontSize: 13.5, minWidth: 120 }}>Ως επαγγελματίας</span>
+          <span style={{ ...muted, fontSize: 13.5, minWidth: 120 }}>{t("asProfessionalLabel")}</span>
           <Stars rating={proProfile.rating_avg} count={proProfile.rating_count} size={16} />
         </div>
       )}
       {clientProfile && (
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 10 }}>
-          <span style={{ ...muted, fontSize: 13.5, minWidth: 120 }}>Ως πελάτης</span>
+          <span style={{ ...muted, fontSize: 13.5, minWidth: 120 }}>{t("asClientLabel")}</span>
           <Stars rating={clientProfile.rating_avg} count={clientProfile.rating_count ?? 0} size={16} />
         </div>
       )}
@@ -1056,9 +1050,10 @@ function MyRatings({ proProfile }) {
 }
 
 export default function ProfilePage() {
+  const t = useTranslations("Profile");
   const { session, profile, userRow, loading, refresh, loadError, isAdmin, role } = useAuth();
 
-  if (loading) return <div style={container}>Φόρτωση...</div>;
+  if (loading) return <div style={container}>{t("loading")}</div>;
   if (!session) return <SignedOutNotice />;
 
   const isProfessional = userRow?.role === "skipper" || isAdmin;
@@ -1067,9 +1062,9 @@ export default function ProfilePage() {
 
   return (
     <div style={container}>
-      <h1 style={h1}>Το προφίλ μου</h1>
+      <h1 style={h1}>{t("title")}</h1>
       <PinChangedNotice />
-      {userRow?.role !== "skipper" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>ως επαγγελματίας</p>}
+      {userRow?.role !== "skipper" && <p style={{ ...muted, marginTop: -8, marginBottom: 16 }}>{t("asProfessional")}</p>}
       <MyRatings proProfile={profile} />
       <ProfileForm profile={profile} onSaved={refresh} />
       <DeliveryAvailability profile={profile} />

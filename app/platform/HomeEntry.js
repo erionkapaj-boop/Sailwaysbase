@@ -19,6 +19,7 @@ import { button, colors, muted, h2 } from "../../lib/platform/theme";
 // console and whether anything is waiting — otherwise this page, built for
 // clients, gives no hint that the admin side exists at all.
 function AdminHomeBanner() {
+  const t = useTranslations("HomeEntry");
   const { isAdmin } = useAuth();
   const [waiting, setWaiting] = useState(null);
   useEffect(() => {
@@ -49,9 +50,9 @@ function AdminHomeBanner() {
       }}
     >
       <span>
-        <b style={{ fontWeight: 600 }}>Διαχείριση</b>
+        <b style={{ fontWeight: 600 }}>{t("adminTitle")}</b>
         <span style={{ ...muted, display: "block", fontSize: 13, marginTop: 2 }}>
-          {waiting == null ? "…" : waiting === 0 ? "Τίποτα δεν περιμένει εσένα." : `${waiting} περιμένουν εσένα.`}
+          {waiting == null ? "…" : waiting === 0 ? t("adminNothing") : t("adminWaiting", { count: waiting })}
         </span>
       </span>
       <span style={{ fontSize: 18 }}>›</span>
@@ -157,7 +158,7 @@ export default function HomeEntry() {
           and only here — a visitor passing through an interior page isn't the
           audience for it. It also disappears once the search flow starts. */}
       {/* Signed in, "Κάνε εγγραφή" reads as a second account — a client who
-          wants to go pro does it from Το προφίλ μου («Ξεκίνα»). */}
+          * wants to go pro does it from Το προφίλ μου («Ξεκίνα»). */}
       {!session && (
       <div style={{ marginTop: 72 }}>
         <Link

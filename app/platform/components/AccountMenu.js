@@ -2,6 +2,7 @@
 import NavGroups from "./NavGroups";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { colors, fontSans, shadow, radius } from "../../../lib/platform/theme";
 
 const DRAWER_WIDTH = 280;
@@ -24,6 +25,7 @@ const itemStyle = {
 // `hideOnWide`: on wide screens the permanent side menu shows the same list, so
 // the button goes quiet (it keeps its place so the header does not shift).
 export default function AccountMenu({ items = [], onSignOut, activeHref, hideOnWide = false }) {
+  const t = useTranslations("AccountMenu");
   const [open, setOpen] = useState(false);
 
   // Closeable the same way any drawer is: tap the dimmed backdrop, tap the
@@ -66,7 +68,7 @@ export default function AccountMenu({ items = [], onSignOut, activeHref, hideOnW
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Μενού πλοήγησης"
+            aria-label={t("navigation")}
             style={{
               position: "fixed",
               top: 0,
@@ -84,7 +86,7 @@ export default function AccountMenu({ items = [], onSignOut, activeHref, hideOnW
             <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 10px", borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
               <button
                 type="button"
-                aria-label="Κλείσιμο μενού"
+                aria-label={t("close")}
                 onClick={() => setOpen(false)}
                 style={{
                   background: "none",
@@ -120,7 +122,7 @@ export default function AccountMenu({ items = [], onSignOut, activeHref, hideOnW
                 flexShrink: 0,
               }}
             >
-              Αποσύνδεση
+              {t("logout")}
             </button>
           </div>
         </>,
@@ -132,7 +134,7 @@ export default function AccountMenu({ items = [], onSignOut, activeHref, hideOnW
     <div>
       <button
         type="button"
-        aria-label="Μενού"
+        aria-label={t("menu")}
         className={hideOnWide ? "sf-hide-wide" : undefined}
         onClick={() => setOpen((o) => !o)}
         style={{ background: "none", border: "none", cursor: "pointer", padding: 8, fontSize: 24, lineHeight: 1, color: colors.ink }}

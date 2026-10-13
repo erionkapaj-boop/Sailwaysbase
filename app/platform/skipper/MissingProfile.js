@@ -1,6 +1,7 @@
 "use client";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { createMissingProfile } from "../../../lib/platform/db";
 import { container, card, h1, muted, button, colors } from "../../../lib/platform/theme";
 
@@ -9,6 +10,7 @@ import { container, card, h1, muted, button, colors } from "../../../lib/platfor
 // dragged the entire dashboard — calendar, booking panels, pings inbox —
 // into their bundles for the sake of one error card.
 export default function MissingProfile({ refresh, loadError, isAdmin = false }) {
+  const t = useTranslations("MissingProfile");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -17,12 +19,12 @@ export default function MissingProfile({ refresh, loadError, isAdmin = false }) 
   if (loadError) {
     return (
       <div style={container}>
-        <h1 style={h1}>Πίνακας επαγγελματία</h1>
+        <h1 style={h1}>{t("dashboard")}</h1>
         <div style={{ ...card, borderColor: colors.danger }}>
-          <b>Δεν ήταν δυνατή η φόρτωση του προφίλ σου.</b>
+          <b>{t("loadFailed")}</b>
           
           <button style={button("secondary")} onClick={refresh}>
-            Δοκίμασε ξανά
+            {t("retry")}
           </button>
         </div>
       </div>
@@ -49,27 +51,25 @@ export default function MissingProfile({ refresh, loadError, isAdmin = false }) 
   // yet, which is a normal starting state, not an error to explain away.
   return (
     <div style={container}>
-      <h1 style={h1}>{isAdmin ? "Προφίλ επαγγελματία" : "Πίνακας επαγγελματία"}</h1>
+      <h1 style={h1}>{isAdmin ? t("professionalProfile") : t("dashboard")}</h1>
       <div style={{ ...card, borderColor: isAdmin ? colors.border : colors.danger }}>
         {isAdmin ? (
           <>
-            <b>Δεν έχεις ακόμα προφίλ επαγγελματία.</b>
+            <b>{t("adminNone")}</b>
             <p style={muted}>
-              Ο λογαριασμός σου διαχειρίζεται όλη την πλατφόρμα και μπορεί επίσης να κάνει κρατήσεις σαν πελάτης.
-              Για να δέχεσαι δουλειές ως επαγγελματίας, φτιάξε το προφίλ σου εδώ και μετά έγκρινέ το από τις
-              Εκκρεμότητες, όπως κάθε άλλο προφίλ.
+              {t("adminBody")}
             </p>
           </>
         ) : (
           <>
-            <b>Δεν βρέθηκε προφίλ επαγγελματία για τον λογαριασμό σου.</b>
+            <b>{t("notFound")}</b>
             <p style={muted}>
-              Πάτα το κουμπί για να δημιουργηθεί.
+              {t("pressToCreate")}
             </p>
           </>
         )}
         <button style={button("primary")} disabled={busy} onClick={recreate}>
-          {busy ? "..." : "Δημιουργία προφίλ επαγγελματία"}
+          {busy ? "..." : t("create")}
         </button>
         {error && <p style={{ color: colors.danger, marginTop: 8 }}>{error}</p>}
       </div>

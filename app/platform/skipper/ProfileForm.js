@@ -3,6 +3,7 @@ import MultiPick from "../components/MultiPick";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   listLookups,
   updateSkipperProfile,
@@ -51,8 +52,8 @@ function Section({ title, children, note }) {
 
 // Ημερομηνία γέννησης: τρεις επιλογές αντί για ημερολόγιο — κανείς δεν
 // θέλει να γυρίσει σαράντα χρόνια πίσω μήνα-μήνα.
-const DOB_MONTHS = ["Ιαν", "Φεβ", "Μαρ", "Απρ", "Μάι", "Ιούν", "Ιούλ", "Αύγ", "Σεπ", "Οκτ", "Νοέ", "Δεκ"];
 function DobSelect({ id, value, onChange }) {
+  const t = useTranslations("ProfileForm");
   const [y0, m0, d0] = value ? value.split("-") : ["", "", ""];
   const [parts, setParts] = useState({ y: y0 || "", m: m0 || "", d: d0 || "" });
   useEffect(() => {
@@ -72,24 +73,24 @@ function DobSelect({ id, value, onChange }) {
   const sel = { ...select, flex: 1, minWidth: 0 };
   return (
     <div style={{ display: "flex", gap: 8 }}>
-      <select id={id} aria-label="Ημέρα" style={{ ...sel, flex: "0 0 84px" }} value={parts.d} onChange={(e) => set("d", e.target.value)}>
-        <option value="">Ημέρα</option>
+      <select id={id} aria-label={t("day")} style={{ ...sel, flex: "0 0 84px" }} value={parts.d} onChange={(e) => set("d", e.target.value)}>
+        <option value="">{t("day")}</option>
         {Array.from({ length: daysIn }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => (
           <option key={d} value={d}>
             {Number(d)}
           </option>
         ))}
       </select>
-      <select aria-label="Μήνας" style={sel} value={parts.m} onChange={(e) => set("m", e.target.value)}>
-        <option value="">Μήνας</option>
-        {DOB_MONTHS.map((name, i) => (
-          <option key={name} value={String(i + 1).padStart(2, "0")}>
-            {name}
+      <select aria-label={t("month")} style={sel} value={parts.m} onChange={(e) => set("m", e.target.value)}>
+        <option value="">{t("month")}</option>
+        {Array.from({ length: 12 }, (_, i) => (
+          <option key={i} value={String(i + 1).padStart(2, "0")}>
+            {t(`month${i + 1}`)}
           </option>
         ))}
       </select>
-      <select aria-label="Έτος" style={{ ...sel, flex: "0 0 96px" }} value={parts.y} onChange={(e) => set("y", e.target.value)}>
-        <option value="">Έτος</option>
+      <select aria-label={t("year")} style={{ ...sel, flex: "0 0 96px" }} value={parts.y} onChange={(e) => set("y", e.target.value)}>
+        <option value="">{t("year")}</option>
         {years.map((y) => (
           <option key={y} value={y}>
             {y}
@@ -101,10 +102,11 @@ function DobSelect({ id, value, onChange }) {
 }
 
 function Criterion({ met, children }) {
+  const t = useTranslations("ProfileForm");
   return (
     <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 14 }}>
       <span
-        aria-label={met ? "Ολοκληρώθηκε" : "Λείπει"}
+        aria-label={met ? t("done") : t("missing")}
         style={{
           width: 16,
           height: 16,
@@ -129,7 +131,17 @@ function Criterion({ met, children }) {
   );
 }
 
+// Stored values of the gender field (profile data, kept as they are in the database);
+// written as escapes so that no screen text sits in code. Same for the common-language names,
+// which match the Greek names of the languages list.
+const GENDERS = [
+  { value: "\u0386\u03bd\u03b4\u03c1\u03b1\u03c2", key: "male" },
+  { value: "\u0393\u03c5\u03bd\u03b1\u03af\u03ba\u03b1", key: "female" },
+];
+const COMMON_LANGUAGES = ["\u0395\u03bb\u03bb\u03b7\u03bd\u03b9\u03ba\u03ac", "\u0391\u03b3\u03b3\u03bb\u03b9\u03ba\u03ac", "\u0393\u03b5\u03c1\u03bc\u03b1\u03bd\u03b9\u03ba\u03ac", "\u0393\u03b1\u03bb\u03bb\u03b9\u03ba\u03ac", "\u0399\u03c4\u03b1\u03bb\u03b9\u03ba\u03ac", "\u0399\u03c3\u03c0\u03b1\u03bd\u03b9\u03ba\u03ac"];
+
 export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 }) {
+  const t = useTranslations("ProfileForm");
   const [lookups, setLookups] = useState({ languages: [], boatTypes: [], ports: [], nationalities: [] });
   const [form, setForm] = useState({
     full_name: profile.full_name || "",
@@ -177,35 +189,35 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
     // προαιρετικό. Ελέγχονται με τη σειρά που εμφανίζονται στη φόρμα, ώστε
     // το μήνυμα σφάλματος να δείχνει πάντα το πρώτο πράγμα που λείπει.
     if (!form.full_name.trim()) {
-      setError("Συμπλήρωσε το ονοματεπώνυμο.");
+      setError(t("errName"));
       return;
     }
     if (!form.photo_url) {
-      setError("Ανέβασε φωτογραφία προφίλ.");
+      setError(t("errPhoto"));
       return;
     }
     if (!form.gender) {
-      setError("Επίλεξε φύλο.");
+      setError(t("errGender"));
       return;
     }
     if (!form.nationality_id) {
-      setError("Επίλεξε εθνικότητα.");
+      setError(t("errNationality"));
       return;
     }
     if (!form.date_of_birth) {
-      setError("Συμπλήρωσε ημερομηνία γέννησης.");
+      setError(t("errDob"));
       return;
     }
     if (!(Number(form.price_per_day) > 0)) {
-      setError("Γράψε την τιμή σου ανά ημέρα.");
+      setError(t("errPrice"));
       return;
     }
     if (languageIds.length === 0) {
-      setError("Επίλεξε τουλάχιστον μία γλώσσα.");
+      setError(t("errLanguage"));
       return;
     }
     if (isSkipper && boatTypeIds.length === 0) {
-      setError("Επίλεξε τουλάχιστον έναν τύπο σκάφους.");
+      setError(t("errBoatType"));
       return;
     }
     setSaved(false);
@@ -259,55 +271,56 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         }}
       >
         <b style={{ fontWeight: 600, fontSize: 15 }}>
-          {visible ? "Το προφίλ σου είναι ορατό" : "Το προφίλ σου δεν είναι ακόμα ορατό"}
+          {visible ? t("visible") : t("notVisible")}
         </b>
         <p style={{ ...muted, fontSize: 13, margin: "6px 0 12px" }}>
-          Χρειάζονται όλα τα παρακάτω για να σε βρίσκουν οι πελάτες.
+          {t("allNeeded")}
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <Criterion met={isApproved}>Έγκριση λογαριασμού</Criterion>
-          <Criterion met={hasPrice}>Τιμή ανά ημέρα</Criterion>
-          <Criterion met={hasBoatTypes}>Τύποι σκάφους</Criterion>
-          <Criterion met={hasAvailability}>Διαθεσιμότητα</Criterion>
+          <Criterion met={isApproved}>{t("critApproval")}</Criterion>
+          <Criterion met={hasPrice}>{t("critPrice")}</Criterion>
+          <Criterion met={hasBoatTypes}>{t("critBoatTypes")}</Criterion>
+          <Criterion met={hasAvailability}>{t("critAvailability")}</Criterion>
         </div>
         {!isApproved && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
-            Ο λογαριασμός σου περιμένει έγκριση από τη διαχείριση. Μέχρι τότε μπορείς να συμπληρώσεις
-            τα υπόλοιπα κανονικά.
+            {t("pendingApproval")}
           </p>
         )}
         {!hasBoatTypes && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
-            Διάλεξε τουλάχιστον έναν τύπο σκάφους παρακάτω για να εμφανίζεσαι σε αναζητήσεις.
+            {t("pickBoatTypes")}
           </p>
         )}
         {!hasAvailability && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
-            Δήλωσε{" "}
-            <Link href="/platform/availability" style={{ color: colors.ink }}>
-              διαθεσιμότητα
-            </Link>
-            .
+            {t.rich("declareAvailability", {
+              link: (c) => (
+                <Link href="/platform/availability" style={{ color: colors.ink }}>
+                  {c}
+                </Link>
+              ),
+            })}
           </p>
         )}
         {visible && !hasPhoto && (
           <p style={{ ...muted, fontSize: 12, margin: "12px 0 0" }}>
-            Δεν έχεις φωτογραφία προφίλ. Πρόσθεσε μία παρακάτω.
+            {t("noPhoto")}
           </p>
         )}
       </div>
 
-      <Section title="Βασικά στοιχεία">
+      <Section title={t("basics")}>
         <div style={{ marginBottom: 20 }}>
-          <span style={label}>Φωτογραφία</span>
+          <span style={label}>{t("photo")}</span>
           <PhotoUpload value={form.photo_url} onUploaded={(url) => setField("photo_url", url)} />
           {!form.photo_url && (
-            <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>Εμφανίζεται στην κάρτα σου.</p>
+            <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>{t("photoNote")}</p>
           )}
         </div>
 
         <label style={label} htmlFor="p-name">
-          Ονοματεπώνυμο
+          {t("fullName")}
         </label>
         <input
           id="p-name"
@@ -318,15 +331,14 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
         />
         {isApproved && form.full_name.trim() !== (profile.full_name || "").trim() && (
           <p style={{ ...muted, fontSize: 12, color: colors.warn, margin: "0 0 16px" }}>
-            Με αλλαγή ονόματος το προφίλ πάει ξανά για έλεγχο και δεν εμφανίζεσαι στις αναζητήσεις μέχρι να
-            εγκριθεί.
+            {t("renameWarning")}
           </p>
         )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px,1fr))", gap: 14 }}>
           <div>
             <label style={label} htmlFor="p-gender">
-              Φύλο
+              {t("gender")}
             </label>
             <select
               id="p-gender"
@@ -336,13 +348,16 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
               onChange={(e) => setField("gender", e.target.value)}
             >
               <option value="">—</option>
-              <option value="Άνδρας">Άνδρας</option>
-              <option value="Γυναίκα">Γυναίκα</option>
+              {GENDERS.map((g) => (
+                <option key={g.key} value={g.value}>
+                  {t(g.key)}
+                </option>
+              ))}
             </select>
           </div>
           <div>
             <label style={label} htmlFor="p-nationality">
-              Εθνικότητα
+              {t("nationality")}
             </label>
             <select
               id="p-nationality"
@@ -361,7 +376,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
           </div>
           <div>
             <label style={label} htmlFor="p-dob">
-              Ημερομηνία γέννησης
+              {t("dob")}
             </label>
             <DobSelect id="p-dob" value={form.date_of_birth || ""} onChange={(v) => setField("date_of_birth", v)} />
           </div>
@@ -369,7 +384,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
 
         {highlights.length > 0 && (
           <div style={{ marginTop: 18 }}>
-            <span style={label}>Πώς εμφανίζεσαι στους πελάτες</span>
+            <span style={label}>{t("howYouAppear")}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {highlights.map((h) => (
                 <span key={h} style={{ ...badge("neutral"), fontFamily: "inherit", fontWeight: 400 }}>
@@ -378,15 +393,15 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
               ))}
             </div>
             <p style={{ ...muted, fontSize: 12, margin: "8px 0 0" }}>
-              Προκύπτουν αυτόματα από τα στοιχεία σου.
+              {t("autoDerived")}
             </p>
           </div>
         )}
       </Section>
 
-      <Section title="Τιμή" note="Την ορίζεις εσύ.">
+      <Section title={t("priceTitle")} note={t("priceNote")}>
         <label style={label} htmlFor="p-price">
-          Τιμή ανά ημέρα
+          {t("pricePerDay")}
         </label>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <input
@@ -398,23 +413,23 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
             value={form.price_per_day}
             onChange={(e) => setField("price_per_day", e.target.value)}
           />
-          <span style={{ ...money, fontSize: 15 }}>€ / ημέρα</span>
+          <span style={{ ...money, fontSize: 15 }}>{t("eurPerDay")}</span>
         </div>
       </Section>
 
-      <Section title="Γλώσσες" note="Επίλεξε τουλάχιστον μία.">
+      <Section title={t("languagesTitle")} note={t("languagesNote")}>
         <MultiPick
-          label="Γλώσσες"
-          placeholder="Πρόσθεσε γλώσσα"
+          label={t("languagesTitle")}
+          placeholder={t("addLanguage")}
           options={lookups.languages}
           value={languageIds}
-          common={["Ελληνικά", "Αγγλικά", "Γερμανικά", "Γαλλικά", "Ιταλικά", "Ισπανικά"]}
+          common={COMMON_LANGUAGES}
           onChange={setLanguageIds}
         />
       </Section>
 
       {isSkipper && (
-        <Section title="Τύποι σκαφών" note="Επίλεξε τουλάχιστον έναν.">
+        <Section title={t("boatTypesTitle")} note={t("boatTypesNote")}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {lookups.boatTypes.map((b) => (
               <button
@@ -448,9 +463,9 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
       >
         <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", alignItems: "center", gap: 12 }}>
           <button type="submit" disabled={busy} style={{ ...button("primary"), flex: 1 }}>
-            {busy ? "Αποθήκευση…" : "Αποθήκευση προφίλ"}
+            {busy ? t("saving") : t("saveProfile")}
           </button>
-          {saved && <span style={{ color: colors.success, fontSize: 14 }}>Αποθηκεύτηκε</span>}
+          {saved && <span style={{ color: colors.success, fontSize: 14 }}>{t("saved")}</span>}
         </div>
         {error && (
           <p style={{ color: colors.danger, fontSize: 13, margin: "8px auto 0", maxWidth: 960 }}>{error}</p>
