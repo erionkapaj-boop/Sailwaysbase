@@ -107,6 +107,7 @@ await as("6900002002", async (page) => {
 // Τα υπόλοιπα τεστ περιμένουν τα credits και τα αιτήματα όπως ήταν: καθαρισμός.
 sql(`select set_config('platform.trusted','true',false);
 delete from wallet_transactions where related_booking_request_id in (select id from booking_requests where board_open);
+delete from messages where booking_id in (select b.id from bookings b join booking_requests r on r.id = b.booking_request_id where r.board_open);
 delete from bookings where booking_request_id in (select id from booking_requests where board_open);
 delete from notifications where kind like 'board_%' or data ? 'request_id' and data ->> 'request_id' in (select id::text from booking_requests where board_open);
 delete from booking_requests where board_open;
