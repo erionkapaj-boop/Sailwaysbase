@@ -51,8 +51,8 @@ $$;
 create or replace function greek_to_latin(p_text text)
 returns text language plpgsql immutable as $$
 declare
-  c_greek constant text := '[Ͱ-Ͽἀ-῿]';
-  c_accent constant text := '[̀́͂̓̔]';
+  c_greek constant text := '[\u0370-\u03FF\u1F00-\u1FFF]';
+  c_accent constant text := '[\u0300\u0301\u0342\u0313\u0314]';
   v_map constant jsonb := '{"α":"a","β":"v","γ":"g","δ":"d","ε":"e","ζ":"z","η":"i","θ":"th","ι":"i","κ":"k","λ":"l","μ":"m","ν":"n","ξ":"x","ο":"o","π":"p","ρ":"r","σ":"s","ς":"s","τ":"t","υ":"y","φ":"f","χ":"ch","ψ":"ps","ω":"o"}';
   v_norm text := normalize(coalesce(p_text, ''), nfd);
   v_base text[] := '{}';
@@ -72,7 +72,7 @@ declare
   mapped text;
   v_end text;
 begin
-  for v_tok in select regexp_matches(v_norm, '([^̀-ͯ])([̀-ͯ]*)', 'g') loop
+  for v_tok in select regexp_matches(v_norm, '([^\u0300-\u036F])([\u0300-\u036F]*)', 'g') loop
     v_base := v_base || v_tok[1];
     v_marks := v_marks || v_tok[2];
   end loop;
@@ -151,7 +151,7 @@ begin
      or new.full_name is distinct from old.full_name
      or new.full_name_latin is distinct from old.full_name_latin then
     new.full_name_latin := case
-      when new.full_name ~ '[Ͱ-Ͽἀ-῿]' then greek_to_latin(new.full_name)
+      when new.full_name ~ '[\u0370-\u03FF\u1F00-\u1FFF]' then greek_to_latin(new.full_name)
       else new.full_name end;
   end if;
   return new;
@@ -171,10 +171,10 @@ do $$
 begin
   perform set_config('platform.trusted', 'true', true);
   update users set full_name_latin = case
-      when full_name ~ '[Ͱ-Ͽἀ-῿]' then greek_to_latin(full_name) else full_name end
+      when full_name ~ '[\u0370-\u03FF\u1F00-\u1FFF]' then greek_to_latin(full_name) else full_name end
     where full_name is not null and full_name_latin is null;
   update skipper_profiles set full_name_latin = case
-      when full_name ~ '[Ͱ-Ͽἀ-῿]' then greek_to_latin(full_name) else full_name end
+      when full_name ~ '[\u0370-\u03FF\u1F00-\u1FFF]' then greek_to_latin(full_name) else full_name end
     where full_name is not null and full_name_latin is null;
 end;
 $$;
