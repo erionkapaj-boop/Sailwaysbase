@@ -140,10 +140,14 @@ select pg_temp.act('postgres');
 delete from availability_windows where skipper_id = :'SP_GIORGOS';
 select pg_temp.act('authenticated', :'CLIENT');
 select pg_temp.expect(format('select pay_and_broadcast(%L, array[%L]::uuid[])', :'req', :'SP_GIORGOS'), 'skipper_not_available');
-select pg_temp.wallet('Μαρία Πελάτη') as wc0 \gset
+select pg_temp.act('postgres');
+select pg_temp.wallet('Μαρία Πελάτη') as wc0, user_reserved_credits(:'CLIENT') as rc0 \gset
+select pg_temp.act('authenticated', :'CLIENT');
 select (pay_and_broadcast(:'req', array[:'SP_KOSTAS', :'SP_ELENI']::uuid[])).status is not null;
 select pg_temp.act('postgres');
-select pg_temp.check('χωρίς χρέωση όταν απορρίπτεται, κανονική χρέωση όταν περνάει', pg_temp.wallet('Μαρία Πελάτη') = :wc0 - 1);
+-- Από το 0122 το credit δεσμεύεται στην αποστολή και χρεώνεται με την αποδοχή.
+select pg_temp.check('χωρίς χρέωση όταν απορρίπτεται· όταν περνάει, 1 credit δεσμεύεται',
+  pg_temp.wallet('Μαρία Πελάτη') = :wc0 and user_reserved_credits(:'CLIENT') = :rc0 + 1);
 
 \echo '== #47 οι ειδοποιήσεις «νέο αίτημα» αποσύρονται μαζί με το αίτημα'
 select pg_temp.check('και οι δύο πήραν ειδοποίηση με το αίτημα',

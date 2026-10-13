@@ -35,12 +35,17 @@ problems as (
    where (t.type in ('request_fee', 'claim_fee') and t.amount > 0)
       or (t.type in ('deposit', 'refund_credit', 'purchase') and t.amount < 0)
   union all
-  -- 5. Πληρωμένο αίτημα πελάτη χωρίς την αντίστοιχη χρέωση.
-  select 'πληρωμένο αίτημα χωρίς χρέωση', u.full_name, format('αίτημα %s, %s credits', r.id, r.fee_amount)
+  -- 5. Αίτημα πελάτη σημειωμένο ως χρεωμένο χωρίς την αντίστοιχη χρέωση.
+  select 'χρεωμένο αίτημα χωρίς κίνηση', u.full_name, format('αίτημα %s, %s credits', r.id, r.fee_amount)
     from booking_requests r join users u on u.id = r.client_id
-   where r.origin = 'client' and r.fee_paid_at is not null and r.fee_amount > 0
+   where r.origin = 'client' and r.client_charged_at is not null and r.fee_amount > 0
      and not exists (select 1 from wallet_transactions t
                       where t.related_booking_request_id = r.id and t.type = 'request_fee')
+  union all
+  -- 6. Αίτημα πελάτη που έγινε κράτηση χωρίς να χρεωθεί ο πελάτης (0122).
+  select 'κράτηση χωρίς χρέωση πελάτη', u.full_name, format('αίτημα %s, %s credits', r.id, r.fee_amount)
+    from booking_requests r join users u on u.id = r.client_id
+   where r.origin = 'client' and r.status = 'matched' and r.fee_amount > 0 and r.client_charged_at is null
 )
 select * from problems
 union all
