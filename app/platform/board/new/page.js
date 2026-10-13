@@ -71,14 +71,14 @@ export default function NewBoardRequest() {
             ))}
           </select>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, ...field }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, ...field }}>
           <div>
             <label style={label} htmlFor="bn-start">{t("start")}</label>
-            <input id="bn-start" type="date" style={input} value={f.start} min={new Date().toISOString().slice(0, 10)} onChange={set("start")} />
+            <input id="bn-start" type="date" style={{ ...input, minWidth: 0 }} value={f.start} min={new Date().toISOString().slice(0, 10)} onChange={set("start")} />
           </div>
           <div>
             <label style={label} htmlFor="bn-end">{t("end")}</label>
-            <input id="bn-end" type="date" style={input} value={f.end} min={f.start || undefined} onChange={set("end")} />
+            <input id="bn-end" type="date" style={{ ...input, minWidth: 0 }} value={f.end} min={f.start || undefined} onChange={set("end")} />
           </div>
         </div>
         <div style={field}>
@@ -90,7 +90,7 @@ export default function NewBoardRequest() {
             ))}
           </select>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, ...field }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, ...field }}>
           <div>
             <label style={label} htmlFor="bn-dep">{t("departure")}</label>
             <input id="bn-dep" style={input} value={f.departure} maxLength={200} onChange={set("departure")} />
@@ -109,7 +109,7 @@ export default function NewBoardRequest() {
             ))}
           </select>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "end", ...field }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, alignItems: "end", ...field }}>
           <div>
             <label style={label} htmlFor="bn-party">{t("party")}</label>
             <input id="bn-party" type="number" min="1" max="50" style={input} value={f.partySize} onChange={set("partySize")} />

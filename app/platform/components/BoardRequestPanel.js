@@ -102,8 +102,8 @@ export default function BoardRequestPanel({ request, onChanged, onToastMessage }
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
         <span style={badge("brand")}>{t("boardBadge")}</span>
-        <span style={badge(isOpen ? "neutral" : "success")}>{isOpen ? t("statusOpen") : t("statusMatched")}</span>
-        {isOpen && <span style={{ ...muted, fontSize: 12 }}>{t("closes", { date: f.date(request.expires_at) })}</span>}
+        {!isOpen && <span style={badge("success")}>{t("statusMatched")}</span>}
+        {isOpen && <span style={{ ...muted, fontSize: 12 }}>{t("closes", { date: f.dateRange(String(request.expires_at).slice(0, 10), String(request.expires_at).slice(0, 10)) })}</span>}
       </div>
       {isOpen && <p style={{ ...muted, fontSize: 13, margin: "8px 0 0" }}>{t("creditNote")}</p>}
 
@@ -144,7 +144,7 @@ export default function BoardRequestPanel({ request, onChanged, onToastMessage }
                         )}
                       </>
                     )}
-                    <div style={{ ...muted, fontSize: 12, marginTop: 6 }}>{t("claimedAt", { date: f.date(c.claimed_at) })}</div>
+                    <div style={{ ...muted, fontSize: 12, marginTop: 6 }}>{t("claimedAt", { date: f.dateRange(String(c.claimed_at).slice(0, 10), String(c.claimed_at).slice(0, 10)) })}</div>
                   </div>
                   <button type="button" style={{ ...button("primary"), flexShrink: 0 }} disabled={busy !== null} onClick={() => choose(c)}>
                     {busy === c.claim_id ? t("choosing") : t("choose")}

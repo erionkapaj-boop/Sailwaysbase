@@ -2,7 +2,7 @@
 // διεκδικεί (χωρίς χρέωση), ο πελάτης διαλέγει και χρεώνονται και οι δύο,
 // ο διαχειριστής προσθέτει εξωτερικό υποψήφιο.
 import { chromium } from "playwright";
-import { BASE, as, go, text, click, check, finish, num, sql } from "./lib.mjs";
+import { BASE, as, go, text, click, check, finish, num, sql, shoot } from "./lib.mjs";
 
 const client = "a0000000-0000-0000-0000-000000000002";
 const kostasId = "a0000000-0000-0000-0000-000000000005";
@@ -21,6 +21,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await go(page, "/platform/board");
   await page.waitForTimeout(1200);
+  await shoot(page, "board-guest");
   const body = await text(page);
   check("ο επισκέπτης βλέπει το αίτημα", body.includes("Ανοιχτά αιτήματα") && body.includes("Μύκονος") && body.includes("Οικογένεια με παιδιά"));
   check("χωρίς όνομα πελάτη", !body.includes("Μαρία Πελάτη"));
@@ -28,6 +29,19 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
   await page.waitForTimeout(500);
   check("ζητά εγγραφή μόνο στη διεκδίκηση", (await text(page)).includes("Εγγραφή για διεκδίκηση"));
   check("η διεκδίκηση περιμένει στη συσκευή", (await page.evaluate(() => localStorage.getItem("sf_pending_claim"))) !== null);
+  // Αγγλικά: ο πίνακας χωρίς ελληνικά γράμματα (εκτός από το κείμενο του πελάτη).
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await ctx.addCookies([{ name: "sf_locale", value: "en", url: BASE }]);
+  const en = await ctx.newPage();
+  await go(en, "/platform/board");
+  await en.waitForTimeout(1200);
+  const enText = await en.evaluate(() => {
+    document.querySelectorAll("[data-user-text]").forEach((n) => n.remove());
+    return document.body.innerText;
+  });
+  await shoot(en, "board-guest-en");
+  check("αγγλικά: ο πίνακας έχει κάρτα και χωρίς ελληνικά γράμματα", enText.includes("Open requests") && enText.includes("Mykonos") && !/[\u0370-\u03ff]/.test(enText.replace("Αθήνα, Ελλάδα", "")), enText.slice(150, 700));
+  await ctx.close();
   await page.close();
 }
 await browser.close();
@@ -39,6 +53,7 @@ await as("6900002005", async (page) => {
   await page.waitForTimeout(1200);
   await click(page, "Διεκδίκηση");
   await page.waitForTimeout(1500);
+  await shoot(page, "board-claimed");
   check("η διεκδίκηση καταχωρήθηκε", (await text(page)).includes("Διεκδίκησες"));
   check("στη βάση, ενεργή", num(`select count(*) from open_request_claims where request_id = '${reqId}' and status = 'active'`) === 1);
   check("χωρίς χρέωση", bal(kostasId) === kostas0);
@@ -52,8 +67,9 @@ const client0 = bal(client);
 await as("6900002002", async (page) => {
   await go(page, "/platform/requests");
   await page.waitForTimeout(1500);
-  const body = await text(page);
-  check("βλέπει το αίτημα και τον διεκδικητή", body.includes("Διεκδικητές") && body.includes("Ανοιχτό αίτημα"));
+  await shoot(page, "board-client-panel");
+  const body = (await text(page)).toLowerCase();
+  check("βλέπει το αίτημα και τον διεκδικητή", body.includes("ανοιχτό αίτημα") && body.includes("δεσμευμένο 1 credit"));
   check("ανώνυμα: όχι όνομα επαγγελματία", !body.includes(kostasName));
   await click(page, "Επιλογή");
   await page.waitForTimeout(500);
@@ -72,13 +88,19 @@ from regions r, boat_types b where r.name = 'Κυκλάδες' and b.name = 'Ι�
 await as("6900002001", async (page) => {
   await go(page, "/platform/admin/board");
   await page.waitForTimeout(1500);
-  check("η διαχείριση βλέπει τα αιτήματα", (await text(page)).includes("Ανοιχτά αιτήματα") && (await text(page)).includes("Πάρος"));
+  check("η διαχείριση βλέπει τα αιτήματα", (await text(page)).includes("Προσθήκη εξωτερικού υποψηφίου"));
+  await shoot(page, "board-admin");
   await page.getByRole("button", { name: "Προσθήκη εξωτερικού υποψηφίου", exact: true }).first().click();
   await page.getByLabel("Όνομα").fill("Δημήτρης Φίλος");
   await page.getByLabel("Τηλέφωνο").fill("+306911111111");
   await click(page, "Προσθήκη");
   await page.waitForTimeout(1500);
   check("προστέθηκε εξωτερικός υποψήφιος", num(`select count(*) from open_request_claims where external_name = 'Δημήτρης Φίλος' and status = 'active'`) === 1);
+});
+
+await as("6900002002", async (page) => {
+  await go(page, "/platform/board/new");
+  await shoot(page, "board-new");
 });
 
 finish();

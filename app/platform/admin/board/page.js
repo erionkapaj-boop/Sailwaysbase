@@ -108,7 +108,7 @@ export default function AdminBoardPage() {
         <Panel
           key={r.request_id}
           title={`${labelForRole(r.crew_role)} · ${L.text(r.departure_point || "")}`}
-          subtitle={`${f.dateRange(r.start_date, r.end_date)} · ${t("client")}: ${L.name(r.client_name)}${r.status === "open" ? ` · ${t("closes", { date: f.date(r.closes_at) })}` : ""}`}
+          subtitle={`${f.dateRange(r.start_date, r.end_date)} · ${t("client")}: ${L.name(r.client_name)}${r.status === "open" ? ` · ${t("closes", { date: f.dateRange(String(r.closes_at).slice(0, 10), String(r.closes_at).slice(0, 10)) })}` : ""}`}
           action={<span style={badge(TONE[r.status] || "neutral")}>{t(`status.${r.status}`)}</span>}
         >
           {r.claims.length === 0 && <p style={{ ...muted, margin: "0 0 10px" }}>{t("noClaims")}</p>}

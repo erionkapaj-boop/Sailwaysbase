@@ -201,7 +201,7 @@ export default function BoardPage() {
         )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
           <span style={{ ...muted, fontSize: 12 }}>
-            {t("claimsCount", { count: r.claims_count })} · {t("closes", { date: f.date(r.closes_at) })}
+            {t("claimsCount", { count: r.claims_count })} · {t("closes", { date: f.dateRange(String(r.closes_at).slice(0, 10), String(r.closes_at).slice(0, 10)) })}
           </span>
           {mineClaim ? (
             <button type="button" style={button("secondary")} disabled={working === r.id} onClick={() => withdraw(r.id)}>
@@ -266,16 +266,18 @@ export default function BoardPage() {
       <h1 style={{ ...h1, marginBottom: 8 }}>{t("title")}</h1>
       <p style={{ ...muted, margin: "0 0 20px" }}>{t("subtitle")}</p>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <button type="button" style={chip(tab === "all")} onClick={() => setTab("all")}>
-          {t("tabAll")}
-        </button>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
         {isPro && (
-          <button type="button" style={chip(tab === "mine")} onClick={() => setTab("mine")}>
-            {t("tabMine")}
-          </button>
+          <>
+            <button type="button" style={chip(tab === "all")} onClick={() => setTab("all")}>
+              {t("tabAll")}
+            </button>
+            <button type="button" style={chip(tab === "mine")} onClick={() => setTab("mine")}>
+              {t("tabMine")}
+            </button>
+          </>
         )}
-        <Link href="/platform/board/new" style={{ ...chip(false), textDecoration: "none", display: "inline-flex", alignItems: "center", marginLeft: "auto" }}>
+        <Link href="/platform/board/new" style={{ ...button("secondary"), textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 36, padding: "0 14px", fontSize: 13, ...(isPro ? { marginLeft: "auto" } : {}) }}>
           {t("leaveRequest")}
         </Link>
       </div>

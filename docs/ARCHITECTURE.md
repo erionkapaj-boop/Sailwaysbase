@@ -152,6 +152,14 @@ RLS στους πίνακες. Οι triggers-φρουροί δέχονται α�
 7. **Υγεία**: `docs/HEALTH.md`. Σφάλματα από browser και διακομιστή + ωριαίοι
    έλεγχοι, στη Διαχείριση → Υγεία εφαρμογής.
 
+**Ανοιχτά αιτήματα** (0124). `post_open_request` φτιάχνει `booking_requests` με
+`board_open` (δέσμευση credit όπως παραπάνω). Δημόσιος πίνακας: `board_requests` (anon).
+Διεκδικήσεις στον πίνακα `open_request_claims` (όχι pings, ώστε να μη δουλεύει το
+`claim_booking_request`)· επιλογή με `client_choose_board_claim`, εξωτερικοί υποψήφιοι
+με `admin_add_board_external`. Κλείσιμο διεκδικήσεων με trigger όταν το αίτημα φύγει από
+το `open`. UI: `app/platform/board`, `components/BoardRequestPanel`, `admin/board`.
+Διεκδίκηση σε εξέλιξη: `lib/platform/pendingClaim.js` (εγγραφή και αγορά credits τελευταία).
+
 ## 5. Αποφάσεις και γιατί
 
 - **Κανόνες στη βάση, όχι στις οθόνες.** Το δημόσιο κλειδί είναι μέσα σε κάθε
