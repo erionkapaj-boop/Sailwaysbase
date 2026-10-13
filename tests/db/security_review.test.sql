@@ -27,6 +27,8 @@ from pg_proc where pronamespace = 'public'::regnamespace and proname like 'admin
   and prosrc ~* '(update |insert into|delete from)'
   and prosrc !~ '(assert_admin_can_act_on|is_owner_admin|can_manage_account)'
   and proname not in (
+    'admin_add_board_external',         -- εξωτερικός υποψήφιος σε αίτημα πίνακα, όχι λογαριασμός
+    'admin_remove_board_external',      -- το ίδιο: αφαίρεση εξωτερικού υποψηφίου
     'admin_cancel_offer',               -- κλείνει πρόταση αντικατάστασης, όχι λογαριασμό
     'admin_set_contact_message_status', -- μήνυμα φόρμας επικοινωνίας
     'admin_suspend_account'             -- αρνείται μόνη της διαχειριστές και υπαλλήλους

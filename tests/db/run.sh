@@ -100,6 +100,29 @@ if [ -z "$FILTER" ] || [[ "race" == *"$FILTER"* ]]; then
   rm -f /tmp/sf_race_*.$$
 fi
 
+if [ -z "$FILTER" ] || [[ "race" == *"$FILTER"* ]]; then
+  echo "== 4b. race: one credit, two simultaneous choices of the same professional"
+  db="${BASE}_raceboard"
+  newdb "$db" "$BASE"
+  "${PSQL[@]}" -d "$db" -f tests/db/race_board_setup.sql >/dev/null || { red "board race setup failed"; failures=$((failures + 1)); }
+  read -r c1 c2 < <(psql -X -At -d "$db" -c "select string_agg(id::text, ' ' order by created_at) from open_request_claims")
+  for c in "$c1" "$c2"; do
+    psql -X -d "$db" -v claim="$c" -f tests/db/race_board_pick.sql >/tmp/sf_raceb_$c.$$ 2>&1 &
+  done
+  wait
+  booked=$(psql -X -At -d "$db" -c "select count(*) from bookings where status = 'confirmed'")
+  charged=$(psql -X -At -d "$db" -c "select count(*) from wallet_transactions where type = 'claim_fee'")
+  client_charged=$(psql -X -At -d "$db" -c "select count(*) from wallet_transactions where type = 'request_fee'")
+  kostas=$(psql -X -At -d "$db" -c "select wallet_balance from users where id = 'a0000000-0000-0000-0000-000000000005'")
+  wallet=$(psql -X -At -d "$db" -f tests/db/wallet_check.sql 2>&1 | grep -v '^— σύνολο')
+  if [ "$booked" = "1" ] && [ "$charged" = "1" ] && [ "$client_charged" = "1" ] && [ "$kostas" = "0" ] && [ -z "$wallet" ]; then
+    green "ok   one choice wins, one charge each, no credit lost"
+  else
+    red "FAIL board race: $booked bookings, $charged claim fees, $client_charged client fees, professional balance $kostas $wallet"; failures=$((failures + 1))
+  fi
+  rm -f /tmp/sf_raceb_*.$$
+fi
+
 if [ -z "$FILTER" ] || [[ "conversion" == *"$FILTER"* ]]; then
   echo "== 5. conversion: euros to credits (0110) with open requests, as in production"
   if conv=$(bash tests/db/conversion/run.sh 2>&1); then
