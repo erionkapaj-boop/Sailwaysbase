@@ -4,7 +4,7 @@
 // κείμενα (Όροι, Απόρρητο), που περιμένουν δικό τους αγγλικό κείμενο.
 // Με SWEEP_SHOTS=1 βγάζει και στιγμιότυπα 390px/1280px για τον έλεγχο σχεδίου.
 import { chromium } from "playwright";
-import { BASE, as, check, finish, OUT } from "./lib.mjs";
+import { BASE, as, check, finish, OUT, sql } from "./lib.mjs";
 
 const GREEK = /[Ͱ-Ͽἀ-῿]/;
 const SHOTS = process.env.SWEEP_SHOTS === "1";
@@ -43,13 +43,22 @@ async function sweep(page, who, paths) {
   }
 }
 
+// Η γλώσσα που διάλεξε ο χρήστης αποθηκεύεται στον λογαριασμό του (users.locale).
+// Τα υπόλοιπα τεστ περιμένουν ελληνικά, άρα την επαναφέρουμε όταν τελειώσουμε.
+const resetLocales = () => sql("select set_config('platform.trusted', 'true', false); update users set locale = 'el' where locale <> 'el';");
+resetLocales();
+
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const page = await ctx.newPage();
 await sweep(page, "guest", GUEST);
 await browser.close();
 
-await as(MARIA, (p) => sweep(p, "client", CLIENT));
-await as(NIKOS, (p) => sweep(p, "pro", PRO));
-await as(ADMIN, (p) => sweep(p, "admin", ADMINP));
+try {
+  await as(MARIA, (p) => sweep(p, "client", CLIENT));
+  await as(NIKOS, (p) => sweep(p, "pro", PRO));
+  await as(ADMIN, (p) => sweep(p, "admin", ADMINP));
+} finally {
+  resetLocales();
+}
 finish();
