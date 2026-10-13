@@ -32,12 +32,13 @@ await as(MARIA, async (page) => {
   check("τα αποτελέσματα είναι ανώνυμα", !/Νίκος|Γιώργος|Κώστας|Ελένη/.test(await page.content()));
   await page.locator("div").filter({ hasText: "250€" }).filter({ has: page.getByRole("button", { name: "Επιλογή", exact: true }) }).last()
     .getByRole("button", { name: "Επιλογή", exact: true }).click();
-  await click(page, "Αποστολή αιτημάτων");
+  await click(page, "Ολοκλήρωση αιτήματος");
   await page.waitForTimeout(2500);
   check("επιβεβαίωση αποστολής", (await text(page)).includes("Το αίτημά σου στάλθηκε"));
 });
 check("το αίτημα πήγε στον Νίκο", num(`select count(*) from booking_request_pings p join skipper_profiles s on s.id = p.skipper_id where s.full_name = 'Νίκος Αρχικός'`) === 1);
-check("χρησιμοποιήθηκε 1 credit για το αίτημα", wallet("Μαρία Πελάτη") === maria0 - 1);
+// Από το 0122 το credit δεσμεύεται στην αποστολή και χρεώνεται με την αποδοχή.
+check("στην αποστολή καμία χρέωση", wallet("Μαρία Πελάτη") === maria0);
 
 step("2. Ο Νίκος αποδέχεται");
 await as(NIKOS, async (page) => {
@@ -46,6 +47,7 @@ await as(NIKOS, async (page) => {
   await page.waitForTimeout(2500);
 });
 check("η κράτηση επιβεβαιώθηκε", num(`select count(*) from bookings where status = 'confirmed'`) === 1);
+check("με την αποδοχή χρησιμοποιήθηκε 1 credit της πελάτισσας", wallet("Μαρία Πελάτη") === maria0 - 1);
 
 step("3. Ο Νίκος ακυρώνει (ο λόγος είναι υποχρεωτικός)");
 await as(NIKOS, async (page) => {

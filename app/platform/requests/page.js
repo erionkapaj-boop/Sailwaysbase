@@ -12,13 +12,23 @@ import { formatDateTime, formatDate, formatDateRange } from "../../../lib/platfo
 import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
 import PendingReadyBanner from "../components/PendingReadyBanner";
+import RequestDraftLine from "../components/RequestDraftLine";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import LoadError from "../components/LoadError";
 import { noteFailure } from "../../../lib/platform/health";
 
+function statusFor(r) {
+  if (r.status === "expired_unclaimed" && r.client_charged_at && r.fee_amount > 0) {
+    return ["Έληξε, τα credits επιστράφηκαν", "warn"];
+  }
+  return REQ_STATUS[r.status] || [r.status, "neutral"];
+}
+
 const REQ_STATUS = {
   matched: ["Βρέθηκε επαγγελματίας", "success"],
-  expired_unclaimed: ["Έληξε, τα credits επιστράφηκαν", "warn"],
+  // Τα αιτήματα από το 0122 δεν χρεώνονται αν δεν γίνουν δεκτά· μόνο τα
+  // παλιότερα, χρεωμένα στην αποστολή, είχαν επιστροφή (statusFor).
+  expired_unclaimed: ["Έληξε", "warn"],
   cancelled: ["Ακυρώθηκε", "danger"],
 };
 
@@ -90,6 +100,7 @@ export default function RequestsPage() {
     <div style={container}>
       <h1 style={{ ...h1, marginBottom: 24 }}>Αιτήματα</h1>
       <PendingReadyBanner />
+      <RequestDraftLine />
 
       {isProfessional && (
         <div style={{ marginBottom: 32 }}>
@@ -159,7 +170,7 @@ export default function RequestsPage() {
                       <span>
                         {departureLabel(r)} · <span style={money}>{formatDateRange(r.start_date, r.end_date)}</span>
                       </span>
-                      <span style={badge(REQ_STATUS[r.status]?.[1] || "neutral")}>{REQ_STATUS[r.status]?.[0] || r.status}</span>
+                      <span style={badge(statusFor(r)[1])}>{statusFor(r)[0]}</span>
                     </div>
                     <p style={{ ...muted, fontSize: 12, margin: "4px 0 0" }}>Στάλθηκε {formatDateTime(r.created_at)}</p>
                   </div>

@@ -140,7 +140,7 @@ try {
   await as(MARIA, async (page) => {
     await search(page, "skipper", "Ιόνιο", 11, 13);
     await page.getByRole("button", { name: "Επιλογή", exact: true }).first().click();
-    await click(page, "Αποστολή αιτημάτων");
+    await click(page, "Ολοκλήρωση αιτήματος");
     await page.waitForTimeout(2500);
     check("το αίτημα στάλθηκε", (await text(page)).includes("Το αίτημά σου στάλθηκε"));
   });

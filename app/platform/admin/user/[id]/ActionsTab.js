@@ -99,7 +99,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
     ).length;
     const lines = [];
     if (openReqs > 0)
-      lines.push(`${openReqs === 1 ? "Το 1 ανοιχτό αίτημά του ακυρώνεται" : `Τα ${openReqs} ανοιχτά αιτήματά του ακυρώνονται`} και τα credits επιστρέφονται.`);
+      lines.push(`${openReqs === 1 ? "Το 1 ανοιχτό αίτημά του ακυρώνεται" : `Τα ${openReqs} ανοιχτά αιτήματά του ακυρώνονται`}· όσα credits είχαν χρεωθεί επιστρέφονται.`);
     if (pendingPings > 0)
       lines.push(`Αφαιρείται από ${pendingPings === 1 ? "1 αίτημα" : `${pendingPings} αιτήματα`} που περίμεναν απάντησή του.`);
     if (upcoming > 0)
@@ -120,7 +120,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
       setNotice(
         "Ο λογαριασμός διαγράφηκε." +
           (res.cancelled_requests > 0
-            ? ` ${res.cancelled_requests === 1 ? "Ακυρώθηκε 1 ανοιχτό αίτημα" : `Ακυρώθηκαν ${res.cancelled_requests} ανοιχτά αιτήματα`} και ${verbFor(res.refunded, "επιστράφηκε", "επιστράφηκαν")} ${formatCredits(res.refunded)}.`
+            ? ` ${res.cancelled_requests === 1 ? "Ακυρώθηκε 1 ανοιχτό αίτημα" : `Ακυρώθηκαν ${res.cancelled_requests} ανοιχτά αιτήματα`}${res.refunded > 0 ? ` και ${verbFor(res.refunded, "επιστράφηκε", "επιστράφηκαν")} ${formatCredits(res.refunded)}` : ""}.`
             : "") +
           " Μπορείς να τον επαναφέρεις από κάτω."
       );
@@ -272,7 +272,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
               <Hint>
                 Ο λογαριασμός κρύβεται από την πλατφόρμα και δεν μπορεί να συνδεθεί. Τίποτα δεν σβήνεται (ιστορικό,
                 αξιολογήσεις, υπόλοιπο) και μπορείς να τον επαναφέρεις από εδώ όποτε θελήσεις. Τα ανοιχτά του αιτήματα
-                ακυρώνονται με επιστροφή χρημάτων.
+                ακυρώνονται· όσα credits είχαν χρεωθεί επιστρέφονται.
               </Hint>
               {deletionImpact().some((l) => l.startsWith("ΠΡΟΣΟΧΗ")) && (
                 <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 10px" }}>

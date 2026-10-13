@@ -15,7 +15,18 @@ const POLL_MS = 5000;
 // (σήμερα με την επιβεβαίωση του διαχειριστή, αργότερα αυτόματα από την
 // πληρωμή). Μόλις τα credits φτάσουν, ό,τι είχες ξεκινήσει συνεχίζει με ένα
 // πάτημα (onContinue) — η πρόταση δεν χάνεται.
-export default function TopUpSheet({ open, onClose, need = 0, balance = 0, onContinue, continueLabel = "Συνέχεια" }) {
+// shortTitle / waitingNote: η οθόνη που το ανοίγει λέει με δικά της λόγια τι
+// χρειάζεται και τι περιμένει (π.χ. η αποστολή αιτήματος).
+export default function TopUpSheet({
+  open,
+  onClose,
+  need = 0,
+  balance = 0,
+  onContinue,
+  continueLabel = "Συνέχεια",
+  shortTitle,
+  waitingNote,
+}) {
   const { refresh } = useAuth();
   const [waiting, setWaiting] = useState(null); // το αίτημα αγοράς που περιμένει
   const [status, setStatus] = useState(null); // 'pending' | 'completed' | 'cancelled'
@@ -107,7 +118,8 @@ export default function TopUpSheet({ open, onClose, need = 0, balance = 0, onCon
         >
           <span className="sf-topup-pulse" aria-hidden="true" />
           <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>
-            Αναμονή επιβεβαίωσης της πληρωμής.{onContinue ? " Μόλις πιστωθούν τα credits, συνεχίζεις από εδώ." : ""}
+            Αναμονή επιβεβαίωσης της πληρωμής.{" "}
+            {waitingNote || (onContinue ? "Μόλις πιστωθούν τα credits, συνεχίζεις από εδώ." : "")}
           </span>
         </div>
         <button type="button" style={{ ...button("secondary"), width: "100%", marginTop: 16 }} onClick={onClose}>
@@ -120,9 +132,9 @@ export default function TopUpSheet({ open, onClose, need = 0, balance = 0, onCon
       <>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 600 }}>{short ? "Δεν έχεις αρκετά credits" : "Αγορά credits"}</div>
+            <div style={{ fontSize: 18, fontWeight: 600 }}>{short ? shortTitle || "Δεν έχεις αρκετά credits" : "Αγορά credits"}</div>
             <div style={{ ...muted, fontSize: 13.5, marginTop: 4 }}>
-              {short ? `Χρειάζεσαι ${formatCredits(need)} · διαθέσιμα ${formatCredits(balance)}` : `Διαθέσιμα ${formatCredits(balance)}`}
+              {short && !shortTitle ? `Χρειάζεσαι ${formatCredits(need)} · διαθέσιμα ${formatCredits(balance)}` : `Διαθέσιμα ${formatCredits(balance)}`}
             </div>
           </div>
           <button

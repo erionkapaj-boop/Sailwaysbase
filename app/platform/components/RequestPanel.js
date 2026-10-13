@@ -55,7 +55,9 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
         `Αφαίρεση ${ping.skipper_profiles?.full_name || "αυτού του υποψηφίου"} από το αίτημα; ` +
           (remaining > 1
             ? "Τα credits δεν αλλάζουν. Το αίτημα μένει ανοιχτό για τους υπόλοιπους."
-            : "Είναι ο τελευταίος που περιμένει απάντηση. Με την αφαίρεση τα credits δεν επιστρέφονται· επιστρέφονται με ακύρωση ολόκληρου του αιτήματος.")
+            : request.client_charged_at
+              ? "Είναι ο τελευταίος που περιμένει απάντηση. Με την αφαίρεση τα credits δεν επιστρέφονται· επιστρέφονται με ακύρωση ολόκληρου του αιτήματος."
+              : "Είναι ο τελευταίος που περιμένει απάντηση. Το credit μένει δεσμευμένο μέχρι να ακυρωθεί ή να λήξει το αίτημα.")
       ))
     )
       return;
@@ -72,17 +74,24 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
   }
 
   async function handleCancelRequest() {
-    const refundNote =
-      request.fee_paid_at && request.fee_amount > 0
-        ? `\n\n${verbFor(request.fee_amount, "Επιστρέφεται", "Επιστρέφονται")} ${formatCredits(request.fee_amount)}.`
+    // Από το 0122 το credit χρεώνεται με την αποδοχή: η ακύρωση απλώς το
+    // ελευθερώνει. Μόνο τα παλιότερα αιτήματα, χρεωμένα στην αποστολή, επιστρέφονται.
+    const charged = Boolean(request.client_charged_at) && request.fee_amount > 0;
+    const released = !request.client_charged_at && request.fee_paid_at && request.fee_amount > 0;
+    const refundNote = charged
+      ? `\n\n${verbFor(request.fee_amount, "Επιστρέφεται", "Επιστρέφονται")} ${formatCredits(request.fee_amount)}.`
+      : released
+        ? `\n\n${verbFor(request.fee_amount, "Το δεσμευμένο", "Τα δεσμευμένα")} ${formatCredits(request.fee_amount)} ${verbFor(request.fee_amount, "ελευθερώνεται", "ελευθερώνονται")}.`
         : "";
     if (!(await confirm(`Να ακυρωθεί όλο το αίτημα;${refundNote}`))) return;
     setBusyId("__all__");
     setError("");
     try {
       await cancelBookingRequest(request.id);
-      if (request.fee_paid_at && request.fee_amount > 0) {
+      if (charged) {
         onToastMessage?.(`${verbFor(request.fee_amount, "Επιστράφηκε", "Επιστράφηκαν")} ${formatCredits(request.fee_amount)}.`);
+      } else if (released) {
+        onToastMessage?.("Το αίτημα ακυρώθηκε.");
       }
       onChanged?.();
     } catch (err) {

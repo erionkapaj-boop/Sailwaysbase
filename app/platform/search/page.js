@@ -1,6 +1,6 @@
 "use client";
 import TopUpSheet from "../components/credits/TopUpSheet";
-import { formatCredits } from "../../../lib/platform/credits";
+import { formatCredits, verbFor } from "../../../lib/platform/credits";
 import TrustLine from "../components/TrustLine";
 import Avatar from "../components/Avatar";
 import LoadError from "../components/LoadError";
@@ -22,6 +22,12 @@ import {
   createBookingRequest,
   cancelBookingRequest,
   payAndBroadcast,
+  listRequestPings,
+  getMyReservedCredits,
+  getMyRequestDraft,
+  saveRequestDraft,
+  clearRequestDraft,
+  getMyPendingCreditPurchase,
 } from "../../../lib/platform/db";
 import {
   container,
@@ -46,6 +52,7 @@ import { trackFlow, noteFailure } from "../../../lib/platform/health";
 const BROADCAST_ERRORS = {
   insufficient_wallet: "Δεν έχεις αρκετά credits. Απόκτησε credits από τη σελίδα Credits.",
   invalid_skipper_selection: "Κάποιος από τους επιλεγμένους δεν είναι πλέον διαθέσιμος.",
+  skipper_not_available: "Κανείς από τους επιλεγμένους δεν είναι πλέον διαθέσιμος αυτές τις ημέρες. Διάλεξε από τη λίστα.",
   no_skippers_selected: "Επίλεξε τουλάχιστον έναν επαγγελματία.",
   already_paid_or_closed: "Αυτό το αίτημα έχει ήδη σταλεί.",
   account_not_verified: "Ο λογαριασμός σου ελέγχεται ακόμα. Θα μπορείς να στείλεις αίτημα μόλις ενεργοποιηθεί.",
@@ -479,6 +486,7 @@ function RoleSection({
   // clears the selection at the start of every call, restore or not.
   const pendingSelectedRef = useRef(null);
   const [restoredNotice, setRestoredNotice] = useState(false);
+  const [restoredGone, setRestoredGone] = useState(0);
 
   // `initial` often arrives a render or two after this component already
   // mounted (the parent only resolves sessionStorage in its own effect,
@@ -518,7 +526,12 @@ function RoleSection({
       });
       setResults(data);
       if (pendingSelectedRef.current) {
-        onSetSelection(pendingSelectedRef.current);
+        // Ένα αίτημα σε εξέλιξη μπορεί να περίμενε μέρες (π.χ. την πίστωση
+        // credits): όποιος δεν είναι πια στα αποτελέσματα δεν επιλέγεται.
+        const available = new Set((data || []).map((r) => r.id));
+        const kept = pendingSelectedRef.current.filter((id) => available.has(id));
+        setRestoredGone(pendingSelectedRef.current.length - kept.length);
+        onSetSelection(kept);
         pendingSelectedRef.current = null;
       }
     } catch (err) {
@@ -570,6 +583,8 @@ function RoleSection({
       {restoredNotice && (
         <p style={{ ...muted, fontSize: 13, margin: "-6px 0 12px", color: colors.accent }}>
           Οι επιλογές σου κρατήθηκαν.
+          {restoredGone > 0 &&
+            ` ${restoredGone === 1 ? "1 επαγγελματίας δεν είναι" : `${restoredGone} επαγγελματίες δεν είναι`} πλέον διαθέσιμ${restoredGone === 1 ? "ος" : "οι"}.`}
         </p>
       )}
 
@@ -722,13 +737,61 @@ function computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, f
 // it. `done` is lifted to the parent (not local state) so the sticky
 // summary bar knows to stop showing itself once the request has actually
 // gone out.
-function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positionsByRole, filters, fee, session, router, done, setDone }) {
+function Checkout({
+  supportedRoles,
+  selectionsByRole,
+  boatTypesByRole,
+  positionsByRole,
+  filters,
+  fee,
+  session,
+  router,
+  done,
+  setDone,
+  restoreSettled,
+  restoredSent,
+  restored,
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sentSlots, setSentSlots] = useState(new Set());
   const [topUpNeed, setTopUpNeed] = useState(0);
+  // Σε πόσους από όσους διάλεξες δεν έφτασε το αίτημα (δεν ήταν πια διαθέσιμοι).
+  const [notReached, setNotReached] = useState(0);
+  // Credits δεσμευμένα σε άλλα ανοιχτά αιτήματα (0122): χρεώνονται με την
+  // αποδοχή, άρα δεν είναι διαθέσιμα για νέο αίτημα.
+  const [reserved, setReserved] = useState(0);
 
-  const { userRow, isAdmin } = useAuth();
+  const { userRow, isAdmin, viewingAs } = useAuth();
+  const balance = Number(userRow?.wallet_balance ?? 0);
+  const available = Math.max(0, balance - reserved);
+  useEffect(() => {
+    if (!session) return;
+    getMyReservedCredits().then(setReserved).catch(() => {});
+  }, [session, balance]);
+
+  // Επιστροφή σε αίτημα που περίμενε την πίστωση credits: το παράθυρο αγοράς
+  // ανοίγει ξανά εκεί που είχε μείνει, με την αναμονή ή με την ολοκλήρωση.
+  const reopened = useRef(false);
+  useEffect(() => {
+    if (!restored || !restoreSettled || reopened.current || done || fee == null || !session) return;
+    const totals = computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, fee);
+    if (totals.activeRoles.length === 0) return;
+    reopened.current = true;
+    const needNow = (totals.totalSlots - sentSlots.size) * (Number(fee) || 0);
+    Promise.all([getMyReservedCredits(), getMyPendingCreditPurchase()])
+      .then(([res, purchase]) => {
+        setReserved(res);
+        if (purchase && needNow > 0 && needNow > balance - res) setTopUpNeed(needNow);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restored, restoreSettled, fee, session, selectionsByRole]);
+
+  // Ό,τι είχε ήδη σταλεί πριν διακοπεί η αποστολή δεν ξαναστέλνεται.
+  useEffect(() => {
+    if (restoredSent?.length) setSentSlots(new Set(restoredSent));
+  }, [restoredSent]);
   const { activeRoles, positionsFor, slotsFor, totalSlots, totalFee, shortRoles } = computeOrderTotals(
     supportedRoles,
     selectionsByRole,
@@ -783,6 +846,28 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [awaitingVerification, selectionKey, filters, boatTypesByRole, done]);
 
+  // Αίτημα σε εξέλιξη (0122): οι επιλογές μένουν στον λογαριασμό, αθόρυβα,
+  // ώστε ό,τι δεν ολοκληρώθηκε (π.χ. περιμένει την πίστωση credits) να
+  // συνεχίζεται από οποιαδήποτε συσκευή. Μόνο αφού κριθεί αν υπάρχει ήδη
+  // κάτι να επανέλθει, αλλιώς η άδεια σελίδα θα το έσβηνε πριν φορτωθεί.
+  const sentKey = [...sentSlots].sort().join(",");
+  const hadPicks = useRef(false);
+  useEffect(() => {
+    if (!restoreSettled || !session || viewingAs || done) return;
+    if (activeRoles.length === 0) {
+      // Ο ίδιος αφαίρεσε όλες τις επιλογές: δεν υπάρχει πια αίτημα σε εξέλιξη.
+      if (hadPicks.current) clearRequestDraft().catch(() => {});
+      hadPicks.current = false;
+      return;
+    }
+    hadPicks.current = true;
+    const t = setTimeout(() => {
+      saveRequestDraft({ ...snapshot(), sent: [...sentSlots] }).catch(() => {});
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreSettled, session, viewingAs, done, selectionKey, filters, boatTypesByRole, sentKey]);
+
   // Ροή «Αποστολή αιτήματος» (0117): διάλεξε → πάτησε αποστολή → στάλθηκε.
   const hasPicks = activeRoles.length > 0;
   useEffect(() => {
@@ -807,14 +892,18 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
       return;
     }
     setError("");
-    // Όσα credits χρειάζονται για ό,τι δεν έχει φύγει ακόμα· αν δεν φτάνουν,
-    // αγορά επιτόπου αντί για αποτυχία στη μέση της αποστολής.
+    setBusy(true);
+    // Όσα credits χρειάζονται για ό,τι δεν έχει φύγει ακόμα, απέναντι σε όσα
+    // είναι διαθέσιμα (υπόλοιπο − δεσμευμένα). Αν δεν φτάνουν, η αγορά ανοίγει
+    // εδώ, πάνω από τη σελίδα· οι επιλογές μένουν όπως είναι.
     const needNow = (totalSlots - sentSlots.size) * (Number(fee) || 0);
-    if (needNow > Number(userRow?.wallet_balance ?? 0)) {
+    const reservedNow = await getMyReservedCredits().catch(() => reserved);
+    setReserved(reservedNow);
+    if (needNow > 0 && needNow > balance - reservedNow) {
+      setBusy(false);
       setTopUpNeed(needNow);
       return;
     }
-    setBusy(true);
     // Each position becomes its own independent request, all broadcast to
     // the same picked candidates — whoever claims one can't also claim
     // another for the same dates (the backend's own overlap check), so the
@@ -827,6 +916,7 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
     // only resends what actually failed — never a second charge for a slot
     // that already went out.
     const nowSent = new Set(sentSlots);
+    let missed = 0;
     try {
       for (const role of activeRoles) {
         const positions = slotsFor(role);
@@ -845,8 +935,9 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
             partySize: Number(filters.partySize),
             privateCabin: filters.privateCabin,
           });
+          const picked = Array.from(selectionsByRole[role]);
           try {
-            await payAndBroadcast(request.id, Array.from(selectionsByRole[role]));
+            await payAndBroadcast(request.id, picked);
           } catch (err) {
             // Το αίτημα δημιουργήθηκε αλλά δεν πληρώθηκε ούτε στάλθηκε σε
             // κανέναν — κλείνει αμέσως, αλλιώς θα έμενε «ανοιχτό» στη λίστα
@@ -856,10 +947,17 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
           }
           nowSent.add(slotKey);
           setSentSlots(new Set(nowSent));
+          // Όποιος έπαψε στο μεταξύ να είναι διαθέσιμος δεν λαμβάνει το αίτημα (0122).
+          if (i === 0) {
+            const reached = await listRequestPings(request.id).catch(() => null);
+            if (reached) missed += picked.length - reached.length;
+          }
         }
       }
+      setNotReached(missed);
       setDone(true);
       trackFlow("request", "done");
+      clearRequestDraft().catch(() => {});
     } catch (err) {
       // Όσα δεν περνούν από το friendlyError μετρούν εδώ για το «κολλάει».
       if (BROADCAST_ERRORS[err.message]) noteFailure(err.message);
@@ -868,7 +966,10 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
         sentNow > 0
           ? ` Στάλθηκ${sentNow === 1 ? "ε ήδη 1 αίτημα" : `αν ήδη ${sentNow} αιτήματα`} από ${totalSlots}. Με νέα αποστολή φεύγουν μόνο όσα έμειναν, χωρίς δεύτερη χρέωση.`
           : "";
-      if (err.message === "insufficient_wallet") setTopUpNeed(Math.max(1, (totalSlots - nowSent.size) * (Number(fee) || 1)));
+      if (err.message === "insufficient_wallet") {
+        setTopUpNeed(Math.max(1, (totalSlots - nowSent.size) * (Number(fee) || 1)));
+        getMyReservedCredits().then(setReserved).catch(() => {});
+      }
       setError((BROADCAST_ERRORS[err.message] || friendlyError(err)) + partial);
     } finally {
       setBusy(false);
@@ -880,9 +981,11 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
       <TopUpSheet
         open={topUpNeed > 0}
         need={topUpNeed}
-        balance={Number(userRow?.wallet_balance ?? 0)}
+        balance={available}
         onClose={() => setTopUpNeed(0)}
-        continueLabel="Συνέχεια: Αποστολή αιτημάτων"
+        shortTitle={`Για την αποστολή ${verbFor(topUpNeed, "χρειάζεται", "χρειάζονται")} ${formatCredits(topUpNeed)}`}
+        waitingNote="Το αίτημά σου κρατήθηκε. Μόλις πιστωθούν τα credits, ολοκληρώνεται από εδώ."
+        continueLabel="Ολοκλήρωση αιτήματος"
         onContinue={() => handleCheckout()}
       />
       <div style={{ ...card, boxShadow: shadow.raised }}>
@@ -898,9 +1001,22 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
                   .join(" · ")}
               </p>
             )}
+            {totalFee > 0 && (
+              <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 8px" }}>
+                {totalSlots === 1
+                  ? `${formatCredits(totalFee)} δεσμεύτηκε και χρεώνεται όταν κάποιος επαγγελματίας αποδεχτεί το αίτημα. Αν δεν το αποδεχτεί κανείς, ελευθερώνεται.`
+                  : `${formatCredits(totalFee)} δεσμεύτηκαν, ${formatCredits(fee)} για κάθε αίτημα. Καθένα χρεώνεται όταν γίνει δεκτό το αίτημά του· όσα δεν γίνουν δεκτά ελευθερώνονται.`}
+              </p>
+            )}
+            {notReached > 0 && (
+              <p style={{ ...muted, fontSize: 13.5, lineHeight: 1.5, margin: "0 0 8px" }}>
+                {notReached === 1
+                  ? "Σε 1 από όσους διάλεξες δεν στάλθηκε: δεν είναι πλέον διαθέσιμος αυτές τις ημέρες."
+                  : `Σε ${notReached} από όσους διάλεξες δεν στάλθηκε: δεν είναι πλέον διαθέσιμοι αυτές τις ημέρες.`}
+              </p>
+            )}
             <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 16px" }}>
-              Θα σε ειδοποιήσουμε μόλις κάποιος το αποδεχτεί. Αν δεν το αναλάβει κανείς εγκαίρως, τα credits
-              επιστρέφονται αυτόματα.
+              Θα σε ειδοποιήσουμε μόλις κάποιος το αποδεχτεί.
             </p>
             <button style={button("primary")} onClick={() => router.push("/platform/requests")}>
               Παρακολούθηση αιτήματος
@@ -965,8 +1081,14 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
                 Την αμοιβή του επαγγελματία την κανονίζεις απευθείας μαζί του.
               </p>
               <p style={{ fontSize: 12.5, margin: "6px 0 0", lineHeight: 1.5 }}>
-                Αν δεν το αναλάβει κανείς, τα credits επιστρέφονται. Αν ο επαγγελματίας ακυρώσει αργότερα, η αναζήτηση αντικαταστάτη γίνεται χωρίς νέα χρέωση· αν δεν βρεθεί, τα credits επιστρέφονται.
+                Το credit χρεώνεται όταν ένας επαγγελματίας αποδεχτεί το αίτημα. Αν δεν το αποδεχτεί κανείς, δεν χρεώνεται. Αν ο επαγγελματίας ακυρώσει αργότερα, η αναζήτηση αντικαταστάτη γίνεται χωρίς νέα χρέωση· αν δεν βρεθεί, το credit επιστρέφεται.
               </p>
+              {session && fee > 0 && (
+                <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0" }}>
+                  Διαθέσιμα <span style={{ ...money, color: colors.ink }}>{formatCredits(available)}</span>
+                  {reserved > 0 ? ` · ${formatCredits(reserved)} ${verbFor(reserved, "δεσμευμένο", "δεσμευμένα")} σε ανοιχτά αιτήματα` : ""}
+                </p>
+              )}
             </div>
 
             {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 12px" }}>{error}</p>}
@@ -980,13 +1102,13 @@ function Checkout({ supportedRoles, selectionsByRole, boatTypesByRole, positions
               </div>
             ) : (
               <button style={{ ...button("primary"), width: "100%" }} disabled={busy} onClick={handleCheckout}>
-                {busy ? "Αποστολή…" : session ? "Αποστολή αιτημάτων" : "Σύνδεση για αποστολή"}
+                {busy ? "Αποστολή…" : session ? "Ολοκλήρωση αιτήματος" : "Σύνδεση για αποστολή"}
               </button>
             )}
             {!awaitingVerification && <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
               {session
-                ? "Με την αποστολή αποδέχεσαι τη χρέωση και τους"
-                : "Οι επιλογές σου κρατιούνται μέχρι να συνδεθείς. Με την αποστολή αποδέχεσαι τη χρέωση και τους"}{" "}
+                ? "Με την ολοκλήρωση αποδέχεσαι τη χρέωση και τους"
+                : "Οι επιλογές σου κρατιούνται μέχρι να συνδεθείς. Με την ολοκλήρωση αποδέχεσαι τη χρέωση και τους"}{" "}
               <a
                 href="/platform/terms"
                 target="_blank"
@@ -1073,7 +1195,7 @@ function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, f
 function SearchPageInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const { session } = useAuth();
+  const { session, loading: authLoading } = useAuth();
 
   // Filters arriving from the search wizard.
   const incoming = {
@@ -1199,37 +1321,68 @@ function SearchPageInner() {
   }
   const [showFullFilters, setShowFullFilters] = useState(!isComplete(incoming));
 
-  useEffect(() => {
-    const p = takePendingBroadcast();
-    if (p) {
-      setPending(p);
-      setFilters(p.filters);
-      setSameDestination(
-        !p.filters?.arrivalPoint || p.filters.arrivalPoint === p.filters.departurePoint
-      );
-      // The pending-restore path lands back on a bare /platform/search (no
-      // query string), so the collapse decision above — made from `incoming`
-      // — couldn't see these values yet. Same rule, just applied once the
-      // restored filters are actually known.
-      if (isComplete(p.filters || {})) {
-        setShowFullFilters(false);
-      }
-      // Boat type round-trips through each RoleSection's own restore (see
-      // its `initial` prop), which reports it back up once mounted. How
-      // many positions were wanted per role has nowhere else to come from
-      // though — it's a plain controlled prop, not local state — so it has
-      // to be seeded here directly.
-      const positions = {};
-      for (const [role, sel] of Object.entries(p.selections || {})) {
-        if (sel.positions) positions[role] = sel.positions;
-      }
-      if (Object.keys(positions).length > 0) setPositionsByRole(positions);
+  // Επαναφορά επιλογών: πρώτα όσες κρατήθηκαν στη συσκευή πριν τη σύνδεση
+  // (takePendingBroadcast), αλλιώς το αίτημα σε εξέλιξη του λογαριασμού
+  // (0122), από όποια συσκευή κι αν ξεκίνησε. Μια νέα αναζήτηση από τον
+  // οδηγό (με ημερομηνίες στη διεύθυνση) ξεκινά καθαρή. Μέχρι να κριθεί
+  // αυτό, η σελίδα δεν αποθηκεύει τίποτα (restoreSettled).
+  const [restoreSettled, setRestoreSettled] = useState(false);
+  const localChecked = useRef(false);
+
+  function applyRestore(p) {
+    setPending(p);
+    setFilters(p.filters);
+    setSameDestination(
+      !p.filters?.arrivalPoint || p.filters.arrivalPoint === p.filters.departurePoint
+    );
+    // The pending-restore path lands back on a bare /platform/search (no
+    // query string), so the collapse decision above — made from `incoming`
+    // — couldn't see these values yet. Same rule, just applied once the
+    // restored filters are actually known.
+    if (isComplete(p.filters || {})) {
+      setShowFullFilters(false);
     }
-    // Runs once, right after mount — deliberately not re-checked on every
-    // params change, since the marker is single-use by design (see
-    // takePendingBroadcast).
+    // Boat type round-trips through each RoleSection's own restore (see
+    // its `initial` prop), which reports it back up once mounted. How
+    // many positions were wanted per role has nowhere else to come from
+    // though — it's a plain controlled prop, not local state — so it has
+    // to be seeded here directly.
+    const positions = {};
+    for (const [role, sel] of Object.entries(p.selections || {})) {
+      if (sel.positions) positions[role] = sel.positions;
+    }
+    if (Object.keys(positions).length > 0) setPositionsByRole(positions);
+  }
+
+  useEffect(() => {
+    // Single-use by design (see takePendingBroadcast): read once, at mount.
+    if (!localChecked.current) {
+      localChecked.current = true;
+      const p = takePendingBroadcast();
+      if (p) {
+        applyRestore(p);
+        setRestoreSettled(true);
+        return;
+      }
+    }
+    if (restoreSettled || authLoading) return;
+    if (!session || params.get("start")) {
+      setRestoreSettled(true);
+      return;
+    }
+    let alive = true;
+    getMyRequestDraft()
+      .then((d) => {
+        const today = new Date().toISOString().slice(0, 10);
+        if (alive && d?.filters?.startDate && d.filters.startDate >= today) applyRestore(d);
+      })
+      .catch(() => {})
+      .finally(() => alive && setRestoreSettled(true));
+    return () => {
+      alive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authLoading, session]);
 
   const requestedRoles = (
     params.get("roles") ||
@@ -1491,6 +1644,9 @@ function SearchPageInner() {
           router={router}
           done={checkoutDone}
           setDone={setCheckoutDone}
+          restoreSettled={restoreSettled}
+          restoredSent={pending?.sent}
+          restored={Boolean(pending)}
         />
       </div>
 

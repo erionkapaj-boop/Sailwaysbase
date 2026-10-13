@@ -83,7 +83,11 @@ export async function as(phone, fn) {
   }
 }
 
+// Η σκέτη /platform/search συνεχίζει το αίτημα σε εξέλιξη του λογαριασμού
+// (0122). Στα τεστ, όποιος την ανοίγει ξεκινά νέα αναζήτηση: τα αιτήματα σε
+// εξέλιξη άλλων βημάτων σβήνονται πρώτα (το συνεχίζειν ελέγχεται χωριστά).
 export async function go(page, path) {
+  if (path === "/platform/search") sql("delete from request_drafts");
   await page.goto(BASE + path);
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(1200);

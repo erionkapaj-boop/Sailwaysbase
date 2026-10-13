@@ -1,10 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
-import { listMyWalletTransactions, getMyPendingCreditPurchase, cancelCreditPurchaseRequest, WALLET_EVENT } from "../../../lib/platform/db";
+import {
+  listMyWalletTransactions,
+  getMyPendingCreditPurchase,
+  cancelCreditPurchaseRequest,
+  getMyReservedCredits,
+  WALLET_EVENT,
+} from "../../../lib/platform/db";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { useConfirm } from "../components/ConfirmDialog";
-import { formatCredits, PACKAGES } from "../../../lib/platform/credits";
+import { formatCredits, PACKAGES, verbFor } from "../../../lib/platform/credits";
 import { formatDate } from "../../../lib/platform/notifications";
 import Link from "next/link";
 import { container, card, h1, sectionLabel, muted, badge, colors, money, button } from "../../../lib/platform/theme";
@@ -26,6 +32,8 @@ export default function WalletPage() {
   const { session, userRow, loading, refresh, readOnly } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [pending, setPending] = useState(null);
+  // Δεσμευμένα σε ανοιχτά αιτήματα (0122): χρεώνονται με την αποδοχή.
+  const [reserved, setReserved] = useState(0);
   const [busy, setBusy] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -41,6 +49,7 @@ export default function WalletPage() {
       .catch((err) => { console.error(err); setLoadFailed(true); })
       .finally(() => setBusy(false));
     getMyPendingCreditPurchase().then(setPending).catch(() => {});
+    getMyReservedCredits().then(setReserved).catch(() => {});
   }
 
   useEffect(() => {
@@ -82,9 +91,17 @@ export default function WalletPage() {
       <div style={{ ...card, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
           <div style={muted}>Διαθέσιμα</div>
-          <div style={{ ...money, fontSize: 32, fontWeight: 600, marginTop: 6 }}>{formatCredits(userRow?.wallet_balance ?? 0)}</div>
+          <div style={{ ...money, fontSize: 32, fontWeight: 600, marginTop: 6 }}>
+            {formatCredits(Math.max(0, Number(userRow?.wallet_balance ?? 0) - reserved))}
+          </div>
+          {reserved > 0 && (
+            <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>
+              <span style={{ ...money, color: colors.ink }}>{formatCredits(reserved)}</span>{" "}
+              {verbFor(reserved, "δεσμευμένο", "δεσμευμένα")} σε ανοιχτά αιτήματα
+            </div>
+          )}
           <p style={{ ...muted, fontSize: 12.5, margin: "8px 0 0", lineHeight: 1.5 }}>
-            Ένα credit αντιστοιχεί σε ένα ματς. Τα credits δεν λήγουν.
+            Το credit δεσμεύεται με την αποστολή του αιτήματος και χρεώνεται όταν ένας επαγγελματίας το αποδεχτεί. Τα credits δεν λήγουν.
           </p>
         </div>
         {!pending && !readOnly && (

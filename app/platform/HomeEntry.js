@@ -7,6 +7,7 @@ import { useAuth } from "./AuthContext";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
 import PendingReadyBanner from "./components/PendingReadyBanner";
+import RequestDraftLine from "./components/RequestDraftLine";
 import { adminOverview } from "../../lib/platform/db";
 import { card, tapTarget } from "../../lib/platform/theme";
 import { button, colors, muted, h2 } from "../../lib/platform/theme";
@@ -121,6 +122,7 @@ export default function HomeEntry() {
 
       <AdminHomeBanner />
       <PendingReadyBanner />
+      <RequestDraftLine />
 
       {/* Outline rather than filled: lighter against the warm page, closer to
           the "spare, premium" direction. Hover/active fills it so it still

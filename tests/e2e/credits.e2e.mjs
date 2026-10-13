@@ -1,7 +1,8 @@
 // Credits (0110), όλες οι οικονομικές κινήσεις μέσα από την πραγματική
 // εφαρμογή, με κάθε βήμα ελεγμένο και στην οθόνη και στη βάση:
-// πελάτης χωρίς credits → αγορά πακέτου → αίτημα → ακύρωση με επιστροφή →
-// λήξη με επιστροφή → επαγγελματίας χωρίς credits → δώρο → ανάληψη →
+// πελάτης χωρίς credits → αγορά επιτόπου στο τελευταίο βήμα → συνέχεια από
+// άλλη συσκευή → αίτημα (δέσμευση, 0122) → ακύρωση χωρίς χρέωση → λήξη χωρίς
+// χρέωση → επαγγελματίας χωρίς credits → δώρο → ανάληψη (χρεώνεται και ο πελάτης) →
 // μεταφορά σκάφους (υπολογισμός από τα μίλια) → δωρεάν περίοδος για πελάτες →
 // δώρο εγγραφής → αλλαγή τιμής πακέτου → πωλήσεις → ισοζύγιο.
 import { as, go, text, click, check, finish, sql, num, pickDay, daysFromToday, iso, pickPlace } from "./lib.mjs";
@@ -73,12 +74,13 @@ await as(ADMIN, async (page) => {
 });
 check("η πελάτισσα έχει 0 credits", wallet("Μαρία Πελάτη") === 0);
 
-step("2. Η πελάτισσα χωρίς credits: βλέπει πακέτα, δεν μπορεί να στείλει αίτημα");
+step("2. Η πελάτισσα χωρίς credits: φτάνει μέχρι το τέλος, η αγορά ανοίγει εκεί");
 await as(MARIA, async (page) => {
   await go(page, "/platform/wallet");
   const t = await text(page);
   check("σελίδα Credits: 0 credits", t.includes("0 credits"));
   check("χωρίς λέξη «πορτοφόλι»", !/πορτοφόλ/i.test(t));
+  check("χωρίς τη λέξη «ματς»", !t.includes("ματς"));
   await page.getByRole("link", { name: "Αγορά credits" }).click();
   await page.waitForTimeout(1500);
   const b = await text(page);
@@ -88,13 +90,16 @@ await as(MARIA, async (page) => {
 
   await searchAndPick(page, daysFromToday(10), daysFromToday(12), 250);
   const c = await text(page);
-  check("το καλάθι γράφει 1 credit", c.includes("1 credit"));
-  await click(page, "Αποστολή αιτημάτων");
+  check("η παραγγελία γράφει 1 credit", c.includes("1 credit"));
+  await click(page, "Ολοκλήρωση αιτήματος");
   await page.waitForTimeout(2000);
-  check("μήνυμα: δεν έχεις αρκετά credits", (await text(page)).includes("Δεν έχεις αρκετά credits"));
+  check("το παράθυρο αγοράς ανοίγει στο τελευταίο βήμα", (await text(page)).includes("Για την αποστολή χρειάζεται 1 credit"));
+  await page.waitForTimeout(1000);
 });
-check("κανένα αίτημα δεν πληρώθηκε", num(`select count(*) from booking_requests where client_id = 'a0000000-0000-0000-0000-000000000002' and fee_paid_at is not null`) === 0);
+check("κανένα αίτημα δεν στάλθηκε", num(`select count(*) from booking_requests where client_id = 'a0000000-0000-0000-0000-000000000002' and fee_paid_at is not null`) === 0);
 check("το υπόλοιπο έμεινε 0", wallet("Μαρία Πελάτη") === 0);
+check("το αίτημα σε εξέλιξη κρατήθηκε στον λογαριασμό",
+  num(`select count(*) from request_drafts where user_id = 'a0000000-0000-0000-0000-000000000002'`) === 1);
 
 step("3. Ο διαχειριστής καταχωρεί αγορά Starter (2 credits, 90€)");
 await as(ADMIN, async (page) => {
@@ -110,24 +115,44 @@ await as(ADMIN, async (page) => {
 check("2 credits στην πελάτισσα", wallet("Μαρία Πελάτη") === 2);
 check("η αγορά κρατά τα 90€", num(`select count(*) from wallet_transactions where user_id = 'a0000000-0000-0000-0000-000000000002' and type = 'purchase' and amount = 2 and price_eur = 90`) === 1);
 
-step("4. Η πελάτισσα στέλνει δύο αιτήματα (1 credit το καθένα)");
+step("4. Από άλλη συσκευή: συνεχίζει το αίτημα εκεί που έμεινε, και στέλνει δεύτερο");
 await as(MARIA, async (page) => {
-  await searchAndPick(page, daysFromToday(10), daysFromToday(12), 250);
-  await click(page, "Αποστολή αιτημάτων");
+  await go(page, "/platform");
+  const line = page.locator("[data-request-draft]");
+  check("η αρχική δείχνει «Αίτημα σε εξέλιξη»", (await line.count()) === 1 && (await line.innerText()).includes("Αίτημα σε εξέλιξη"));
+  await line.click();
+  await page.waitForTimeout(3500);
+  const r = await text(page);
+  check("οι επιλογές επανήλθαν", r.includes("Οι επιλογές σου κρατήθηκαν") && r.includes("1 επιλογή"), r.slice(0, 600));
+  await click(page, "Ολοκλήρωση αιτήματος");
   await page.waitForTimeout(2500);
-  check("πρώτο αίτημα στάλθηκε", (await text(page)).includes("Το αίτημά σου στάλθηκε"));
+  const sent = await text(page);
+  check("πρώτο αίτημα στάλθηκε", sent.includes("Το αίτημά σου στάλθηκε"));
+  check("1 credit δεσμεύτηκε, χρεώνεται με την αποδοχή", sent.includes("1 credit δεσμεύτηκε και χρεώνεται όταν κάποιος επαγγελματίας αποδεχτεί το αίτημα"));
   await searchAndPick(page, daysFromToday(20), daysFromToday(22), 300);
-  await click(page, "Αποστολή αιτημάτων");
+  await click(page, "Ολοκλήρωση αιτήματος");
   await page.waitForTimeout(2500);
   check("δεύτερο αίτημα στάλθηκε", (await text(page)).includes("Το αίτημά σου στάλθηκε"));
+
+  // 2 credits, 2 ανοιχτά αιτήματα: τρίτο δεν στέλνεται.
+  await searchAndPick(page, daysFromToday(25), daysFromToday(27), 300);
+  await click(page, "Ολοκλήρωση αιτήματος");
+  await page.waitForTimeout(2000);
+  check("τρίτο αίτημα: η αγορά ανοίγει, τα credits είναι δεσμευμένα", (await text(page)).includes("Για την αποστολή χρειάζεται 1 credit"));
+  await page.getByRole("button", { name: "Κλείσιμο" }).first().click();
+
   await go(page, "/platform/wallet");
   const t = await text(page);
-  check("ιστορικό: δύο φορές «Credits για αίτημα»", (t.match(/Credits για αίτημα/g) || []).length === 2);
-  check("υπόλοιπο 0 credits", t.includes("0 credits"));
+  check("Credits: διαθέσιμα 0, 2 δεσμευμένα", t.includes("0 credits") && t.includes("2 credits δεσμευμένα σε ανοιχτά αιτήματα"));
+  check("καμία χρέωση στο ιστορικό", !t.includes("Credits για αίτημα"));
 });
-check("η βάση: 0 credits, 2 κινήσεις αιτήματος", wallet("Μαρία Πελάτη") === 0 && txns("Μαρία Πελάτη", "request_fee") === 2);
+check("η βάση: 2 credits, καμία κίνηση αιτήματος, 2 αιτήματα ανοιχτά",
+  wallet("Μαρία Πελάτη") === 2 && txns("Μαρία Πελάτη", "request_fee") === 0 &&
+  num(`select count(*) from booking_requests where client_id = 'a0000000-0000-0000-0000-000000000002' and status = 'open' and fee_paid_at is not null`) === 2);
+check("το τρίτο, που δεν στάλθηκε, κρατήθηκε ως αίτημα σε εξέλιξη",
+  sql(`select payload #>> '{filters,startDate}' from request_drafts where user_id = 'a0000000-0000-0000-0000-000000000002'`) === iso(daysFromToday(25)));
 
-step("5. Ακυρώνει το δεύτερο αίτημα όσο είναι ανοιχτό → επιστροφή");
+step("5. Ακυρώνει το δεύτερο αίτημα όσο είναι ανοιχτό → η δέσμευση φεύγει");
 await as(MARIA, async (page) => {
   page.on("dialog", (d) => d.accept());
   await go(page, "/platform/requests");
@@ -141,11 +166,11 @@ await as(MARIA, async (page) => {
   if (await confirmBtn.count()) await confirmBtn.last().click();
   await page.waitForTimeout(2000);
   const t5 = await text(page);
-  check("μήνυμα επιστροφής σε credits", t5.includes("Επιστράφηκε 1 credit"), t5.slice(0, 800));
+  check("μήνυμα ακύρωσης, χωρίς «επιστροφή»", t5.includes("Το αίτημα ακυρώθηκε") && !t5.includes("Επιστράφηκε"), t5.slice(0, 800));
 });
-check("επιστροφή 1 credit", wallet("Μαρία Πελάτη") === 1 && txns("Μαρία Πελάτη", "refund_credit") === 1);
+check("καμία κίνηση, υπόλοιπο 2", wallet("Μαρία Πελάτη") === 2 && txns("Μαρία Πελάτη", "refund_credit") === 0);
 
-step("6. Ο Νίκος χωρίς credits δεν αναλαμβάνει· με δώρο 1 credit αναλαμβάνει");
+step("6. Ο Νίκος χωρίς credits δεν αναλαμβάνει· με δώρο 1 credit αναλαμβάνει, και χρεώνεται και η πελάτισσα");
 await as(ADMIN, async (page) => {
   await correct(page, NIKOS, nikos0, "Δοκιμή credits: επαγγελματίας από το μηδέν");
 });
@@ -178,24 +203,31 @@ await as(NIKOS, async (page) => {
 });
 check("η κράτηση επιβεβαιώθηκε", num(`select count(*) from bookings where client_id = 'a0000000-0000-0000-0000-000000000002' and status = 'confirmed'`) === 1);
 check("ο Νίκος χρησιμοποίησε 1 credit", wallet("Νίκος Αρχικός") === 0 && txns("Νίκος Αρχικός", "claim_fee") === 1);
+check("η πελάτισσα χρεώθηκε τώρα, με την αποδοχή", wallet("Μαρία Πελάτη") === 1 && txns("Μαρία Πελάτη", "request_fee") === 1);
+await as(MARIA, async (page) => {
+  await go(page, "/platform/wallet");
+  check("ιστορικό πελάτισσας: «Credits για αίτημα» μία φορά", ((await text(page)).match(/Credits για αίτημα/g) || []).length === 1);
+});
 
-step("7. Αίτημα που λήγει χωρίς ανάληψη → επιστροφή");
+step("7. Αίτημα που λήγει χωρίς ανάληψη → η δέσμευση ελευθερώνεται, καμία κίνηση");
 await as(MARIA, async (page) => {
   await searchAndPick(page, daysFromToday(25), daysFromToday(27), 300);
-  await click(page, "Αποστολή αιτημάτων");
+  await click(page, "Ολοκλήρωση αιτήματος");
   await page.waitForTimeout(2500);
+  check("στάλθηκε", (await text(page)).includes("Το αίτημά σου στάλθηκε"));
 });
-check("χρησιμοποιήθηκε το τελευταίο credit", wallet("Μαρία Πελάτη") === 0);
+check("στην αποστολή καμία χρέωση", wallet("Μαρία Πελάτη") === 1);
 sql(`update booking_requests set expires_at = now() - interval '1 minute' where client_id = 'a0000000-0000-0000-0000-000000000002' and status = 'open'`);
 sql(`select expire_stale_booking_requests()`);
-check("έληξε και επιστράφηκε 1 credit", wallet("Μαρία Πελάτη") === 1 && txns("Μαρία Πελάτη", "refund_credit") === 2);
+check("έληξε χωρίς κίνηση", wallet("Μαρία Πελάτη") === 1 && txns("Μαρία Πελάτη", "refund_credit") === 0);
 await as(MARIA, async (page) => {
   await go(page, "/platform/requests");
-  check("η κατάσταση γράφει credits", (await text(page)).includes("Έληξε, τα credits επιστράφηκαν"));
+  const t7 = await text(page);
+  check("η κατάσταση γράφει «Έληξε» χωρίς επιστροφή", t7.includes("Έληξε") && !t7.includes("επιστράφηκαν"));
   await page.getByRole("button", { name: /^Ειδοποιήσεις/ }).first().click();
   await page.waitForTimeout(1500);
   const n7 = await text(page);
-  check("ειδοποίηση επιστροφής σε credits", n7.includes("επιστράφηκε 1 credit"), n7.slice(0, 800));
+  check("η ειδοποίηση λέει ότι ελευθερώθηκε 1 credit", n7.includes("ελευθερώθηκε 1 credit"), n7.slice(0, 800));
 });
 
 step("8. Μεταφορά σκάφους: τα credits τα υπολογίζει η πλατφόρμα");
@@ -251,7 +283,7 @@ const fees9 = txns("Μαρία Πελάτη", "request_fee");
 await as(MARIA, async (page) => {
   await searchAndPick(page, daysFromToday(33), daysFromToday(35), 250);
   check("το καλάθι γράφει χωρίς χρέωση", /Χωρίς χρέωση|0 credits/.test(await text(page)));
-  await click(page, "Αποστολή αιτημάτων");
+  await click(page, "Ολοκλήρωση αιτήματος");
   await page.waitForTimeout(2500);
   check("στάλθηκε", (await text(page)).includes("Το αίτημά σου στάλθηκε"));
 });
@@ -328,6 +360,7 @@ delete from delivery_role_pings where delivery_role_request_id in (select id fro
 delete from delivery_role_requests where created_at >= (select min(t0) from e2e_credits_start);
 delete from delivery_requests where created_at >= (select min(t0) from e2e_credits_start);
 delete from delivery_availability_windows where skipper_id = 'b0000000-0000-0000-0000-000000000004';
+delete from request_drafts;
 delete from wallet_transactions where user_id::text like 'c3000000%';
 delete from users where id::text like 'c3000000%';
 delete from auth.users where id::text like 'c3000000%';

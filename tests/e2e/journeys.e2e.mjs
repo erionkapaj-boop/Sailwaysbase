@@ -177,6 +177,7 @@ try {
   step("Ε. πελάτης 0 credits → αποστολή → αγορά → επιβεβαίωση → συνέχεια");
   setBalance("maria", 0);
   const maria = await login("maria", { width: 1280, height: 900 });
+  sql("delete from request_drafts");
   await go(maria, "/platform/search");
   await pickDay(maria, daysFromToday(36));
   await pickDay(maria, daysFromToday(38));
@@ -188,18 +189,19 @@ try {
   await maria.click("button[type=submit]");
   await maria.waitForTimeout(2500);
   await maria.locator("div").filter({ hasText: "260€" }).filter({ has: btn(maria, "Επιλογή") }).last().getByRole("button", { name: "Επιλογή", exact: true }).click();
-  await btn(maria, "Αποστολή αιτημάτων").click();
+  await btn(maria, "Ολοκλήρωση αιτήματος").click();
   await maria.waitForTimeout(1200);
-  check("Ε: παράθυρο αγοράς στον πελάτη", (await text(maria)).includes("Χρειάζεσαι 1 credit"));
+  check("Ε: παράθυρο αγοράς στον πελάτη", (await text(maria)).includes("Για την αποστολή χρειάζεται 1 credit"));
   await maria.getByRole("radio", { name: /Starter/ }).click();
   await btn(maria, "Αποστολή αιτήματος").click();
   await maria.waitForTimeout(1500);
   await ownerHandles(admin, lastRef("maria"), true);
   check("Ε: πιστώθηκαν", await waitFor(maria, "Τα credits πιστώθηκαν"));
-  await btn(maria, "Συνέχεια: Αποστολή αιτημάτων").click();
+  await maria.getByRole("dialog").getByRole("button", { name: "Ολοκλήρωση αιτήματος", exact: true }).click();
   await maria.waitForTimeout(3000);
-  check("Ε: οι επιλογές έμειναν και το αίτημα στάλθηκε", (await text(maria)).includes("Το αίτημά σου στάλθηκε"));
-  check("Ε: 2 credits − 1 = 1", bal("maria") === 1);
+  const sentE = await text(maria);
+  check("Ε: οι επιλογές έμειναν και το αίτημα στάλθηκε", sentE.includes("Το αίτημά σου στάλθηκε"));
+  check("Ε: 1 credit δεσμεύτηκε, χωρίς χρέωση ακόμα", sentE.includes("1 credit δεσμεύτηκε") && bal("maria") === 2);
   await maria.context().close();
 
   check("χωρίς σφάλματα σελίδας", errors.length === 0, errors.join(" | "));
