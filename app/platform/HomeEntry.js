@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { displayName } from "../../lib/platform/names";
 import { useAuth } from "./AuthContext";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
@@ -62,6 +63,7 @@ function AdminHomeBanner() {
 
 export default function HomeEntry() {
   const t = useTranslations("Home");
+  const locale = useLocale();
   const router = useRouter();
   const params = useSearchParams();
   const { session, userRow } = useAuth();
@@ -78,7 +80,7 @@ export default function HomeEntry() {
   // then immediately go back to null, flashing the banner away the instant
   // it appeared.
   const [welcome] = useState(() => params.get("welcome") === "1");
-  const firstName = userRow?.full_name?.trim().split(/\s+/)[0] || "";
+  const firstName = displayName(userRow, locale).trim().split(/\s+/)[0] || "";
   useEffect(() => {
     if (welcome) router.replace("/platform");
     // eslint-disable-next-line react-hooks/exhaustive-deps

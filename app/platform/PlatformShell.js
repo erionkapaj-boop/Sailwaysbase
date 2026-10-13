@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { displayName } from "../../lib/platform/names";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer, { AppFooter } from "./components/Footer";
 import Logo from "./components/Logo";
@@ -121,6 +122,7 @@ function NavBar() {
   const { session, userRow, profile, loading, signOut, role, isAdmin, isOwner, notifications, refreshNotifications } = useAuth();
   const t = useTranslations("Nav");
   const ts = useTranslations("Shell");
+  const headerLocale = useLocale();
   const pathname = usePathname();
   // Δεν διαβάζεται από το AdminCountsContext: αυτό το provider ζει μέσα στο
   // app/platform/admin/layout.js, πιο βαθιά στο δέντρο από εδώ (το μενού
@@ -142,7 +144,7 @@ function NavBar() {
     return (
       <>
         <AccountNavBar
-          name={profile?.full_name || userRow?.full_name || (isAdmin ? ts("adminName") : undefined)}
+          name={displayName(profile, headerLocale) || displayName(userRow, headerLocale) || (isAdmin ? ts("adminName") : undefined)}
           photoUrl={profile?.photo_url || userRow?.photo_url}
           loading={loading}
           items={menuItems}

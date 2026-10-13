@@ -15,6 +15,15 @@ const CLIENT = ["/platform", "/platform/search", "/platform/requests", "/platfor
 const PRO = ["/platform", "/platform/profile", "/platform/availability", "/platform/bookings", "/platform/wallet"];
 const ADMINP = ["/platform/admin", "/platform/admin/approvals", "/platform/admin/messages", "/platform/admin/disputes", "/platform/admin/replacements", "/platform/admin/offers", "/platform/admin/bookings", "/platform/admin/deliveries", "/platform/admin/users", "/platform/admin/finance", "/platform/admin/settings", "/platform/admin/health", "/platform/admin/ghost"];
 
+const wordsOf = (t) => (t.match(/[\u0370-\u03ff\u1f00-\u1fff]+/g) || []).map((w) => w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+// Όλες οι ελληνικές λέξεις που υπάρχουν ως δεδομένο στη βάση (πίνακες public).
+const DATA = new Set();
+for (const t of sql("select tablename from pg_tables where schemaname = 'public'").split("\n").filter(Boolean)) {
+  try {
+    for (const w of wordsOf(sql(`select coalesce(string_agg(row_to_json(x)::text, ' '), '') from ${t} x`))) DATA.add(w);
+  } catch {}
+}
+
 const slug = (p) => p.replace(/^\/platform\/?/, "").replace(/\//g, "-") || "home";
 
 async function sweep(page, who, paths) {
@@ -25,13 +34,23 @@ async function sweep(page, who, paths) {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(1200);
     const lang = await page.evaluate(() => document.documentElement.lang);
-    const lines = await page.evaluate(() => {
+    // Ό,τι φαίνεται στη σελίδα (όχι style/script/υποσέλιδο), ανά κομμάτι κειμένου.
+    const nodes = await page.evaluate(() => {
       const root = document.querySelector("div.platform-scope") || document.body;
-      const clone = root.cloneNode(true);
-      clone.querySelectorAll("footer, [data-legal], [lang=el], [data-user-text]").forEach((n) => n.remove());
-      return clone.innerText.split("\n").map((s) => s.trim()).filter(Boolean);
+      const out = [];
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const el = n.parentElement;
+        if (!el || el.closest("style, script, noscript, footer, [data-legal], [lang=el], [data-user-text]")) continue;
+        if (!el.getClientRects().length || getComputedStyle(el).visibility === "hidden") continue;
+        const t = n.nodeValue.trim();
+        if (t) out.push(t);
+      }
+      return out;
     });
-    const greek = lines.filter((l) => GREEK.test(l));
+    // Δεδομένα (ονόματα, τόποι, σημειώσεις στη βάση) δεν μεταφράζονται εδώ: ένα κομμάτι
+    // κειμένου με ελληνικά περνά μόνο αν όλες οι λέξεις του υπάρχουν ως δεδομένο στη βάση.
+    const greek = [...new Set(nodes.filter((l) => GREEK.test(l) && !wordsOf(l).every((w) => DATA.has(w))))];
     check(`${who} ${path}: αγγλικά, χωρίς ελληνικά γράμματα`, lang === "en" && greek.length === 0, `lang=${lang} · ${greek.slice(0, 8).join(" | ")}`);
     if (SHOTS) {
       for (const [w, h, tag] of [[390, 844, "m"], [1280, 900, "d"]]) {
@@ -55,7 +74,15 @@ await sweep(page, "guest", GUEST);
 await browser.close();
 
 try {
-  await as(MARIA, (p) => sweep(p, "client", CLIENT));
+  await as(MARIA, async (p) => {
+    await sweep(p, "client", CLIENT);
+    // Τα ονόματα στα αγγλικά φαίνονται με λατινικά γράμματα (full_name_latin της βάσης).
+    const latin = sql("select full_name_latin from users where id = 'a0000000-0000-0000-0000-000000000002'");
+    await p.goto(`${BASE}/platform`);
+    await p.waitForLoadState("networkidle");
+    await p.waitForTimeout(1200);
+    check(`το όνομα της πελάτισσας φαίνεται λατινικά («${latin}») και όχι ελληνικά`, (await p.innerText("body")).includes(latin.split(" ")[0]) && !(await p.locator("header").first().innerText()).includes("Μαρία"));
+  });
   await as(NIKOS, (p) => sweep(p, "pro", PRO));
   await as(ADMIN, (p) => sweep(p, "admin", ADMINP));
 } finally {
