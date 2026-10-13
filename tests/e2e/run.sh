@@ -21,7 +21,9 @@ mkdir -p "$OUT"
 export PGUSER="${PGUSER:-postgres}"
 DB="sf_e2e_$$"
 APP_PORT="${APP_PORT:-3100}"
-GATEWAY_PORT="${GATEWAY_PORT:-54391}"
+# Θύρες κάτω από το 32768: πάνω από αυτό ο πυρήνας δίνει τις προσωρινές θύρες των
+# εξερχόμενων συνδέσεων, και μια τυχαία σύνδεση μπορεί να πιάσει τη θύρα μας (EADDRINUSE).
+GATEWAY_PORT="${GATEWAY_PORT:-24391}"
 POSTGREST_PORT="${POSTGREST_PORT:-3391}"
 export JWT_SECRET="e2e-secret-e2e-secret-e2e-secret-0123456789"
 AUTH_PASSWORD="e2e-authenticator"
@@ -113,8 +115,8 @@ export PLATFORM_SUPABASE_SERVICE_ROLE_KEY=$(node -e "import('./tests/e2e/gateway
 # Email goes to tests/e2e/email.e2e.mjs's stand-in for Resend, never out.
 export PLATFORM_EMAIL_API_KEY="e2e"
 export PLATFORM_EMAIL_FROM="Sailways <noreply@example.com>"
-export PLATFORM_EMAIL_API_URL="http://127.0.0.1:${EMAIL_CAPTURE_PORT:-54392}/emails"
-export EMAIL_CAPTURE_PORT="${EMAIL_CAPTURE_PORT:-54392}"
+export PLATFORM_EMAIL_API_URL="http://127.0.0.1:${EMAIL_CAPTURE_PORT:-24392}/emails"
+export EMAIL_CAPTURE_PORT="${EMAIL_CAPTURE_PORT:-24392}"
 export CRON_SECRET="e2e-cron-secret"
 # Το κουμπί «Συνέχεια με Google» φαίνεται (η «Google» των τεστ είναι το gateway).
 export NEXT_PUBLIC_GOOGLE_LOGIN=1

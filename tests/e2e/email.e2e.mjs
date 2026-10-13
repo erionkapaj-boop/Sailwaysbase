@@ -16,7 +16,7 @@ const capture = http.createServer((req, res) => {
     res.end('{"id":"test"}');
   });
 });
-await new Promise((r) => capture.listen(Number(process.env.EMAIL_CAPTURE_PORT || 54392), r));
+await new Promise((r) => capture.listen(Number(process.env.EMAIL_CAPTURE_PORT || 24392), r));
 
 const maria = sql("select id from users where full_name = 'Μαρία Πελάτη'");
 const runQueue = (secret = process.env.CRON_SECRET) =>
