@@ -65,6 +65,8 @@ export async function as(phone, fn) {
   // which is how the <style> escaping bug on the search page was found.
   // Σφάλματα που ένα σενάριο ρίχνει επίτηδες ξεκινούν με "e2e:" και δεν μετράνε.
   page.on("pageerror", (e) => { if (!e.message.startsWith("e2e:")) errors.push(e.message); });
+  // Στον dev server το React γράφει στο console την ακριβή διαφορά server/client.
+  page.on("console", (m) => { if (/hydrat/i.test(m.text())) console.log(`   [${phone}] ${m.text().slice(0, 900)}`); });
   try {
     await page.goto(`${BASE}/platform/login`);
     await page.waitForLoadState("networkidle");

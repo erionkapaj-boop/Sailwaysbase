@@ -4,7 +4,7 @@
 // κείμενα (Όροι, Απόρρητο), που περιμένουν δικό τους αγγλικό κείμενο.
 // Με SWEEP_SHOTS=1 βγάζει και στιγμιότυπα 390px/1280px για τον έλεγχο σχεδίου.
 import { chromium } from "playwright";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { BASE, as, check, finish, OUT, sql } from "./lib.mjs";
 
 const GREEK = /[Ͱ-Ͽἀ-῿]/;
@@ -26,7 +26,8 @@ for (const t of sql("select tablename from pg_tables where schemaname = 'public'
 }
 
 // Ονόματα τόπων και χωρών που ζουν στον κώδικα (δεδομένα, όχι κείμενο οθόνης).
-for (const f of ["../../lib/platform/places.js", "../../lib/platform/countryCodes.js", "../../lib/platform/placeSearch.js"]) {
+const dataFiles = ["places.js", "countryCodes.js", "placeSearch.js", ...readdirSync(new URL("../../lib/platform/countries/", import.meta.url)).map((f) => `countries/${f}`)];
+for (const f of dataFiles.map((n) => `../../lib/platform/${n}`)) {
   try {
     for (const w of wordsOf(readFileSync(new URL(f, import.meta.url), "utf8"))) DATA.add(w);
   } catch {}
@@ -91,7 +92,7 @@ try {
     await p.goto(`${BASE}/platform`);
     await p.waitForLoadState("networkidle");
     await p.waitForTimeout(1200);
-    check(`το όνομα της πελάτισσας φαίνεται λατινικά («${latin}») και όχι ελληνικά`, (await p.innerText("body")).includes(latin.split(" ")[0]) && !(await p.locator("header").first().innerText()).includes("Μαρία"));
+    check(`το όνομα της πελάτισσας φαίνεται λατινικά («${latin}») και όχι ελληνικά`, (await p.innerText("body")).includes(latin.split(" ")[0]) && !(await p.innerText("body")).includes("Μαρία"));
   });
   await as(NIKOS, (p) => sweep(p, "pro", PRO));
   await as(ADMIN, (p) => sweep(p, "admin", ADMINP));
