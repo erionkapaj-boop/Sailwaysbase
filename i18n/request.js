@@ -1,6 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
 import { LOCALE_COOKIE, resolveLocale } from "../lib/platform/i18n";
+import { loadMessages } from "../lib/platform/loadMessages";
 
 // Οι γλώσσες, η προεπιλογή και ό,τι ανοίγει ανά domain ζουν στο
 // lib/platform/i18n.js (docs/I18N.md). Εδώ μόνο διαβάζονται το cookie και το
@@ -18,6 +19,6 @@ export default getRequestConfig(async () => {
 
   return {
     locale,
-    messages: (await import(`../messages/${locale}.json`)).default,
+    messages: await loadMessages(locale),
   };
 });

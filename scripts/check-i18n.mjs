@@ -25,6 +25,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_LOCALE, LANGUAGES, parseLocales } from "../lib/platform/i18n.js";
+import { PARTS } from "../messages/parts.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BASELINE_FILE = path.join(ROOT, "scripts/i18n-baseline.json");
@@ -114,10 +115,26 @@ function placeholders(message) {
 }
 
 function readMessages(locale) {
-  const file = path.join(ROOT, `messages/${locale}.json`);
-  if (!fs.existsSync(file)) return null;
-  return flatten(JSON.parse(fs.readFileSync(file, "utf8")));
+  const dir = path.join(ROOT, "messages", locale);
+  if (!fs.existsSync(dir)) return null;
+  const out = {};
+  const owner = {};
+  for (const part of PARTS) {
+    const file = path.join(dir, `${part}.json`);
+    if (!fs.existsSync(file)) {
+      partProblems.push(`messages/${locale}/${part}.json: λείπει.`);
+      continue;
+    }
+    const json = JSON.parse(fs.readFileSync(file, "utf8"));
+    for (const ns of Object.keys(json)) {
+      if (owner[ns]) partProblems.push(`messages/${locale}: το namespace «${ns}» υπάρχει και στο ${owner[ns]} και στο ${part}.`);
+      owner[ns] = part;
+    }
+    Object.assign(out, flatten(json));
+  }
+  return out;
 }
+const partProblems = [];
 
 const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 const problems = [];
@@ -125,10 +142,10 @@ const notes = [];
 
 // ── 1. Τάξη στα αρχεία μηνυμάτων ──────────────────────────────────────────
 const base = readMessages(DEFAULT_LOCALE);
-if (!base) problems.push(`Λείπει το messages/${DEFAULT_LOCALE}.json.`);
+if (!base) problems.push(`Λείπει ο φάκελος messages/${DEFAULT_LOCALE}.`);
 const completeness = {};
 for (const code of Object.keys(LANGUAGES)) {
-  const file = `messages/${code}.json`;
+  const file = `messages/${code}`;
   const msgs = readMessages(code);
   if (!msgs) {
     completeness[code] = { missing: Object.keys(base || {}), absent: true };
@@ -150,6 +167,8 @@ for (const code of Object.keys(LANGUAGES)) {
   // Ό,τι μπαίνει στα ελληνικά μπαίνει ταυτόχρονα και στις άλλες γλώσσες (CLAUDE.md).
   if (missing.length) problems.push(`${file}: λείπουν ${missing.length} μηνύματα που υπάρχουν στα ελληνικά (π.χ. ${missing.slice(0, 3).join(", ")}). Κάθε κείμενο γράφεται και στις δύο γλώσσες.`);
 }
+
+problems.push(...new Set(partProblems));
 
 // ── 2. Φράχτης: το ελληνικό κείμενο μέσα σε κώδικα μόνο μειώνεται ─────────
 const { greek, legacy } = scan();
@@ -181,7 +200,7 @@ const lowerGreek = ratchet(
   "γραμμές με ελληνικό κείμενο μέσα στον κώδικα",
   greek,
   baseline.greek || {},
-  "Βάλε το κείμενο στο messages/el.json (και en.json) και διάβασέ το με useTranslations."
+  "Βάλε το κείμενο στο messages/el/*.json (και en.json) και διάβασέ το με useTranslations."
 );
 const lowerLegacy = ratchet(
   "χρήσεις παλιάς συνάρτησης ημερομηνίας",
@@ -217,7 +236,7 @@ const toOpen = args.has("--report") ? Object.keys(LANGUAGES).filter((c) => c !==
 function incomplete(code) {
   const why = [];
   const c = completeness[code];
-  if (!c || c.absent) why.push(`δεν υπάρχει το messages/${code}.json`);
+  if (!c || c.absent) why.push(`δεν υπάρχει ο φάκελος messages/${code}`);
   else if (c.missing.length) why.push(`λείπουν ${c.missing.length} μηνύματα από τα ${Object.keys(base).length} (π.χ. ${c.missing.slice(0, 3).join(", ")})`);
   if (sum(greek)) why.push(`${sum(greek)} γραμμές κώδικα έχουν ακόμα ελληνικό κείμενο μέσα σε ${Object.keys(greek).length} αρχεία`);
   if (sum(legacy)) why.push(`${sum(legacy)} σημεία χρησιμοποιούν παλιές συναρτήσεις ημερομηνίας που δουλεύουν μόνο ελληνικά`);
