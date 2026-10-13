@@ -16,7 +16,8 @@ async function openMenuAndSignOut(page) {
 // 1. Κανονική αποσύνδεση από την κονσόλα διαχείρισης.
 await as(ADMIN, async (page) => {
   await go(page, "/platform/admin");
-  check("συνδεδεμένος διαχειριστής: φαίνεται η κονσόλα και το μενού", (await text(page)).includes("Καλησπέρα") && (await page.locator("aside.sf-sidenav").isVisible()));
+  // Ο χαιρετισμός εξαρτάται από την ώρα (greeting() στο admin/page.js): πρωί «Καλημέρα», αλλιώς «Καλησπέρα».
+  check("συνδεδεμένος διαχειριστής: φαίνεται η κονσόλα και το μενού", /Καλημέρα|Καλησπέρα/.test(await text(page)) && (await page.locator("aside.sf-sidenav").isVisible()));
   await openMenuAndSignOut(page);
   await page.waitForURL((u) => u.pathname === "/platform");
   await page.waitForLoadState("networkidle");
