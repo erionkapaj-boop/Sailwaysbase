@@ -68,7 +68,7 @@ export async function POST(req) {
 
   const { error: rpcErr } = await db.rpc("soft_delete_account", {
     p_user_id: caller.id,
-    p_notes: "Αυτοεξυπηρέτηση — ζήτησε ο ίδιος τη διαγραφή.",
+    p_notes: "\u0391\u03c5\u03c4\u03bf\u03b5\u03be\u03c5\u03c0\u03b7\u03c1\u03ad\u03c4\u03b7\u03c3\u03b7 — \u03b6\u03ae\u03c4\u03b7\u03c3\u03b5 \u03bf \u03af\u03b4\u03b9\u03bf\u03c2 \u03c4\u03b7 \u03b4\u03b9\u03b1\u03b3\u03c1\u03b1\u03c6\u03ae.",
   });
   if (rpcErr) return Response.json({ error: rpcErr.message }, { status: 400 });
 

@@ -49,7 +49,7 @@ export default function HealthWatch() {
       if (el.tagName === "A") {
         try {
           const url = new URL(el.href, window.location.href);
-          if (url.origin === window.location.origin) addStep(`σύνδεσμος ${clean(url.pathname)}`);
+          if (url.origin === window.location.origin) addStep(`\u03c3\u03cd\u03bd\u03b4\u03b5\u03c3\u03bc\u03bf\u03c2 ${clean(url.pathname)}`);
         } catch {
           // άκυρος σύνδεσμος: τίποτα
         }
@@ -57,7 +57,7 @@ export default function HealthWatch() {
       }
       const label = el.getAttribute("aria-label") || (el.tagName === "INPUT" ? el.closest("label")?.innerText : el.innerText) || "";
       const first = cleanStep(label.split("\n")[0], 40);
-      if (first) addStep(`πάτησε «${first}»`);
+      if (first) addStep(`\u03c0\u03ac\u03c4\u03b7\u03c3\u03b5 «${first}»`);
     }
     document.addEventListener("click", onClick, true);
 
@@ -70,7 +70,7 @@ export default function HealthWatch() {
         const times = JSON.parse(sessionStorage.getItem(key) || "[]").filter((t) => now - t < 120_000);
         times.push(now);
         if (times.length >= 4) {
-          reportAppIssue({ kind: "stuck", code: "reload_loop", detail: `${times.length} φορές σε 2 λεπτά` });
+          reportAppIssue({ kind: "stuck", code: "reload_loop", detail: `${times.length} \u03c6\u03bf\u03c1\u03ad\u03c2 \u03c3\u03b5 2 \u03bb\u03b5\u03c0\u03c4\u03ac` });
           sessionStorage.removeItem(key);
         } else {
           sessionStorage.setItem(key, JSON.stringify(times));
@@ -92,7 +92,7 @@ export default function HealthWatch() {
   // Κρατιέται και στο sessionStorage, ώστε να μετρά και με πλήρη φόρτωση σελίδας.
   useEffect(() => {
     if (!pathname) return;
-    addStep(`άνοιξε ${clean(pathname)}`);
+    addStep(`\u03ac\u03bd\u03bf\u03b9\u03be\u03b5 ${clean(pathname)}`);
     const now = Date.now();
     // Με τα ids: λίστα → κράτηση 1 → λίστα → κράτηση 2 είναι κανονική
     // περιήγηση, όχι πήγαινε-έλα. Τα ids φεύγουν μόνο στην αναφορά.

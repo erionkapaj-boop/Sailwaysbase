@@ -63,7 +63,7 @@ export async function POST(req) {
     admin_id: admin.id,
     action_type: "edit_contact",
     target_user_id: userId,
-    notes: `τηλέφωνο: «${target.phone_number}» → «${normalized}»`,
+    notes: `\u03c4\u03b7\u03bb\u03ad\u03c6\u03c9\u03bd\u03bf: «${target.phone_number}» → «${normalized}»`,
   });
 
   return Response.json({ ok: true, phone: normalized });

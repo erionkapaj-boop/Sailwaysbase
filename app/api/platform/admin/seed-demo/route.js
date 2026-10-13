@@ -16,13 +16,13 @@ const DEMO_PIN = "123456";
 const DEMO_USERS = [
   {
     phone: "+306980000004",
-    name: "Γιώργος Αντωνίου",
+    name: "\u0393\u03b9\u03ce\u03c1\u03b3\u03bf\u03c2 \u0391\u03bd\u03c4\u03c9\u03bd\u03af\u03bf\u03c5",
     email: "g.antoniou@example.com",
     role: "skipper",
     skipper: {
       price: 260,
       years: 12,
-      gender: "Άνδρας",
+      gender: "\u0386\u03bd\u03b4\u03c1\u03b1\u03c2",
       tier: "high",
       approval: "approved",
       rating: 4.8,
@@ -33,13 +33,13 @@ const DEMO_USERS = [
   },
   {
     phone: "+306980000005",
-    name: "Μαρία Δημητρίου",
+    name: "\u039c\u03b1\u03c1\u03af\u03b1 \u0394\u03b7\u03bc\u03b7\u03c4\u03c1\u03af\u03bf\u03c5",
     email: "m.dimitriou@example.com",
     role: "skipper",
     skipper: {
       price: 300,
       years: 8,
-      gender: "Γυναίκα",
+      gender: "\u0393\u03c5\u03bd\u03b1\u03af\u03ba\u03b1",
       tier: "high",
       approval: "approved",
       rating: 4.9,
@@ -50,13 +50,13 @@ const DEMO_USERS = [
   },
   {
     phone: "+306980000006",
-    name: "Νίκος Βασιλείου",
+    name: "\u039d\u03af\u03ba\u03bf\u03c2 \u0392\u03b1\u03c3\u03b9\u03bb\u03b5\u03af\u03bf\u03c5",
     email: "n.vasileiou@example.com",
     role: "skipper",
     skipper: {
       price: 230,
       years: 3,
-      gender: "Άνδρας",
+      gender: "\u0386\u03bd\u03b4\u03c1\u03b1\u03c2",
       tier: "medium",
       approval: "approved",
       rating: 4.2,
@@ -67,13 +67,13 @@ const DEMO_USERS = [
   },
   {
     phone: "+306980000007",
-    name: "Ελένη Παππά",
+    name: "\u0395\u03bb\u03ad\u03bd\u03b7 \u03a0\u03b1\u03c0\u03c0\u03ac",
     email: "e.pappa@example.com",
     role: "skipper",
     skipper: {
       price: 240,
       years: 6,
-      gender: "Γυναίκα",
+      gender: "\u0393\u03c5\u03bd\u03b1\u03af\u03ba\u03b1",
       tier: "medium",
       approval: "pending",
       rating: null,
@@ -84,13 +84,13 @@ const DEMO_USERS = [
   },
   {
     phone: "+306980000008",
-    name: "Κώστας Ιωάννου",
+    name: "\u039a\u03ce\u03c3\u03c4\u03b1\u03c2 \u0399\u03c9\u03ac\u03bd\u03bd\u03bf\u03c5",
     email: "k.ioannou@example.com",
     role: "skipper",
     skipper: {
       price: 220,
       years: 15,
-      gender: "Άνδρας",
+      gender: "\u0386\u03bd\u03b4\u03c1\u03b1\u03c2",
       tier: "low",
       approval: "approved",
       rating: 3.1,
@@ -101,14 +101,14 @@ const DEMO_USERS = [
   },
   {
     phone: "+306980000009",
-    name: "Άννα Καραγιάννη",
+    name: "\u0386\u03bd\u03bd\u03b1 \u039a\u03b1\u03c1\u03b1\u03b3\u03b9\u03ac\u03bd\u03bd\u03b7",
     email: "a.karagianni@example.com",
     role: "client",
     client: { completed: 3, flags: 0, rating: 4.7, ratingCount: 3 },
   },
   {
     phone: "+306980000010",
-    name: "Δημήτρης Σταύρου",
+    name: "\u0394\u03b7\u03bc\u03ae\u03c4\u03c1\u03b7\u03c2 \u03a3\u03c4\u03b1\u03cd\u03c1\u03bf\u03c5",
     email: "d.stavrou@example.com",
     role: "client",
     client: { completed: 1, flags: 2, rating: 3.4, ratingCount: 2 },
@@ -125,7 +125,7 @@ async function requireAdmin(req, db) {
   return row?.role === "admin" || row?.is_owner ? data.user : null;
 }
 
-const GENDER = { Άνδρας: "male", Γυναίκα: "female" };
+const GENDER = { "\u0386\u03bd\u03b4\u03c1\u03b1\u03c2": "male", "\u0393\u03c5\u03bd\u03b1\u03af\u03ba\u03b1": "female" };
 const iso = (d) => d.toISOString().slice(0, 10);
 
 // Every step reports its own failure: this used to swallow them, and after

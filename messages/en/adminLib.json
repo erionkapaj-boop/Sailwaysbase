@@ -1,1 +1,109 @@
-{}
+{
+  "AdminAudit": {
+    "walletTxn": {
+      "purchase": "Credits purchase",
+      "deposit": "Credits deposit",
+      "requestFee": "Credits for request",
+      "claimFee": "Credits for claim",
+      "refundCredit": "Credits refund",
+      "adjustment": "Credits adjustment",
+      "other": "Credits transaction"
+    },
+    "action": {
+      "approveSkipper": "Professional approved",
+      "rejectSkipper": "Professional rejected",
+      "resolveDispute": "Cancellation report closed",
+      "editBooking": "Booking changed",
+      "creditWallet": "Credits deposit",
+      "adjustWallet": "Credits adjustment",
+      "verifyUser": "Account verified",
+      "resetPin": "New temporary PIN",
+      "impersonateStart": "Logged in as user",
+      "impersonateEnd": "Returned from “Log in as”",
+      "editProfile": "Details edited",
+      "editContact": "Phone edited",
+      "clearPhoto": "Photo removed",
+      "approvePhoto": "Photo approved",
+      "resolveFlag": "Flag reviewed",
+      "staffAdminGrant": "Admin rights granted",
+      "staffAdminRevoke": "Admin rights revoked",
+      "testAccountOn": "Marked as test account",
+      "testAccountOff": "Test account mark removed"
+    },
+    "ban": {
+      "suspend": "Account suspended",
+      "unsuspend": "Suspension lifted",
+      "restore": "Account restored",
+      "delete": "Account deleted",
+      "other": "Account status changed"
+    },
+    "topic": {
+      "general": "General question",
+      "booking": "Booking / request",
+      "payment": "Charge / credits",
+      "report": "Report",
+      "privacy": "Personal data",
+      "other": "Other"
+    },
+    "accountCreated": {
+      "title": "Account created",
+      "asProfessional": "as professional",
+      "asClient": "as client"
+    },
+    "login": "Log in",
+    "loginFailed": {
+      "title": "Failed log-in attempt",
+      "body": "wrong PIN"
+    },
+    "requestSent": "Request for {role}",
+    "bookingConfirmed": {
+      "client": "Booking confirmed",
+      "pro": "Took a booking",
+      "withName": "with {name}",
+      "forName": "for {name}"
+    },
+    "bookingCancelled": {
+      "self": "Cancelled a booking",
+      "other": "Their booking was cancelled{by, select, client { by the client} professional { by the professional} other {}}"
+    },
+    "deliveryRequest": {
+      "title": "Boat delivery request",
+      "miles": "{miles} miles"
+    },
+    "deliveryConfirmed": {
+      "client": "Delivery confirmed",
+      "pro": "Took a delivery"
+    },
+    "deliveryCancelled": {
+      "title": "Delivery cancelled",
+      "byProfessional": "by the professional",
+      "byClient": "by the client"
+    },
+    "walletEur": "{amount}€ (before credits)",
+    "disputeReported": {
+      "self": "Reported a cancellation",
+      "other": "Reported against this user"
+    },
+    "contactMessage": {
+      "title": "Contact message",
+      "handled": "replied",
+      "pending": "pending"
+    },
+    "emailReset": {
+      "title": "Requested a reset code by email",
+      "used": "used",
+      "unused": "not used"
+    },
+    "adminFlag": {
+      "duplicateEmail": "Same email as another account",
+      "other": "Flagged for review",
+      "resolved": "reviewed",
+      "open": "needs review"
+    },
+    "phoneChanged": {
+      "title": "Phone changed",
+      "body": "new: {phone}"
+    },
+    "secondaryRole": "Additional role requested: {role}"
+  }
+}

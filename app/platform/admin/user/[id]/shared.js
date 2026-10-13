@@ -1,6 +1,7 @@
 "use client";
 import { colors, radius, muted, fontSans, badge } from "../../../../../lib/platform/theme";
-import { timeAgo, formatDateTime } from "../../../../../lib/platform/notifications";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../../../useFormat";
 import { describeAuditEvent } from "../../../../../lib/platform/adminAudit";
 import { cssImage } from "../../ui";
 
@@ -9,22 +10,22 @@ import { cssImage } from "../../ui";
 // `show(data)` κρύβει καρτέλες που δεν έχουν νόημα για αυτόν τον λογαριασμό
 // (π.χ. Διαθεσιμότητα για κάποιον χωρίς προφίλ επαγγελματία).
 export const TAB_DEFS = [
-  { key: "overview", label: "Επισκόπηση" },
-  { key: "profile", label: "Στοιχεία & πρόσβαση" },
+  { key: "overview" },
+  { key: "profile" },
   {
     key: "bookings",
-    label: "Κρατήσεις & αιτήματα",
     count: (d) =>
       (d.requests?.length || 0) + (d.bookings_client?.length || 0) + (d.bookings_pro?.length || 0) +
       (d.delivery_requests?.length || 0) + (d.delivery_bookings_client?.length || 0) + (d.delivery_bookings_pro?.length || 0),
   },
-  { key: "availability", label: "Διαθεσιμότητα", show: (d) => !!d.skipper_profile },
-  { key: "finance", label: "Οικονομικά" },
-  { key: "actions", label: "Ενέργειες" },
-  { key: "history", label: "Ιστορικό", count: (d) => d.timeline?.length || 0 },
+  { key: "availability", show: (d) => !!d.skipper_profile },
+  { key: "finance" },
+  { key: "actions" },
+  { key: "history", count: (d) => d.timeline?.length || 0 },
 ];
 
 export function TabBar({ tabs, active, onChange }) {
+  const t = useTranslations("AdminUser");
   return (
     <div
       style={{
@@ -36,13 +37,13 @@ export function TabBar({ tabs, active, onChange }) {
         WebkitOverflowScrolling: "touch",
       }}
     >
-      {tabs.map((t) => {
-        const isActive = t.key === active;
+      {tabs.map((tab) => {
+        const isActive = tab.key === active;
         return (
           <button
-            key={t.key}
+            key={tab.key}
             type="button"
-            onClick={() => onChange(t.key)}
+            onClick={() => onChange(tab.key)}
             style={{
               flexShrink: 0,
               display: "flex",
@@ -61,8 +62,8 @@ export function TabBar({ tabs, active, onChange }) {
               whiteSpace: "nowrap",
             }}
           >
-            {t.label}
-            {t.n > 0 && (
+            {t(`tabs.${tab.key}`)}
+            {tab.n > 0 && (
               <span
                 style={{
                   minWidth: 18,
@@ -78,7 +79,7 @@ export function TabBar({ tabs, active, onChange }) {
                   justifyContent: "center",
                 }}
               >
-                {t.n}
+                {tab.n}
               </span>
             )}
           </button>
@@ -108,6 +109,7 @@ const TONE_DOT = { success: colors.success, danger: colors.danger, warn: colors.
 // Μία γραμμή του ενιαίου ιστορικού — describeAuditEvent αποφασίζει το
 // κείμενο, εδώ μόνο η διάταξη (τελεία χρώματος, τίτλος, λεπτομέρεια, πότε).
 export function EventRow({ event }) {
+  const f = useFormat();
   const { title, body, tone } = describeAuditEvent(event);
   return (
     <div
@@ -127,8 +129,8 @@ export function EventRow({ event }) {
         <div style={{ fontSize: 13.5, color: colors.ink, fontWeight: 500 }}>{title}</div>
         {body && <div style={{ ...muted, fontSize: 12.5, marginTop: 2 }}>{body}</div>}
       </div>
-      <span style={{ ...muted, fontSize: 11.5, flexShrink: 0, whiteSpace: "nowrap" }} title={formatDateTime(event.at)}>
-        {timeAgo(event.at)}
+      <span style={{ ...muted, fontSize: 11.5, flexShrink: 0, whiteSpace: "nowrap" }} title={f.dateTime(event.at)}>
+        {f.timeAgo(event.at)}
       </span>
     </div>
   );
@@ -202,43 +204,15 @@ export function Hint({ children }) {
   return <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5, lineHeight: 1.5 }}>{children}</p>;
 }
 
-// Ένα κωδικοποιημένο σφάλμα (από RPC ή API route) -> ελληνικό κείμενο.
-// Ένα σημείο αλήθειας για όλες τις καρτέλες, αντί κάθε φόρμα να κρατά το
-// δικό της, μερικό αντίγραφο.
-export const ERROR_LABEL = {
-  not_admin: "Δεν έχεις δικαιώματα admin για αυτή την ενέργεια.",
-  not_authenticated: "Η σύνδεσή σου έληξε — μπες ξανά.",
-  not_found: "Δεν βρέθηκε ο λογαριασμός.",
-  user_not_found: "Δεν βρέθηκε ο λογαριασμός.",
-  has_pending_activity: "Έχει ανοιχτό αίτημα ή επιβεβαιωμένη κράτηση. Πρέπει να τακτοποιηθούν πρώτα.",
-  already_deleted: "Ο λογαριασμός έχει ήδη διαγραφεί.",
-  cannot_delete_admin: "Ο κύριος λογαριασμός διαχειριστή δεν διαγράφεται.",
-  cannot_delete_self: "Δεν μπορείς να διαγράψεις τον δικό σου λογαριασμό από εδώ.",
-  not_deleted: "Ο λογαριασμός δεν είναι διαγραμμένος.",
-  cannot_reset_admin: "Ο κωδικός λογαριασμού admin δεν επαναφέρεται από εδώ.",
-  cannot_remove_last_admin: "Δεν μπορείς να αφαιρέσεις τα δικαιώματα admin από τον μόνο admin που έχει απομείνει.",
-  cannot_suspend_admin: "Λογαριασμός admin δεν μπορεί να τεθεί σε αναστολή.",
-  already_suspended: "Ο λογαριασμός είναι ήδη σε αναστολή.",
-  reason_required: "Χρειάζεται λόγος για την αναστολή.",
-  not_suspended: "Ο λογαριασμός δεν είναι σε αναστολή.",
-  invalid_phone: "Το τηλέφωνο δεν είναι έγκυρο.",
-  phone_taken: "Το τηλέφωνο χρησιμοποιείται ήδη από άλλον λογαριασμό.",
-  cannot_edit_admin: "Τα στοιχεία λογαριασμού admin δεν αλλάζουν από εδώ.",
-  missing_fields: "Λείπουν στοιχεία.",
-  missing_user_id: "Λείπουν στοιχεία.",
-  name_required: "Χρειάζεται όνομα.",
-  invalid_price: "Γράψε μια τιμή μεγαλύτερη από 0.",
-  invalid_amount: "Το ποσό δεν είναι έγκυρο.",
-  invalid_role: "Μη έγκυρος λογαριασμός για πίστωση.",
-  no_photo: "Δεν υπάρχει φωτογραφία να αφαιρεθεί.",
-  license_taken: "Αυτός ο αριθμός διπλώματος ανήκει ήδη σε άλλον επαγγελματία.",
-  flag_not_found: "Η σημαία έχει ήδη εξεταστεί.",
-  not_configured: "Η υπηρεσία δεν είναι διαθέσιμη αυτή τη στιγμή.",
-};
-
-export function errorLabel(err) {
-  const code = err?.message || String(err);
-  return ERROR_LABEL[code] || code;
+// Ένα κωδικοποιημένο σφάλμα (από RPC ή API route) -> κείμενο στη γλώσσα της
+// σελίδας. Ένα σημείο αλήθειας για όλες τις καρτέλες· άγνωστος κωδικός
+// εμφανίζεται όπως είναι.
+export function useErrorLabel() {
+  const t = useTranslations("AdminUser");
+  return (err) => {
+    const code = err?.message || String(err);
+    return t.has(`errors.${code}`) ? t(`errors.${code}`) : code;
+  };
 }
 
 export { badge };

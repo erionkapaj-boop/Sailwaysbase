@@ -1,6 +1,8 @@
 "use client";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { Suspense, useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../../useFormat";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
@@ -9,7 +11,6 @@ import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, butt
 import { badge } from "../../../../lib/platform/theme";
 import { CREW_ROLES, labelForRole } from "../../../../lib/platform/roles";
 import { adminListAccounts, adminVerifyUser, adminReactivateAccount, adminRestoreAccount } from "../../../../lib/platform/db";
-import { timeAgo } from "../../../../lib/platform/notifications";
 import { useConfirm } from "../../components/ConfirmDialog";
 
 const control = {
@@ -42,33 +43,26 @@ const selectControl = {
 // Admins are one person today. Making them a third of the filter was giving a
 // third of the screen to a row you already know the contents of.
 const TABS = [
-  { key: "client", label: "Πελάτες", role: "client" },
-  { key: "pro", label: "Επαγγελματίες", role: "skipper" },
-  { key: "all", label: "Όλοι", role: null },
+  { key: "client", role: "client" },
+  { key: "pro", role: "skipper" },
+  { key: "all", role: null },
   // Ξεχωριστό κουτί, όχι ανακατεμένο με τους ενεργούς (βρέθηκε πραγματικό
   // bug: admin_list_accounts δεν φιλτράριζε καθόλου status, οπότε ένας
   // διαγραμμένος λογαριασμός έμενε ορατός στη λίστα "Πελάτες" σαν να ήταν
   // ενεργός). Ο ίδιος λογαριασμός θα ξαναφανεί εδώ αυτόματα αν διαγραφεί —
   // δεν χρειάζεται δικό του state, μόνο ξεχωριστό φίλτρο.
-  { key: "deleted", label: "Διαγραμμένοι", role: null, deletedOnly: true },
+  { key: "deleted", role: null, deletedOnly: true },
   // 0075: εγγραφές χωρίς SMS OTP (δεν είναι ακόμα ενεργό) — περιμένουν το
   // «Επαλήθευση» παρακάτω πριν μπορέσουν να κάνουν οτιδήποτε (VerificationGate
   // στο PlatformShell.js).
-  { key: "pending", label: "Αναμονή επαλήθευσης", role: null, pendingVerificationOnly: true },
+  { key: "pending", role: null, pendingVerificationOnly: true },
   // 0078: επ' αόριστο σταματημένοι — σκόπιμα ξεχωριστό κουτί από τους
   // "Διαγραμμένοι", ώστε ο admin να μην ξεχνάει ότι υπάρχουν και να μπορεί
   // να τους επαναφέρει με ένα κλικ.
-  { key: "suspended", label: "Σε αναστολή", role: null, suspendedOnly: true },
+  { key: "suspended", role: null, suspendedOnly: true },
 ];
 
-const SORTS = [
-  ["recent", "Νεότερη εγγραφή"],
-  ["active", "Πιο πρόσφατα ενεργοί"],
-  ["name", "Όνομα (Α–Ω)"],
-  ["rating", "Βαθμολογία"],
-  ["bookings", "Ολοκληρωμένες κρατήσεις"],
-  ["age", "Ηλικία (μεγαλύτεροι πρώτα)"],
-];
+const SORTS = ["recent", "active", "name", "rating", "bookings", "age"];
 
 function ageFrom(dob) {
   if (!dob) return null;
@@ -78,6 +72,9 @@ function ageFrom(dob) {
 }
 
 function UsersInner() {
+  const t = useTranslations("AdminUsers");
+  const f = useFormat();
+  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
   const refreshCounts = useRefreshAdminCounts();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -162,7 +159,7 @@ function UsersInner() {
   }
 
   async function handleRestore(u) {
-    if (!(await confirm(`${u.full_name || u.phone_number}: επαναφορά λογαριασμού; Θα μπορεί ξανά να συνδέεται και θα ειδοποιηθεί.`, { tone: "primary" })))
+    if (!(await confirm(t("restoreConfirm", { name: personName(u) || u.phone_number }), { tone: "primary" })))
       return;
     setBusy(true);
     setError("");
@@ -191,8 +188,8 @@ function UsersInner() {
 
   return (
     <AdminShell
-      title="Χρήστες"
-      subtitle="Όλοι οι λογαριασμοί. «Στοιχεία»: ό,τι αφορά τον χρήστη (επαλήθευση, κωδικός, αναστολή). «Προβολή ως»: βλέπεις την εφαρμογή όπως τη βλέπει, μόνο για ανάγνωση."
+      title={t("title")}
+      subtitle={t("subtitle")}
       counts={counts}
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
@@ -211,32 +208,32 @@ function UsersInner() {
           }}
         >
           <span style={{ fontSize: 13 }}>
-            Φίλτρο: εγκεκριμένοι που δεν εμφανίζονται σε καμία αναζήτηση (λείπει διαθεσιμότητα ή τύπος σκάφους).
+            {t("filterInvisible")}
           </span>
           <Link href="/platform/admin/users" style={{ textDecoration: "none", flexShrink: 0 }}>
-            <span style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}>Καθαρισμός</span>
+            <span style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}>{t("clear")}</span>
           </Link>
         </div>
       )}
 
-      <Panel title={`${TABS.find((t) => t.key === tab)?.label} (${list.length})`} padded={false}>
+      <Panel title={`${t(`tabs.${tab}`)} (${list.length})`} padded={false}>
         <Toolbar>
-          {TABS.map((t) => (
+          {TABS.map((tb) => (
             <button
-              key={t.key}
-              disabled={invisibleOnly && t.key !== "pro"}
+              key={tb.key}
+              disabled={invisibleOnly && tb.key !== "pro"}
               onClick={() => {
-                setTab(t.key);
-                if (t.key !== "pro") setCrewRole("");
+                setTab(tb.key);
+                if (tb.key !== "pro") setCrewRole("");
               }}
               style={{
-                ...button(tab === t.key ? "primary" : "secondary"),
+                ...button(tab === tb.key ? "primary" : "secondary"),
                 padding: "6px 13px",
                 fontSize: 13,
-                opacity: invisibleOnly && t.key !== "pro" ? 0.4 : 1,
+                opacity: invisibleOnly && tb.key !== "pro" ? 0.4 : 1,
               }}
             >
-              {t.label}
+              {t(`tabs.${tb.key}`)}
             </button>
           ))}
         </Toolbar>
@@ -246,7 +243,7 @@ function UsersInner() {
               where it means something. */}
           {tab === "pro" && (
             <select style={{ ...selectControl, flex: "1 1 150px" }} value={crewRole} onChange={(e) => setCrewRole(e.target.value)}>
-              <option value="">Όλες οι ιδιότητες</option>
+              <option value="">{t("allRoles")}</option>
               {CREW_ROLES.map((r) => (
                 <option key={r.key} value={r.key}>
                   {r.label}
@@ -255,9 +252,9 @@ function UsersInner() {
             </select>
           )}
           <select style={{ ...selectControl, flex: "1 1 190px" }} value={sort} onChange={(e) => setSort(e.target.value)}>
-            {SORTS.map(([k, label]) => (
+            {SORTS.map((k) => (
               <option key={k} value={k}>
-                {label}
+                {t(`sorts.${k}`)}
               </option>
             ))}
           </select>
@@ -270,31 +267,31 @@ function UsersInner() {
           >
             <input
               style={{ ...control, flex: 1, minWidth: 0 }}
-              placeholder="Τηλέφωνο, όνομα ή email"
+              placeholder={t("searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <button type="submit" style={{ ...button("secondary"), padding: "6px 12px", fontSize: 13 }}>
-              Αναζήτηση
+              {t("search")}
             </button>
           </form>
         </Toolbar>
 
-        {busy && <Empty>Φόρτωση…</Empty>}
-        {!busy && list.length === 0 && <Empty>Κανένας λογαριασμός δεν ταιριάζει.</Empty>}
+        {busy && <Empty>{t("loading")}</Empty>}
+        {!busy && list.length === 0 && <Empty>{t("empty")}</Empty>}
 
         {list.map((u) => {
           const age = ageFrom(u.date_of_birth);
           return (
             <Row key={u.id}>
               <RowMain
-                title={u.full_name || "(χωρίς όνομα)"}
+                title={personName(u) || t("noName")}
                 photoUrl={u.photo_url}
                 meta={
                   <>
                     <span style={money}>{u.phone_number}</span>
                     {u.crew_role && ` · ${labelForRole(u.crew_role)}`}
-                    {age != null && ` · ${age} ετών`}
+                    {age != null && ` · ${t("yearsOld", { age })}`}
                     {u.rating_count > 0 && (
                       <>
                         {" · "}
@@ -305,22 +302,22 @@ function UsersInner() {
                     {u.completed_bookings_count > 0 && (
                       <>
                         {" · "}
-                        <span style={money}>{u.completed_bookings_count}</span> κρατήσεις
+                        {t.rich("bookingsCount", { count: u.completed_bookings_count, n: (c) => <span style={money}>{c}</span> })}
                       </>
                     )}
                     <br />
                     {/* The one thing the old list couldn't answer: is this
                         account alive? It decides who you'd hand work to. */}
                     <span style={{ color: u.last_seen_at ? colors.inkSoft : colors.warn }}>
-                      {u.last_seen_at ? `Τελευταία φορά μέσα ${timeAgo(u.last_seen_at)}` : "Δεν έχει μπει ποτέ"}
+                      {u.last_seen_at ? t("lastSeen", { ago: f.timeAgo(u.last_seen_at) }) : t("neverSeen")}
                     </span>
                     {/* Ο λόγος αναστολής φαίνεται εδώ κατευθείαν — αυτό
-                        ζητήθηκε ρητά: να μη χρειάζεται ο admin να ανοίξει το
-                        Στοιχεία για να θυμηθεί γιατί τον σταμάτησε. */}
+                        * ζητήθηκε ρητά: να μη χρειάζεται ο admin να ανοίξει το
+                        * Στοιχεία για να θυμηθεί γιατί τον σταμάτησε. */}
                     {u.status === "suspended" && u.suspension_reason && (
                       <>
                         <br />
-                        <span style={{ color: colors.warn }}>Αναστολή: {u.suspension_reason}</span>
+                        <span style={{ color: colors.warn }}>{t("suspension", { reason: u.suspension_reason })}</span>
                       </>
                     )}
                   </>
@@ -349,7 +346,7 @@ function UsersInner() {
                 {u.approval_status && u.approval_status !== "approved" && <Status value={u.approval_status} />}
                 {u.status !== "active" && <Status value={u.status} />}
                 {!u.phone_verified_at && u.role !== "admin" && u.status !== "deleted" && (
-                  <span style={badge("warn")}>Περιμένει επαλήθευση</span>
+                  <span style={badge("warn")}>{t("awaitingVerification")}</span>
                 )}
                 {u.status === "deleted" && (
                   <button
@@ -357,46 +354,46 @@ function UsersInner() {
                     disabled={busy}
                     onClick={() => handleRestore(u)}
                   >
-                    Επαναφορά
+                    {t("restore")}
                   </button>
                 )}
                 {/* 0075: εγγραφή χωρίς SMS OTP (ή χωρίς επαλήθευση admin
-                    ακόμα) — VerificationGate στο PlatformShell.js τον
-                    μπλοκάρει παντού μέχρι να πατηθεί αυτό. */}
+                    * ακόμα) — VerificationGate στο PlatformShell.js τον
+                    * μπλοκάρει παντού μέχρι να πατηθεί αυτό. */}
                 {!u.phone_verified_at && u.role !== "admin" && u.status !== "deleted" && (
                   <button
                     style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
                     disabled={busy}
                     onClick={() => handleVerify(u)}
                   >
-                    Επαλήθευση
+                    {t("verify")}
                   </button>
                 )}
                 {/* Η "Προβολή ως" δεν βγάζει νόημα πάνω σε
-                    έναν κρυμμένο/σταματημένο λογαριασμό — η σύνδεση θα
-                    μπλοκαριστεί ούτως ή άλλως (signInWithPin αρνείται
+                    * έναν κρυμμένο/σταματημένο λογαριασμό — η σύνδεση θα
+                    * μπλοκαριστεί ούτως ή άλλως (signInWithPin αρνείται
                     status='deleted'/'suspended'). */}
                 {u.role !== "admin" && u.status !== "deleted" && u.status !== "suspended" && (
                   <button
                     style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}
                     onClick={() => enterViewAs(u)}
                   >
-                    Προβολή ως
+                    {t("viewAs")}
                   </button>
                 )}
                 {/* 0078: επαναφορά με ένα κλικ, χωρίς λόγο (μόνο η αναστολή
-                    χρειάζεται λόγο) — ίδιο μοτίβο με το «Επαλήθευση». */}
+                    * χρειάζεται λόγο) — ίδιο μοτίβο με το «Επαλήθευση». */}
                 {u.status === "suspended" && (
                   <button
                     style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
                     disabled={busy}
                     onClick={() => handleReactivate(u)}
                   >
-                    Επαναφορά
+                    {t("restore")}
                   </button>
                 )}
                 <Link href={`/platform/admin/user/${u.id}`} style={{ textDecoration: "none" }}>
-                  <span style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}>Στοιχεία</span>
+                  <span style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}>{t("details")}</span>
                 </Link>
               </span>
             </Row>
@@ -405,9 +402,9 @@ function UsersInner() {
       </Panel>
 
       {/* Το "Δοκιμαστικά δεδομένα" (δημιουργία ψεύτικων λογαριασμών) μετακόμισε
-          στο Ghost Mode — είναι εργαλείο δοκιμών, όχι διαχείριση πραγματικών
-          χρηστών, και τώρα που υπάρχει δικό του hub γι' αυτό δεν έχει λόγο
-          να ζει κολλημένο κάτω από αυτή τη λίστα. */}
+          * στο Ghost Mode — είναι εργαλείο δοκιμών, όχι διαχείριση πραγματικών
+          * χρηστών, και τώρα που υπάρχει δικό του hub γι' αυτό δεν έχει λόγο
+          * να ζει κολλημένο κάτω από αυτή τη λίστα. */}
       {confirmDialog}
     </AdminShell>
   );

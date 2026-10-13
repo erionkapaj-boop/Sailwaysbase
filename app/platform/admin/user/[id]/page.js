@@ -1,16 +1,17 @@
 "use client";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../../../useFormat";
 import AdminShell from "../../AdminShell";
 import { useAuth } from "../../../AuthContext";
 import BackButton from "../../../components/BackButton";
 import { useConfirm } from "../../../components/ConfirmDialog";
 import { adminAccountDetail, adminVerifyUser, adminResetPin } from "../../../../../lib/platform/db";
 import { labelForRole } from "../../../../../lib/platform/roles";
-import { formatDateTime, timeAgo } from "../../../../../lib/platform/notifications";
 import { Status, colors, muted, button, money } from "../../ui";
 import { badge } from "../../../../../lib/platform/theme";
-import { TAB_DEFS, TabBar, Avatar, errorLabel } from "./shared";
+import { TAB_DEFS, TabBar, Avatar, useErrorLabel } from "./shared";
 import OverviewTab from "./OverviewTab";
 import ProfileTab from "./ProfileTab";
 import BookingsTab from "./BookingsTab";
@@ -32,6 +33,7 @@ const TAB_COMPONENTS = {
 // Ό,τι χρειάζεται προσοχή, σε μία στοίβα ψηλά στη σελίδα — αυτό απαντά αμέσως
 // στο "υπάρχει πρόβλημα;" χωρίς να χρειάζεται ο admin να ψάξει καρτέλα-καρτέλα.
 function IssueRow({ tone, text, onFix, fixLabel, onView }) {
+  const t = useTranslations("AdminUser");
   const toneColor = tone === "danger" ? colors.danger : colors.warn;
   return (
     <div
@@ -56,7 +58,7 @@ function IssueRow({ tone, text, onFix, fixLabel, onView }) {
         )}
         {onView && (
           <button type="button" style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }} onClick={onView}>
-            Δες
+            {t("view")}
           </button>
         )}
       </span>
@@ -65,6 +67,10 @@ function IssueRow({ tone, text, onFix, fixLabel, onView }) {
 }
 
 function AdminUserInner() {
+  const t = useTranslations("AdminUser");
+  const f = useFormat();
+  const errorLabel = useErrorLabel();
+  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -76,7 +82,7 @@ function AdminUserInner() {
   const [error, setError] = useState("");
 
   const tabParam = searchParams.get("tab");
-  const [tab, setTab] = useState(TAB_DEFS.some((t) => t.key === tabParam) ? tabParam : "overview");
+  const [tab, setTab] = useState(TAB_DEFS.some((x) => x.key === tabParam) ? tabParam : "overview");
 
   const [quickBusy, setQuickBusy] = useState(false);
   const [quickError, setQuickError] = useState("");
@@ -120,12 +126,12 @@ function AdminUserInner() {
   }
 
   async function handleResetPin() {
-    const name = target.full_name || target.phone_number;
+    const name = personName(target) || target.phone_number;
     if (
-      !(await confirm(
-        `${name}: προσωρινός κωδικός;\n\nΜόνο αν σου το ζήτησε ο ίδιος επειδή ξέχασε τον κωδικό του. Ο παλιός κωδικός σταματά να δουλεύει, και στην επόμενη είσοδο θα του ζητηθεί να ορίσει δικό του.`,
-        { tone: "primary", confirmLabel: "Δημιουργία προσωρινού" }
-      ))
+      !(await confirm(t("resetPinConfirm", { name }), {
+        tone: "primary",
+        confirmLabel: t("resetPinConfirmLabel"),
+      }))
     )
       return;
     setQuickBusy(true);
@@ -142,54 +148,54 @@ function AdminUserInner() {
     }
   }
 
-  if (loading) return <div style={{ padding: 32, ...muted }}>Φόρτωση…</div>;
-  if (!session) return <div style={{ padding: 32 }}>Χρειάζεται σύνδεση.</div>;
+  if (loading) return <div style={{ padding: 32, ...muted }}>{t("loading")}</div>;
+  if (!session) return <div style={{ padding: 32 }}>{t("loginRequired")}</div>;
   if (userRow?.role !== "admin" && !userRow?.is_staff_admin && !userRow?.is_owner)
-    return <div style={{ padding: 32 }}>Πρόσβαση μόνο για admin.</div>;
+    return <div style={{ padding: 32 }}>{t("adminOnly")}</div>;
 
   const target = data?.user;
 
   const problems = [];
   if (target) {
     if (!target.phone_verified_at && target.role !== "admin" && target.status !== "deleted")
-      problems.push({ tone: "warn", text: "Περιμένει επαλήθευση λογαριασμού.", onFix: handleQuickVerify, fixLabel: "Επαλήθευση" });
+      problems.push({ tone: "warn", text: t("problems.unverified"), onFix: handleQuickVerify, fixLabel: t("problems.verifyFix") });
     if (data.skipper_profile?.approval_status === "pending")
-      problems.push({ tone: "warn", text: "Το προφίλ επαγγελματία περιμένει έγκριση.", view: "actions" });
+      problems.push({ tone: "warn", text: t("problems.proPending"), view: "actions" });
     if (data.skipper_profile?.approval_status === "rejected")
-      problems.push({ tone: "warn", text: "Το προφίλ επαγγελματία έχει απορριφθεί.", view: "actions" });
+      problems.push({ tone: "warn", text: t("problems.proRejected"), view: "actions" });
     if (target.status === "suspended")
-      problems.push({ tone: "danger", text: `Σε αναστολή${target.suspension_reason ? `: ${target.suspension_reason}` : "."}`, view: "actions" });
+      problems.push({ tone: "danger", text: target.suspension_reason ? t("problems.suspendedReason", { reason: target.suspension_reason }) : t("problems.suspended"), view: "actions" });
     if (target.status === "deleted")
-      problems.push({ tone: "danger", text: `Διαγραμμένος λογαριασμός${target.deletion_reason ? `: ${target.deletion_reason}` : "."}`, view: "actions" });
+      problems.push({ tone: "danger", text: target.deletion_reason ? t("problems.deletedReason", { reason: target.deletion_reason }) : t("problems.deleted"), view: "actions" });
     const openDisputes = (data.disputes || []).filter((d) => !d.resolved_at).length;
     if (openDisputes > 0)
-      problems.push({ tone: "warn", text: `${openDisputes === 1 ? "1 ανοιχτή αναφορά ακύρωσης" : `${openDisputes} ανοιχτές αναφορές ακύρωσης`}.`, view: "finance" });
+      problems.push({ tone: "warn", text: t("problems.disputes", { count: openDisputes }), view: "finance" });
     const openFlags = (data.flags || []).filter((f) => !f.resolved_at).length;
     if (openFlags > 0)
-      problems.push({ tone: "warn", text: `${openFlags === 1 ? "1 σημαία" : `${openFlags} σημαίες`} χρειάζεται έλεγχο.`, view: "overview" });
+      problems.push({ tone: "warn", text: t("problems.flags", { count: openFlags }), view: "overview" });
     if (target.photo_url && !target.photo_reviewed_at && target.status !== "deleted")
-      problems.push({ tone: "warn", text: "Νέα φωτογραφία περιμένει έλεγχο.", view: "profile" });
+      problems.push({ tone: "warn", text: t("problems.photo"), view: "profile" });
     const newMsgs = (data.contact_messages || []).filter((m) => m.status === "new").length;
     if (newMsgs > 0)
-      problems.push({ tone: "warn", text: `${newMsgs === 1 ? "1 μήνυμα επικοινωνίας" : `${newMsgs} μηνύματα επικοινωνίας`} χωρίς απάντηση.`, view: "overview" });
+      problems.push({ tone: "warn", text: t("problems.messages", { count: newMsgs }), view: "overview" });
   }
 
   const canViewAs = target && target.role !== "admin" && target.status !== "deleted" && target.status !== "suspended";
   const canResetPin = target && target.role !== "admin" && target.status !== "deleted";
 
   const tabs = data
-    ? TAB_DEFS.filter((t) => !t.show || t.show(data)).map((t) => ({ ...t, n: t.count ? t.count(data) : 0 }))
+    ? TAB_DEFS.filter((d) => !d.show || d.show(data)).map((d) => ({ ...d, n: d.count ? d.count(data) : 0 }))
     : [];
   // Ένας παλιός σύνδεσμος ?tab=availability πάνω σε λογαριασμό πελάτη (χωρίς
   // προφίλ επαγγελματία) δεν πρέπει να δείχνει μια καρτέλα που δεν φαίνεται
   // καν στη μπάρα — πέφτει πίσω στην Επισκόπηση.
-  const activeTab = tabs.some((t) => t.key === tab) ? tab : "overview";
+  const activeTab = tabs.some((x) => x.key === tab) ? tab : "overview";
   const ActiveTab = TAB_COMPONENTS[activeTab] || OverviewTab;
 
   return (
     <AdminShell
-      title={target ? target.full_name || "(χωρίς όνομα)" : busy ? "Φόρτωση…" : "Λογαριασμός"}
-      avatar={target && <Avatar url={target.photo_url} name={target.full_name} size={44} />}
+      title={target ? personName(target) || t("noName") : busy ? t("loading") : t("account")}
+      avatar={target && <Avatar url={target.photo_url} name={personName(target)} size={44} />}
       actions={<BackButton href="/platform/admin/users" />}
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
@@ -200,13 +206,13 @@ function AdminUserInner() {
             <Status value={target.role === "skipper" ? "skipper" : target.role} />
             {data.skipper_profile?.role && <span style={badge("neutral")}>{labelForRole(data.skipper_profile.role)}</span>}
             {target.status !== "active" && <Status value={target.status} />}
-            {!target.phone_verified_at && target.role !== "admin" && <span style={badge("warn")}>Μη επαληθευμένος</span>}
-            {target.pin_change_required && <span style={badge("warn")}>Προσωρινός κωδικός — δεν έχει οριστεί δικός του</span>}
-            {target.is_test_account && <span style={badge("neutral")}>Δοκιμαστικός</span>}
+            {!target.phone_verified_at && target.role !== "admin" && <span style={badge("warn")}>{t("badges.unverified")}</span>}
+            {target.pin_change_required && <span style={badge("warn")}>{t("badges.tempPin")}</span>}
+            {target.is_test_account && <span style={badge("neutral")}>{t("badges.test")}</span>}
             {target.role === "admin" || target.is_owner ? (
-              <span style={badge("brand")}>Ιδιοκτήτης</span>
+              <span style={badge("brand")}>{t("badges.owner")}</span>
             ) : (
-              target.is_staff_admin && <span style={badge("brand")}>Υπάλληλος</span>
+              target.is_staff_admin && <span style={badge("brand")}>{t("badges.staff")}</span>
             )}
           </div>
           <p style={{ ...muted, margin: "0 0 4px" }}>
@@ -214,9 +220,9 @@ function AdminUserInner() {
             {target.email ? ` · ${target.email}` : ""}
           </p>
           <p style={{ ...muted, fontSize: 12.5, margin: "0 0 16px" }}>
-            Εγγραφή {formatDateTime(target.created_at)}
+            {t("signedUp", { date: f.dateTime(target.created_at) })}
             {" · "}
-            {target.last_seen_at ? `τελευταία φορά μέσα ${timeAgo(target.last_seen_at)}` : "δεν έχει μπει ποτέ"}
+            {target.last_seen_at ? t("lastSeen", { ago: f.timeAgo(target.last_seen_at) }) : t("neverSeen")}
           </p>
 
           {problems.length > 0 && (
@@ -240,25 +246,24 @@ function AdminUserInner() {
                       router.push("/platform/requests");
                     }}
                   >
-                    Προβολή ως
+                    {t("viewAs")}
                   </button>
                 )}
                 {canResetPin && (
                   <button style={button("secondary")} disabled={quickBusy} onClick={handleResetPin}>
-                    Προσωρινός κωδικός
+                    {t("tempPinButton")}
                   </button>
                 )}
               </div>
 
               {tempPin && (
                 <div style={{ marginTop: 10, padding: "12px 14px", background: "#EAF2EE", borderRadius: 10, fontSize: 13.5 }}>
-                  Προσωρινός κωδικός: <b style={{ ...money, fontSize: 20, letterSpacing: "0.08em" }}>{tempPin}</b>
+                  {t("tempPinIs")} <b style={{ ...money, fontSize: 20, letterSpacing: "0.08em" }}>{tempPin}</b>
                   <p style={{ margin: "8px 0 10px", lineHeight: 1.5 }}>
-                    Πες τον στον χρήστη τηλεφωνικά (<span style={money}>{target.phone_number}</span>). Με την πρώτη
-                    είσοδο η εφαρμογή θα του ζητήσει να ορίσει δικό του κωδικό. Δεν θα ξαναεμφανιστεί εδώ.
+                    {t.rich("tempPinNote", { number: target.phone_number, phone: (c) => <span style={money}>{c}</span> })}
                   </p>
                   <button type="button" style={{ ...button("secondary"), padding: "5px 12px", fontSize: 12.5 }} onClick={() => setTempPin(null)}>
-                    Το σημείωσα
+                    {t("tempPinDone")}
                   </button>
                 </div>
               )}
@@ -270,9 +275,9 @@ function AdminUserInner() {
         </>
       )}
 
-      {busy && !target && <p style={muted}>Φόρτωση…</p>}
+      {busy && !target && <p style={muted}>{t("loading")}</p>}
       {/* admin_account_detail επιστρέφει null (όχι σφάλμα) για id που δεν υπάρχει. */}
-      {!busy && !error && !target && <p style={muted}>Δεν βρέθηκε ο λογαριασμός.</p>}
+      {!busy && !error && !target && <p style={muted}>{t("notFound")}</p>}
       {confirmDialog}
     </AdminShell>
   );

@@ -1,5 +1,7 @@
 "use client";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { tNow } from "../../../lib/platform/tNow";
 import { colors, radius, muted, money, fontSans, badge, button } from "../../../lib/platform/theme";
 
 // Building blocks for the console.
@@ -282,57 +284,65 @@ export const STATUS_TONE = {
   missed: "neutral",
 };
 
-export const STATUS_LABEL = {
-  confirmed: "Επιβεβαιωμένη",
-  completed: "Ολοκληρώθηκε",
-  cancelled_by_client: "Ακύρωση πελάτη",
-  cancelled_by_skipper: "Ακύρωση επαγγελματία",
-  open: "Ανοιχτό",
-  matched: "Βρέθηκε",
-  expired_unclaimed: "Έληξε άκαρπο",
-  cancelled: "Ακυρώθηκε",
-  pending: "Σε αναμονή",
-  approved: "Εγκεκριμένο",
-  rejected: "Απορρίφθηκε",
-  active: "Ενεργός",
-  draft: "Ημιτελής",
-  suspended: "Σε αναστολή",
-  client: "Πελάτης",
-  skipper: "Επαγγελματίας",
-  admin: "Admin",
-  deleted: "Διαγραμμένος",
-  claimed: "Αποδέχτηκε",
-  missed: "Δεν απάντησε",
-  pending_payment: "Απλήρωτο",
-};
+// Ετικέτες στη γλώσσα της σελίδας (namespace AdminUi). Διαβάζονται ως απλές
+// ιδιότητες (STATUS_LABEL[value]), ώστε οι οθόνες που τις χρησιμοποιούν να μη
+// χρειάζονται hook.
+function labelMap(group, keys) {
+  const out = {};
+  for (const k of keys) Object.defineProperty(out, k, { get: () => tNow("AdminUi", `${group}.${k}`), enumerable: true });
+  return out;
+}
+
+export const STATUS_LABEL = labelMap("status", [
+  "confirmed",
+  "completed",
+  "cancelled_by_client",
+  "cancelled_by_skipper",
+  "open",
+  "matched",
+  "expired_unclaimed",
+  "cancelled",
+  "pending",
+  "approved",
+  "rejected",
+  "active",
+  "draft",
+  "suspended",
+  "client",
+  "skipper",
+  "admin",
+  "deleted",
+  "claimed",
+  "missed",
+  "pending_payment",
+]);
 
 export function Status({ value }) {
   if (!value) return null;
   return <span style={badge(STATUS_TONE[value] || "neutral")}>{STATUS_LABEL[value] || value}</span>;
 }
 
-export const WALLET_TYPE_LABEL = {
-  purchase: "Αγορά",
-  deposit: "Πίστωση",
-  request_fee: "Αίτημα",
-  claim_fee: "Ανάληψη",
-  refund_credit: "Επιστροφή",
-  adjustment: "Διόρθωση",
-};
+export const WALLET_TYPE_LABEL = labelMap("wallet", [
+  "purchase",
+  "deposit",
+  "request_fee",
+  "claim_fee",
+  "refund_credit",
+  "adjustment",
+]);
 
-const GENDER_LABEL = { male: "Άνδρας", female: "Γυναίκα", other: "Άλλο" };
+const GENDER_KEYS = ["male", "female", "other"];
 
 // "Waiting for how long" in the one unit that matters for a queue — days
 // never turn into a calendar date, however long it has been.
 export function waitingFor(iso) {
   if (!iso) return "";
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return "περιμένει μόλις τώρα";
-  if (mins < 60) return `περιμένει ${mins} ${mins === 1 ? "λεπτό" : "λεπτά"}`;
+  if (mins < 1) return tNow("AdminUi", "waiting.now");
+  if (mins < 60) return tNow("AdminUi", "waiting.minutes", { n: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `περιμένει ${hours} ${hours === 1 ? "ώρα" : "ώρες"}`;
-  const days = Math.floor(hours / 24);
-  return `περιμένει ${days} ${days === 1 ? "ημέρα" : "ημέρες"}`;
+  if (hours < 24) return tNow("AdminUi", "waiting.hours", { n: hours });
+  return tNow("AdminUi", "waiting.days", { n: Math.floor(hours / 24) });
 }
 
 export function ageFrom(dob) {
@@ -346,22 +356,33 @@ export function ageFrom(dob) {
 
 // What an approval actually rests on. The approvals list used to show a name,
 // a phone and a price — nothing to approve against.
+// omit: αναγνωριστικά γραμμών (role, license, experience, age, gender, price)·
+// δέχεται και την εμφανιζόμενη ετικέτα, για οθόνες που τη στέλνουν ακόμα.
 export function ProCredentials({ profile, roleLabel, omit = [] }) {
+  const t = useTranslations("AdminUi");
   if (!profile) return null;
   const age = ageFrom(profile.date_of_birth);
   const items = [
-    ["Ιδιότητα", roleLabel],
-    ["Δίπλωμα", [profile.license_number, profile.license_type && `τύπος ${profile.license_type}`].filter(Boolean).join(" · ") || "—"],
-    ["Εμπειρία", profile.years_experience != null ? `${profile.years_experience} χρόνια` : "—"],
-    ["Ηλικία", age != null ? `${age} ετών` : "—"],
-    ["Φύλο", GENDER_LABEL[profile.gender] || profile.gender || "—"],
-    ["Τιμή", profile.price_per_day != null ? `${profile.price_per_day}€ / ημέρα` : "—"],
-  ].filter(([k]) => !omit.includes(k));
+    ["role", roleLabel],
+    [
+      "license",
+      [profile.license_number, profile.license_type && t("credentials.licenseType", { type: profile.license_type })]
+        .filter(Boolean)
+        .join(" · ") || "—",
+    ],
+    ["experience", profile.years_experience != null ? t("credentials.years", { n: profile.years_experience }) : "—"],
+    ["age", age != null ? t("credentials.age", { n: age }) : "—"],
+    [
+      "gender",
+      GENDER_KEYS.includes(profile.gender) ? t(`gender.${profile.gender}`) : profile.gender || "—",
+    ],
+    ["price", profile.price_per_day != null ? t("credentials.price", { price: profile.price_per_day }) : "—"],
+  ].filter(([k]) => !omit.includes(k) && !omit.includes(t(`credentials.label.${k}`)));
   return (
     <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 14px", fontSize: 13.5 }}>
       {items.map(([k, v]) => (
         <div key={k} style={{ display: "contents" }}>
-          <span style={{ ...muted, fontSize: 13 }}>{k}</span>
+          <span style={{ ...muted, fontSize: 13 }}>{t(`credentials.label.${k}`)}</span>
           <span style={{ color: colors.ink }}>{v}</span>
         </div>
       ))}
@@ -369,9 +390,14 @@ export function ProCredentials({ profile, roleLabel, omit = [] }) {
   );
 }
 
-// Shown wherever the "✓ Επαλήθευση" button is — the button alone never said
-// what it was vouching for.
-export const VERIFY_HINT =
-  "Επαλήθευση σημαίνει ότι πρόκειται για πραγματικό πρόσωπο: δες ότι όνομα, τηλέφωνο και email μοιάζουν αληθινά. Αν έχεις αμφιβολία, πάρε ένα σύντομο τηλέφωνο. Μόλις πατήσεις, ο χρήστης ειδοποιείται και μπορεί να στέλνει αιτήματα.";
+function VerifyHintText() {
+  const t = useTranslations("AdminUi");
+  return t("verifyHint");
+}
+
+// Shown wherever the verify button is — the button alone never said what it
+// was vouching for. Στοιχείο React (όχι κείμενο), ώστε να διαβάζει τη γλώσσα
+// της σελίδας: χρησιμοποιείται όπου θα μπορούσε να μπει κείμενο, π.χ. {VERIFY_HINT}.
+export const VERIFY_HINT = <VerifyHintText />;
 
 export { button, money, muted, colors, radius };

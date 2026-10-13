@@ -2,29 +2,34 @@
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations, useLocale } from "next-intl";
+import { useFormat } from "../../useFormat";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
 import { tapTarget } from "../../../../lib/platform/theme";
 import { adminListCancellationReports, adminResolveReport, departureLabel } from "../../../../lib/platform/db";
-import { timeAgo, formatDate } from "../../../../lib/platform/notifications";
 
 function People({ people }) {
+  const t = useTranslations("AdminDisputes");
+  const locale = useLocale();
   if (!people?.client && !people?.pro) return null;
   const item = (label, p) =>
     p && (
       <Link href={`/platform/admin/user/${p.id}`} style={{ ...tapTarget, color: colors.ink, textDecoration: "underline" }}>
-        {label}: {p.name || "(χωρίς όνομα)"}
+        {label}: {(locale === "en" && p.name_latin) || p.name || t("noName")}
       </Link>
     );
   return (
     <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13, marginTop: 8 }}>
-      {item("Πελάτης", people.client)}
-      {item("Επαγγελματίας", people.pro)}
+      {item(t("client"), people.client)}
+      {item(t("professional"), people.pro)}
     </div>
   );
 }
 
 export default function DisputesPage() {
+  const t = useTranslations("AdminDisputes");
+  const f = useFormat();
   const refreshCounts = useRefreshAdminCounts();
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(true);
@@ -64,28 +69,28 @@ export default function DisputesPage() {
 
   return (
     <AdminShell
-      title="Αναφορές ακύρωσης"
-      subtitle="Όταν ακυρώνεται μια κράτηση, η άλλη πλευρά μπορεί να το αναφέρει. Η ακύρωση έχει ήδη μετρήσει στην αξιοπιστία. Το «Κλείσιμο» σημαίνει ότι το είδες, δεν την αναιρεί."
+      title={t("title")}
+      subtitle={t("subtitle")}
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
-      <Panel title={`Ανοιχτές (${open.length})`} padded={false}>
-        {busy && <Empty>Φόρτωση…</Empty>}
-        {!busy && open.length === 0 && <Empty>Καμία ανοιχτή αναφορά.</Empty>}
+      <Panel title={t("openTitle", { count: open.length })} padded={false}>
+        {busy && <Empty>{t("loading")}</Empty>}
+        {!busy && open.length === 0 && <Empty>{t("openEmpty")}</Empty>}
         {open.map((r) => (
           <div key={r.id} style={{ borderBottom: `1px solid ${colors.border}`, padding: "14px 16px", background: "#FBF6EC" }}>
             <RowMain
               title={
                 r.bookings
-                  ? `${departureLabel(r.bookings)} · ${formatDate(r.bookings.start_date)} → ${formatDate(r.bookings.end_date)}`
-                  : "Κράτηση"
+                  ? `${departureLabel(r.bookings)} · ${f.date(r.bookings.start_date)} → ${f.date(r.bookings.end_date)}`
+                  : t("booking")
               }
-              meta={`Ακύρωσε ${r.at_fault_party === "client" ? "ο πελάτης" : "ο επαγγελματίας"} · αναφέρθηκε ${timeAgo(r.created_at)}`}
+              meta={t(r.at_fault_party === "client" ? "cancelledByClient" : "cancelledByPro", { ago: f.timeAgo(r.created_at) })}
             />
             <People people={r.people} />
             <p style={{ fontSize: 13, margin: "10px 0 0", color: colors.ink }}>{r.reason}</p>
             <input
-              placeholder="Τι έγινε / τι αποφάσισες (προαιρετικό)"
+              placeholder={t("notePlaceholder")}
               value={notes[r.id] || ""}
               onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
               style={{
@@ -106,21 +111,21 @@ export default function DisputesPage() {
               disabled={busyId === r.id}
               onClick={() => resolve(r.id)}
             >
-              {busyId === r.id ? "…" : "Κλείσιμο αναφοράς"}
+              {busyId === r.id ? "…" : t("closeReport")}
             </button>
           </div>
         ))}
       </Panel>
 
-      <Panel title={`Επιλυμένες (${done.length})`} padded={false}>
-        {done.length === 0 && <Empty>Καμία ακόμα.</Empty>}
+      <Panel title={t("resolvedTitle", { count: done.length })} padded={false}>
+        {done.length === 0 && <Empty>{t("resolvedEmpty")}</Empty>}
         {done.map((r) => (
           <Row key={r.id}>
             <RowMain
-              title={`${r.bookings ? departureLabel(r.bookings) : "Κράτηση"} · ${[r.people?.client?.name, r.people?.pro?.name].filter(Boolean).join(" ↔ ")}`}
+              title={`${r.bookings ? departureLabel(r.bookings) : t("booking")} · ${[r.people?.client?.name, r.people?.pro?.name].filter(Boolean).join(" ↔ ")}`}
               meta={r.resolution_note || r.reason}
             />
-            <span style={{ ...muted, fontSize: 11.5, flexShrink: 0 }}>{timeAgo(r.resolved_at)}</span>
+            <span style={{ ...muted, fontSize: 11.5, flexShrink: 0 }}>{f.timeAgo(r.resolved_at)}</span>
           </Row>
         ))}
       </Panel>

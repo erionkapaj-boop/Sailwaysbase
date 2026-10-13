@@ -1,22 +1,24 @@
 "use client";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useCallback, useEffect, useState } from "react";
-import { formatDateTime } from "../../../../lib/platform/notifications";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../../useFormat";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Empty, colors, muted, button } from "../ui";
 import { adminHealthIssues, adminResolveHealthIssue, adminRunHealthChecks, adminFlowStats, adminPlaceMisses, adminHealthEvents } from "../../../../lib/platform/db";
-import { timeAgo } from "../../../../lib/platform/notifications";
 
-const SOURCE_LABEL = { data: "Δεδομένα", app: "Σφάλμα χρήστη", flow: "Ροή" };
-const sourceLabel = (issue) => (issue.fingerprint?.startsWith("app:server:") ? "Διακομιστής" : SOURCE_LABEL[issue.source]);
+const SOURCES = ["data", "app", "flow"];
+const sourceLabel = (issue, t) =>
+  issue.fingerprint?.startsWith("app:server:") ? t("sourceServer") : SOURCES.includes(issue.source) ? t(`source_${issue.source}`) : undefined;
 
 const mono = { fontFamily: "var(--font-platform-mono), monospace", fontSize: 11.5, color: colors.inkSoft };
 
 // Έκδοση, συσκευή, «προβολή ως» και βήματα (0120): ό,τι χρειάζεται για να
 // αναπαραχθεί και να διορθωθεί ένα σφάλμα.
 function Context({ ctx, compact = false }) {
+  const t = useTranslations("AdminHealth");
   if (!ctx) return null;
-  const facts = [ctx.v && `έκδοση ${ctx.v}`, ctx.d, ctx.va && "προβολή ως χρήστης"].filter(Boolean);
+  const facts = [ctx.v && t("version", { v: ctx.v }), ctx.d, ctx.va && t("viewAs")].filter(Boolean);
   return (
     <div style={{ marginTop: compact ? 4 : 8 }}>
       {facts.length > 0 && <div style={{ ...muted, fontSize: 12.5 }}>{facts.join(" · ")}</div>}
@@ -31,42 +33,44 @@ function Context({ ctx, compact = false }) {
   );
 }
 
-function reportText(issue, events) {
+function reportText(issue, events, t, f) {
   const s = issue.sample || {};
   const lines = [
-    `Θέμα: ${issue.title}`,
-    `Κωδικός: ${issue.fingerprint}`,
-    `Σελίδα: ${issue.area || "—"}`,
-    `${issue.occurrences} φορές · ${issue.affected_users || 0} χρήστες · πρώτη ${formatDateTime(issue.first_seen)} · τελευταία ${formatDateTime(issue.last_seen)}`,
+    t("reportSubject", { title: issue.title }),
+    t("reportCode", { code: issue.fingerprint }),
+    t("reportPage", { page: issue.area || "—" }),
+    t("reportStats", { occurrences: issue.occurrences, users: issue.affected_users || 0, first: f.dateTime(issue.first_seen), last: f.dateTime(issue.last_seen) }),
   ];
-  if (s.detail) lines.push(`Μήνυμα: ${s.detail}`);
+  if (s.detail) lines.push(t("reportMessage", { detail: s.detail }));
   const add = (ctx, label) => {
     if (!ctx) return;
     lines.push(label);
-    if (ctx.v || ctx.d || ctx.va) lines.push(`  ${[ctx.v && `έκδοση ${ctx.v}`, ctx.d, ctx.va && "προβολή ως χρήστης"].filter(Boolean).join(" · ")}`);
-    (ctx.t || []).forEach((t, i) => lines.push(`  ${i + 1}. ${t}`));
+    if (ctx.v || ctx.d || ctx.va) lines.push(`  ${[ctx.v && t("version", { v: ctx.v }), ctx.d, ctx.va && t("viewAs")].filter(Boolean).join(" · ")}`);
+    (ctx.t || []).forEach((step, i) => lines.push(`  ${i + 1}. ${step}`));
   };
-  add(s.context, "Τελευταία φορά:");
-  (events || []).slice(1).forEach((e, i) => add(e.context, `Προηγούμενη φορά ${i + 1} (${formatDateTime(e.created_at)}${e.detail && e.detail !== s.detail ? ` · ${e.detail}` : ""}):`));
+  add(s.context, t("reportLastTime"));
+  (events || []).slice(1).forEach((e, i) => add(e.context, t("reportPrevTime", { n: i + 1, when: `${f.dateTime(e.created_at)}${e.detail && e.detail !== s.detail ? ` · ${e.detail}` : ""}` })));
   return lines.join("\n");
 }
 
 function Issue({ issue, busy, onResolve }) {
+  const t = useTranslations("AdminHealth");
+  const f = useFormat();
   const open = issue.status === "open";
   const count =
     issue.source === "data"
-      ? `${issue.occurrences} ${issue.occurrences === 1 ? "περίπτωση" : "περιπτώσεις"}`
+      ? t("cases", { count: issue.occurrences })
       : issue.source === "flow"
-        ? `${issue.occurrences} σταμάτησαν`
-        : `${issue.occurrences} ${issue.occurrences === 1 ? "φορά" : "φορές"}`;
+        ? t("stoppedCount", { count: issue.occurrences })
+        : t("times", { count: issue.occurrences });
   const users =
     issue.source !== "flow" && issue.affected_users
-      ? `${issue.affected_users} ${issue.affected_users === 1 ? "χρήστης" : "χρήστες"}`
+      ? t("usersCount", { count: issue.affected_users })
       : null;
   const s = issue.sample || {};
   const detail =
     issue.source === "flow"
-      ? `${s.started} ξεκίνησαν, ${s.completed} ολοκλήρωσαν${s.stop_step ? ` · σταματούν: ${s.stop_step}` : ""} (7 ημέρες)`
+      ? t("flowDetail", { started: s.started, completed: s.completed, stop: s.stop_step ? ` · ${t("stopsAt", { step: s.stop_step })}` : "" })
       : s.detail;
   const ids = Array.isArray(issue.sample?.ids) ? issue.sample.ids : [];
 
@@ -84,13 +88,13 @@ function Issue({ issue, busy, onResolve }) {
       <div style={{ flex: "1 1 260px", minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink }}>{issue.title}</div>
         <div style={{ ...muted, fontSize: 12.5, marginTop: 3 }}>
-          {[sourceLabel(issue), issue.area, count, users].filter(Boolean).join(" · ")}
+          {[sourceLabel(issue, t), issue.area, count, users].filter(Boolean).join(" · ")}
         </div>
         <div style={{ ...muted, fontSize: 12.5, marginTop: 2 }}>
           {open
-            ? `Από ${timeAgo(issue.first_seen)} · τελευταία ${timeAgo(issue.last_seen)}`
-            : `Έκλεισε ${timeAgo(issue.resolved_at)}${issue.resolved_by ? "" : " · μόνο του"}`}
-          {issue.reopened_count > 0 && ` · ξαναεμφανίστηκε ${issue.reopened_count}×`}
+            ? t("seenSince", { first: f.timeAgo(issue.first_seen), last: f.timeAgo(issue.last_seen) })
+            : `${t("closedAt", { when: f.timeAgo(issue.resolved_at) })}${issue.resolved_by ? "" : ` · ${t("closedAuto")}`}`}
+          {issue.reopened_count > 0 && ` · ${t("reopened", { count: issue.reopened_count })}`}
         </div>
         {detail && (
           <div style={{ fontSize: 12.5, color: colors.ink, marginTop: 6, wordBreak: "break-word" }}>{detail}</div>
@@ -118,7 +122,7 @@ function Issue({ issue, busy, onResolve }) {
           disabled={busy}
           onClick={() => onResolve(issue.fingerprint)}
         >
-          {busy ? "…" : "Λύθηκε"}
+          {busy ? "…" : t("resolved")}
         </button>
       )}
     </div>
@@ -126,6 +130,8 @@ function Issue({ issue, busy, onResolve }) {
 }
 
 function IssueTools({ issue }) {
+  const t = useTranslations("AdminHealth");
+  const f = useFormat();
   const [events, setEvents] = useState(null);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -146,7 +152,7 @@ function IssueTools({ issue }) {
   async function copy() {
     const list = events || (await loadEvents());
     try {
-      await navigator.clipboard.writeText(reportText(issue, list));
+      await navigator.clipboard.writeText(reportText(issue, list, t, f));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -158,7 +164,7 @@ function IssueTools({ issue }) {
   return (
     <div style={{ marginTop: 10 }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button type="button" style={small} onClick={copy}>{copied ? "Αντιγράφηκε" : "Αντιγραφή για διόρθωση"}</button>
+        <button type="button" style={small} onClick={copy}>{copied ? t("copied") : t("copyForFix")}</button>
         {issue.occurrences > 1 && (
           <button
             type="button"
@@ -169,20 +175,20 @@ function IssueTools({ issue }) {
               if (!events) loadEvents();
             }}
           >
-            {open ? "Απόκρυψη" : "Προηγούμενες φορές"}
+            {open ? t("hide") : t("previousTimes")}
           </button>
         )}
       </div>
-      {failed && <div style={{ fontSize: 12.5, color: colors.danger, marginTop: 6 }}>Δεν ήταν δυνατό. Δοκίμασε ξανά.</div>}
+      {failed && <div style={{ fontSize: 12.5, color: colors.danger, marginTop: 6 }}>{t("failedRetry")}</div>}
       {open && events && (
         <div style={{ marginTop: 8 }}>
           {events.slice(1).map((e, i) => (
             <div key={i} style={{ borderTop: `1px solid ${colors.border}`, padding: "8px 0" }}>
-              <div style={{ ...muted, fontSize: 12.5 }}>{formatDateTime(e.created_at)}{e.detail ? ` · ${e.detail}` : ""}</div>
+              <div style={{ ...muted, fontSize: 12.5 }}>{f.dateTime(e.created_at)}{e.detail ? ` · ${e.detail}` : ""}</div>
               <Context ctx={e.context} compact />
             </div>
           ))}
-          {events.length <= 1 && <div style={{ ...muted, fontSize: 12.5 }}>Χωρίς άλλες καταγραφές με στοιχεία.</div>}
+          {events.length <= 1 && <div style={{ ...muted, fontSize: 12.5 }}>{t("noOtherRecords")}</div>}
         </div>
       )}
     </div>
@@ -190,6 +196,8 @@ function IssueTools({ issue }) {
 }
 
 export default function HealthPage() {
+  const t = useTranslations("AdminHealth");
+  const f = useFormat();
   const refreshCounts = useRefreshAdminCounts();
   const [issues, setIssues] = useState([]);
   const [showClosed, setShowClosed] = useState(false);
@@ -256,38 +264,38 @@ export default function HealthPage() {
 
   return (
     <AdminShell
-      title="Υγεία εφαρμογής"
-      subtitle="Ό,τι εντοπίστηκε αυτόματα: δεδομένα που κόλλησαν και σφάλματα που είδαν χρήστες. Οι έλεγχοι τρέχουν κάθε ώρα."
+      title={t("title")}
+      subtitle={t("subtitle")}
       ownerOnly
       actions={
         <button type="button" style={button("secondary")} disabled={checking} onClick={checkNow}>
-          {checking ? "Έλεγχος…" : "Έλεγχος τώρα"}
+          {checking ? t("checking") : t("checkNow")}
         </button>
       }
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
       {checkedAt && !checking && (
-        <p style={{ ...muted, fontSize: 12.5, margin: "0 0 12px" }}>Ελέγχθηκε {timeAgo(checkedAt)}.</p>
+        <p style={{ ...muted, fontSize: 12.5, margin: "0 0 12px" }}>{t("checkedAgo", { ago: f.timeAgo(checkedAt) })}</p>
       )}
 
-      <Panel title={`Ανοιχτά (${open.length})`} padded={false}>
-        {loading && <Empty>Φόρτωση…</Empty>}
-        {!loading && open.length === 0 && <Empty>Κανένα ανοιχτό θέμα.</Empty>}
+      <Panel title={t("openTitle", { count: open.length })} padded={false}>
+        {loading && <Empty>{t("loading")}</Empty>}
+        {!loading && open.length === 0 && <Empty>{t("openEmpty")}</Empty>}
         {open.map((i) => (
           <Issue key={i.fingerprint} issue={i} busy={busyId === i.fingerprint} onResolve={resolve} />
         ))}
       </Panel>
 
-      <Panel title="Ροές · 7 ημέρες" subtitle="Πόσοι ξεκίνησαν κάθε διαδρομή και πόσοι έφτασαν στο τέλος." padded={false}>
-        {!loading && flows.every((f) => f.started === 0) && <Empty>Καμία κίνηση ακόμα.</Empty>}
+      <Panel title={t("flowsTitle")} subtitle={t("flowsHint")} padded={false}>
+        {!loading && flows.every((fl) => fl.started === 0) && <Empty>{t("flowsEmpty")}</Empty>}
         {flows
-          .filter((f) => f.started > 0)
-          .map((f) => {
-            const pct = Math.round((100 * f.completed) / f.started);
-            const low = f.started >= 5 && pct < 50;
+          .filter((fl) => fl.started > 0)
+          .map((fl) => {
+            const pct = Math.round((100 * fl.completed) / fl.started);
+            const low = fl.started >= 5 && pct < 50;
             return (
               <div
-                key={f.flow}
+                key={fl.flow}
                 style={{
                   borderBottom: `1px solid ${colors.border}`,
                   padding: "12px 16px",
@@ -298,10 +306,10 @@ export default function HealthPage() {
                 }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink }}>{f.flow_label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink }}>{fl.flow_label}</div>
                   <div style={{ ...muted, fontSize: 12.5, marginTop: 3 }}>
-                    {f.started} ξεκίνησαν · {f.completed} ολοκλήρωσαν
-                    {f.stop_step && f.completed < f.started ? ` · σταματούν: ${f.stop_step}` : ""}
+                    {t("flowCounts", { started: fl.started, completed: fl.completed })}
+                    {fl.stop_step && fl.completed < fl.started ? ` · ${t("stopsAt", { step: fl.stop_step })}` : ""}
                   </div>
                 </div>
                 <div
@@ -321,11 +329,11 @@ export default function HealthPage() {
       </Panel>
 
       <Panel
-        title="Μέρη που δεν βρέθηκαν · 30 ημέρες"
-        subtitle="Ό,τι έγραψαν πελάτες στο «Από πού ξεκινά το ταξίδι;» και δεν υπήρχε στη λίστα μερών."
+        title={t("missesTitle")}
+        subtitle={t("missesHint")}
         padded={false}
       >
-        {!loading && misses.length === 0 && <Empty>Κανένα.</Empty>}
+        {!loading && misses.length === 0 && <Empty>{t("none")}</Empty>}
         {misses.map((m) => (
           <div
             key={m.query}
@@ -341,7 +349,7 @@ export default function HealthPage() {
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink, wordBreak: "break-word" }}>{m.query}</div>
               <div style={{ ...muted, fontSize: 12.5, marginTop: 3 }}>
-                {[m.regions, `τελευταία ${timeAgo(m.last_at)}`].filter(Boolean).join(" · ")}
+                {[m.regions, t("lastAgo", { ago: f.timeAgo(m.last_at) })].filter(Boolean).join(" · ")}
               </div>
             </div>
             <div style={{ fontSize: 14, fontWeight: 600, color: colors.ink, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
@@ -352,19 +360,19 @@ export default function HealthPage() {
       </Panel>
 
       <Panel
-        title={showClosed ? `Κλεισμένα (${closed.length})` : "Κλεισμένα"}
+        title={showClosed ? t("closedTitleCount", { count: closed.length }) : t("closedTitle")}
         action={
           <button
             type="button"
             style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}
             onClick={() => setShowClosed((v) => !v)}
           >
-            {showClosed ? "Απόκρυψη" : "Εμφάνιση"}
+            {showClosed ? t("hide") : t("show")}
           </button>
         }
         padded={false}
       >
-        {showClosed && closed.length === 0 && <Empty>Κανένα.</Empty>}
+        {showClosed && closed.length === 0 && <Empty>{t("none")}</Empty>}
         {showClosed && closed.map((i) => <Issue key={i.fingerprint} issue={i} />)}
       </Panel>
     </AdminShell>

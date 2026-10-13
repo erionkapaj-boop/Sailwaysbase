@@ -1,6 +1,7 @@
 "use client";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import { Panel, RowMain, Empty, colors, muted, money, button, ProCredentials, VERIFY_HINT, STATUS_LABEL, waitingFor, safeImageUrl } from "../ui";
@@ -36,9 +37,10 @@ const noteInput = {
 const item = { borderBottom: `1px solid ${colors.border}`, padding: "14px 16px" };
 
 function DetailsLink({ userId }) {
+  const t = useTranslations("AdminApprovals");
   return (
     <Link href={`/platform/admin/user/${userId}`} style={{ textDecoration: "none" }}>
-      <span style={button("secondary")}>Στοιχεία</span>
+      <span style={button("secondary")}>{t("details")}</span>
     </Link>
   );
 }
@@ -48,6 +50,9 @@ function DetailsLink({ userId }) {
 // approval had its own page — two kinds of "approval" in two places, and
 // after two weeks away it wasn't clear which was which.
 export default function PendingPage() {
+  const t = useTranslations("AdminApprovals");
+  const locale = useLocale();
+  const nm = (o) => (locale === "en" && o?.full_name_latin) || o?.full_name;
   const refreshCounts = useRefreshAdminCounts();
   const [confirm, confirmDialog] = useConfirm();
   const [signups, setSignups] = useState([]);
@@ -99,13 +104,13 @@ export default function PendingPage() {
   }
 
   const verify = (u) =>
-    run(u.id, () => adminVerifyUser(u.id), `${u.full_name || u.phone_number}: επαληθεύτηκε και ειδοποιήθηκε.`);
+    run(u.id, () => adminVerifyUser(u.id), t("verified", { name: nm(u) || u.phone_number }));
 
   async function approvePro(s) {
     const result = await run(
       s.user_id,
       () => adminApproveSkipper(s.user_id),
-      `${s.full_name || "Ο επαγγελματίας"}: εγκρίθηκε και εμφανίζεται πλέον στις αναζητήσεις.`
+      t("proApproved", { name: nm(s) || t("theProfessional") })
     );
     // The approval merges a returning professional back onto their old
     // history when it recognises them — worth saying, since their numbers
@@ -114,32 +119,32 @@ export default function PendingPage() {
   }
 
   async function rejectPro(s) {
-    if (!(await confirm(`${s.full_name || "Επαγγελματίας"}: απόρριψη του προφίλ;`))) return;
-    run(s.user_id, () => adminRejectSkipper(s.user_id, notes[s.user_id] || null), `${s.full_name || "Το προφίλ"}: απορρίφθηκε.`);
+    if (!(await confirm(t("confirmRejectPro", { name: nm(s) || t("professional") })))) return;
+    run(s.user_id, () => adminRejectSkipper(s.user_id, notes[s.user_id] || null), t("proRejected", { name: nm(s) || t("theProfile") }));
   }
 
   const approveRole = (r) =>
-    run(r.id, () => adminApproveSecondaryRole(r.id), `${r.full_name}: εγκρίθηκε ως ${labelForRole(r.role)}.`);
+    run(r.id, () => adminApproveSecondaryRole(r.id), t("roleApproved", { name: nm(r), role: labelForRole(r.role) }));
 
   async function rejectRole(r) {
-    if (!(await confirm(`${r.full_name}: απόρριψη της ιδιότητας ${labelForRole(r.role)};`))) return;
-    run(r.id, () => adminRejectSecondaryRole(r.id, notes[r.id] || null), `${r.full_name}: η ιδιότητα απορρίφθηκε.`);
+    if (!(await confirm(t("confirmRejectRole", { name: nm(r), role: labelForRole(r.role) })))) return;
+    run(r.id, () => adminRejectSecondaryRole(r.id, notes[r.id] || null), t("roleRejected", { name: nm(r) }));
   }
 
-  const approvePhoto = (p) => run(`photo-${p.user_id}`, () => adminApprovePhoto(p.user_id), `${p.full_name || "Φωτογραφία"}: εγκρίθηκε.`);
+  const approvePhoto = (p) => run(`photo-${p.user_id}`, () => adminApprovePhoto(p.user_id), t("photoApproved", { name: nm(p) || t("photo") }));
 
   async function removePhoto(p) {
-    if (!(await confirm(`${p.full_name || "Χρήστης"}: αφαίρεση φωτογραφίας; Ειδοποιείται με τον λόγο και μπορεί να ανεβάσει νέα.`))) return;
-    run(`photo-${p.user_id}`, () => adminClearPhoto(p.user_id, notes[`photo-${p.user_id}`] || ""), `${p.full_name || "Φωτογραφία"}: αφαιρέθηκε.`);
+    if (!(await confirm(t("confirmRemovePhoto", { name: nm(p) || t("user") })))) return;
+    run(`photo-${p.user_id}`, () => adminClearPhoto(p.user_id, notes[`photo-${p.user_id}`] || ""), t("photoRemoved", { name: nm(p) || t("photo") }));
   }
 
   const total = signups.length + pros.length + roles.length + photos.length;
 
   return (
     <AdminShell
-      title="Εκκρεμότητες"
+      title={t("title")}
       subtitle={
-        !loaded ? "Φόρτωση…" : total === 0 ? "Τίποτα δεν περιμένει εσένα αυτή τη στιγμή." : `${total} περιμένουν απόφασή σου.`
+        !loaded ? t("loading") : total === 0 ? t("nothingWaiting") : t("waitingCount", { count: total })
       }
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
@@ -158,28 +163,28 @@ export default function PendingPage() {
           {merged && (
             <>
               {" "}
-              Συνδέθηκε με παλιό ιστορικό: <b style={money}>{merged.completed_bookings_count}</b> ολοκληρωμένες κρατήσεις.
+              {t.rich("mergedHistory", { count: merged.completed_bookings_count, b: (c) => <b style={money}>{c}</b> })}
             </>
           )}
         </div>
       )}
 
       <Panel
-        title={`Νέες εγγραφές για επαλήθευση (${signups.length})`}
+        title={t("signupsTitle", { count: signups.length })}
         subtitle={signups.length > 0 ? VERIFY_HINT : undefined}
         padded={false}
       >
-        {loaded && signups.length === 0 && <Empty>Καμία νέα εγγραφή δεν περιμένει.</Empty>}
+        {loaded && signups.length === 0 && <Empty>{t("signupsEmpty")}</Empty>}
         {signups.map((u) => (
           <div key={u.id} style={item}>
             <RowMain
-              title={u.full_name || "(χωρίς όνομα)"}
+              title={nm(u) || t("noName")}
               meta={
                 <>
                   <span style={money}>{u.phone_number}</span>
                   {u.email ? ` · ${u.email}` : ""}
                   <br />
-                  {u.role === "skipper" ? `Επαγγελματίας${u.crew_role ? ` (${labelForRole(u.crew_role)})` : ""}` : STATUS_LABEL[u.role] || u.role}
+                  {u.role === "skipper" ? u.crew_role ? t("professionalWithRole", { role: labelForRole(u.crew_role) }) : t("professional") : STATUS_LABEL[u.role] || u.role}
                   {" · "}
                   <span style={{ color: colors.warn }}>{waitingFor(u.created_at)}</span>
                 </>
@@ -187,7 +192,7 @@ export default function PendingPage() {
             />
             <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
               <button style={button("primary")} disabled={busyId === u.id} onClick={() => verify(u)}>
-                {busyId === u.id ? "…" : "Επαλήθευση"}
+                {busyId === u.id ? "…" : t("verify")}
               </button>
               <DetailsLink userId={u.id} />
             </div>
@@ -196,19 +201,19 @@ export default function PendingPage() {
       </Panel>
 
       <Panel
-        title={`Επαγγελματίες για έγκριση (${pros.length})`}
+        title={t("prosTitle", { count: pros.length })}
         subtitle={
           pros.length > 0
-            ? "Έλεγξε ότι το δίπλωμα και η εμπειρία ταιριάζουν με την ιδιότητα. Μέχρι να εγκριθούν δεν εμφανίζονται σε καμία αναζήτηση."
+            ? t("prosHint")
             : undefined
         }
         padded={false}
       >
-        {loaded && pros.length === 0 && <Empty>Κανένας επαγγελματίας δεν περιμένει έγκριση.</Empty>}
+        {loaded && pros.length === 0 && <Empty>{t("prosEmpty")}</Empty>}
         {pros.map((s) => (
           <div key={s.id} style={item}>
             <RowMain
-              title={s.full_name || "(χωρίς όνομα)"}
+              title={nm(s) || t("noName")}
               meta={
                 <>
                   <span style={money}>{s.users?.phone_number}</span>
@@ -222,15 +227,15 @@ export default function PendingPage() {
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               <button style={button("primary")} disabled={busyId === s.user_id} onClick={() => approvePro(s)}>
-                {busyId === s.user_id ? "…" : "Έγκριση"}
+                {busyId === s.user_id ? "…" : t("approve")}
               </button>
               <button style={button("secondary")} disabled={busyId === s.user_id} onClick={() => rejectPro(s)}>
-                Απόρριψη
+                {t("reject")}
               </button>
               <DetailsLink userId={s.user_id} />
             </div>
             <input
-              placeholder="Λόγος απόρριψης (προαιρετικό, καταγράφεται)"
+              placeholder={t("rejectReason")}
               value={notes[s.user_id] || ""}
               onChange={(e) => setNotes((n) => ({ ...n, [s.user_id]: e.target.value }))}
               style={noteInput}
@@ -240,19 +245,19 @@ export default function PendingPage() {
       </Panel>
 
       <Panel
-        title={`Επιπλέον ιδιότητες για έγκριση (${roles.length})`}
+        title={t("rolesTitle", { count: roles.length })}
         subtitle={
           roles.length > 0
-            ? "Ήδη εγκεκριμένοι επαγγελματίες που ζήτησαν να προσφέρουν και άλλη ιδιότητα (π.χ. skipper που θέλει να δουλεύει και ως cook)."
+            ? t("rolesHint")
             : undefined
         }
         padded={false}
       >
-        {loaded && roles.length === 0 && <Empty>Καμία εκκρεμής αίτηση.</Empty>}
+        {loaded && roles.length === 0 && <Empty>{t("rolesEmpty")}</Empty>}
         {roles.map((r) => (
           <div key={r.id} style={item}>
             <RowMain
-              title={`${r.full_name || "Χωρίς όνομα"} · ζητά ${labelForRole(r.role)}`}
+              title={t("roleRequest", { name: nm(r) || t("noNameShort"), role: labelForRole(r.role) })}
               meta={
                 <>
                   <span style={money}>{r.phone_number}</span>
@@ -262,18 +267,18 @@ export default function PendingPage() {
               }
             />
             <div style={{ margin: "10px 0 0" }}>
-              <ProCredentials profile={r} roleLabel={labelForRole(r.role)} omit={["Ηλικία", "Φύλο"]} />
+              <ProCredentials profile={r} roleLabel={labelForRole(r.role)} omit={["age", "gender"]} />
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               <button style={button("primary")} disabled={busyId === r.id} onClick={() => approveRole(r)}>
-                {busyId === r.id ? "…" : "Έγκριση"}
+                {busyId === r.id ? "…" : t("approve")}
               </button>
               <button style={button("secondary")} disabled={busyId === r.id} onClick={() => rejectRole(r)}>
-                Απόρριψη
+                {t("reject")}
               </button>
             </div>
             <input
-              placeholder="Λόγος απόρριψης (προαιρετικό, καταγράφεται)"
+              placeholder={t("rejectReason")}
               value={notes[r.id] || ""}
               onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
               style={noteInput}
@@ -282,14 +287,14 @@ export default function PendingPage() {
         ))}
       </Panel>
       <Panel
-        title={`Φωτογραφίες προς έλεγχο (${photos.length})`}
+        title={t("photosTitle", { count: photos.length })}
         subtitle={
           photos.length > 0
-            ? "Νέες ή αλλαγμένες φωτογραφίες — φαίνονται ήδη στην εφαρμογή. Πάτα μία για πλήρες μέγεθος και έλεγξε αν δείχνει τηλέφωνο, email, site, social ή QR code."
+            ? t("photosHint")
             : undefined
         }
       >
-        {loaded && photos.length === 0 && <Empty>Καμία φωτογραφία δεν περιμένει έλεγχο.</Empty>}
+        {loaded && photos.length === 0 && <Empty>{t("photosEmpty")}</Empty>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 14 }}>
           {photos.map((p) => {
             const src = safeImageUrl(p.photo_url);
@@ -297,31 +302,31 @@ export default function PendingPage() {
             return (
               <div key={p.user_id} style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: 10, minWidth: 0 }}>
                 {src ? (
-                  <a href={src} target="_blank" rel="noopener noreferrer" title="Άνοιγμα σε πλήρες μέγεθος">
+                  <a href={src} target="_blank" rel="noopener noreferrer" title={t("openFullSize")}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt={`Φωτογραφία: ${p.full_name || ""}`} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 8, display: "block" }} />
+                    <img src={src} alt={t("photoAlt", { name: nm(p) || "" })} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 8, display: "block" }} />
                   </a>
                 ) : (
-                  <p style={{ color: colors.danger, fontSize: 12.5, margin: 0 }}>Μη έγκυρη διεύθυνση — αφαίρεσέ τη.</p>
+                  <p style={{ color: colors.danger, fontSize: 12.5, margin: 0 }}>{t("invalidUrl")}</p>
                 )}
                 <Link href={`/platform/admin/user/${p.user_id}`} style={{ display: "block", marginTop: 8, fontSize: 13.5, fontWeight: 500, color: colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {p.full_name || "(χωρίς όνομα)"}
+                  {nm(p) || t("noName")}
                 </Link>
                 <div style={{ ...muted, fontSize: 12 }}>
-                  {p.role === "skipper" ? `Επαγγελματίας${p.crew_role ? ` · ${labelForRole(p.crew_role)}` : ""}` : "Πελάτης"}
+                  {p.role === "skipper" ? (p.crew_role ? t("professionalDotRole", { role: labelForRole(p.crew_role) }) : t("professional")) : t("client")}
                 </div>
                 <input
-                  placeholder="Εσωτερική σημείωση (δεν τη βλέπει ο χρήστης)"
+                  placeholder={t("internalNote")}
                   value={notes[key] || ""}
                   onChange={(e) => setNotes((n) => ({ ...n, [key]: e.target.value }))}
                   style={{ ...noteInput, marginTop: 8 }}
                 />
                 <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                   <button style={{ ...button("primary"), flex: 1, padding: "7px 10px", fontSize: 13 }} disabled={busyId === key} onClick={() => approvePhoto(p)}>
-                    {busyId === key ? "…" : "Εντάξει"}
+                    {busyId === key ? "…" : t("ok")}
                   </button>
                   <button style={{ ...button("secondary"), flex: 1, padding: "7px 10px", fontSize: 13 }} disabled={busyId === key} onClick={() => removePhoto(p)}>
-                    Αφαίρεση
+                    {t("remove")}
                   </button>
                 </div>
               </div>

@@ -2,31 +2,36 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations, useLocale } from "next-intl";
 import AdminShell from "../AdminShell";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { adminListBookings, departureLabel } from "../../../../lib/platform/db";
 import LoadError from "../../components/LoadError";
-import { formatDate } from "../../../../lib/platform/notifications";
+import { useFormat } from "../../useFormat";
 
 const FILTERS = [
-  ["upcoming", "Επερχόμενες"],
-  ["confirmed", "Επιβεβαιωμένες"],
-  ["completed", "Ολοκληρωμένες"],
-  ["cancelled", "Ακυρωμένες"],
-  ["", "Όλες"],
+  ["upcoming", "filterUpcoming"],
+  ["confirmed", "filterConfirmed"],
+  ["completed", "filterCompleted"],
+  ["cancelled", "filterCancelled"],
+  ["", "filterAll"],
 ];
 
 function PersonLink({ label, p }) {
+  const t = useTranslations("AdminBookings");
+  const locale = useLocale();
   if (!p) return null;
   return (
     <Link href={`/platform/admin/user/${p.id}`} style={{ color: colors.ink }}>
-      {label}: {p.name || "(χωρίς όνομα)"}
+      {label}: {(locale === "en" && p.name_latin) || p.name || t("noName")}
     </Link>
   );
 }
 
 function BookingsInner() {
+  const t = useTranslations("AdminBookings");
+  const f = useFormat();
   const searchParams = useSearchParams();
   // Δίνει στα κουτιά της Επισκόπησης («Επερχόμενες», «Ολοκληρωμένες»,
   // «Ακυρώσεις») έναν σύνδεσμο που ανοίγει κατευθείαν στο σωστό φίλτρο.
@@ -68,10 +73,10 @@ function BookingsInner() {
   }, [all, filter]);
 
   return (
-    <AdminShell title="Όλες οι κρατήσεις" subtitle="Κάθε κράτηση στην πλατφόρμα, νεότερη πρώτη. Πάτα ένα όνομα για τα στοιχεία του.">
-      <Panel title={`${FILTERS.find((f) => f[0] === filter)?.[1]} (${list.length})`} padded={false}>
+    <AdminShell title={t("title")} subtitle={t("subtitle")}>
+      <Panel title={`${t(FILTERS.find((x) => x[0] === filter)?.[1])} (${list.length})`} padded={false}>
         <Toolbar>
-          {FILTERS.map(([key, label]) => (
+          {FILTERS.map(([key, labelKey]) => (
             <button
               key={key || "all"}
               onClick={() => setFilter(key)}
@@ -81,14 +86,14 @@ function BookingsInner() {
                 fontSize: 13,
               }}
             >
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </Toolbar>
 
-        {busy && <Empty>Φόρτωση…</Empty>}
-        {!busy && failed && <div style={{ padding: 12 }}><LoadError what="οι κρατήσεις" onRetry={load} /></div>}
-        {!busy && !failed && list.length === 0 && <Empty>Καμία κράτηση σε αυτή την κατηγορία.</Empty>}
+        {busy && <Empty>{t("loading")}</Empty>}
+        {!busy && failed && <div style={{ padding: 12 }}><LoadError what={t("whatBookings")} onRetry={load} /></div>}
+        {!busy && !failed && list.length === 0 && <Empty>{t("empty")}</Empty>}
 
         {list.map((b) => (
           <Row key={b.id}>
@@ -96,12 +101,12 @@ function BookingsInner() {
               title={`${departureLabel(b)}${b.boat_types?.name ? " · " + b.boat_types.name : ""}`}
               meta={
                 <>
-                  <span style={money}>{formatDate(b.start_date)}</span> → <span style={money}>{formatDate(b.end_date)}</span>
+                  <span style={money}>{f.date(b.start_date)}</span> → <span style={money}>{f.date(b.end_date)}</span>
                   {b.crew_role ? ` · ${labelForRole(b.crew_role)}` : ""}
                   <br />
-                  <PersonLink label="Πελάτης" p={b.people?.client} />
+                  <PersonLink label={t("client")} p={b.people?.client} />
                   {b.people?.client && b.people?.pro ? " · " : ""}
-                  <PersonLink label="Επαγγελματίας" p={b.people?.pro} />
+                  <PersonLink label={t("professional")} p={b.people?.pro} />
                 </>
               }
             />

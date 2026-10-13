@@ -2,42 +2,46 @@
 import { formatCredits } from "../../../../../lib/platform/credits";
 import { Panel, Row, RowMain, Status, Empty } from "../../ui";
 import { labelForRole } from "../../../../../lib/platform/roles";
-import { formatDateRange, formatDate } from "../../../../../lib/platform/notifications";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../../../useFormat";
 
-function crewLine(r) {
-  return [r.place, formatDateRange(r.start_date, r.end_date), r.crew_role && r.crew_role !== "skipper" ? labelForRole(r.crew_role) : null]
+function crewLine(r, f) {
+  return [r.place, f.dateRange(r.start_date, r.end_date), r.crew_role && r.crew_role !== "skipper" ? labelForRole(r.crew_role) : null]
     .filter(Boolean)
     .join(" · ");
 }
 
-function deliveryLine(d) {
+function deliveryLine(d, f, t) {
   return [
     d.origin_point && d.destination_point ? `${d.origin_point} → ${d.destination_point}` : null,
-    d.departure_date ? formatDate(d.departure_date) : null,
-    d.distance_miles ? `${d.distance_miles} μίλια` : null,
+    d.departure_date ? f.date(d.departure_date) : null,
+    d.distance_miles ? t("bookings.miles", { miles: d.distance_miles }) : null,
   ]
     .filter(Boolean)
     .join(" · ");
 }
 
 function List({ items, render }) {
-  if (!items?.length) return <Empty>Καμία εγγραφή.</Empty>;
+  const t = useTranslations("AdminUser");
+  if (!items?.length) return <Empty>{t("bookings.noRecords")}</Empty>;
   return items.map(render);
 }
 
 export default function BookingsTab({ data }) {
+  const t = useTranslations("AdminUser");
+  const f = useFormat();
   const hasClientSide = data.requests?.length || data.bookings_client?.length || data.delivery_requests?.length || data.delivery_bookings_client?.length;
   const hasProSide = data.pings?.length || data.bookings_pro?.length || data.delivery_pings?.length || data.delivery_bookings_pro?.length;
 
   return (
     <>
       {data.requests?.length > 0 && (
-        <Panel title={`Αιτήματα πληρώματος (${data.requests.length})`} padded={false}>
+        <Panel title={t("bookings.crewRequests", { count: data.requests.length })} padded={false}>
           <List
             items={data.requests}
             render={(r) => (
               <Row key={r.id}>
-                <RowMain title={crewLine(r)} meta={r.fee_amount != null ? `Credits: ${r.fee_amount}` : undefined} />
+                <RowMain title={crewLine(r, f)} meta={r.fee_amount != null ? t("bookings.credits", { amount: r.fee_amount }) : undefined} />
                 <Status value={r.status} />
               </Row>
             )}
@@ -46,12 +50,12 @@ export default function BookingsTab({ data }) {
       )}
 
       {data.bookings_client?.length > 0 && (
-        <Panel title={`Κρατήσεις πληρώματος ως πελάτης (${data.bookings_client.length})`} padded={false}>
+        <Panel title={t("bookings.crewClient", { count: data.bookings_client.length })} padded={false}>
           <List
             items={data.bookings_client}
             render={(b) => (
               <Row key={b.id}>
-                <RowMain title={crewLine(b)} meta={b.pro_name ? `Με ${b.pro_name}` : undefined} />
+                <RowMain title={crewLine(b, f)} meta={b.pro_name ? t("bookings.with", { name: b.pro_name }) : undefined} />
                 <Status value={b.status} />
               </Row>
             )}
@@ -60,12 +64,12 @@ export default function BookingsTab({ data }) {
       )}
 
       {data.pings?.length > 0 && (
-        <Panel title={`Αιτήματα που του στάλθηκαν (${data.pings.length})`} padded={false}>
+        <Panel title={t("bookings.pings", { count: data.pings.length })} padded={false}>
           <List
             items={data.pings}
             render={(p) => (
               <Row key={p.id}>
-                <RowMain title={crewLine(p.request || {})} />
+                <RowMain title={crewLine(p.request || {}, f)} />
                 <Status value={p.status} />
               </Row>
             )}
@@ -74,12 +78,12 @@ export default function BookingsTab({ data }) {
       )}
 
       {data.bookings_pro?.length > 0 && (
-        <Panel title={`Κρατήσεις πληρώματος ως επαγγελματίας (${data.bookings_pro.length})`} padded={false}>
+        <Panel title={t("bookings.crewPro", { count: data.bookings_pro.length })} padded={false}>
           <List
             items={data.bookings_pro}
             render={(b) => (
               <Row key={b.id}>
-                <RowMain title={crewLine(b)} meta={b.client_name ? `Πελάτης: ${b.client_name}` : undefined} />
+                <RowMain title={crewLine(b, f)} meta={b.client_name ? t("bookings.client", { name: b.client_name }) : undefined} />
                 <Status value={b.status} />
               </Row>
             )}
@@ -88,12 +92,12 @@ export default function BookingsTab({ data }) {
       )}
 
       {data.delivery_requests?.length > 0 && (
-        <Panel title={`Αιτήματα μεταφοράς σκάφους (${data.delivery_requests.length})`} padded={false}>
+        <Panel title={t("bookings.deliveryRequests", { count: data.delivery_requests.length })} padded={false}>
           <List
             items={data.delivery_requests}
             render={(d) => (
               <Row key={d.id}>
-                <RowMain title={deliveryLine(d)} meta={(d.roles || []).map((r) => labelForRole(r.crew_role)).join(", ") || undefined} />
+                <RowMain title={deliveryLine(d, f, t)} meta={(d.roles || []).map((r) => labelForRole(r.crew_role)).join(", ") || undefined} />
               </Row>
             )}
           />
@@ -101,12 +105,12 @@ export default function BookingsTab({ data }) {
       )}
 
       {data.delivery_bookings_client?.length > 0 && (
-        <Panel title={`Μεταφορές ως πελάτης (${data.delivery_bookings_client.length})`} padded={false}>
+        <Panel title={t("bookings.deliveryClient", { count: data.delivery_bookings_client.length })} padded={false}>
           <List
             items={data.delivery_bookings_client}
             render={(d) => (
               <Row key={d.id}>
-                <RowMain title={deliveryLine(d)} meta={d.pro_name ? `Με ${d.pro_name}` : undefined} />
+                <RowMain title={deliveryLine(d, f, t)} meta={d.pro_name ? t("bookings.with", { name: d.pro_name }) : undefined} />
                 <Status value={d.status} />
               </Row>
             )}
@@ -115,12 +119,12 @@ export default function BookingsTab({ data }) {
       )}
 
       {data.delivery_pings?.length > 0 && (
-        <Panel title={`Αιτήματα μεταφοράς που έλαβε (${data.delivery_pings.length})`} padded={false}>
+        <Panel title={t("bookings.deliveryPings", { count: data.delivery_pings.length })} padded={false}>
           <List
             items={data.delivery_pings}
             render={(p) => (
               <Row key={p.id}>
-                <RowMain title={deliveryLine(p)} meta={labelForRole(p.role)} />
+                <RowMain title={deliveryLine(p, f, t)} meta={labelForRole(p.role)} />
                 <Status value={p.status} />
               </Row>
             )}
@@ -129,12 +133,12 @@ export default function BookingsTab({ data }) {
       )}
 
       {data.delivery_bookings_pro?.length > 0 && (
-        <Panel title={`Μεταφορές που ανέλαβε (${data.delivery_bookings_pro.length})`} padded={false}>
+        <Panel title={t("bookings.deliveryPro", { count: data.delivery_bookings_pro.length })} padded={false}>
           <List
             items={data.delivery_bookings_pro}
             render={(d) => (
               <Row key={d.id}>
-                <RowMain title={deliveryLine(d)} meta={d.client_name ? `Πελάτης: ${d.client_name}` : undefined} />
+                <RowMain title={deliveryLine(d, f, t)} meta={d.client_name ? t("bookings.client", { name: d.client_name }) : undefined} />
                 <Status value={d.status} />
               </Row>
             )}
@@ -144,7 +148,7 @@ export default function BookingsTab({ data }) {
 
       {!hasClientSide && !hasProSide && (
         <Panel padded={false}>
-          <Empty>Καμία κράτηση ή αίτημα ακόμα.</Empty>
+          <Empty>{t("bookings.none")}</Empty>
         </Panel>
       )}
     </>

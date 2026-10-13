@@ -21,7 +21,7 @@ export async function GET(req) {
     results.bookingsCompleted = data;
   } catch (e) {
     results.markCompletedError = String(e);
-    await reportServerIssue("cron.mark_bookings_completed", "/api/platform/cron", e, ["cron νυχτερινή εργασία"]);
+    await reportServerIssue("cron.mark_bookings_completed", "/api/platform/cron", e, ["nightly cron job"]);
   }
 
   try {
@@ -30,7 +30,7 @@ export async function GET(req) {
     results.requestsExpired = data;
   } catch (e) {
     results.expireError = String(e);
-    await reportServerIssue("cron.expire_stale_booking_requests", "/api/platform/cron", e, ["cron νυχτερινή εργασία"]);
+    await reportServerIssue("cron.expire_stale_booking_requests", "/api/platform/cron", e, ["nightly cron job"]);
   }
 
   // Υγεία εφαρμογής (0116): τρέχει κάθε ώρα μέσα στη βάση· εδώ ως εφεδρεία.
@@ -40,7 +40,7 @@ export async function GET(req) {
     results.health = data;
   } catch (e) {
     results.healthError = String(e);
-    await reportServerIssue("cron.run_health_checks", "/api/platform/cron", e, ["cron νυχτερινή εργασία"]);
+    await reportServerIssue("cron.run_health_checks", "/api/platform/cron", e, ["nightly cron job"]);
   }
 
   return Response.json({ ok: true, ...results });

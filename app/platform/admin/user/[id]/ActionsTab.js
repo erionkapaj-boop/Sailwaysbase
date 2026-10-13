@@ -1,8 +1,9 @@
 "use client";
 import { useAuth } from "../../../AuthContext";
-import { formatCredits, verbFor } from "../../../../../lib/platform/credits";
 import { useState } from "react";
-import { Panel, ProCredentials, colors, muted, button, VERIFY_HINT } from "../../ui";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../../../useFormat";
+import { Panel, ProCredentials, colors, muted, button } from "../../ui";
 import { badge } from "../../../../../lib/platform/theme";
 import { labelForRole } from "../../../../../lib/platform/roles";
 import {
@@ -16,13 +17,16 @@ import {
   adminSetTestAccount,
   adminSetStaffAdmin,
 } from "../../../../../lib/platform/db";
-import { formatDateTime } from "../../../../../lib/platform/notifications";
-import { Hint, fieldInput, errorLabel } from "./shared";
+import { Hint, fieldInput, useErrorLabel } from "./shared";
 
 // Ό,τι αλλάζει την κατάσταση του λογαριασμού — ξεχωριστά από τα «Στοιχεία &
 // πρόσβαση», που μόνο διορθώνουν. Οι επικίνδυνες ενέργειες περνούν πάντα από
 // confirm(), και ό,τι χρειάζεται λόγο τον ζητά πριν προχωρήσει.
 export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
+  const t = useTranslations("AdminUser");
+  const f = useFormat();
+  const errorLabel = useErrorLabel();
+  const personName = (p) => (f.locale === "en" && p?.full_name_latin) || p?.full_name;
   const { isOwner } = useAuth();
   const u = data.user;
   const sp = data.skipper_profile;
@@ -36,7 +40,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
   const [suspendReason, setSuspendReason] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
 
-  const name = u.full_name || u.phone_number;
+  const name = personName(u) || u.phone_number;
 
   async function run(fn, successMsg) {
     setBusy(true);
@@ -55,28 +59,26 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
   }
 
   async function handleVerify() {
-    await run(() => adminVerifyUser(id), "Ο λογαριασμός επαληθεύτηκε και ο χρήστης ειδοποιήθηκε.");
+    await run(() => adminVerifyUser(id), t("actions.verified"));
   }
 
   async function handleApprove() {
-    await run(() => adminApproveSkipper(id), "Το προφίλ εγκρίθηκε και εμφανίζεται πλέον στις αναζητήσεις.");
+    await run(() => adminApproveSkipper(id), t("actions.approved"));
   }
 
   async function handleReject(isRevoke) {
-    const msg = isRevoke
-      ? `${name}: ανάκληση της έγκρισης; Δεν θα εμφανίζεται πλέον σε αναζητήσεις μέχρι να εγκριθεί ξανά.`
-      : `${name}: απόρριψη του προφίλ;`;
+    const msg = isRevoke ? t("actions.confirmRevoke", { name }) : t("actions.confirmReject", { name });
     if (!(await confirm(msg))) return;
     await run(async () => {
       await adminRejectSkipper(id, rejectNote.trim() || null);
       setRejectNote("");
-    }, isRevoke ? "Η έγκριση ανακλήθηκε." : "Το προφίλ απορρίφθηκε.");
+    }, isRevoke ? t("actions.revoked") : t("actions.rejected"));
   }
 
   async function handleSuspend(e) {
     e.preventDefault();
     if (!suspendReason.trim()) {
-      setError("Χρειάζεται λόγος για την αναστολή.");
+      setError(t("actions.reasonRequired"));
       return;
     }
     await run(async () => {
@@ -98,44 +100,46 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
       (b) => b.status === "confirmed" && b.end_date >= today
     ).length;
     const lines = [];
-    if (openReqs > 0)
-      lines.push(`${openReqs === 1 ? "Το 1 ανοιχτό αίτημά του ακυρώνεται" : `Τα ${openReqs} ανοιχτά αιτήματά του ακυρώνονται`}· όσα credits είχαν χρεωθεί επιστρέφονται.`);
-    if (pendingPings > 0)
-      lines.push(`Αφαιρείται από ${pendingPings === 1 ? "1 αίτημα" : `${pendingPings} αιτήματα`} που περίμεναν απάντησή του.`);
-    if (upcoming > 0)
-      lines.push(`ΠΡΟΣΟΧΗ: ${upcoming === 1 ? "η 1 επιβεβαιωμένη κράτησή του ΔΕΝ ακυρώνεται" : `οι ${upcoming} επιβεβαιωμένες κρατήσεις του ΔΕΝ ακυρώνονται`}. Αν χρειάζεται, τακτοποίησέ τες ξεχωριστά.`);
+    if (openReqs > 0) lines.push({ text: t("actions.impactOpen", { count: openReqs }) });
+    if (pendingPings > 0) lines.push({ text: t("actions.impactPings", { count: pendingPings }) });
+    if (upcoming > 0) lines.push({ text: t("actions.impactUpcoming", { count: upcoming }), warn: true });
     return lines;
   }
 
   async function handleDelete() {
     const impact = deletionImpact();
     const ok = await confirm(
-      `${name}: διαγραφή λογαριασμού; Δεν θα μπορεί να συνδεθεί και κρύβεται από την πλατφόρμα. Τίποτα δεν σβήνεται και μπορείς να τον επαναφέρεις από αυτή τη σελίδα όποτε θελήσεις.` +
-        (impact.length ? `\n\n${impact.join("\n")}` : "")
+      t("actions.confirmDelete", { name }) + (impact.length ? `\n\n${impact.map((l) => l.text).join("\n")}` : "")
     );
     if (!ok) return;
     const res = await run(() => adminDeleteAccount(id, deleteReason.trim() || null));
     if (res) {
       setDeleteReason("");
       setNotice(
-        "Ο λογαριασμός διαγράφηκε." +
-          (res.cancelled_requests > 0
-            ? ` ${res.cancelled_requests === 1 ? "Ακυρώθηκε 1 ανοιχτό αίτημα" : `Ακυρώθηκαν ${res.cancelled_requests} ανοιχτά αιτήματα`}${res.refunded > 0 ? ` και ${verbFor(res.refunded, "επιστράφηκε", "επιστράφηκαν")} ${formatCredits(res.refunded)}` : ""}.`
-            : "") +
-          " Μπορείς να τον επαναφέρεις από κάτω."
+        [
+          t("actions.deleted"),
+          res.cancelled_requests > 0
+            ? res.refunded > 0
+              ? t("actions.cancelledRefunded", { count: res.cancelled_requests, refunded: res.refunded })
+              : t("actions.cancelledRequests", { count: res.cancelled_requests })
+            : null,
+          t("actions.restoreHint"),
+        ]
+          .filter(Boolean)
+          .join(" ")
       );
     }
   }
 
   async function handleRestore() {
-    if (!(await confirm(`${name}: επαναφορά λογαριασμού; Θα μπορεί ξανά να συνδέεται και θα ειδοποιηθεί.`, { tone: "primary" }))) return;
-    await run(() => adminRestoreAccount(id), "Ο λογαριασμός επανήλθε και ο χρήστης ειδοποιήθηκε.");
+    if (!(await confirm(t("actions.confirmRestore", { name }), { tone: "primary" }))) return;
+    await run(() => adminRestoreAccount(id), t("actions.restored"));
   }
 
   async function handleToggleTestAccount() {
     if (
       !u.is_test_account &&
-      !(await confirm(`${name}: να σημειωθεί ως λογαριασμός δοκιμών; Μόνο για ψεύτικους λογαριασμούς δοκιμών, ποτέ για πραγματικό πελάτη.`))
+      !(await confirm(t("actions.confirmTest", { name })))
     )
       return;
     await run(() => adminSetTestAccount(id, !u.is_test_account));
@@ -144,8 +148,8 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
   async function handleToggleStaffAdmin() {
     const ok = await confirm(
       u.is_staff_admin
-        ? `${name}: αφαίρεση των δικαιωμάτων διαχειριστή;`
-        : `${name}: να δοθούν δικαιώματα διαχειριστή; Θα βλέπει και θα αλλάζει τα πάντα εδώ: χρήστες, χρήματα, ρυθμίσεις. Δώσ' τα μόνο σε άτομο που εμπιστεύεσαι απόλυτα.`
+        ? t("actions.confirmStaffRemove", { name })
+        : t("actions.confirmStaffGrant", { name })
     );
     if (!ok) return;
     await run(() => adminSetStaffAdmin(id, !u.is_staff_admin));
@@ -157,25 +161,25 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
       {notice && <p style={{ color: colors.success, fontSize: 13, marginBottom: 10 }}>{notice}</p>}
 
       {!u.phone_verified_at && u.role !== "admin" && u.status !== "deleted" && (
-        <Panel title="Επαλήθευση λογαριασμού">
-          <Hint>{VERIFY_HINT}</Hint>
+        <Panel title={t("actions.verifyTitle")}>
+          <Hint>{t("verifyHint")}</Hint>
           <button style={button("primary")} disabled={busy} onClick={handleVerify}>
-            {busy ? "…" : "Επαλήθευση"}
+            {busy ? "…" : t("actions.verify")}
           </button>
         </Panel>
       )}
 
       {sp && (sp.approval_status === "pending" || sp.approval_status === "rejected") && (
-        <Panel title={sp.approval_status === "pending" ? "Έγκριση επαγγελματία" : "Προφίλ απορριφθέν"}>
-          <Hint>Έλεγξε ότι το δίπλωμα και η εμπειρία ταιριάζουν με την ιδιότητα. Με την έγκριση ο επαγγελματίας εμφανίζεται στις αναζητήσεις.</Hint>
+        <Panel title={sp.approval_status === "pending" ? t("actions.approvalTitle") : t("actions.rejectedTitle")}>
+          <Hint>{t("actions.approvalHint")}</Hint>
           <ProCredentials profile={sp} roleLabel={labelForRole(sp.role)} />
           <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
             <button style={button("primary")} disabled={busy} onClick={handleApprove}>
-              {busy ? "…" : "Έγκριση"}
+              {busy ? "…" : t("actions.approve")}
             </button>
             {sp.approval_status === "pending" && (
               <button style={button("secondary")} disabled={busy} onClick={() => handleReject(false)}>
-                {busy ? "…" : "Απόρριψη"}
+                {busy ? "…" : t("actions.reject")}
               </button>
             )}
           </div>
@@ -183,7 +187,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
             <input
               value={rejectNote}
               onChange={(e) => setRejectNote(e.target.value)}
-              placeholder="Λόγος απόρριψης (προαιρετικό)"
+              placeholder={t("actions.rejectPlaceholder")}
               style={{ ...fieldInput, marginTop: 10 }}
             />
           )}
@@ -191,59 +195,59 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
       )}
 
       {sp && sp.approval_status === "approved" && (
-        <Panel title="Έγκριση επαγγελματία">
+        <Panel title={t("actions.approvalTitle")}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-            <span style={badge("success")}>Εγκεκριμένο</span>
+            <span style={badge("success")}>{t("actions.approvedBadge")}</span>
             <button style={button("secondary")} disabled={busy} onClick={() => handleReject(true)}>
-              {busy ? "…" : "Ανάκληση έγκρισης"}
+              {busy ? "…" : t("actions.revoke")}
             </button>
           </div>
         </Panel>
       )}
 
       {u.status === "deleted" ? (
-        <Panel title="Διαγραμμένος λογαριασμός">
+        <Panel title={t("actions.deletedTitle")}>
           <Hint>
-            {u.deleted_at && <>Διαγράφηκε: {formatDateTime(u.deleted_at)}<br /></>}
-            {u.deletion_reason && <>Λόγος: {u.deletion_reason}<br /></>}
-            Δεν μπορεί να συνδεθεί και δεν φαίνεται πουθενά στην πλατφόρμα. Τίποτα δεν έχει σβηστεί.
+            {u.deleted_at && <>{t("actions.deletedAt", { date: f.dateTime(u.deleted_at) })}<br /></>}
+            {u.deletion_reason && <>{t("actions.reasonLine", { reason: u.deletion_reason })}<br /></>}
+            {t("actions.deletedHint")}
           </Hint>
           {isOwner && (
             <button style={button("primary")} disabled={busy} onClick={handleRestore}>
-              {busy ? "…" : "Επαναφορά λογαριασμού"}
+              {busy ? "…" : t("actions.restoreAccount")}
             </button>
           )}
         </Panel>
       ) : (
         <>
           {u.status === "suspended" ? (
-            <Panel title="Σε αναστολή">
-              <Hint>{u.suspension_reason || "(χωρίς καταγεγραμμένο λόγο)"}</Hint>
+            <Panel title={t("actions.suspendedTitle")}>
+              <Hint>{u.suspension_reason || t("actions.noReason")}</Hint>
               <button style={button("primary")} disabled={busy} onClick={handleReactivate}>
-                {busy ? "…" : "Επαναφορά"}
+                {busy ? "…" : t("actions.reactivate")}
               </button>
             </Panel>
           ) : (
             u.role !== "admin" &&
             !u.is_owner &&
             !u.is_staff_admin && (
-              <Panel title="Αναστολή λογαριασμού">
+              <Panel title={t("actions.suspendTitle")}>
                 <Hint>
-                  Προσωρινό «πάγωμα»: δεν μπορεί να συνδεθεί και δεν εμφανίζεται σε αναζητήσεις, μέχρι να τον επαναφέρεις.
+                  {t("actions.suspendHint")}
                 </Hint>
                 {showSuspendForm ? (
                   <form onSubmit={handleSuspend}>
                     <textarea
                       required
                       rows={2}
-                      placeholder="Λόγος αναστολής"
+                      placeholder={t("actions.suspendPlaceholder")}
                       value={suspendReason}
                       onChange={(e) => setSuspendReason(e.target.value)}
                       style={{ ...fieldInput, marginBottom: 8, resize: "vertical" }}
                     />
                     <div style={{ display: "flex", gap: 8 }}>
                       <button type="submit" style={button("primary")} disabled={busy}>
-                        {busy ? "…" : "Επιβεβαίωση αναστολής"}
+                        {busy ? "…" : t("actions.confirmSuspend")}
                       </button>
                       <button
                         type="button"
@@ -254,13 +258,13 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
                           setError("");
                         }}
                       >
-                        Άκυρο
+                        {t("actions.cancel")}
                       </button>
                     </div>
                   </form>
                 ) : (
                   <button style={button("secondary")} onClick={() => setShowSuspendForm(true)}>
-                    Αναστολή
+                    {t("actions.suspend")}
                   </button>
                 )}
               </Panel>
@@ -268,25 +272,23 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
           )}
 
           {isOwner && u.role !== "admin" && !u.is_owner && u.id !== viewerId && (
-            <Panel title="Διαγραφή λογαριασμού">
+            <Panel title={t("actions.deleteTitle")}>
               <Hint>
-                Ο λογαριασμός κρύβεται από την πλατφόρμα και δεν μπορεί να συνδεθεί. Τίποτα δεν σβήνεται (ιστορικό,
-                αξιολογήσεις, υπόλοιπο) και μπορείς να τον επαναφέρεις από εδώ όποτε θελήσεις. Τα ανοιχτά του αιτήματα
-                ακυρώνονται· όσα credits είχαν χρεωθεί επιστρέφονται.
+                {t("actions.deleteHint")}
               </Hint>
-              {deletionImpact().some((l) => l.startsWith("ΠΡΟΣΟΧΗ")) && (
+              {deletionImpact().some((l) => l.warn) && (
                 <p style={{ color: colors.danger, fontSize: 13, margin: "0 0 10px" }}>
-                  {deletionImpact().find((l) => l.startsWith("ΠΡΟΣΟΧΗ"))}
+                  {deletionImpact().find((l) => l.warn).text}
                 </p>
               )}
               <input
                 value={deleteReason}
                 onChange={(e) => setDeleteReason(e.target.value)}
-                placeholder="Λόγος (προαιρετικό)"
+                placeholder={t("actions.deleteReason")}
                 style={{ ...fieldInput, marginBottom: 10 }}
               />
               <button style={{ ...button("primary"), background: colors.danger, borderColor: colors.danger }} disabled={busy} onClick={handleDelete}>
-                {busy ? "…" : "Διαγραφή λογαριασμού"}
+                {busy ? "…" : t("actions.deleteTitle")}
               </button>
             </Panel>
           )}
@@ -294,7 +296,7 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
       )}
 
       {isOwner && u.status !== "deleted" && !u.is_owner && (
-        <Panel title="Προχωρημένες ρυθμίσεις" subtitle="Σπάνια χρειάζονται και ζητούν επιβεβαίωση.">
+        <Panel title={t("actions.advanced")} subtitle={t("actions.advancedSubtitle")}>
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, cursor: "pointer" }}>
             <input
               type="checkbox"
@@ -304,8 +306,8 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
               style={{ marginTop: 3 }}
             />
             <span>
-              Λογαριασμός δοκιμών
-              <span style={{ ...muted, display: "block", fontSize: 12.5 }}>Μόνο για ψεύτικους λογαριασμούς.</span>
+              {t("actions.testAccount")}
+              <span style={{ ...muted, display: "block", fontSize: 12.5 }}>{t("actions.testHint")}</span>
             </span>
           </label>
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, cursor: "pointer", marginTop: 12 }}>
@@ -317,9 +319,9 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
               style={{ marginTop: 3 }}
             />
             <span>
-              Δικαιώματα διαχειριστή
+              {t("actions.staffAdmin")}
               <span style={{ ...muted, display: "block", fontSize: 12.5 }}>
-                Μπαίνει και σε αυτή τη διαχείριση με το ίδιο τηλέφωνο και κωδικό. Μόνο για άτομο εμπιστοσύνης.
+                {t("actions.staffHint")}
               </span>
             </span>
           </label>

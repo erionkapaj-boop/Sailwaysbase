@@ -1,6 +1,8 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { tNow } from "../../../lib/platform/tNow";
 import { useAuth } from "../AuthContext";
 import { adminOverview } from "../../../lib/platform/db";
 import { colors, muted, fontSans } from "../../../lib/platform/theme";
@@ -23,32 +25,42 @@ import { colors, muted, fontSans } from "../../../lib/platform/theme";
 // it's what's shown, on a full nav row here or in a drawer link there.
 // `badge` still names the live count key from useAdminCounts() for the
 // pages that show their own "X need attention" callouts.
+// label και heading διαβάζονται στη γλώσσα της σελίδας (namespace AdminShell)·
+// το PlatformShell τα διαβάζει ως απλές ιδιότητες.
+const nav = (key) => tNow("AdminShell", `nav.${key}`);
+const section = (key, extra = {}, headingKey) => {
+  const out = { ...extra };
+  Object.defineProperty(out, "label", { get: () => nav(key), enumerable: true });
+  if (headingKey) Object.defineProperty(out, "heading", { get: () => nav(headingKey), enumerable: true });
+  return out;
+};
 export const SECTIONS = [
   // Grouped by what you came to do, not by where the data lives. Anything
   // that can be waiting on you sits in the first group, with a count.
-  { href: "/platform/admin", label: "Επισκόπηση", exact: true, heading: "Διαχείριση" },
-  {
+  section("overview", { href: "/platform/admin", exact: true }, "headingAdmin"),
+  section("approvals", {
     href: "/platform/admin/approvals",
-    label: "Εκκρεμότητες",
     badge: ["pending_verification", "pending_approvals", "pending_secondary_roles", "pending_photos"],
-  },
-  { href: "/platform/admin/messages", label: "Μηνύματα επικοινωνίας", badge: "contact_new" },
-  { href: "/platform/admin/disputes", label: "Αναφορές ακύρωσης", badge: "open_disputes" },
-  {
-    href: "/platform/admin/replacements",
-    label: "Αντικαταστάσεις",
-    badge: ["coverage_needed", "replacement_awaiting_client"],
-    heading: "Κρατήσεις & πλήρωμα",
-  },
-  { href: "/platform/admin/offers", label: "Αναθέσεις δουλειάς", ownerOnly: true },
-  { href: "/platform/admin/bookings", label: "Όλες οι κρατήσεις" },
-  { href: "/platform/admin/deliveries", label: "Μεταφορές σκάφους" },
-  { href: "/platform/admin/users", label: "Χρήστες", heading: "Χρήστες & χρήματα" },
+  }),
+  section("messages", { href: "/platform/admin/messages", badge: "contact_new" }),
+  section("disputes", { href: "/platform/admin/disputes", badge: "open_disputes" }),
+  section(
+    "replacements",
+    {
+      href: "/platform/admin/replacements",
+      badge: ["coverage_needed", "replacement_awaiting_client"],
+    },
+    "headingBookings"
+  ),
+  section("offers", { href: "/platform/admin/offers", ownerOnly: true }),
+  section("bookings", { href: "/platform/admin/bookings" }),
+  section("deliveries", { href: "/platform/admin/deliveries" }),
+  section("users", { href: "/platform/admin/users" }, "headingUsers"),
   // ownerOnly: μόνο ο ιδιοκτήτης (0112).
-  { href: "/platform/admin/finance", label: "Οικονομικά", ownerOnly: true, badge: "credit_purchases_pending" },
-  { href: "/platform/admin/health", label: "Υγεία εφαρμογής", heading: "Σύστημα", ownerOnly: true, badge: "health_open" },
-  { href: "/platform/admin/settings", label: "Ρυθμίσεις", ownerOnly: true },
-  { href: "/platform/admin/ghost", label: "Δοκιμές (Ghost Mode)", ownerOnly: true },
+  section("finance", { href: "/platform/admin/finance", ownerOnly: true, badge: "credit_purchases_pending" }),
+  section("health", { href: "/platform/admin/health", ownerOnly: true, badge: "health_open" }, "headingSystem"),
+  section("settings", { href: "/platform/admin/settings", ownerOnly: true }),
+  section("ghost", { href: "/platform/admin/ghost", ownerOnly: true }),
 ];
 
 // Sum of one or several overview counts — a section can stand for more than
@@ -103,13 +115,14 @@ export function useRefreshAdminCounts() {
 // app/platform/admin/layout.js, so it survives from one section to the next
 // instead of being re-fetched on every route.
 export default function AdminShell({ title, subtitle, avatar, actions, ownerOnly = false, children }) {
+  const t = useTranslations("AdminShell");
   const { session, userRow, loading, isOwner } = useAuth();
 
-  if (loading) return <div style={{ padding: 32, ...muted }}>Φόρτωση…</div>;
-  if (!session) return <div style={{ padding: 32 }}>Χρειάζεται σύνδεση.</div>;
+  if (loading) return <div style={{ padding: 32, ...muted }}>{t("loading")}</div>;
+  if (!session) return <div style={{ padding: 32 }}>{t("signInRequired")}</div>;
   if (userRow?.role !== "admin" && !userRow?.is_staff_admin && !userRow?.is_owner)
-    return <div style={{ padding: 32 }}>Πρόσβαση μόνο για διαχειριστές.</div>;
-  if (ownerOnly && !isOwner) return <div style={{ padding: 32 }}>Πρόσβαση μόνο για τον ιδιοκτήτη.</div>;
+    return <div style={{ padding: 32 }}>{t("adminsOnly")}</div>;
+  if (ownerOnly && !isOwner) return <div style={{ padding: 32 }}>{t("ownerOnly")}</div>;
 
   return (
     <>

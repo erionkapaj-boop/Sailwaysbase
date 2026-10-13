@@ -1,1 +1,109 @@
-{}
+{
+  "AdminAudit": {
+    "walletTxn": {
+      "purchase": "Αγορά credits",
+      "deposit": "Πίστωση credits",
+      "requestFee": "Credits για αίτημα",
+      "claimFee": "Credits για ανάληψη",
+      "refundCredit": "Επιστροφή credits",
+      "adjustment": "Διόρθωση credits",
+      "other": "Κίνηση credits"
+    },
+    "action": {
+      "approveSkipper": "Έγκριση επαγγελματία",
+      "rejectSkipper": "Απόρριψη επαγγελματία",
+      "resolveDispute": "Έκλεισε αναφορά ακύρωσης",
+      "editBooking": "Αλλαγή σε κράτηση",
+      "creditWallet": "Πίστωση credits",
+      "adjustWallet": "Διόρθωση credits",
+      "verifyUser": "Επαλήθευση λογαριασμού",
+      "resetPin": "Νέος προσωρινός κωδικός",
+      "impersonateStart": "Σύνδεση ως ο χρήστης",
+      "impersonateEnd": "Επιστροφή από «Σύνδεση ως»",
+      "editProfile": "Διόρθωση στοιχείων",
+      "editContact": "Διόρθωση τηλεφώνου",
+      "clearPhoto": "Αφαίρεση φωτογραφίας",
+      "approvePhoto": "Φωτογραφία εγκρίθηκε",
+      "resolveFlag": "Σημαία εξετάστηκε",
+      "staffAdminGrant": "Δόθηκαν δικαιώματα διαχειριστή",
+      "staffAdminRevoke": "Αφαιρέθηκαν δικαιώματα διαχειριστή",
+      "testAccountOn": "Σημειώθηκε ως λογαριασμός δοκιμών",
+      "testAccountOff": "Αφαιρέθηκε η σήμανση δοκιμών"
+    },
+    "ban": {
+      "suspend": "Αναστολή λογαριασμού",
+      "unsuspend": "Επαναφορά από αναστολή",
+      "restore": "Επαναφορά λογαριασμού",
+      "delete": "Διαγραφή λογαριασμού",
+      "other": "Αλλαγή κατάστασης λογαριασμού"
+    },
+    "topic": {
+      "general": "Γενική ερώτηση",
+      "booking": "Κράτηση / αίτημα",
+      "payment": "Χρέωση / credits",
+      "report": "Αναφορά",
+      "privacy": "Προσωπικά δεδομένα",
+      "other": "Άλλο"
+    },
+    "accountCreated": {
+      "title": "Δημιουργία λογαριασμού",
+      "asProfessional": "ως επαγγελματίας",
+      "asClient": "ως πελάτης"
+    },
+    "login": "Σύνδεση",
+    "loginFailed": {
+      "title": "Αποτυχημένη προσπάθεια σύνδεσης",
+      "body": "λάθος κωδικός"
+    },
+    "requestSent": "Αίτημα για {role}",
+    "bookingConfirmed": {
+      "client": "Κράτηση επιβεβαιώθηκε",
+      "pro": "Ανέλαβε κράτηση",
+      "withName": "με {name}",
+      "forName": "για {name}"
+    },
+    "bookingCancelled": {
+      "self": "Ακύρωσε κράτηση",
+      "other": "Η κράτησή του ακυρώθηκε{by, select, client { από τον πελάτη} professional { από τον επαγγελματία} other {}}"
+    },
+    "deliveryRequest": {
+      "title": "Αίτημα μεταφοράς σκάφους",
+      "miles": "{miles} μίλια"
+    },
+    "deliveryConfirmed": {
+      "client": "Μεταφορά επιβεβαιώθηκε",
+      "pro": "Ανέλαβε μεταφορά"
+    },
+    "deliveryCancelled": {
+      "title": "Μεταφορά ακυρώθηκε",
+      "byProfessional": "από τον επαγγελματία",
+      "byClient": "από τον πελάτη"
+    },
+    "walletEur": "{amount}€ (πριν τα credits)",
+    "disputeReported": {
+      "self": "Ανέφερε ακύρωση",
+      "other": "Αναφέρθηκε γι' αυτόν"
+    },
+    "contactMessage": {
+      "title": "Μήνυμα επικοινωνίας",
+      "handled": "απαντήθηκε",
+      "pending": "εκκρεμεί"
+    },
+    "emailReset": {
+      "title": "Ζήτησε κωδικό επαναφοράς μέσω email",
+      "used": "χρησιμοποιήθηκε",
+      "unused": "δεν χρησιμοποιήθηκε"
+    },
+    "adminFlag": {
+      "duplicateEmail": "Ίδιο email με άλλον λογαριασμό",
+      "other": "Σημαία προς έλεγχο",
+      "resolved": "εξετάστηκε",
+      "open": "χρειάζεται έλεγχο"
+    },
+    "phoneChanged": {
+      "title": "Άλλαξε τηλέφωνο",
+      "body": "νέο: {phone}"
+    },
+    "secondaryRole": "Αίτηση για επιπλέον ιδιότητα: {role}"
+  }
+}

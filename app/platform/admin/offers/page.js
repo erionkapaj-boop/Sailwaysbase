@@ -2,28 +2,28 @@
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { formatCredits } from "../../../../lib/platform/credits";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../../useFormat";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import OfferComposer from "../OfferComposer";
 import { Panel, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { adminListOffers, adminCancelOffer } from "../../../../lib/platform/db";
-import { timeAgo, formatDate } from "../../../../lib/platform/notifications";
 
-const ORIGIN_LABEL = {
-  admin_direct: "Δικό σου ναύλο",
-  admin_replacement: "Αντικατάσταση",
-};
+const ORIGINS = ["admin_direct", "admin_replacement"];
 
-function expiryText(iso) {
+function expiryText(iso, t) {
   const ms = new Date(iso).getTime() - Date.now();
-  if (ms <= 0) return "έληξε";
+  if (ms <= 0) return t("expired");
   const hours = Math.floor(ms / 3600000);
-  if (hours >= 24) return `λήγει σε ${Math.floor(hours / 24)} ημέρες`;
-  if (hours >= 1) return `λήγει σε ${hours} ώρες`;
-  return `λήγει σε ${Math.max(1, Math.floor(ms / 60000))} λεπτά`;
+  if (hours >= 24) return t("expiresDays", { n: Math.floor(hours / 24) });
+  if (hours >= 1) return t("expiresHours", { n: hours });
+  return t("expiresMinutes", { n: Math.max(1, Math.floor(ms / 60000)) });
 }
 
 export default function OffersPage() {
+  const t = useTranslations("AdminOffers");
+  const f = useFormat();
   const counts = useAdminCounts();
   const [offers, setOffers] = useState([]);
   const [showClosed, setShowClosed] = useState(false);
@@ -45,6 +45,8 @@ export default function OffersPage() {
     load();
   }, [load]);
 
+  const m = (chunks) => <span style={money}>{chunks}</span>;
+
   async function withdraw(id) {
     setError("");
     try {
@@ -57,38 +59,38 @@ export default function OffersPage() {
 
   return (
     <AdminShell
-      title="Αναθέσεις δουλειάς"
-      subtitle="Δουλειά που δίνεις εσύ σε συγκεκριμένα άτομα. Την παίρνει όποιος αποδεχτεί πρώτος, και πληρώνει."
+      title={t("title")}
+      subtitle={t("subtitle")}
       counts={counts}
       ownerOnly
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
       {/* Το ζητούμενο πρώτο: έχεις ναύλο και θες πλήρωμα. Η λίστα των σταλμένων
-          είναι από κάτω, γιατί τη διαβάζεις μία φορά την ημέρα ενώ αυτό το
-          κάνεις τη στιγμή που προκύπτει η ανάγκη. */}
+          * είναι από κάτω, γιατί τη διαβάζεις μία φορά την ημέρα ενώ αυτό το
+          * κάνεις τη στιγμή που προκύπτει η ανάγκη. */}
       <Panel
-        title="Νέα ανάθεση"
-        subtitle="Δες ποιοι είναι ελεύθεροι στις ημερομηνίες σου, διάλεξε και στείλ' τους τη δουλειά."
+        title={t("newTitle")}
+        subtitle={t("newSubtitle")}
         padded={false}
       >
         <OfferComposer onDone={load} />
       </Panel>
 
       <Panel
-        title={showClosed ? "Όλες οι αναθέσεις" : `Σε αναμονή απάντησης (${offers.length})`}
+        title={showClosed ? t("allOffers") : t("awaiting", { count: offers.length })}
         action={
           <button
             style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}
             onClick={() => setShowClosed((v) => !v)}
           >
-            {showClosed ? "Μόνο ανοιχτές" : "Δες και τις κλειστές"}
+            {showClosed ? t("onlyOpen") : t("showClosed")}
           </button>
         }
         padded={false}
       >
-        {busy && <Empty>Φόρτωση…</Empty>}
-        {!busy && offers.length === 0 && <Empty>Καμία ανάθεση.</Empty>}
+        {busy && <Empty>{t("loading")}</Empty>}
+        {!busy && offers.length === 0 && <Empty>{t("none")}</Empty>}
 
         {offers.map((o) => (
           <Row key={o.request_id}>
@@ -96,34 +98,33 @@ export default function OffersPage() {
               title={`${o.port_name || "—"} · ${labelForRole(o.crew_role)}`}
               meta={
                 <>
-                  <span style={money}>{formatDate(o.start_date)}</span> → <span style={money}>{formatDate(o.end_date)}</span> ·{" "}
-                  {ORIGIN_LABEL[o.origin] || o.origin}
+                  <span style={money}>{f.date(o.start_date)}</span> → <span style={money}>{f.date(o.end_date)}</span> ·{" "}
+                  {ORIGINS.includes(o.origin) ? t(`origin.${o.origin}`) : o.origin}
                   {o.claim_fee_amount > 0 ? (
                     <>
                       {" · "}
-                      <span style={money}>{formatCredits(o.claim_fee_amount)}</span> με την αποδοχή
+                      {t.rich("claimFee", { credits: formatCredits(o.claim_fee_amount), m })}
                     </>
                   ) : (
-                    " · χωρίς χρέωση"
+                    ` · ${t("noFee")}`
                   )}
                   <br />
                   {o.status === "open" ? (
                     <>
-                      <span style={money}>{o.pending}</span> από <span style={money}>{o.recipients}</span> δεν έχουν
-                      απαντήσει
+                      {t.rich("pendingOf", { pending: o.pending, recipients: o.recipients, m })}
                       {o.declined > 0 && (
                         <>
                           {" · "}
-                          <span style={money}>{o.declined}</span> αρνήθηκαν
+                          {t.rich("declined", { n: o.declined, m })}
                         </>
                       )}
                       {" · "}
-                      {expiryText(o.expires_at)}
+                      {expiryText(o.expires_at, t)}
                     </>
                   ) : o.claimed_by ? (
-                    <span style={{ color: colors.success }}>Την πήρε ο/η {o.claimed_by}</span>
+                    <span style={{ color: colors.success }}>{t("claimedBy", { name: o.claimed_by })}</span>
                   ) : (
-                    <>Στάλθηκε {timeAgo(o.created_at)} σε <span style={money}>{o.recipients}</span> άτομα</>
+                    <>{t.rich(Number(o.recipients) === 1 ? "sentToOne" : "sentTo", { ago: f.timeAgo(o.created_at), n: o.recipients, m })}</>
                   )}
                   {o.note && (
                     <>
@@ -141,7 +142,7 @@ export default function OffersPage() {
                   style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}
                   onClick={() => withdraw(o.request_id)}
                 >
-                  Απόσυρση
+                  {t("withdraw")}
                 </button>
               )}
             </span>
@@ -150,8 +151,7 @@ export default function OffersPage() {
       </Panel>
 
       <p style={{ ...muted, fontSize: 12.5, lineHeight: 1.6 }}>
-        Η απόσυρση δεν μετράει σε βάρος κανενός: όποιος δεν πρόλαβε να απαντήσει δεν καταγράφεται ως αδιάφορος, γιατί
-        τη σιωπή την επέβαλες εσύ κλείνοντας την πρόταση.
+        {t("withdrawNote")}
       </p>
     </AdminShell>
   );

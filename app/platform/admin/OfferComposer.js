@@ -3,9 +3,11 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 import { formatCredits } from "../../../lib/platform/credits";
 import DateField from "../components/calendar/DateField";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { tNow } from "../../../lib/platform/tNow";
+import { useFormat } from "../useFormat";
 import { Toolbar, Row, RowMain, Empty, colors, muted, money, button } from "./ui";
 import { CREW_ROLES, labelForRole } from "../../../lib/platform/roles";
-import { formatDateRange } from "../../../lib/platform/notifications";
 import { adminSearchAvailability, adminCreateOffer, adminListSettings, listLookups } from "../../../lib/platform/db";
 
 // Picking people and sending them a job is one action with two starting
@@ -44,26 +46,26 @@ const selectControl = {
   cursor: "pointer",
 };
 
-const ERRORS = {
-  already_covered: "Έχει ήδη καλυφθεί από κάποιον άλλον.",
-  offer_already_open: "Υπάρχει ήδη ανοιχτή πρόταση για αυτό το ταξίδι. Απόσυρέ την πρώτα.",
-  skipper_cancelled_this_trip: "Κάποιος από τους επιλεγμένους έχει ήδη ακυρώσει αυτό το ταξίδι.",
-  not_latest_in_trip: "Το ταξίδι έχει ήδη νεότερη κράτηση — άνοιξε την τρέχουσα υπόθεση.",
-  case_closed: "Η υπόθεση έχει κλείσει οριστικά.",
-  skipper_already_booked: "Έχει ήδη κράτηση σε αυτές τις ημερομηνίες.",
-  skipper_not_eligible: "Το προφίλ του δεν είναι εγκεκριμένο.",
-  invalid_skipper_selection: "Κάποιος από τους επιλεγμένους δεν είναι εγκεκριμένος.",
-  cannot_hire_self: "Δεν μπορείς να αναθέσεις δουλειά στον εαυτό σου.",
-  not_awaiting_cover: "Αυτή η κράτηση δεν περιμένει κάλυψη.",
-  role_mismatch: "Κάποιος από τους επιλεγμένους έχει άλλη ιδιότητα από τη ζητούμενη.",
-  missing_job_details: "Συμπλήρωσε ημερομηνίες, λιμάνι και τύπο σκάφους.",
-  invalid_date_range: "Η λήξη είναι πριν από την έναρξη.",
-  no_skippers_selected: "Δεν έχεις επιλέξει κανέναν.",
-};
+const ERROR_CODES = [
+  "already_covered",
+  "offer_already_open",
+  "skipper_cancelled_this_trip",
+  "not_latest_in_trip",
+  "case_closed",
+  "skipper_already_booked",
+  "skipper_not_eligible",
+  "invalid_skipper_selection",
+  "cannot_hire_self",
+  "not_awaiting_cover",
+  "role_mismatch",
+  "missing_job_details",
+  "invalid_date_range",
+  "no_skippers_selected",
+];
 
 function message(err) {
   const code = (err.message || "").match(/[a-z_]+/)?.[0];
-  return ERRORS[code] || friendlyError(err);
+  return ERROR_CODES.includes(code) ? tNow("AdminOfferComposer", `errors.${code}`) : friendlyError(err);
 }
 
 function Field({ label, basis = "140px", children }) {
@@ -78,6 +80,8 @@ function Field({ label, basis = "140px", children }) {
 }
 
 export default function OfferComposer({ job = null, onDone }) {
+  const t = useTranslations("AdminOfferComposer");
+  const f = useFormat();
   const replacing = Boolean(job);
 
   const [lookups, setLookups] = useState({ boatTypes: [], ports: [] });
@@ -167,9 +171,7 @@ export default function OfferComposer({ job = null, onDone }) {
         expiresHours: Number(expiresHours),
       });
       const n = picked.length;
-      const msg = replacing
-        ? `Η πρόταση στάλθηκε σε ${n === 1 ? "1 επαγγελματία" : `${n} επαγγελματίες`}. Όσοι δηλώσουν ενδιαφέρον θα εμφανιστούν ανώνυμα στον πελάτη, που θα έχει 24 ώρες να διαλέξει.`
-        : `Η πρόταση στάλθηκε σε ${n === 1 ? "1 επαγγελματία" : `${n} επαγγελματίες`}. Όποιος αποδεχτεί πρώτος την παίρνει. Θα το δεις στις «Αναθέσεις δουλειάς».`;
+      const msg = t(replacing ? "sentReplacing" : "sentOpen", { n });
       setPicked([]);
       setNote("");
       setResults(null);
@@ -197,7 +199,7 @@ export default function OfferComposer({ job = null, onDone }) {
         <form onSubmit={search} style={{ display: "flex", gap: 10, flexWrap: "wrap", flex: 1, alignItems: "flex-end" }}>
           {/* Every control carries its own small label, so the two date
               fields say which is which and everything lines up. */}
-          <Field label="Ιδιότητα" basis="100%">
+          <Field label={t("role")} basis="100%">
             <select style={selectControl} value={role} onChange={(e) => setRole(e.target.value)} disabled={replacing}>
               {CREW_ROLES.map((r) => (
                 <option key={r.key} value={r.key}>
@@ -206,13 +208,13 @@ export default function OfferComposer({ job = null, onDone }) {
               ))}
             </select>
           </Field>
-          <Field label="Ημερομηνίες" basis="100%">
+          <Field label={t("dates")} basis="100%">
             {replacing ? (
-              <div style={{ ...control, color: colors.ink }}>{formatDateRange(startDate, endDate)}</div>
+              <div style={{ ...control, color: colors.ink }}>{f.dateRange(startDate, endDate)}</div>
             ) : (
               <DateField
                 mode="range"
-                title="Ημερομηνίες δουλειάς"
+                title={t("jobDates")}
                 value={{ startDate, endDate }}
                 onChange={({ startDate: s, endDate: e }) => {
                   setStartDate(s);
@@ -223,9 +225,9 @@ export default function OfferComposer({ job = null, onDone }) {
           </Field>
           {!replacing && (
             <>
-              <Field label="Λιμάνι">
+              <Field label={t("port")}>
                 <select style={selectControl} value={portId} onChange={(e) => setPortId(e.target.value)}>
-                  <option value="">Οποιοδήποτε</option>
+                  <option value="">{t("anyPort")}</option>
                   {lookups.ports.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -234,9 +236,9 @@ export default function OfferComposer({ job = null, onDone }) {
                 </select>
               </Field>
               {role === "skipper" && (
-                <Field label="Τύπος σκάφους">
+                <Field label={t("boatType")}>
                   <select style={selectControl} value={boatTypeId} onChange={(e) => setBoatTypeId(e.target.value)}>
-                    <option value="">Οποιοσδήποτε</option>
+                    <option value="">{t("anyBoat")}</option>
                     {lookups.boatTypes.map((b) => (
                       <option key={b.id} value={b.id}>
                         {b.name}
@@ -248,14 +250,14 @@ export default function OfferComposer({ job = null, onDone }) {
             </>
           )}
           <button type="submit" style={button("secondary")} disabled={busy}>
-            {busy ? "…" : "Ποιοι είναι ελεύθεροι"}
+            {busy ? "…" : t("findAvailable")}
           </button>
         </form>
       </Toolbar>
 
       {error && <p style={{ color: colors.danger, fontSize: 13, padding: "10px 16px", margin: 0 }}>{error}</p>}
-      {results === null && <Empty>Διάλεξε ιδιότητα και ημερομηνίες.</Empty>}
-      {results?.length === 0 && <Empty>Κανένας διαθέσιμος για αυτές τις ημερομηνίες.</Empty>}
+      {results === null && <Empty>{t("pickRoleAndDates")}</Empty>}
+      {results?.length === 0 && <Empty>{t("noneAvailable")}</Empty>}
 
       {results?.map((s) => {
         const on = picked.includes(s.skipper_id);
@@ -269,10 +271,10 @@ export default function OfferComposer({ job = null, onDone }) {
                 style={{ width: 16, height: 16, flexShrink: 0, accentColor: colors.ink }}
               />
               <RowMain
-                title={s.full_name || "(χωρίς όνομα)"}
+                title={(f.locale === "en" && s.full_name_latin) || s.full_name || t("noName")}
                 meta={
                   <>
-                    <span style={money}>{s.phone_number}</span> · <span style={money}>{s.price_per_day != null ? `${s.price_per_day}€` : "—"}</span>/ημέρα ·{" "}
+                    <span style={money}>{s.phone_number}</span> · <span style={money}>{s.price_per_day != null ? `${s.price_per_day}€` : "—"}</span>{t("perDay")} ·{" "}
                     {labelForRole(s.crew_role)}
                     {s.rating_count > 0 ? (
                       <>
@@ -281,12 +283,12 @@ export default function OfferComposer({ job = null, onDone }) {
                         <span style={money}>{s.rating_count}</span>)
                       </>
                     ) : (
-                      " · χωρίς αξιολογήσεις"
+                      ` · ${t("noReviews")}`
                     )}
                     {s.reliability_percentage != null && (
                       <>
                         {" · "}
-                        <span style={money}>{s.reliability_percentage}%</span> αξιοπιστία
+                        <span style={money}>{s.reliability_percentage}%</span> {t("reliability")}
                       </>
                     )}
                   </>
@@ -301,37 +303,37 @@ export default function OfferComposer({ job = null, onDone }) {
         <div style={{ padding: 16, borderTop: `1px solid ${colors.border}`, background: colors.bg }}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
             <label style={{ ...muted, fontSize: 12, flex: "2 1 220px" }}>
-              Σημείωμα προς τον επαγγελματία
+              {t("noteLabel")}
               <input
                 style={{ ...control, width: "100%", marginTop: 4 }}
-                placeholder="π.χ. Ναύλο 4 ημερών, οικογένεια με 2 παιδιά"
+                placeholder={t("notePlaceholder")}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
             </label>
             <label style={{ ...muted, fontSize: 12, flex: "1 1 130px" }}>
-              Credits αποδοχής
+              {t("feeLabel")}
               <input
                 type="number"
                 min={0}
                 step={1}
                 style={{ ...control, width: "100%", marginTop: 4 }}
-                placeholder={defaultFee != null ? String(defaultFee) : "προεπιλογή"}
+                placeholder={defaultFee != null ? String(defaultFee) : t("feeDefault")}
                 value={fee}
                 onChange={(e) => setFee(e.target.value)}
               />
             </label>
             <label style={{ ...muted, fontSize: 12, flex: "1 1 130px" }}>
-              {replacing ? "Προθεσμία απάντησης" : "Ισχύει για"}
+              {replacing ? t("replyDeadline") : t("validFor")}
               <select
                 style={{ ...selectControl, width: "100%", marginTop: 4 }}
                 value={expiresHours}
                 onChange={(e) => setExpiresHours(e.target.value)}
               >
-                <option value={3}>3 ώρες</option>
-                <option value={12}>12 ώρες</option>
-                <option value={24}>24 ώρες</option>
-                <option value={48}>48 ώρες</option>
+                <option value={3}>{t("hours", { n: 3 })}</option>
+                <option value={12}>{t("hours", { n: 12 })}</option>
+                <option value={24}>{t("hours", { n: 24 })}</option>
+                <option value={48}>{t("hours", { n: 48 })}</option>
               </select>
             </label>
           </div>
@@ -339,24 +341,19 @@ export default function OfferComposer({ job = null, onDone }) {
           {/* Said out loud before you send it, because it is the part that
               costs someone money and the part they will ask you about. */}
           <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px" }}>
-            {missingDetails ? (
-              "Για να σταλεί η πρόταση χρειάζεται συγκεκριμένο λιμάνι και τύπος σκάφους."
-            ) : picked.length === 0 ? (
-              replacing
-                ? "Διάλεξε ποιοι θα τη λάβουν. Ο πελάτης θα διαλέξει από όσους δηλώσουν ενδιαφέρον."
-                : "Διάλεξε ποιοι θα τη λάβουν. Τη δουλειά την παίρνει όποιος αποδεχτεί πρώτος."
-            ) : replacing ? (
-              <>
-                Θα σταλεί σε {picked.length} άτομα, που έχουν {expiresHours} ώρες να δηλώσουν ενδιαφέρον. Ο πελάτης
-                βλέπει όσους δηλώσουν (ανώνυμα) και έχει 24 ώρες από τον πρώτο για να διαλέξει — τότε χρεώνεται{" "}
-                {feeShown === 0 ? "χωρίς χρέωση" : feeShown == null ? "—" : formatCredits(feeShown)} μόνο ο επιλεγμένος. Ο πελάτης δεν πληρώνει
-                ξανά.
-              </>
-            ) : feeShown === 0 ? (
-              `Θα σταλεί σε ${picked.length} άτομα χωρίς χρέωση. Την παίρνει όποιος αποδεχτεί πρώτος.`
-            ) : (
-              `Θα σταλεί σε ${picked.length} άτομα. Όποιος αποδεχτεί πρώτος χρησιμοποιεί ${feeShown == null ? "—" : formatCredits(feeShown)} και οι υπόλοιποι δεν χρεώνονται.`
-            )}
+            {missingDetails
+              ? t("missingDetails")
+              : picked.length === 0
+                ? t(replacing ? "pickReplacing" : "pickOpen")
+                : replacing
+                  ? t("summaryReplacing", {
+                      n: picked.length,
+                      hours: expiresHours,
+                      fee: feeShown === 0 ? t("noCharge") : feeShown == null ? "—" : formatCredits(feeShown),
+                    })
+                  : feeShown === 0
+                    ? t("summaryFree", { n: picked.length })
+                    : t("summaryOpen", { n: picked.length, fee: feeShown == null ? "—" : formatCredits(feeShown) })}
           </p>
 
           <button
@@ -364,7 +361,7 @@ export default function OfferComposer({ job = null, onDone }) {
             disabled={sending || picked.length === 0 || missingDetails}
             onClick={send}
           >
-            {sending ? "Αποστολή…" : `Αποστολή πρότασης${picked.length ? ` (${picked.length})` : ""}`}
+            {sending ? t("sending") : `${t("send")}${picked.length ? ` (${picked.length})` : ""}`}
           </button>
         </div>
       )}

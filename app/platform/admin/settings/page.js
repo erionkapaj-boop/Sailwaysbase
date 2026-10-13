@@ -1,6 +1,7 @@
 "use client";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import AdminShell from "../AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
 import { adminListSettings, adminUpdateSetting } from "../../../../lib/platform/db";
@@ -16,205 +17,50 @@ const inputStyle = (dirty) => ({
   color: colors.ink,
 });
 
-// Named and explained here rather than in the database, for the same reason
-// the notification wording is: changing how something reads shouldn't need a
-// migration, and an operator staring at `unclaimed_expiry_hours` deserves a
-// sentence saying what moving it actually does.
+// Ομάδα, μονάδα και είδος κάθε ρύθμισης. Ονόματα και επεξηγήσεις: AdminSettings
+// (s_<κλειδί>_label / _help / _warn). Αλλαγή διατύπωσης δεν θέλει migration.
 const SETTING_META = {
-  // --- Χρεώσεις ---
-  credit_price_eur: {
-    group: "credits",
-    label: "Τιμή ενός credit",
-    unit: "€",
-    help: "Τιμή αγοράς ενός credit χωρίς πακέτο. Με αυτήν μετατρέπεται σε credits το κόστος των μεταφορών σκάφους.",
-  },
-  package_starter_credits: { group: "credits", label: "Starter: credits", unit: "credits", help: "" },
-  package_starter_price: { group: "credits", label: "Starter: τιμή", unit: "€", help: "" },
-  package_professional_credits: { group: "credits", label: "Professional: credits", unit: "credits", help: "" },
-  package_professional_price: { group: "credits", label: "Professional: τιμή", unit: "€", help: "" },
-  package_pro_credits: { group: "credits", label: "Pro: credits", unit: "credits", help: "" },
-  package_pro_price: { group: "credits", label: "Pro: τιμή", unit: "€", help: "" },
-  signup_credits_professional: {
-    group: "credits",
-    label: "Δώρο εγγραφής, επαγγελματίες",
-    unit: "credits",
-    help: "Πιστώνεται με την επαλήθευση του λογαριασμού.",
-  },
-  signup_credits_client: {
-    group: "credits",
-    label: "Δώρο εγγραφής, πελάτες",
-    unit: "credits",
-    help: "Πιστώνεται με την επαλήθευση του λογαριασμού. 0: κανένα δώρο.",
-  },
-  client_request_fee: {
-    group: "fees",
-    label: "Αίτημα πελάτη",
-    unit: "credits",
-    help: "Ανά θέση, όταν ο πελάτης στέλνει αίτημα. Επιστρέφονται αν κανείς δεν το αναλάβει. 0: δωρεάν για τους πελάτες.",
-  },
-  skipper_claim_fee: {
-    group: "fees",
-    label: "Ανάληψη από επαγγελματία",
-    unit: "credits",
-    help: "Τη στιγμή που ο επαγγελματίας αναλαμβάνει ένα αίτημα.",
-  },
-  // --- Χρόνοι λήξης ---
-  unclaimed_expiry_hours: {
-    group: "expiry",
-    label: "Πόσο ισχύει ένα αίτημα πελάτη",
-    unit: "ώρες",
-    help: "Μετά από τόσες ώρες χωρίς αποδοχή το αίτημα λήγει και το δεσμευμένο credit του πελάτη ελευθερώνεται.",
-  },
-  delivery_expiry_hours: {
-    group: "expiry",
-    label: "Πόσο ισχύει μια πρόταση μεταφοράς",
-    unit: "ώρες",
-    help: "Πόσο μένει ανοιχτή μια πρόταση ρόλου σε μεταφορά σκάφους πριν λήξει.",
-  },
-  pro_response_hours: {
-    group: "expiry",
-    label: "Προθεσμία απάντησης επαγγελματία",
-    unit: "ώρες",
-    help: "Από την επιβεβαίωση μιας κράτησης, τόσες ώρες έχει ο επαγγελματίας να απαντήσει στα μηνύματα. Αν δεν απαντήσει, ο πελάτης μπορεί να ακυρώσει χωρίς δική του επιβάρυνση.",
-  },
-  // --- Μεταφορές σκάφους ---
-  delivery_skipper_rate_per_mile: {
-    group: "delivery",
-    label: "Βάση υπολογισμού: skipper",
-    unit: "€/μίλι",
-    help: "Από αυτήν (× μίλια) υπολογίζεται η προμήθεια της πλατφόρμας για skipper. Δεν είναι η αμοιβή του, αυτή τη συμφωνούν ελεύθερα.",
-  },
-  delivery_hostess_rate_per_mile: {
-    group: "delivery",
-    label: "Βάση υπολογισμού: hostess",
-    unit: "€/μίλι",
-    help: "Ίδιο σκεπτικό, για hostess.",
-  },
-  delivery_cook_rate_per_mile: {
-    group: "delivery",
-    label: "Βάση υπολογισμού: cook",
-    unit: "€/μίλι",
-    help: "Ίδιο σκεπτικό, για cook.",
-  },
-  delivery_deckhand_rate_per_mile: {
-    group: "delivery",
-    label: "Βάση υπολογισμού: ναύτης",
-    unit: "€/μίλι",
-    help: "Ίδιο σκεπτικό, για ναύτη.",
-  },
-  delivery_platform_fee_pct: {
-    group: "delivery",
-    label: "Ποσοστό προμήθειας",
-    unit: "%",
-    help: "Ποσοστό επί (μίλια × βάση ρόλου): το συνολικό κόστος ανά θέση σε €, που μετατρέπεται σε credits με την τιμή του credit.",
-  },
-  delivery_min_fee: {
-    group: "delivery",
-    label: "Ελάχιστο κόστος",
-    unit: "€",
-    help: "Το αντίστοιχο σε credits χρησιμοποιεί ο επαγγελματίας όταν αναλαμβάνει· ο πελάτης το υπόλοιπο, επίσης σε credits.",
-  },
-  // --- Σύστημα ---
-  otp_enabled: {
-    group: "system",
-    label: "Επιβεβαίωση κινητού με SMS",
-    kind: "toggle",
-    help: "«Ναι»: οι νέες εγγραφές επιβεβαιώνονται αυτόματα με κωδικό SMS και το «Ξέχασα τον κωδικό» δουλεύει με SMS. «Όχι»: κάθε νέα εγγραφή την επαληθεύεις εσύ (Εκκρεμότητες).",
-    warn: "Βάλε «Ναι» μόνο αφού συνδεθεί πάροχος SMS στο Supabase, αλλιώς κανείς δεν θα μπορεί να εγγραφεί.",
-  },
-  // --- Αξιοπιστία & ακυρώσεις (τεχνικές) ---
-  reliability_min_history: {
-    group: "reliability",
-    label: "Ελάχιστο ιστορικό για ποσοστό αξιοπιστίας",
-    unit: "κρατήσεις",
-    help: "Κάτω από τόσες ολοκληρωμένες ή ακυρωμένες κρατήσεις δεν δείχνουμε ποσοστό.",
-  },
-  cancellation_flag_review_threshold: {
-    group: "reliability",
-    label: "Όριο ακυρώσεων για έλεγχο",
-    unit: "ακυρώσεις",
-    help: "Πόσες ακυρώσεις πριν ένας λογαριασμός σημανθεί για έλεγχο.",
-  },
-  cancel_early_days: {
-    group: "reliability",
-    label: "Έγκαιρη ακύρωση από",
-    unit: "ημέρες πριν",
-    help: "Ακύρωση τόσες ή περισσότερες ημέρες πριν το ταξίδι θεωρείται έγκαιρη (ελαφριά βαρύτητα).",
-  },
-  cancel_late_days: {
-    group: "reliability",
-    label: "Ακύρωση τελευταίας στιγμής, κάτω από",
-    unit: "ημέρες πριν",
-    help: "Ακύρωση λιγότερες ημέρες πριν το ταξίδι θεωρείται τελευταίας στιγμής (βαριά).",
-  },
-  cancel_weight_early: {
-    group: "reliability",
-    label: "Βαρύτητα έγκαιρης ακύρωσης",
-    unit: "",
-    help: "Πόσο «μετράει» μια έγκαιρη ακύρωση (1 = όσο μια κανονική).",
-  },
-  cancel_weight_mid: {
-    group: "reliability",
-    label: "Βαρύτητα ενδιάμεσης ακύρωσης",
-    unit: "",
-    help: "Για ακυρώσεις ανάμεσα στην έγκαιρη και στην τελευταίας στιγμής.",
-  },
-  cancel_weight_late: {
-    group: "reliability",
-    label: "Βαρύτητα ακύρωσης τελευταίας στιγμής",
-    unit: "",
-    help: "Πόσο μετράει μια ακύρωση τελευταίας στιγμής.",
-  },
-  cancel_weight_after_start: {
-    group: "reliability",
-    label: "Βαρύτητα εγκατάλειψης εν πλω",
-    unit: "",
-    help: "Ακύρωση αφού έχει ξεκινήσει το ταξίδι, η χειρότερη περίπτωση.",
-  },
-  cancel_decay_full_months: {
-    group: "reliability",
-    label: "Μια ακύρωση μετράει ολόκληρη για",
-    unit: "μήνες",
-    help: "Μέχρι τόσους μήνες μετά μετράει ακέραιη· μετά αρχίζει να «ξεθωριάζει».",
-  },
-  cancel_decay_zero_months: {
-    group: "reliability",
-    label: "Μια ακύρωση ξεχνιέται μετά από",
-    unit: "μήνες",
-    help: "Από τόσους μήνες και μετά δεν μετράει καθόλου.",
-  },
-  cancel_prior_jobs: {
-    group: "reliability",
-    label: "Προίκα «καθαρών» δουλειών",
-    unit: "δουλειές",
-    help: "Κάθε επαγγελματίας ξεκινά σαν να έχει τόσες καθαρές δουλειές, ώστε μία ακύρωση να μην τον καταστρέφει από την αρχή.",
-  },
-  cancel_full_rate: {
-    group: "reliability",
-    label: "Ρυθμός ακυρώσεων για μέγιστη ποινή",
-    unit: "",
-    help: "Όταν οι ακυρώσεις φτάσουν αυτό το ποσοστό των δουλειών (0.5 = μία στις δύο), η θέση στις αναζητήσεις πέφτει στο κατώτατο.",
-  },
+  credit_price_eur: { group: "credits", unit: "eur", help: true },
+  package_starter_credits: { group: "credits", unit: "credits" },
+  package_starter_price: { group: "credits", unit: "eur" },
+  package_professional_credits: { group: "credits", unit: "credits" },
+  package_professional_price: { group: "credits", unit: "eur" },
+  package_pro_credits: { group: "credits", unit: "credits" },
+  package_pro_price: { group: "credits", unit: "eur" },
+  signup_credits_professional: { group: "credits", unit: "credits", help: true },
+  signup_credits_client: { group: "credits", unit: "credits", help: true },
+  client_request_fee: { group: "fees", unit: "credits", help: true },
+  skipper_claim_fee: { group: "fees", unit: "credits", help: true },
+  unclaimed_expiry_hours: { group: "expiry", unit: "hours", help: true },
+  delivery_expiry_hours: { group: "expiry", unit: "hours", help: true },
+  pro_response_hours: { group: "expiry", unit: "hours", help: true },
+  delivery_skipper_rate_per_mile: { group: "delivery", unit: "eurPerMile", help: true },
+  delivery_hostess_rate_per_mile: { group: "delivery", unit: "eurPerMile", help: true },
+  delivery_cook_rate_per_mile: { group: "delivery", unit: "eurPerMile", help: true },
+  delivery_deckhand_rate_per_mile: { group: "delivery", unit: "eurPerMile", help: true },
+  delivery_platform_fee_pct: { group: "delivery", unit: "pct", help: true },
+  delivery_min_fee: { group: "delivery", unit: "eur", help: true },
+  otp_enabled: { group: "system", kind: "toggle", help: true, warn: true },
+  reliability_min_history: { group: "reliability", unit: "bookings", help: true },
+  cancellation_flag_review_threshold: { group: "reliability", unit: "cancellations", help: true },
+  cancel_early_days: { group: "reliability", unit: "daysBefore", help: true },
+  cancel_late_days: { group: "reliability", unit: "daysBefore", help: true },
+  cancel_weight_early: { group: "reliability", help: true },
+  cancel_weight_mid: { group: "reliability", help: true },
+  cancel_weight_late: { group: "reliability", help: true },
+  cancel_weight_after_start: { group: "reliability", help: true },
+  cancel_decay_full_months: { group: "reliability", unit: "months", help: true },
+  cancel_decay_zero_months: { group: "reliability", unit: "months", help: true },
+  cancel_prior_jobs: { group: "reliability", unit: "jobs", help: true },
+  cancel_full_rate: { group: "reliability", help: true },
 };
 
-const GROUPS = [
-  { key: "credits", title: "Credits και πακέτα" },
-  { key: "fees", title: "Χρεώσεις σε credits" },
-  { key: "expiry", title: "Χρόνοι λήξης" },
-  { key: "delivery", title: "Μεταφορές σκάφους" },
-  { key: "system", title: "Σύστημα" },
-  {
-    key: "reliability",
-    title: "Αξιοπιστία & ακυρώσεις (για προχωρημένους)",
-    subtitle: "Πώς βαραίνουν οι ακυρώσεις στη σειρά εμφάνισης των επαγγελματιών. Οι προεπιλογές είναι λογικές. Άλλαξέ τες μόνο αν ξέρεις τι θέλεις να πετύχεις.",
-    collapsed: true,
-  },
-  { key: "other", title: "Άλλες" },
-];
+const GROUP_KEYS = ["credits", "fees", "expiry", "delivery", "system", "reliability", "other"];
 
 // Οι τιμές όπως τις βλέπει ο χρήστης στη σελίδα Credits — μόνο όσες έχουν
 // αποθηκευτεί.
 function CreditPreview({ list }) {
+  const t = useTranslations("AdminSettings");
   const v = Object.fromEntries(list.map((r) => [r.key, Number(r.value)]));
   const price = v.credit_price_eur;
   const packs = [
@@ -225,7 +71,7 @@ function CreditPreview({ list }) {
   if (price == null) return null;
   return (
     <div style={{ padding: "14px 16px", background: colors.seaGlass }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>Όπως το βλέπει ο χρήστης (αποθηκευμένες τιμές)</div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>{t("previewTitle")}</div>
       <div style={{ fontSize: 13.5, lineHeight: 1.7 }}>
         1 credit · {price}€
         {packs.map(([name, c, p]) => {
@@ -233,8 +79,8 @@ function CreditPreview({ list }) {
           const off = price > 0 ? Math.round((1 - per / price) * 100) : 0;
           return (
             <div key={name}>
-              {name} · {c} credits · {p}€ <span style={muted}>({Math.round(per * 100) / 100}€ το credit{off > 0 ? `, −${off}%` : ""})</span>
-              {off < 0 && <span style={{ color: colors.danger }}> · ακριβότερο από το μεμονωμένο credit</span>}
+              {name} · {c} credits · {p}€ <span style={muted}>({t("perCredit", { per: Math.round(per * 100) / 100, off: off > 0 ? `, −${off}%` : "" })})</span>
+              {off < 0 && <span style={{ color: colors.danger }}> · {t("moreExpensive")}</span>}
             </div>
           );
         })}
@@ -244,6 +90,7 @@ function CreditPreview({ list }) {
 }
 
 export default function SettingsPage() {
+  const t = useTranslations("AdminSettings");
   const [list, setList] = useState([]);
   const [drafts, setDrafts] = useState({});
   const [busyKey, setBusyKey] = useState(null);
@@ -305,9 +152,7 @@ export default function SettingsPage() {
     if (
       key === "otp_enabled" &&
       drafts[key] === "1" &&
-      !(await confirm(
-        "Ενεργοποίηση επιβεβαίωσης με SMS; Αν δεν έχει συνδεθεί πάροχος SMS στο Supabase, κανένας νέος χρήστης δεν θα μπορεί να εγγραφεί."
-      ))
+      !(await confirm(t("confirmOtp")))
     )
       return;
     setBusyKey(key);
@@ -317,7 +162,8 @@ export default function SettingsPage() {
   }
 
   function renderSetting(s) {
-    const meta = SETTING_META[s.key] || { label: s.key, unit: "", help: "" };
+    const meta = SETTING_META[s.key] || {};
+    const label = SETTING_META[s.key] ? t(`s_${s.key}_label`) : s.key;
     const dirty = drafts[s.key] !== String(s.value);
     const field =
       meta.kind === "toggle" ? (
@@ -326,8 +172,8 @@ export default function SettingsPage() {
           onChange={(e) => setDrafts((d) => ({ ...d, [s.key]: e.target.value }))}
           style={{ ...inputStyle(dirty), width: 90 }}
         >
-          <option value="0">Όχι</option>
-          <option value="1">Ναι</option>
+          <option value="0">{t("no")}</option>
+          <option value="1">{t("yes")}</option>
         </select>
       ) : (
         <input
@@ -339,22 +185,22 @@ export default function SettingsPage() {
       );
     return (
       <div key={s.key} style={{ borderBottom: `1px solid ${colors.border}`, padding: "14px 16px" }}>
-        <RowMain title={meta.label} meta={meta.help} />
-        {meta.warn && <p style={{ color: colors.warn, fontSize: 12.5, margin: "6px 0 0" }}>{meta.warn}</p>}
+        <RowMain title={label} meta={meta.help ? t(`s_${s.key}_help`) : ""} />
+        {meta.warn && <p style={{ color: colors.warn, fontSize: 12.5, margin: "6px 0 0" }}>{t(`s_${s.key}_warn`)}</p>}
         <span style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
           {field}
-          {meta.unit && <span style={{ ...muted, fontSize: 13 }}>{meta.unit}</span>}
-          {dirty && <span style={{ color: colors.warn, fontSize: 12.5 }}>Δεν έχει αποθηκευτεί</span>}
+          {meta.unit && <span style={{ ...muted, fontSize: 13 }}>{t(`unit_${meta.unit}`)}</span>}
+          {dirty && <span style={{ color: colors.warn, fontSize: 12.5 }}>{t("unsaved")}</span>}
           <button
             style={button(dirty ? "primary" : "secondary")}
             disabled={!dirty || busyKey === s.key}
             onClick={() => save(s.key)}
           >
-            {busyKey === s.key ? "…" : "Αποθήκευση"}
+            {busyKey === s.key ? "…" : t("save")}
           </button>
         </span>
         {rowErrors[s.key] && <p style={{ color: colors.danger, fontSize: 12.5, margin: "8px 0 0" }}>{rowErrors[s.key]}</p>}
-        {saved === s.key && !dirty && <p style={{ color: colors.success, fontSize: 12.5, margin: "8px 0 0" }}>Αποθηκεύτηκε.</p>}
+        {saved === s.key && !dirty && <p style={{ color: colors.success, fontSize: 12.5, margin: "8px 0 0" }}>{t("saved")}</p>}
       </div>
     );
   }
@@ -362,13 +208,14 @@ export default function SettingsPage() {
   return (
     <AdminShell
       ownerOnly
-      title="Ρυθμίσεις"
-      subtitle="Ισχύουν αμέσως για κάθε νέα ενέργεια. Δεν αλλάζουν αναδρομικά ό,τι έχει ήδη χρεωθεί."
+      title={t("title")}
+      subtitle={t("subtitle")}
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
-      {list.length === 0 && <Empty>Φόρτωση…</Empty>}
-      {GROUPS.map((g) => {
+      {list.length === 0 && <Empty>{t("loading")}</Empty>}
+      {GROUP_KEYS.map((key) => {
+        const g = { key, title: t(`group_${key}_title`), subtitle: key === "reliability" ? t("group_reliability_subtitle") : undefined, collapsed: key === "reliability" };
         const rows = list.filter((s) => (SETTING_META[s.key]?.group || "other") === g.key);
         if (rows.length === 0) return null;
         const body = rows.map((s) => renderSetting(s));
@@ -411,7 +258,7 @@ export default function SettingsPage() {
           }}
         >
           <span style={{ fontSize: 14 }}>
-            {dirtyKeys.length === 1 ? "1 αλλαγή δεν έχει αποθηκευτεί" : `${dirtyKeys.length} αλλαγές δεν έχουν αποθηκευτεί`}
+            {t("unsavedChanges", { count: dirtyKeys.length })}
           </span>
           <span style={{ display: "flex", gap: 8 }}>
             <button
@@ -419,7 +266,7 @@ export default function SettingsPage() {
               style={{ ...button("secondary"), background: "transparent", color: "#fff", borderColor: "rgba(255,255,255,0.4)" }}
               onClick={() => setDrafts(Object.fromEntries(list.map((r) => [r.key, String(r.value)])))}
             >
-              Αναίρεση
+              {t("undo")}
             </button>
             <button
               type="button"
@@ -427,7 +274,7 @@ export default function SettingsPage() {
               disabled={busyKey === "__all__"}
               onClick={saveAll}
             >
-              {busyKey === "__all__" ? "…" : "Αποθήκευση όλων"}
+              {busyKey === "__all__" ? "…" : t("saveAll")}
             </button>
           </span>
         </div>

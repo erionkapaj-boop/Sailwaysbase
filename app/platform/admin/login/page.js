@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuth } from "../../AuthContext";
 import {
   signInWithPin,
@@ -17,6 +18,7 @@ import { container, card, h1, muted, button, input, label, colors } from "../../
 // non-admin is the role check below plus the is_admin() conditions in the
 // database's row-level policies. Those are the real boundary.
 export default function AdminLoginPage() {
+  const t = useTranslations("AdminLogin");
   const router = useRouter();
   const { refresh } = useAuth();
 
@@ -39,7 +41,7 @@ export default function AdminLoginPage() {
         // and say plainly that this door isn't theirs.
         await signOut();
         await refresh();
-        setError("Αυτός ο λογαριασμός δεν έχει δικαιώματα admin.");
+        setError(t("notAdmin"));
         return;
       }
       await refresh();
@@ -49,7 +51,7 @@ export default function AdminLoginPage() {
         setLockedOut(true);
         setError("");
       } else {
-        setError("Λάθος τηλέφωνο ή κωδικός.");
+        setError(t("wrongCredentials"));
       }
     } finally {
       setBusy(false);
@@ -61,25 +63,24 @@ export default function AdminLoginPage() {
       <div style={{ paddingTop: 24 }}>
         <BackButton onClick={() => router.back()} />
         <h1 style={{ ...h1, marginTop: 20 }}>Admin</h1>
-        <p style={muted}>Είσοδος διαχειριστή.</p>
+        <p style={muted}>{t("subtitle")}</p>
 
         {lockedOut ? (
           // Supabase's own limit on sign-in attempts (0107). The forgot-PIN page is no
           // help to the admin: with SMS off it only says "contact us".
           <div style={{ ...card, marginTop: 20, borderLeft: `3px solid ${colors.warn}` }}>
-            <b style={{ fontWeight: 600 }}>Πολλές προσπάθειες</b>
+            <b style={{ fontWeight: 600 }}>{t("lockedTitle")}</b>
             <p style={{ ...muted, margin: "8px 0 16px" }}>
-              Έγιναν πολλές προσπάθειες από αυτή τη συσκευή. Περίμενε λίγα λεπτά και δοκίμασε ξανά. Αν δεν θυμάσαι τον κωδικό, ένας
-              άλλος διαχειριστής μπορεί να σου δώσει προσωρινό από Χρήστες, Στοιχεία, «Νέος προσωρινός κωδικός».
+              {t("lockedBody")}
             </p>
             <button style={button("secondary")} onClick={() => setLockedOut(false)}>
-              Δοκίμασε ξανά
+              {t("retry")}
             </button>
           </div>
         ) : (
         <form onSubmit={submit} style={{ ...card, marginTop: 20 }}>
           <label style={label} htmlFor="a-phone">
-            Κινητό τηλέφωνο
+            {t("phone")}
           </label>
           <input
             id="a-phone"
@@ -92,7 +93,7 @@ export default function AdminLoginPage() {
           />
 
           <label style={label} htmlFor="a-pin">
-            Κωδικός
+            {t("pin")}
           </label>
           <input
             id="a-pin"
@@ -105,7 +106,7 @@ export default function AdminLoginPage() {
           />
 
           <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%" }}>
-            {busy ? "Είσοδος…" : "Είσοδος"}
+            {busy ? t("submitting") : t("submit")}
           </button>
 
           {error && <p style={{ color: colors.danger, marginTop: 12, marginBottom: 0 }}>{error}</p>}

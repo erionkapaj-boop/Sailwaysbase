@@ -60,7 +60,7 @@ export async function POST(req) {
     }
     return Response.json({ ok: true, phone: normalized });
   } catch (err) {
-    await reportServerIssue("google_phone", "/api/platform/auth/google-phone", err, ["αίτημα POST"]);
+    await reportServerIssue("google_phone", "/api/platform/auth/google-phone", err, ["POST request"]);
     return Response.json({ error: "could_not_save" }, { status: 500 });
   }
 }

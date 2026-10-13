@@ -1,20 +1,14 @@
 "use client";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../../useFormat";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import Link from "next/link";
 import { Panel, Row, RowMain, Empty, colors, muted, button } from "../ui";
 import { adminListContactMessages, adminSetContactMessageStatus } from "../../../../lib/platform/db";
-import { timeAgo } from "../../../../lib/platform/notifications";
 
-const TOPIC_LABEL = {
-  general: "Γενική ερώτηση",
-  booking: "Κράτηση / αίτημα",
-  payment: "Χρέωση / credits",
-  report: "Αναφορά",
-  privacy: "Προσωπικά δεδομένα",
-  other: "Άλλο",
-};
+const TOPICS = ["general", "booking", "payment", "report", "privacy", "other"];
 
 // Μια αναφορά ή ένα αίτημα ΓΚΠΔ έχει προθεσμία και συνέπειες· μια γενική
 // ερώτηση όχι. Ξεχωρίζουν οπτικά ώστε να μην περιμένουν στη σειρά.
@@ -35,13 +29,13 @@ const noteInput = {
 
 // Replies happen outside the platform, on whatever the sender left — so the
 // page offers that channel directly instead of leaving it to copy/paste.
-function replyLinks(contact) {
+function replyLinks(contact, t) {
   const c = (contact || "").trim();
-  if (c.includes("@")) return [{ href: `mailto:${c}`, label: "Απάντηση με email" }];
+  if (c.includes("@")) return [{ href: `mailto:${c}`, label: t("replyEmail") }];
   const digits = c.replace(/[^\d+]/g, "");
   if (digits.replace(/\D/g, "").length >= 8) {
     const tel = digits.startsWith("+") ? digits : digits.length === 10 ? `+30${digits}` : digits;
-    return [{ href: `tel:${tel}`, label: "Κλήση" }];
+    return [{ href: `tel:${tel}`, label: t("call") }];
   }
   return [];
 }
@@ -56,6 +50,9 @@ function searchTerm(contact) {
 }
 
 export default function AdminMessagesPage() {
+  const t = useTranslations("AdminMessages");
+  const f = useFormat();
+  const topicLabel = (topic) => (TOPICS.includes(topic) ? t(`topic_${topic}`) : topic);
   const refreshCounts = useRefreshAdminCounts();
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(true);
@@ -95,14 +92,14 @@ export default function AdminMessagesPage() {
 
   return (
     <AdminShell
-      title="Μηνύματα επικοινωνίας"
-      subtitle="Ό,τι φτάνει από τη φόρμα επικοινωνίας. Απαντάς με email ή τηλέφωνο, στο στοιχείο που άφησε ο αποστολέας, και μετά πατάς «Το απάντησα»."
+      title={t("title")}
+      subtitle={t("subtitle")}
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
-      <Panel title={`Αναπάντητα (${open.length})`} padded={false}>
-        {busy && <Empty>Φόρτωση…</Empty>}
-        {!busy && open.length === 0 && <Empty>Κανένα αναπάντητο μήνυμα.</Empty>}
+      <Panel title={t("openTitle", { count: open.length })} padded={false}>
+        {busy && <Empty>{t("loading")}</Empty>}
+        {!busy && open.length === 0 && <Empty>{t("openEmpty")}</Empty>}
         {open.map((m) => (
           <div
             key={m.id}
@@ -113,11 +110,11 @@ export default function AdminMessagesPage() {
             }}
           >
             <RowMain
-              title={`${m.name} · ${TOPIC_LABEL[m.topic] || m.topic}`}
+              title={`${m.name} · ${topicLabel(m.topic)}`}
               meta={
                 <>
-                  {m.contact} · {timeAgo(m.created_at)}
-                  {m.user_id ? " · εγγεγραμμένος χρήστης" : " · επισκέπτης (χωρίς λογαριασμό)"}
+                  {m.contact} · {f.timeAgo(m.created_at)}
+                  {m.user_id ? ` · ${t("registeredUser")}` : ` · ${t("visitor")}`}
                 </>
               }
             />
@@ -125,14 +122,14 @@ export default function AdminMessagesPage() {
               {m.message}
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-              {replyLinks(m.contact).map((r) => (
+              {replyLinks(m.contact, t).map((r) => (
                 <a key={r.href} href={r.href} style={{ ...button("secondary"), textDecoration: "none" }}>
                   {r.label}
                 </a>
               ))}
               {m.user_id ? (
                 <Link href={`/platform/admin/user/${m.user_id}`} style={{ ...button("secondary"), textDecoration: "none" }}>
-                  Στοιχεία χρήστη
+                  {t("userDetails")}
                 </Link>
               ) : (
                 // A visitor who can't log in (e.g. forgot the PIN) writes in
@@ -141,12 +138,12 @@ export default function AdminMessagesPage() {
                   href={`/platform/admin/users?q=${encodeURIComponent(searchTerm(m.contact))}`}
                   style={{ ...button("secondary"), textDecoration: "none" }}
                 >
-                  Βρες τον λογαριασμό του
+                  {t("findAccount")}
                 </Link>
               )}
             </div>
             <input
-              placeholder="Σημείωση: τι απάντησες ή τι έκανες (προαιρετικό)"
+              placeholder={t("notePlaceholder")}
               value={notes[m.id] || ""}
               onChange={(e) => setNotes((n) => ({ ...n, [m.id]: e.target.value }))}
               style={noteInput}
@@ -156,28 +153,28 @@ export default function AdminMessagesPage() {
               disabled={busyId === m.id}
               onClick={() => setStatus(m.id, "handled")}
             >
-              {busyId === m.id ? "…" : "Το απάντησα"}
+              {busyId === m.id ? "…" : t("markAnswered")}
             </button>
           </div>
         ))}
       </Panel>
 
-      <Panel title={`Απαντημένα (${done.length})`} padded={false}>
-        {done.length === 0 && <Empty>Κανένα ακόμα.</Empty>}
+      <Panel title={t("doneTitle", { count: done.length })} padded={false}>
+        {done.length === 0 && <Empty>{t("doneEmpty")}</Empty>}
         {done.map((m) => (
           <Row key={m.id}>
             <RowMain
-              title={`${m.name} · ${TOPIC_LABEL[m.topic] || m.topic}`}
+              title={`${m.name} · ${topicLabel(m.topic)}`}
               meta={m.admin_note || m.contact}
             />
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-              <span style={{ ...muted, fontSize: 11.5 }}>{timeAgo(m.handled_at || m.created_at)}</span>
+              <span style={{ ...muted, fontSize: 11.5 }}>{f.timeAgo(m.handled_at || m.created_at)}</span>
               <button
                 style={{ ...button("secondary"), padding: "4px 10px", fontSize: 12 }}
                 disabled={busyId === m.id}
                 onClick={() => setStatus(m.id, "new")}
               >
-                Ξανά αναπάντητο
+                {t("reopen")}
               </button>
             </div>
           </Row>

@@ -1,13 +1,15 @@
 "use client";
-import { formatCredits, verbFor } from "../../../lib/platform/credits";
+import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useFormat } from "../useFormat";
 import AdminShell, { useAdminCounts } from "./AdminShell";
 import { Panel, Row, RowMain, Empty, colors, muted } from "./ui";
 import { useAuth } from "../AuthContext";
 import { adminDashboard, adminRecentActivity, adminListAccounts, adminInvisibleProfilesCount } from "../../../lib/platform/db";
-import { timeAgo, formatDate, formatMoney } from "../../../lib/platform/notifications";
+import { formatMoney } from "../../../lib/platform/notifications";
 import { labelForRole } from "../../../lib/platform/roles";
 import { fontSans, radius } from "../../../lib/platform/theme";
 
@@ -18,28 +20,16 @@ import { fontSans, radius } from "../../../lib/platform/theme";
 // Κάθε αριθμός οδηγεί κάπου ή λέει τι να κάνεις — τα σκέτα σύνολα
 // (χρήστες, ολοκληρωμένες) δεν μένουν εδώ· ζουν στις σελίδες τους.
 
-// Κεφαλαία χωρίς τόνους, όπως γράφονται στα ελληνικά.
-const WEEKDAY_SHORT = ["ΚΥΡ", "ΔΕΥ", "ΤΡΙ", "ΤΕΤ", "ΠΕΜ", "ΠΑΡ", "ΣΑΒ"];
-const WEEKDAY_LONG = ["Κυριακή", "Δευτέρα", "Τρίτη", "Τετάρτη", "Πέμπτη", "Παρασκευή", "Σάββατο"];
-
-const ACTIVITY_LABEL = {
-  booking: "Κράτηση",
-  signup: "Νέα εγγραφή",
-  dispute: "Ακύρωση",
-};
+const ACTIVITY_KINDS = ["booking", "signup", "dispute"];
 const ACTIVITY_TONE = {
   booking: colors.success,
   signup: colors.accent,
   dispute: colors.danger,
 };
 
-function plural(n, one, many) {
-  return `${n} ${n === 1 ? one : many}`;
-}
-
 // «ζητά Skipper», «ζητά Ναύτη» — η μόνη ιδιότητα με ελληνικό όνομα κλίνεται.
-function roleAcc(role) {
-  return role === "deckhand" ? "Ναύτη" : labelForRole(role);
+function roleAcc(role, t) {
+  return role === "deckhand" ? t("deckhandAcc") : labelForRole(role);
 }
 
 // Ημερομηνίες ταξιδιού είναι σκέτες "YYYY-MM-DD": διαβάζονται ως τοπική
@@ -55,29 +45,29 @@ function todayStart() {
 function daysFromToday(iso) {
   return Math.round((localDay(iso) - todayStart()) / 864e5);
 }
-function dayName(offset, date) {
-  if (offset === 0) return "Σήμερα";
-  if (offset === 1) return "Αύριο";
-  return `${WEEKDAY_LONG[date.getDay()]} ${date.getDate()}/${date.getMonth() + 1}`;
+function dayName(offset, date, t) {
+  if (offset === 0) return t("today");
+  if (offset === 1) return t("tomorrow");
+  return `${t(`weekdayLong.${date.getDay()}`)} ${date.getDate()}/${date.getMonth() + 1}`;
 }
 function tripDays(start, end) {
   return Math.round((localDay(end) - localDay(start)) / 864e5) + 1;
 }
 
-function countdown(iso, now) {
+function countdown(iso, now, t) {
   const ms = new Date(iso).getTime() - now;
-  if (ms <= 0) return "έληξε";
+  if (ms <= 0) return t("countdownExpired");
   const mins = Math.floor(ms / 60000);
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  if (h === 0) return `${m} λεπτά`;
-  return m === 0 ? `${h} ${h === 1 ? "ώρα" : "ώρες"}` : `${h} ώ. ${m} λ.`;
+  if (h === 0) return t("countdownMinutes", { m });
+  return m === 0 ? t("countdownHours", { h }) : t("countdownHoursMinutes", { h, m });
 }
 
-function greeting() {
+function greeting(t) {
   const h = new Date().getHours();
-  if (h >= 5 && h < 13) return "Καλημέρα";
-  return "Καλησπέρα";
+  if (h >= 5 && h < 13) return t("greetingMorning");
+  return t("greetingEvening");
 }
 
 const linkStyle = {
@@ -146,22 +136,21 @@ function SectionTitle({ children, hint }) {
 // 1. Η μία πρόταση: πώς είναι τα πράγματα, πριν διαβάσεις οτιδήποτε άλλο.
 // ---------------------------------------------------------------------------
 function Pulse({ waiting, expiring, upcoming, loaded }) {
+  const t = useTranslations("AdminHome");
   const today = upcoming.filter((u) => daysFromToday(u.start) === 0).length;
   const tomorrow = upcoming.filter((u) => daysFromToday(u.start) === 1).length;
 
   let headline;
   if (!loaded) headline = "…";
-  else if (expiring > 0 && waiting > 0)
-    headline = `${plural(expiring, "αίτημα κινδυνεύει να χαθεί", "αιτήματα κινδυνεύουν να χαθούν")} και ${plural(waiting, "θέμα περιμένει", "θέματα περιμένουν")} εσένα.`;
-  else if (expiring > 0)
-    headline = `${plural(expiring, "αίτημα κινδυνεύει να χαθεί", "αιτήματα κινδυνεύουν να χαθούν")} τις επόμενες ώρες.`;
-  else if (waiting > 0) headline = `${plural(waiting, "θέμα περιμένει", "θέματα περιμένουν")} εσένα.`;
-  else headline = "Όλα κυλούν. Τίποτα δεν περιμένει εσένα.";
+  else if (expiring > 0 && waiting > 0) headline = t("pulseBoth", { expiring, waiting });
+  else if (expiring > 0) headline = t("pulseExpiring", { expiring });
+  else if (waiting > 0) headline = t("pulseWaiting", { waiting });
+  else headline = t("pulseCalm");
 
   const calm = loaded && expiring === 0 && waiting === 0;
   const trips = [
-    today > 0 && `σήμερα ${today === 1 ? "ξεκινά 1 ταξίδι" : `ξεκινούν ${today} ταξίδια`}`,
-    tomorrow > 0 && `αύριο ${tomorrow === 1 ? "1" : tomorrow}`,
+    today > 0 && t("tripsToday", { n: today }),
+    tomorrow > 0 && t("tripsTomorrow", { n: tomorrow }),
   ].filter(Boolean);
 
   return (
@@ -235,8 +224,8 @@ function Pulse({ waiting, expiring, upcoming, loaded }) {
               ? trips.length
                 ? `${trips.join(" · ")}.`.replace(/^./, (c) => c.toUpperCase())
                 : upcoming.length
-                  ? `${plural(upcoming.length, "ταξίδι ξεκινά", "ταξίδια ξεκινούν")} μέσα στην εβδομάδα.`
-                  : "Κανένα ταξίδι δεν ξεκινά μέσα στην εβδομάδα."
+                  ? t("pulseWeek", { n: upcoming.length })
+                  : t("pulseNoTrips")
               : " "}
           </p>
         </div>
@@ -250,6 +239,8 @@ function Pulse({ waiting, expiring, upcoming, loaded }) {
 // είναι «πάρε με τηλέφωνο ο τάδε».
 // ---------------------------------------------------------------------------
 function QuickSearch() {
+  const t = useTranslations("AdminHome");
+  const f = useFormat();
   const router = useRouter();
   const [q, setQ] = useState("");
   const [results, setResults] = useState([]);
@@ -303,8 +294,8 @@ function QuickSearch() {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-          placeholder="Βρες χρήστη με όνομα ή τηλέφωνο"
-          aria-label="Αναζήτηση χρήστη"
+          placeholder={t("searchPlaceholder")}
+          aria-label={t("searchLabel")}
           style={{
             width: "100%",
             boxSizing: "border-box",
@@ -349,7 +340,7 @@ function QuickSearch() {
           }}
         >
           {results.length === 0 ? (
-            <div style={{ ...muted, fontSize: 13.5, padding: "12px 14px" }}>Κανένας χρήστης με «{q.trim()}».</div>
+            <div style={{ ...muted, fontSize: 13.5, padding: "12px 14px" }}>{t("searchNone", { q: q.trim() })}</div>
           ) : (
             results.map((u) => (
               <Link
@@ -374,14 +365,14 @@ function QuickSearch() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {u.full_name || "—"}
+                  {(f.locale === "en" && u.full_name_latin) || u.full_name || "—"}
                   <span style={{ ...muted, fontSize: 12.5, marginLeft: 8 }}>
                     {u.role === "skipper"
                       ? labelForRole(u.crew_role || "skipper")
                       : u.role === "admin"
                         ? "Admin"
-                        : "Πελάτης"}
-                    {u.status === "suspended" ? " · σε αναστολή" : ""}
+                        : t("client")}
+                    {u.status === "suspended" ? ` · ${t("suspended")}` : ""}
                   </span>
                 </span>
                 <span style={{ ...muted, fontSize: 12.5, flexShrink: 0 }}>{u.phone_number}</span>
@@ -398,7 +389,7 @@ function QuickSearch() {
               textDecoration: "none",
             }}
           >
-            Όλα τα αποτελέσματα στους Χρήστες ›
+            {t("searchAll")} ›
           </Link>
         </div>
       )}
@@ -407,6 +398,7 @@ function QuickSearch() {
 }
 
 function QuickActions() {
+  const t = useTranslations("AdminHome");
   const { isOwner } = useAuth();
   const chip = {
     display: "inline-flex",
@@ -434,16 +426,16 @@ function QuickActions() {
     >
       {isOwner && (
         <Link href="/platform/admin/finance" style={chip}>
-          + Αγορά credits
+          {t("buyCredits")}
         </Link>
       )}
       {isOwner && (
         <Link href="/platform/admin/offers" style={chip}>
-          + Νέα ανάθεση
+          {t("newOffer")}
         </Link>
       )}
       <Link href="/platform/admin/bookings?filter=upcoming" style={chip}>
-        Κρατήσεις
+        {t("bookings")}
       </Link>
     </div>
   );
@@ -452,14 +444,11 @@ function QuickActions() {
 // ---------------------------------------------------------------------------
 // 2. Περιμένουν εσένα — ό,τι δεν κινείται μέχρι να το δεις.
 // ---------------------------------------------------------------------------
-function waitingRows(counts) {
+function waitingRows(counts, t) {
   const pendingParts = [
-    counts.pending_verification > 0 &&
-      plural(counts.pending_verification, "νέα εγγραφή για επαλήθευση", "νέες εγγραφές για επαλήθευση"),
-    counts.pending_approvals > 0 &&
-      plural(counts.pending_approvals, "επαγγελματίας για έγκριση", "επαγγελματίες για έγκριση"),
-    counts.pending_secondary_roles > 0 &&
-      plural(counts.pending_secondary_roles, "αίτηση επιπλέον ιδιότητας", "αιτήσεις επιπλέον ιδιότητας"),
+    counts.pending_verification > 0 && t("pendingVerification", { n: counts.pending_verification }),
+    counts.pending_approvals > 0 && t("pendingApprovals", { n: counts.pending_approvals }),
+    counts.pending_secondary_roles > 0 && t("pendingSecondary", { n: counts.pending_secondary_roles }),
   ].filter(Boolean);
   const pendingTotal =
     (counts.pending_verification || 0) + (counts.pending_approvals || 0) + (counts.pending_secondary_roles || 0);
@@ -468,62 +457,48 @@ function waitingRows(counts) {
     counts.coverage_needed > 0 && {
       href: "/platform/admin/replacements",
       n: counts.coverage_needed,
-      title: plural(
-        counts.coverage_needed,
-        "κράτηση έμεινε χωρίς επαγγελματία",
-        "κρατήσεις έμειναν χωρίς επαγγελματία",
-      ),
-      meta: "Ακύρωση επαγγελματία ή πρόταση που έληξε. Στείλε (νέα) πρόταση ή κλείσε την υπόθεση.",
+      title: t("coverageTitle", { n: counts.coverage_needed }),
+      meta: t("coverageMeta"),
     },
     counts.replacement_awaiting_client > 0 && {
       href: "/platform/admin/replacements",
       n: counts.replacement_awaiting_client,
-      title: plural(
-        counts.replacement_awaiting_client,
-        "αντικατάσταση περιμένει τον πελάτη",
-        "αντικαταστάσεις περιμένουν τον πελάτη",
-      ),
-      meta: "Υπάρχουν υποψήφιοι — δεν χρειάζεται κάτι άλλο από σένα προς το παρόν.",
+      title: t("awaitingClientTitle", { n: counts.replacement_awaiting_client }),
+      meta: t("awaitingClientMeta"),
     },
     pendingTotal > 0 && {
       href: "/platform/admin/approvals",
       n: pendingTotal,
-      title: "Εκκρεμότητες",
-      meta: `${pendingParts.join(" · ")}. Μέχρι να τις δεις, οι νέοι πελάτες δεν στέλνουν αιτήματα και οι επαγγελματίες δεν εμφανίζονται.`,
+      title: t("pendingTitle"),
+      meta: t("pendingMeta", { parts: pendingParts.join(" · ") }),
     },
     counts.contact_new > 0 && {
       href: "/platform/admin/messages",
       n: counts.contact_new,
-      title: plural(counts.contact_new, "αναπάντητο μήνυμα επικοινωνίας", "αναπάντητα μηνύματα επικοινωνίας"),
-      meta: "Κάποιος περιμένει απάντηση από εσένα.",
+      title: t("contactTitle", { n: counts.contact_new }),
+      meta: t("contactMeta"),
     },
     counts.open_disputes > 0 && {
       href: "/platform/admin/disputes",
       n: counts.open_disputes,
-      title: plural(counts.open_disputes, "ανοιχτή αναφορά ακύρωσης", "ανοιχτές αναφορές ακύρωσης"),
-      meta: "Δες τι έγινε και κλείσε την αναφορά.",
+      title: t("disputesTitle", { n: counts.open_disputes }),
+      meta: t("disputesMeta"),
     },
     counts.profiles_invisible > 0 && {
       href: "/platform/admin/users?filter=invisible",
       n: counts.profiles_invisible,
-      title: plural(
-        counts.profiles_invisible,
-        "επαγγελματίας δεν φαίνεται στις αναζητήσεις",
-        "επαγγελματίες δεν φαίνονται στις αναζητήσεις",
-      ),
-      meta:
-        counts.profiles_invisible === 1
-          ? "Εγκεκριμένος αλλά χωρίς διαθεσιμότητα. Μάλλον δεν το ξέρει, ένα τηλέφωνο βοηθά."
-          : "Εγκεκριμένοι αλλά χωρίς διαθεσιμότητα. Μάλλον δεν το ξέρουν, ένα τηλέφωνο βοηθά.",
+      title: t("invisibleTitle", { n: counts.profiles_invisible }),
+      meta: t("invisibleMeta", { n: counts.profiles_invisible }),
     },
   ].filter(Boolean);
 }
 
 function WaitingOnYou({ rows }) {
+  const t = useTranslations("AdminHome");
   if (rows.length === 0) return null;
   return (
     <>
-      <SectionTitle>Περιμένουν εσένα</SectionTitle>
+      <SectionTitle>{t("waitingTitle")}</SectionTitle>
       <Panel padded={false}>
         {rows.map((r) => (
           <Link key={r.href} href={r.href} style={{ textDecoration: "none" }}>
@@ -572,20 +547,20 @@ function WaitingOnYou({ rows }) {
 // χωρίς να τα έχει αποδεχτεί κανείς. Ένα τηλέφωνο τώρα σώζει μια κράτηση.
 // ---------------------------------------------------------------------------
 function ExpiringCard({ item, now }) {
+  const t = useTranslations("AdminHome");
+  const f = useFormat();
   const hoursLeft = (new Date(item.expires_at).getTime() - now) / 3600e3;
   const hot = hoursLeft < 3;
   const waiting = item.waiting || [];
   const pinged = Number(item.pinged) || 0;
   const declined = Number(item.declined) || 0;
   const allDeclined = pinged > 0 && declined >= pinged;
-  const what = item.kind === "delivery" ? `${roleAcc(item.role)} για μεταφορά σκάφους` : roleAcc(item.role);
+  const what = item.kind === "delivery" ? t("deliveryRole", { role: roleAcc(item.role, t) }) : roleAcc(item.role, t);
 
   let advice;
-  if (pinged === 0) advice = "Δεν στάλθηκε σε κανέναν. Πάρε τον πελάτη να διαλέξει επαγγελματία.";
-  else if (allDeclined)
-    advice = `${pinged === 1 ? "Ο μόνος που ρωτήθηκε αρνήθηκε" : `Αρνήθηκαν και οι ${pinged}`}. Ο πελάτης χρειάζεται να διαλέξει άλλους.`;
-  else if (waiting.length > 0)
-    advice = `${waiting.length === 1 ? "Δεν έχει απαντήσει ακόμα 1" : `Δεν έχουν απαντήσει ακόμα ${waiting.length}`}. Ένα τηλέφωνο μπορεί να το σώσει.`;
+  if (pinged === 0) advice = t("adviceNone");
+  else if (allDeclined) advice = t("adviceDeclined", { n: pinged });
+  else if (waiting.length > 0) advice = t("adviceWaiting", { n: waiting.length });
 
   return (
     <div
@@ -611,16 +586,16 @@ function ExpiringCard({ item, now }) {
               lineHeight: 1.35,
             }}
           >
-            <PersonLink id={item.client_id} name={item.client_name} /> ζητά {what}
+            <PersonLink id={item.client_id} name={item.client_name} /> {t("requests", { what })}
           </div>
           <div style={{ ...muted, fontSize: 13, marginTop: 3 }}>
             {[item.place, item.region && item.region !== item.place ? item.region : null].filter(Boolean).join(", ")}
             {item.place ? " · " : ""}
-            {item.start === item.end ? formatDate(item.start) : `${formatDate(item.start)} → ${formatDate(item.end)}`}
+            {item.start === item.end ? f.date(item.start) : `${f.date(item.start)} → ${f.date(item.end)}`}
           </div>
         </div>
         <span
-          title="Χρόνος μέχρι να λήξει το αίτημα"
+          title={t("expiresTitle")}
           style={{
             flexShrink: 0,
             padding: "4px 10px",
@@ -632,22 +607,21 @@ function ExpiringCard({ item, now }) {
             whiteSpace: "nowrap",
           }}
         >
-          λήγει σε {countdown(item.expires_at, now)}
+          {t("expiresIn", { time: countdown(item.expires_at, now, t) })}
         </span>
       </div>
 
       <div style={{ fontSize: 13, color: colors.ink, marginTop: 10 }}>
         {pinged > 0 && (
           <span style={{ ...muted, fontSize: 13 }}>
-            Στάλθηκε σε {pinged}
-            {declined > 0 ? ` · ${declined} ${declined === 1 ? "αρνήθηκε" : "αρνήθηκαν"}` : ""}.{" "}
+            {t("sentTo", { pinged, declined })}{" "}
           </span>
         )}
         {advice}
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-        <Tel phone={item.client_phone}>Πελάτης</Tel>
+        <Tel phone={item.client_phone}>{t("client")}</Tel>
         {waiting.map((w) => (
           <Tel key={w.id} phone={w.phone}>
             {w.name}
@@ -659,11 +633,12 @@ function ExpiringCard({ item, now }) {
 }
 
 function AtRisk({ items, now }) {
+  const t = useTranslations("AdminHome");
   if (items.length === 0) return null;
   return (
     <>
-      <SectionTitle hint="Λήγουν τις επόμενες 12 ώρες και δεν τα έχει αποδεχτεί κανείς.">
-        Κινδυνεύουν να χαθούν
+      <SectionTitle hint={t("atRiskHint")}>
+        {t("atRiskTitle")}
       </SectionTitle>
       <section
         style={{
@@ -687,6 +662,7 @@ function AtRisk({ items, now }) {
 // ανά ημέρα, με πελάτη και επαγγελματία.
 // ---------------------------------------------------------------------------
 function Upcoming({ items, loaded }) {
+  const t = useTranslations("AdminHome");
   const [focus, setFocus] = useState(null);
   const days = useMemo(() => {
     const base = todayStart();
@@ -703,7 +679,7 @@ function Upcoming({ items, loaded }) {
 
   return (
     <>
-      <SectionTitle>Επόμενες 7 μέρες</SectionTitle>
+      <SectionTitle>{t("upcomingTitle")}</SectionTitle>
       <Panel padded={false}>
         <div
           style={{
@@ -722,7 +698,7 @@ function Upcoming({ items, loaded }) {
                 disabled={n === 0}
                 onClick={() => setFocus(active ? null : d.offset)}
                 aria-pressed={active}
-                aria-label={`${dayName(d.offset, d.date)}: ${n} ${n === 1 ? "ταξίδι" : "ταξίδια"}`}
+                aria-label={t("dayTrips", { day: dayName(d.offset, d.date, t), n })}
                 style={{
                   background: active ? colors.seaGlass : "none",
                   border: "none",
@@ -745,7 +721,7 @@ function Upcoming({ items, loaded }) {
                     letterSpacing: "0.03em",
                   }}
                 >
-                  {d.offset === 0 ? "ΣΗΜ" : WEEKDAY_SHORT[d.date.getDay()]}
+                  {d.offset === 0 ? t("todayShort") : t(`weekdayShort.${d.date.getDay()}`)}
                 </span>
                 <span style={{ fontSize: 15, fontWeight: 600 }}>{d.date.getDate()}</span>
                 <span style={{ display: "flex", gap: 2, height: 6 }}>
@@ -766,7 +742,7 @@ function Upcoming({ items, loaded }) {
           })}
         </div>
 
-        {loaded && items.length === 0 && <Empty>Κανένα ταξίδι δεν ξεκινά αυτές τις μέρες.</Empty>}
+        {loaded && items.length === 0 && <Empty>{t("upcomingNone")}</Empty>}
         {shown.map((d) => (
           <div key={d.offset}>
             <div
@@ -777,7 +753,7 @@ function Upcoming({ items, loaded }) {
                 color: d.offset === 0 ? colors.ink : colors.inkSoft,
               }}
             >
-              {dayName(d.offset, d.date)}
+              {dayName(d.offset, d.date, t)}
             </div>
             {d.items.map((it) => (
               <div
@@ -807,13 +783,13 @@ function Upcoming({ items, loaded }) {
                   </span>
                   <span style={{ ...muted, fontSize: 12.5, flexShrink: 0 }}>
                     {it.kind === "delivery"
-                      ? "Μεταφορά"
-                      : `${tripDays(it.start, it.end)} ${tripDays(it.start, it.end) === 1 ? "μέρα" : "μέρες"}`}
+                      ? t("delivery")
+                      : t("tripDays", { n: tripDays(it.start, it.end) })}
                   </span>
                 </div>
                 <div style={{ fontSize: 13, color: colors.ink, marginTop: 3 }}>
                   <PersonLink id={it.client_id} name={it.client_name} />
-                  <span style={{ ...muted }}> με </span>
+                  <span style={{ ...muted }}> {t("with")} </span>
                   <PersonLink id={it.pro_id} name={it.pro_name} />
                 </div>
               </div>
@@ -831,7 +807,7 @@ function Upcoming({ items, loaded }) {
               textDecoration: "none",
             }}
           >
-            Όλες οι επερχόμενες κρατήσεις ›
+            {t("upcomingAll")} ›
           </Link>
         )}
       </Panel>
@@ -844,6 +820,7 @@ function Upcoming({ items, loaded }) {
 // σε όσα ζητήθηκαν τον τελευταίο, και πόσα από αυτά βρήκαν άνθρωπο.
 // ---------------------------------------------------------------------------
 function MarketRow({ m }) {
+  const t = useTranslations("AdminHome");
   const requests = Number(m.requests) || 0;
   const matched = Number(m.matched) || 0;
   const lost = Number(m.lost) || 0;
@@ -877,8 +854,8 @@ function MarketRow({ m }) {
             fontWeight: short ? 600 : 400,
           }}
         >
-          {available} {available === 1 ? "διαθέσιμος" : "διαθέσιμοι"}
-          <span style={{ ...muted, fontWeight: 400 }}> από {approved}</span>
+          {t("available", { n: available })}
+          <span style={{ ...muted, fontWeight: 400 }}> {t("availableOf", { n: approved })}</span>
         </span>
       </div>
 
@@ -915,25 +892,23 @@ function MarketRow({ m }) {
             />
           </div>
           <div style={{ ...muted, fontSize: 12.5, marginTop: 6 }}>
-            {plural(requests, "αίτημα", "αιτήματα")} τον τελευταίο μήνα · {matched} {matched === 1 ? "βρήκε" : "βρήκαν"}
-            {lost > 0 ? ` · ${lost} ${lost === 1 ? "χάθηκε" : "χάθηκαν"}` : ""}
-            {pct != null ? ` · επιτυχία ${pct}%` : ""}
+            {t("marketRequests", { requests, matched })}
+            {lost > 0 ? ` · ${t("marketLost", { n: lost })}` : ""}
+            {pct != null ? ` · ${t("marketRate", { pct })}` : ""}
           </div>
         </>
       ) : (
-        <div style={{ ...muted, fontSize: 12.5, marginTop: 6 }}>Κανένα αίτημα τον τελευταίο μήνα.</div>
+        <div style={{ ...muted, fontSize: 12.5, marginTop: 6 }}>{t("marketNone")}</div>
       )}
       {short && (
         <div style={{ fontSize: 12.5, color: colors.danger, marginTop: 5 }}>
-          {approved === 0
-            ? "Δεν υπάρχει κανένας εγκεκριμένος, οπότε τα αιτήματα θα χάνονται."
-            : "Κανείς δεν έχει δηλώσει διαθεσιμότητα για τις επόμενες 30 μέρες. Αξίζει ένα τηλέφωνο."}{" "}
+          {approved === 0 ? t("marketNoApproved") : t("marketNoAvailability")}{" "}
           {approved > 0 && (
             <Link
               href={`/platform/admin/users?tab=pro&crew=${m.role}`}
               style={{ color: colors.danger, whiteSpace: "nowrap" }}
             >
-              Δες τους ›
+              {t("marketView")} ›
             </Link>
           )}
         </div>
@@ -943,11 +918,12 @@ function MarketRow({ m }) {
 }
 
 function Market({ market }) {
+  const t = useTranslations("AdminHome");
   if (!market?.length) return null;
   return (
     <>
-      <SectionTitle hint="Διαθέσιμοι: εγκεκριμένοι με δηλωμένη διαθεσιμότητα μέσα στις επόμενες 30 μέρες.">
-        Η αγορά
+      <SectionTitle hint={t("marketHint")}>
+        {t("marketTitle")}
       </SectionTitle>
       <Panel padded={false}>
         {market.map((m) => (
@@ -964,9 +940,9 @@ function Market({ market }) {
               flexWrap: "wrap",
             }}
           >
-            <Legend color={colors.success}>βρήκαν επαγγελματία</Legend>
-            <Legend color="#C9D3D1">ανοιχτά / ακυρώθηκαν</Legend>
-            <Legend color={colors.danger}>έληξαν χωρίς απάντηση</Legend>
+            <Legend color={colors.success}>{t("legendMatched")}</Legend>
+            <Legend color="#C9D3D1">{t("legendOpen")}</Legend>
+            <Legend color={colors.danger}>{t("legendExpired")}</Legend>
           </div>
         )}
       </Panel>
@@ -988,7 +964,7 @@ function Legend({ color, children }) {
 // συγκρίνοντας νούμερα, και τα αιτήματα που χάθηκαν (ένα τηλέφωνο στον
 // πελάτη μπορεί να τον κρατήσει).
 // ---------------------------------------------------------------------------
-function buildInsights(dash, counts) {
+function buildInsights(dash, counts, t) {
   const out = [];
   // Οι ελλείψεις ανά ιδιότητα φαίνονται ήδη (με κόκκινο) στην «Αγορά» —
   // εδώ μόνο ό,τι δεν φαίνεται αλλού.
@@ -998,32 +974,30 @@ function buildInsights(dash, counts) {
   if (weak) {
     out.push({
       tone: "warn",
-      text: `${weak.region}: χάθηκαν ${weak.lost} από ${weak.requests} αιτήματα τον τελευταίο μήνα. Λείπουν επαγγελματίες σε αυτή την περιοχή.`,
+      text: t("insightWeak", { region: weak.region, lost: weak.lost, requests: weak.requests }),
     });
   }
   const top = (dash.regions || [])[0];
   if (top && Number(top.requests) >= 3 && top !== weak) {
     out.push({
       tone: "plain",
-      text: `Η περισσότερη ζήτηση είναι στην περιοχή ${top.region} (${top.requests} αιτήματα τον τελευταίο μήνα).`,
+      text: t("insightTop", { region: top.region, requests: top.requests }),
     });
   }
   if (dash.dormant_clients > 0) {
     out.push({
       tone: "plain",
-      text: `${
-        dash.dormant_clients === 1 ? "1 πελάτης έχει εγκριθεί" : `${dash.dormant_clients} πελάτες έχουν εγκριθεί`
-      } εδώ και μέρες αλλά δεν ${dash.dormant_clients === 1 ? "έστειλε" : "έστειλαν"} ποτέ αίτημα. Ίσως κόλλησαν κάπου.`,
+      text: t("insightDormant", { n: dash.dormant_clients }),
       href: "/platform/admin/users?tab=client",
-      cta: "Πελάτες",
+      cta: t("ctaClients"),
     });
   }
   if (counts.suspended_count > 0) {
     out.push({
       tone: "plain",
-      text: `${plural(counts.suspended_count, "λογαριασμός είναι", "λογαριασμοί είναι")} σε αναστολή. Δες αν ήρθε η ώρα να επανέλθ${counts.suspended_count === 1 ? "ει" : "ουν"}.`,
+      text: t("insightSuspended", { n: counts.suspended_count }),
       href: "/platform/admin/users?tab=suspended",
-      cta: "Δες",
+      cta: t("ctaView"),
     });
   }
   return out;
@@ -1036,10 +1010,11 @@ const TONE_DOT = {
 };
 
 function Insights({ insights, lost }) {
+  const t = useTranslations("AdminHome");
   if (insights.length === 0 && lost.length === 0) return null;
   return (
     <>
-      <SectionTitle>Τι αξίζει να ξέρεις</SectionTitle>
+      <SectionTitle>{t("insightsTitle")}</SectionTitle>
       <Panel padded={false}>
         {insights.map((i, idx) => (
           <div
@@ -1097,6 +1072,8 @@ function Insights({ insights, lost }) {
 }
 
 function LostList({ lost }) {
+  const t = useTranslations("AdminHome");
+  const f = useFormat();
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -1130,9 +1107,7 @@ function LostList({ lost }) {
           }}
         />
         <span style={{ fontSize: 14, lineHeight: 1.5, flex: 1 }}>
-          {lost.length === 1
-            ? "1 αίτημα έληξε αυτή την εβδομάδα χωρίς να το αναλάβει κανείς."
-            : `${lost.length} αιτήματα έληξαν αυτή την εβδομάδα χωρίς να τα αναλάβει κανείς.`}{" "}
+          {t("lostSummary", { n: lost.length })}{" "}
           <span
             style={{
               color: colors.inkSoft,
@@ -1140,14 +1115,14 @@ function LostList({ lost }) {
               whiteSpace: "nowrap",
             }}
           >
-            {open ? "Κλείσιμο" : "Ποιοι ήταν"} {open ? "▴" : "▾"}
+            {open ? t("close") : t("whoWere")} {open ? "▴" : "▾"}
           </span>
         </span>
       </button>
       {open && (
         <div style={{ padding: "0 16px 6px 35px" }}>
           <p style={{ ...muted, fontSize: 12.5, margin: "0 0 6px" }}>
-            Ο πελάτης πήρε πίσω τα credits του. Ένα τηλέφωνο τώρα μπορεί να τον κρατήσει.
+            {t("lostNote")}
           </p>
           {lost.map((l) => (
             <div
@@ -1171,11 +1146,11 @@ function LostList({ lost }) {
                     <span style={{ ...muted, fontSize: 13 }}> · {labelForRole(l.role)}</span>
                   </div>
                   <div style={{ ...muted, fontSize: 12.5, marginTop: 2 }}>
-                    {[l.place || l.region, `${formatDate(l.start)} → ${formatDate(l.end)}`].filter(Boolean).join(" · ")}
-                    {Number(l.pinged) === 0 ? " · δεν στάλθηκε σε κανέναν" : ""}
+                    {[l.place || l.region, `${f.date(l.start)} → ${f.date(l.end)}`].filter(Boolean).join(" · ")}
+                    {Number(l.pinged) === 0 ? ` · ${t("notSent")}` : ""}
                   </div>
                 </div>
-                <Tel phone={l.client_phone}>Κλήση</Tel>
+                <Tel phone={l.client_phone}>{t("call")}</Tel>
               </div>
             </div>
           ))}
@@ -1189,38 +1164,39 @@ function LostList({ lost }) {
 // 7. Η εβδομάδα σε τέσσερις αριθμούς, μαζί με την προηγούμενη για σύγκριση.
 // ---------------------------------------------------------------------------
 function Delta({ now, prev, unit = "" }) {
+  const t = useTranslations("AdminHome");
   const a = Number(now) || 0;
   const b = Number(prev) || 0;
-  if (a === b) return <span style={{ ...muted, fontSize: 12 }}>ίδια με πριν</span>;
+  if (a === b) return <span style={{ ...muted, fontSize: 12 }}>{t("deltaSame")}</span>;
   const up = a > b;
   return (
     <span style={{ fontSize: 12, color: up ? colors.success : colors.inkSoft }}>
-      {up ? "▲" : "▼"} από {b}
-      {unit}
+      {up ? "▲" : "▼"} {t("deltaFrom", { b, unit })}
     </span>
   );
 }
 
 function Week({ week }) {
+  const t = useTranslations("AdminHome");
   const { isOwner } = useAuth();
   if (!week) return null;
   const cells = [
     {
-      label: "Εγγραφές",
+      key: "signups",
       v: week.signups,
       p: week.signups_prev,
       href: "/platform/admin/users?tab=all",
     },
-    { label: "Αιτήματα", v: week.requests, p: week.requests_prev },
+    { key: "requests", v: week.requests, p: week.requests_prev },
     {
-      label: "Κρατήσεις",
+      key: "bookings",
       v: week.bookings,
       p: week.bookings_prev,
       href: "/platform/admin/bookings",
     },
     // Οι πωλήσεις: μόνο για τον ιδιοκτήτη (0112).
     isOwner && {
-      label: "Πωλήσεις",
+      key: "sales",
       v: week.sales_eur,
       p: week.sales_eur_prev,
       money: true,
@@ -1229,7 +1205,7 @@ function Week({ week }) {
   ].filter(Boolean);
   return (
     <>
-      <SectionTitle hint="Σε σύγκριση με τις 7 μέρες πριν.">Τελευταίες 7 μέρες</SectionTitle>
+      <SectionTitle hint={t("weekHint")}>{t("weekTitle")}</SectionTitle>
       <div
         style={{
           display: "grid",
@@ -1244,7 +1220,7 @@ function Week({ week }) {
         {cells.map((c) => {
           const body = (
             <>
-              <div style={{ ...muted, fontSize: 12.5 }}>{c.label}</div>
+              <div style={{ ...muted, fontSize: 12.5 }}>{t(`week.${c.key}`)}</div>
               <div
                 style={{
                   fontSize: 24,
@@ -1266,11 +1242,11 @@ function Week({ week }) {
             display: "block",
           };
           return c.href ? (
-            <Link key={c.label} href={c.href} style={style}>
+            <Link key={c.key} href={c.href} style={style}>
               {body}
             </Link>
           ) : (
-            <div key={c.label} style={style}>
+            <div key={c.key} style={style}>
               {body}
             </div>
           );
@@ -1278,7 +1254,7 @@ function Week({ week }) {
       </div>
       {Number(week.refunds) > 0 && (
         <p style={{ ...muted, fontSize: 12.5, margin: "8px 2px 0" }}>
-          {verbFor(week.refunds, "Επιστράφηκε", "Επιστράφηκαν")} {formatCredits(week.refunds)} (αιτήματα χωρίς απάντηση, υποθέσεις χωρίς αντικαταστάτη, ακυρώσεις από πελάτες).
+          {t(Math.abs(Number(week.refunds)) === 1 ? "refundsOne" : "refundsMany", { credits: formatCredits(week.refunds) })}
         </p>
       )}
     </>
@@ -1289,13 +1265,15 @@ function Week({ week }) {
 // 8. Πρόσφατη δραστηριότητα — λίγες γραμμές, με επιλογή για περισσότερες.
 // ---------------------------------------------------------------------------
 function Activity({ activity }) {
+  const t = useTranslations("AdminHome");
+  const f = useFormat();
   const [all, setAll] = useState(false);
   const list = all ? activity : activity.slice(0, 6);
   return (
     <>
-      <SectionTitle>Πρόσφατη δραστηριότητα</SectionTitle>
+      <SectionTitle>{t("activityTitle")}</SectionTitle>
       <Panel padded={false}>
-        {activity.length === 0 && <Empty>Καμία δραστηριότητα ακόμα.</Empty>}
+        {activity.length === 0 && <Empty>{t("activityNone")}</Empty>}
         {list.map((a, i) => {
           const row = (
           <Row key={`${a.kind}-${a.at}-${i}`}>
@@ -1320,10 +1298,10 @@ function Activity({ activity }) {
               />
               <RowMain
                 title={a.label}
-                meta={`${ACTIVITY_LABEL[a.kind] || a.kind}${a.detail ? ` · ${a.detail}` : ""}`}
+                meta={`${ACTIVITY_KINDS.includes(a.kind) ? t(`activity.${a.kind}`) : a.kind}${a.detail ? ` · ${a.detail}` : ""}`}
               />
             </span>
-            <span style={{ ...muted, fontSize: 11.5, flexShrink: 0 }}>{timeAgo(a.at)}</span>
+            <span style={{ ...muted, fontSize: 11.5, flexShrink: 0 }}>{f.timeAgo(a.at)}</span>
             {a.href && <span style={{ ...muted, fontSize: 18, marginLeft: 6 }}>›</span>}
           </Row>
           );
@@ -1352,7 +1330,7 @@ function Activity({ activity }) {
               color: colors.inkSoft,
             }}
           >
-            {all ? "Λιγότερα" : `Περισσότερα (${activity.length - 6})`}
+            {all ? t("less") : t("more", { count: activity.length - 6 })}
           </button>
         )}
       </Panel>
@@ -1361,6 +1339,8 @@ function Activity({ activity }) {
 }
 
 export default function AdminOverview() {
+  const t = useTranslations("AdminHome");
+  const f = useFormat();
   const menuCounts = useAdminCounts();
   const [invisible, setInvisible] = useState(0);
   const counts = { ...menuCounts, profiles_invisible: invisible };
@@ -1400,20 +1380,18 @@ export default function AdminOverview() {
   const d = dash || {};
   const expiring = (d.expiring || []).filter((e) => new Date(e.expires_at).getTime() > now);
   const upcoming = d.upcoming || [];
-  const rows = waitingRows(counts);
+  const rows = waitingRows(counts, t);
   const waitingTotal = rows.reduce((n, r) => n + r.n, 0);
-  const insights = loaded ? buildInsights(d, counts) : [];
+  const insights = loaded ? buildInsights(d, counts, t) : [];
 
-  const firstName = (userRow?.full_name || "").trim().split(/\s+/)[0];
-  const dateLine = new Date().toLocaleDateString("el-GR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  const nameOf = f.locale === "en" ? userRow?.full_name_latin || userRow?.full_name : userRow?.full_name;
+  const firstName = (nameOf || "").trim().split(/\s+/)[0];
+  const today = new Date();
+  const dateLine = `${t(`weekdayLong.${today.getDay()}`)} ${today.getDate()} ${f.monthNames("genitive")[today.getMonth()]}`;
 
   return (
     <AdminShell
-      title={`${greeting()}${firstName ? `, ${firstName}` : ""}`}
+      title={`${greeting(t)}${firstName ? `, ${firstName}` : ""}`}
       subtitle={dateLine.replace(/^./, (c) => c.toUpperCase())}
     >
       <Pulse waiting={waitingTotal} expiring={expiring.length} upcoming={upcoming} loaded={loaded} />
@@ -1422,7 +1400,7 @@ export default function AdminOverview() {
 
       {error && (
         <p style={{ fontSize: 13, color: colors.danger, margin: "18px 2px 0" }}>
-          Δεν φορτώθηκαν τα στοιχεία της επισκόπησης. Δοκίμασε να ανανεώσεις τη σελίδα.
+          {t("loadFailed")}
         </p>
       )}
 
