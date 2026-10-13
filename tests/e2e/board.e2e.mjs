@@ -13,6 +13,7 @@ sql(`select set_config('platform.trusted','true',false);
 insert into booking_requests (client_id, origin, start_date, end_date, region_id, departure_point, arrival_point, boat_type_id, crew_role, party_size, note, fee_amount, fee_paid_at, expires_at, board_open, board_posted_at)
 select '${client}', 'client', current_date + 12, current_date + 15, r.id, 'Μύκονος', 'Μύκονος', b.id, 'skipper', 4, 'Οικογένεια με παιδιά', 1, now(), now() + interval '9 days', true, now()
 from regions r, boat_types b where r.name = 'Κυκλάδες' and b.name = 'Ιστιοπλοϊκό'`);
+const wallets0 = { client: bal(client), kostas: bal(kostasId) };
 const reqId = sql(`select id from booking_requests where board_open order by created_at desc limit 1`);
 
 // Επισκέπτης: βλέπει το αίτημα, ανώνυμα.
@@ -102,5 +103,15 @@ await as("6900002002", async (page) => {
   await go(page, "/platform/board/new");
   await shoot(page, "board-new");
 });
+
+// Τα υπόλοιπα τεστ περιμένουν τα credits και τα αιτήματα όπως ήταν: καθαρισμός.
+sql(`select set_config('platform.trusted','true',false);
+delete from wallet_transactions where related_booking_request_id in (select id from booking_requests where board_open);
+delete from bookings where booking_request_id in (select id from booking_requests where board_open);
+delete from notifications where kind like 'board_%' or data ? 'request_id' and data ->> 'request_id' in (select id::text from booking_requests where board_open);
+delete from booking_requests where board_open;
+update users set wallet_balance = ${wallets0.client} where id = '${client}';
+update users set wallet_balance = ${wallets0.kostas} where id = '${kostasId}';`);
+check("καθαρισμός: υπόλοιπα και αιτήματα όπως πριν", bal(client) === wallets0.client && bal(kostasId) === wallets0.kostas && num("select count(*) from booking_requests where board_open") === 0);
 
 finish();
