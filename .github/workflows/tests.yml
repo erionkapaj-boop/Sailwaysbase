@@ -42,15 +42,21 @@ jobs:
       - name: Place search (typos, Greek/Latin)
         run: node tests/unit/placeSearch.test.mjs && node tests/unit/phone.test.mjs
       - name: Languages (dates, names, no new hard-coded text, completeness gate)
-        run: node tests/unit/format.test.mjs && node tests/unit/translit.test.mjs && node scripts/check-i18n.mjs
+        run: node tests/unit/format.test.mjs && node tests/unit/translit.test.mjs && node tests/unit/notifications.test.mjs && node tests/unit/localData.test.mjs && node scripts/check-i18n.mjs
       - name: Database tests
         run: bash tests/db/run.sh
 
   browser:
-    name: Browser (whole replacement journey, every role)
+    # Τρία κομμάτια ταυτόχρονα, σε τρία μηχανήματα (tests/e2e/shard.sh). Ένωση = όλα τα
+    # αρχεία τεστ· καθένα έχει δική του βάση, δικές του θύρες.
+    name: Browser ${{ matrix.shard }}/3 (whole replacement journey, every role)
     needs: database
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     services:
       postgres:
         image: postgres:16
@@ -78,11 +84,11 @@ jobs:
         working-directory: tests/e2e
         run: npm install --no-audit --no-fund && npx playwright install --with-deps chromium
       - name: Browser tests
-        run: bash tests/e2e/run.sh
+        run: E2E_SPECS="$(bash tests/e2e/shard.sh ${{ matrix.shard }} 3)" bash tests/e2e/run.sh
       - name: Keep screenshots and logs of a failed run
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-test-output
+          name: browser-test-output-${{ matrix.shard }}
           path: tests/e2e/output/
           retention-days: 7
