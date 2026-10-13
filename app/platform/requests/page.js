@@ -10,6 +10,7 @@ import { listMyBookingRequests, getMyClientProfile, createMissingProfile, depart
 import PingsInbox from "../components/PingsInbox";
 import DeliveryPingsInbox from "../components/DeliveryPingsInbox";
 import RequestPanel from "../components/RequestPanel";
+import BoardRequestPanel from "../components/BoardRequestPanel";
 import Toast from "../components/Toast";
 import { container, card, h1, sectionLabel, muted, button, badge, colors, money } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
@@ -84,7 +85,8 @@ export default function RequestsPage() {
   if (!session) return <SignedOutNotice />;
 
   const isProfessional = userRow?.role === "skipper" || isAdmin;
-  const openRequests = requests.filter((r) => r.status === "open");
+  const boardRequests = requests.filter((r) => r.board_open && (r.status === "open" || r.status === "matched"));
+  const openRequests = requests.filter((r) => r.status === "open" && !r.board_open);
   const closedRequests = requests.filter((r) => r.status !== "open" && r.status !== "matched");
 
   async function recreateClientProfile() {
@@ -150,9 +152,12 @@ export default function RequestsPage() {
           </div>
         ) : (
           <>
-            <h2 style={sectionLabel}>{t("sentTitle")}<span style={{ marginLeft: 8, opacity: 0.55 }}>{openRequests.length}</span></h2>
+            <h2 style={sectionLabel}>{t("sentTitle")}<span style={{ marginLeft: 8, opacity: 0.55 }}>{openRequests.length + boardRequests.filter((r) => r.status === "open").length}</span></h2>
             {busy && <p style={muted}>{t("loading")}</p>}
-            {openRequests.length === 0 && !busy && (
+            {boardRequests.map((r) => (
+              <BoardRequestPanel key={r.id} request={r} onChanged={load} onToastMessage={setToast} />
+            ))}
+            {openRequests.length === 0 && boardRequests.length === 0 && !busy && (
               <div style={{ ...card, textAlign: "center" }}>
                 <p style={{ ...muted, margin: "0 0 14px" }}>
                   {t("emptyBody")}

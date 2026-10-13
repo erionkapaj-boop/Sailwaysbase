@@ -449,6 +449,23 @@
     },
     "default": {
       "title": "Ενημέρωση"
+    },
+    "boardClaimReceived": {
+      "title": "Νέα διεκδίκηση στο αίτημά σου"
+    },
+    "boardClaimChosen": {
+      "title": "Σε διάλεξαν για ένα αίτημα",
+      "body": "Η κράτηση επιβεβαιώθηκε."
+    },
+    "boardClaimClosed": {
+      "title": "Το αίτημα που διεκδίκησες έκλεισε",
+      "reasonMatched": "Επιλέχθηκε άλλος επαγγελματίας.",
+      "reasonCancelled": "Ο πελάτης το ακύρωσε.",
+      "reasonExpired": "Έληξε."
+    },
+    "boardClaimsNeedCredit": {
+      "title": "Οι διεκδικήσεις σου περιμένουν credit",
+      "body": "{count, plural, one {# διεκδίκηση δεν μπορεί να επιλεγεί} other {# διεκδικήσεις δεν μπορούν να επιλεγούν}} χωρίς credit."
     }
   }
 }

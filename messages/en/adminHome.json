@@ -21,7 +21,8 @@
       "health": "App health",
       "headingSystem": "System",
       "settings": "Settings",
-      "ghost": "Testing (Ghost Mode)"
+      "ghost": "Testing (Ghost Mode)",
+      "board": "Open requests"
     }
   },
   "AdminUi": {

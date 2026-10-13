@@ -774,6 +774,99 @@
  },
  {
   "n": {
+   "kind": "board_claim_received",
+   "data": {
+    "place": "Νάξος",
+    "start": "2026-09-25",
+    "end": "2026-09-29",
+    "role": "skipper"
+   }
+  },
+  "r": {
+   "title": "Νέα διεκδίκηση στο αίτημά σου",
+   "body": "Skipper · Νάξος · 25–29 Σεπ 2026",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "board_claim_chosen",
+   "data": {
+    "place": "Νάξος",
+    "start": "2026-09-25",
+    "end": "2026-09-29",
+    "role": "skipper"
+   }
+  },
+  "r": {
+   "title": "Σε διάλεξαν για ένα αίτημα",
+   "body": "Skipper · Νάξος · 25–29 Σεπ 2026 · Η κράτηση επιβεβαιώθηκε.",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "board_claim_closed",
+   "data": {
+    "place": "Νάξος",
+    "start": "2026-09-25",
+    "end": "2026-09-29",
+    "role": "skipper",
+    "reason": "matched"
+   }
+  },
+  "r": {
+   "title": "Το αίτημα που διεκδίκησες έκλεισε",
+   "body": "Skipper · Νάξος · 25–29 Σεπ 2026 · Επιλέχθηκε άλλος επαγγελματίας."
+  }
+ },
+ {
+  "n": {
+   "kind": "board_claim_closed",
+   "data": {
+    "place": "Νάξος",
+    "start": "2026-09-25",
+    "end": "2026-09-29",
+    "role": "skipper",
+    "reason": "cancelled"
+   }
+  },
+  "r": {
+   "title": "Το αίτημα που διεκδίκησες έκλεισε",
+   "body": "Skipper · Νάξος · 25–29 Σεπ 2026 · Ο πελάτης το ακύρωσε."
+  }
+ },
+ {
+  "n": {
+   "kind": "board_claim_closed",
+   "data": {
+    "place": "Νάξος",
+    "start": "2026-09-25",
+    "end": "2026-09-29",
+    "role": "skipper",
+    "reason": "expired"
+   }
+  },
+  "r": {
+   "title": "Το αίτημα που διεκδίκησες έκλεισε",
+   "body": "Skipper · Νάξος · 25–29 Σεπ 2026 · Έληξε."
+  }
+ },
+ {
+  "n": {
+   "kind": "board_claims_need_credit",
+   "data": {
+    "count": 2
+   }
+  },
+  "r": {
+   "title": "Οι διεκδικήσεις σου περιμένουν credit",
+   "body": "2 διεκδικήσεις δεν μπορούν να επιλεγούν χωρίς credit.",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
    "kind": "nonsense",
    "data": {}
   },

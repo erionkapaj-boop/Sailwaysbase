@@ -21,7 +21,8 @@
       "health": "Υγεία εφαρμογής",
       "headingSystem": "Σύστημα",
       "settings": "Ρυθμίσεις",
-      "ghost": "Δοκιμές (Ghost Mode)"
+      "ghost": "Δοκιμές (Ghost Mode)",
+      "board": "Ανοιχτά αιτήματα"
     }
   },
   "AdminUi": {

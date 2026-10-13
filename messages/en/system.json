@@ -449,6 +449,23 @@
     },
     "default": {
       "title": "Update"
+    },
+    "boardClaimReceived": {
+      "title": "New claim on your request"
+    },
+    "boardClaimChosen": {
+      "title": "You were chosen for a request",
+      "body": "The booking is confirmed."
+    },
+    "boardClaimClosed": {
+      "title": "The request you claimed has closed",
+      "reasonMatched": "Another professional was chosen.",
+      "reasonCancelled": "The client cancelled it.",
+      "reasonExpired": "It expired."
+    },
+    "boardClaimsNeedCredit": {
+      "title": "Your claims are waiting for a credit",
+      "body": "{count, plural, one {# claim cannot be chosen} other {# claims cannot be chosen}} without a credit."
     }
   }
 }

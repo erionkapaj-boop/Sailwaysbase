@@ -53,6 +53,7 @@ export const SECTIONS = [
     "headingBookings"
   ),
   section("offers", { href: "/platform/admin/offers", ownerOnly: true }),
+  section("board", { href: "/platform/admin/board" }),
   section("bookings", { href: "/platform/admin/bookings" }),
   section("deliveries", { href: "/platform/admin/deliveries" }),
   section("users", { href: "/platform/admin/users" }, "headingUsers"),

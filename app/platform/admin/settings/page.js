@@ -32,6 +32,9 @@ const SETTING_META = {
   client_request_fee: { group: "fees", unit: "credits", help: true },
   skipper_claim_fee: { group: "fees", unit: "credits", help: true },
   unclaimed_expiry_hours: { group: "expiry", unit: "hours", help: true },
+  board_max_days: { group: "board", unit: "days", help: true },
+  board_after_start_days: { group: "board", unit: "days", help: true },
+  board_max_claims: { group: "board", unit: "claims", help: true },
   delivery_expiry_hours: { group: "expiry", unit: "hours", help: true },
   pro_response_hours: { group: "expiry", unit: "hours", help: true },
   delivery_skipper_rate_per_mile: { group: "delivery", unit: "eurPerMile", help: true },
@@ -55,7 +58,7 @@ const SETTING_META = {
   cancel_full_rate: { group: "reliability", help: true },
 };
 
-const GROUP_KEYS = ["credits", "fees", "expiry", "delivery", "system", "reliability", "other"];
+const GROUP_KEYS = ["credits", "fees", "expiry", "board", "delivery", "system", "reliability", "other"];
 
 // Οι τιμές όπως τις βλέπει ο χρήστης στη σελίδα Credits — μόνο όσες έχουν
 // αποθηκευτεί.

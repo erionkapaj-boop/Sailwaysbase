@@ -61,6 +61,36 @@ function AdminHomeBanner() {
   );
 }
 
+// Μικρό μενού «εφαρμογών» πάνω αριστερά, όπως των Google: εδώ μπαίνουν οι
+// είσοδοι που δεν είναι η κύρια ροή. Προς το παρόν μόνο τα ανοιχτά αιτήματα.
+function AppsMenu() {
+  const t = useTranslations("HomeBoard");
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: "absolute", top: 0, left: 0, textAlign: "left" }}>
+      <button
+        type="button"
+        aria-label={t("menu")}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        style={{ ...tapTarget, justifyContent: "center", width: 44, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" fill={colors.inkSoft}>
+          {[2, 9, 16].flatMap((x) => [2, 9, 16].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.7" />))}
+        </svg>
+      </button>
+      {open && (
+        <div style={{ ...card, position: "absolute", top: 46, left: 0, zIndex: 20, minWidth: 240, padding: 8 }}>
+          <Link href="/platform/board" style={{ display: "block", padding: "10px 12px", textDecoration: "none", color: colors.ink }} onClick={() => setOpen(false)}>
+            <b style={{ fontWeight: 600, display: "block" }}>{t("board")}</b>
+            <span style={{ ...muted, fontSize: 12.5 }}>{t("boardHint")}</span>
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HomeEntry() {
   const t = useTranslations("Home");
   const locale = useLocale();
@@ -108,7 +138,8 @@ export default function HomeEntry() {
   if (started) return <CrewSearchFlow />;
 
   return (
-    <div style={{ textAlign: "center" }}>
+    <div style={{ textAlign: "center", position: "relative" }}>
+      <AppsMenu />
       {/* Brand sits centred above the action, filling what was dead space —
           the header drops its own mark on this route so there's no double. */}
       <div style={{ marginBottom: 44 }}>

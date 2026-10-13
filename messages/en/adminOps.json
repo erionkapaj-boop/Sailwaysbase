@@ -456,6 +456,15 @@
     "unit_cancellations": "cancellations",
     "unit_daysBefore": "days before",
     "unit_months": "months",
-    "unit_jobs": "jobs"
+    "unit_jobs": "jobs",
+    "group_board_title": "Open requests",
+    "unit_days": "days",
+    "unit_claims": "claims",
+    "s_board_max_days_label": "Maximum open time of a request",
+    "s_board_max_days_help": "A request on the board stays open until the client chooses, for at most this many days.",
+    "s_board_after_start_days_label": "Days after the charter starts",
+    "s_board_after_start_days_help": "The request stays open at most until this many days after the trip starts, whichever comes first.",
+    "s_board_max_claims_label": "Claim limit per request",
+    "s_board_max_claims_help": "How many professionals can claim the same request at once."
   }
 }
