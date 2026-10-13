@@ -235,7 +235,28 @@
     "lastAgo": "last {ago}",
     "closedTitleCount": "Closed ({count})",
     "closedTitle": "Closed",
-    "show": "Show"
+    "show": "Show",
+    "flowName": {
+      "request": "Sending a request",
+      "topup": "Buying credits",
+      "register": "Sign-up",
+      "availability": "Setting availability",
+      "delivery": "Boat delivery request"
+    },
+    "flowStep": {
+      "request_picked": "chose professionals",
+      "request_send": "pressed send",
+      "request_done": "sent",
+      "topup_open": "opened the purchase",
+      "topup_done": "sent a purchase request",
+      "register_open": "opened sign-up",
+      "register_submitted": "submitted details",
+      "register_done": "account ready",
+      "availability_open": "opened the window",
+      "availability_done": "saved",
+      "delivery_open": "opened the form",
+      "delivery_done": "sent"
+    }
   },
   "AdminMessages": {
     "topic_general": "General question",

@@ -7,6 +7,30 @@ import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import { Panel, Empty, colors, muted, button } from "../ui";
 import { adminHealthIssues, adminResolveHealthIssue, adminRunHealthChecks, adminFlowStats, adminPlaceMisses, adminHealthEvents } from "../../../../lib/platform/db";
 
+// Οι ροές και τα βήματά τους έρχονται από τη βάση ως ελληνικά κείμενα (flow_steps, 0117)·
+// εδώ αντιστοιχίζονται σε κλειδιά μηνυμάτων, ώστε να φαίνονται στη γλώσσα της σελίδας.
+const STEP_KEY = {
+  "\u03b4\u03b9\u03ac\u03bb\u03b5\u03be\u03b5 \u03b5\u03c0\u03b1\u03b3\u03b3\u03b5\u03bb\u03bc\u03b1\u03c4\u03af\u03b5\u03c2": "request.picked",
+  "\u03c0\u03ac\u03c4\u03b7\u03c3\u03b5 \u03b1\u03c0\u03bf\u03c3\u03c4\u03bf\u03bb\u03ae": "request.send",
+  "\u03c3\u03c4\u03ac\u03bb\u03b8\u03b7\u03ba\u03b5": "delivery.done",
+  "\u03ac\u03bd\u03bf\u03b9\u03be\u03b5 \u03c4\u03b7\u03bd \u03b1\u03b3\u03bf\u03c1\u03ac": "topup.open",
+  "\u03ad\u03c3\u03c4\u03b5\u03b9\u03bb\u03b5 \u03b1\u03af\u03c4\u03b7\u03bc\u03b1 \u03b1\u03b3\u03bf\u03c1\u03ac\u03c2": "topup.done",
+  "\u03ac\u03bd\u03bf\u03b9\u03be\u03b5 \u03c4\u03b7\u03bd \u03b5\u03b3\u03b3\u03c1\u03b1\u03c6\u03ae": "register.open",
+  "\u03ad\u03c3\u03c4\u03b5\u03b9\u03bb\u03b5 \u03c4\u03b1 \u03c3\u03c4\u03bf\u03b9\u03c7\u03b5\u03af\u03b1": "register.submitted",
+  "\u03bb\u03bf\u03b3\u03b1\u03c1\u03b9\u03b1\u03c3\u03bc\u03cc\u03c2 \u03ad\u03c4\u03bf\u03b9\u03bc\u03bf\u03c2": "register.done",
+  "\u03ac\u03bd\u03bf\u03b9\u03be\u03b5 \u03c4\u03bf \u03c0\u03b1\u03c1\u03ac\u03b8\u03c5\u03c1\u03bf": "availability.open",
+  "\u03b1\u03c0\u03bf\u03b8\u03ae\u03ba\u03b5\u03c5\u03c3\u03b5": "availability.done",
+  "\u03ac\u03bd\u03bf\u03b9\u03be\u03b5 \u03c4\u03b7 \u03c6\u03cc\u03c1\u03bc\u03b1": "delivery.open",
+};
+const stepText = (t, label) => (STEP_KEY[label] ? t(`flowStep.${STEP_KEY[label].replace(".", "_")}`) : label);
+const FLOW_KEY = {
+  "\u0391\u03c0\u03bf\u03c3\u03c4\u03bf\u03bb\u03ae \u03b1\u03b9\u03c4\u03ae\u03bc\u03b1\u03c4\u03bf\u03c2": "request",
+  "\u0391\u03b3\u03bf\u03c1\u03ac credits": "topup",
+  "\u0395\u03b3\u03b3\u03c1\u03b1\u03c6\u03ae": "register",
+  "\u0394\u03ae\u03bb\u03c9\u03c3\u03b7 \u03b4\u03b9\u03b1\u03b8\u03b5\u03c3\u03b9\u03bc\u03cc\u03c4\u03b7\u03c4\u03b1\u03c2": "availability",
+  "\u0391\u03af\u03c4\u03b7\u03bc\u03b1 \u03bc\u03b5\u03c4\u03b1\u03c6\u03bf\u03c1\u03ac\u03c2 \u03c3\u03ba\u03ac\u03c6\u03bf\u03c5\u03c2": "delivery",
+};
+
 const SOURCES = ["data", "app", "flow"];
 const sourceLabel = (issue, t) =>
   issue.fingerprint?.startsWith("app:server:") ? t("sourceServer") : SOURCES.includes(issue.source) ? t(`source_${issue.source}`) : undefined;
@@ -70,7 +94,7 @@ function Issue({ issue, busy, onResolve }) {
   const s = issue.sample || {};
   const detail =
     issue.source === "flow"
-      ? t("flowDetail", { started: s.started, completed: s.completed, stop: s.stop_step ? ` · ${t("stopsAt", { step: s.stop_step })}` : "" })
+      ? t("flowDetail", { started: s.started, completed: s.completed, stop: s.stop_step ? ` · ${t("stopsAt", { step: stepText(t, s.stop_step) })}` : "" })
       : s.detail;
   const ids = Array.isArray(issue.sample?.ids) ? issue.sample.ids : [];
 
@@ -306,10 +330,10 @@ export default function HealthPage() {
                 }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink }}>{fl.flow_label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: colors.ink }}>{FLOW_KEY[fl.flow_label] ? t(`flowName.${FLOW_KEY[fl.flow_label]}`) : fl.flow_label}</div>
                   <div style={{ ...muted, fontSize: 12.5, marginTop: 3 }}>
                     {t("flowCounts", { started: fl.started, completed: fl.completed })}
-                    {fl.stop_step && fl.completed < fl.started ? ` · ${t("stopsAt", { step: fl.stop_step })}` : ""}
+                    {fl.stop_step && fl.completed < fl.started ? ` · ${t("stopsAt", { step: stepText(t, fl.stop_step) })}` : ""}
                   </div>
                 </div>
                 <div

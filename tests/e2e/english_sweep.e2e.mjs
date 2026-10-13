@@ -4,6 +4,7 @@
 // κείμενα (Όροι, Απόρρητο), που περιμένουν δικό τους αγγλικό κείμενο.
 // Με SWEEP_SHOTS=1 βγάζει και στιγμιότυπα 390px/1280px για τον έλεγχο σχεδίου.
 import { chromium } from "playwright";
+import { readFileSync } from "node:fs";
 import { BASE, as, check, finish, OUT, sql } from "./lib.mjs";
 
 const GREEK = /[Ͱ-Ͽἀ-῿]/;
@@ -24,9 +25,18 @@ for (const t of sql("select tablename from pg_tables where schemaname = 'public'
   } catch {}
 }
 
+// Ονόματα τόπων και χωρών που ζουν στον κώδικα (δεδομένα, όχι κείμενο οθόνης).
+for (const f of ["../../lib/platform/places.js", "../../lib/platform/countryCodes.js", "../../lib/platform/placeSearch.js"]) {
+  try {
+    for (const w of wordsOf(readFileSync(new URL(f, import.meta.url), "utf8"))) DATA.add(w);
+  } catch {}
+}
+
 const slug = (p) => p.replace(/^\/platform\/?/, "").replace(/\//g, "-") || "home";
 
 async function sweep(page, who, paths) {
+  // Σφάλματα υδάτωσης (server ≠ client) φαίνονται στο console του dev server με την ακριβή διαφορά.
+  page.on("console", (m) => { if (/hydrat/i.test(m.text())) console.log(`   [${who}] ${m.text().slice(0, 700)}`); });
   await page.context().addCookies([{ name: "sf_locale", value: "en", url: BASE }]);
   for (const path of paths) {
     await page.setViewportSize({ width: 1280, height: 900 });

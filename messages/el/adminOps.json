@@ -235,7 +235,28 @@
     "lastAgo": "τελευταία {ago}",
     "closedTitleCount": "Κλεισμένα ({count})",
     "closedTitle": "Κλεισμένα",
-    "show": "Εμφάνιση"
+    "show": "Εμφάνιση",
+    "flowName": {
+      "request": "Αποστολή αιτήματος",
+      "topup": "Αγορά credits",
+      "register": "Εγγραφή",
+      "availability": "Δήλωση διαθεσιμότητας",
+      "delivery": "Αίτημα μεταφοράς σκάφους"
+    },
+    "flowStep": {
+      "request_picked": "διάλεξε επαγγελματίες",
+      "request_send": "πάτησε αποστολή",
+      "request_done": "στάλθηκε",
+      "topup_open": "άνοιξε την αγορά",
+      "topup_done": "έστειλε αίτημα αγοράς",
+      "register_open": "άνοιξε την εγγραφή",
+      "register_submitted": "έστειλε τα στοιχεία",
+      "register_done": "λογαριασμός έτοιμος",
+      "availability_open": "άνοιξε το παράθυρο",
+      "availability_done": "αποθήκευσε",
+      "delivery_open": "άνοιξε τη φόρμα",
+      "delivery_done": "στάλθηκε"
+    }
   },
   "AdminMessages": {
     "topic_general": "Γενική ερώτηση",

@@ -21,6 +21,9 @@ import { fontSans, radius } from "../../../lib/platform/theme";
 // (χρήστες, ολοκληρωμένες) δεν μένουν εδώ· ζουν στις σελίδες τους.
 
 const ACTIVITY_KINDS = ["booking", "signup", "dispute"];
+// Η βάση γράφει τον ρόλο της νέας εγγραφής ως ελληνική λέξη (admin_activity, 0090)·
+// εδώ μεταφράζεται στη γλώσσα της σελίδας.
+const SIGNUP_ROLE = { "\u03b5\u03c0\u03b1\u03b3\u03b3\u03b5\u03bb\u03bc\u03b1\u03c4\u03af\u03b1\u03c2": "professional", "\u03c0\u03b5\u03bb\u03ac\u03c4\u03b7\u03c2": "client" };
 const ACTIVITY_TONE = {
   booking: colors.success,
   signup: colors.accent,
@@ -1298,7 +1301,7 @@ function Activity({ activity }) {
               />
               <RowMain
                 title={a.label}
-                meta={`${ACTIVITY_KINDS.includes(a.kind) ? t(`activity.${a.kind}`) : a.kind}${a.detail ? ` · ${a.detail}` : ""}`}
+                meta={`${ACTIVITY_KINDS.includes(a.kind) ? t(`activity.${a.kind}`) : a.kind}${a.detail ? ` · ${a.kind === "signup" && SIGNUP_ROLE[a.detail] ? t(`activity.signupRole.${SIGNUP_ROLE[a.detail]}`) : a.detail}` : ""}`}
               />
             </span>
             <span style={{ ...muted, fontSize: 11.5, flexShrink: 0 }}>{f.timeAgo(a.at)}</span>

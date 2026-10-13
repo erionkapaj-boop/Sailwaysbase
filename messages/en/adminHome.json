@@ -277,7 +277,11 @@
     "activity": {
       "booking": "Booking",
       "signup": "New signup",
-      "dispute": "Cancellation"
+      "dispute": "Cancellation",
+      "signupRole": {
+        "professional": "professional",
+        "client": "client"
+      }
     },
     "less": "Show fewer",
     "more": "Show more ({count})",

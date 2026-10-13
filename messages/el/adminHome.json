@@ -277,7 +277,11 @@
     "activity": {
       "booking": "Κράτηση",
       "signup": "Νέα εγγραφή",
-      "dispute": "Ακύρωση"
+      "dispute": "Ακύρωση",
+      "signupRole": {
+        "professional": "επαγγελματίας",
+        "client": "πελάτης"
+      }
     },
     "less": "Λιγότερα",
     "more": "Περισσότερα ({count})",
