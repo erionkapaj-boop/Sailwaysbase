@@ -63,7 +63,7 @@ export default function PushPrompt() {
   }
 
   return (
-    <div role="region" aria-label={t("promptTitle")} data-push-prompt style={{ ...card, borderLeft: `3px solid ${colors.accent}`, margin: "12px auto", maxWidth: 960, width: "calc(100% - 40px)" }}>
+    <div role="region" aria-label={t("promptTitle")} data-push-prompt style={{ ...card, borderLeft: `3px solid ${colors.accent}`, margin: "12px auto", maxWidth: 960, boxSizing: "border-box", width: "calc(100% - 40px)" }}>
       <b style={{ fontWeight: 600 }}>{t("promptTitle")}</b>
       <p style={{ ...muted, margin: "6px 0 12px", fontSize: 14 }}>{t("promptBody")}</p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
