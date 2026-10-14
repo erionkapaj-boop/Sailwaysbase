@@ -24,7 +24,7 @@ export default function Toast({ message, onDismiss, durationMs = 3200, tone = "d
       style={{
         position: "fixed",
         left: "50%",
-        bottom: "calc(env(safe-area-inset-bottom, 0px) + 28px)",
+        bottom: "calc(var(--sf-bnav, 0px) + env(safe-area-inset-bottom, 0px) + 28px)",
         transform: "translateX(-50%)",
         display: "flex",
         alignItems: "center",

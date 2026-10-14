@@ -1,7 +1,12 @@
 "use client";
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { colors } from "../../../lib/platform/theme";
+import { useHeaderBack } from "./HeaderBack";
+import { backShell } from "./HeaderBackSlot";
+import Icon from "./Icon";
 
 // One back affordance, used everywhere a screen needs to say "go back a
 // step" — a page returning to where it came from, a sheet closing, a wizard
@@ -45,17 +50,21 @@ function ChevronLeft() {
 // wizard stage) — never both.
 export default function BackButton({ href, onClick, label, style }) {
   const t = useTranslations("BackButton");
+  const hb = useHeaderBack();
+  const register = hb?.register;
+  useEffect(() => (register ? register() : undefined), [register]);
   label = label ?? t("back");
-  if (href) {
-    return (
-      <Link href={href} aria-label={label} style={{ ...shellStyle, ...style }}>
-        <ChevronLeft />
-      </Link>
-    );
-  }
-  return (
-    <button type="button" onClick={onClick} aria-label={label} style={{ ...shellStyle, ...style }}>
-      <ChevronLeft />
+  // Με διαθέσιμη υποδοχή στην κεφαλίδα το κουμπί εμφανίζεται εκεί (ίδια θέση σε
+  // κάθε οθόνη)· αλλιώς μένει στη θέση του μέσα στη σελίδα.
+  const slot = hb?.slot;
+  const el = href ? (
+    <Link href={href} aria-label={label} style={slot ? backShell : { ...shellStyle, ...style }}>
+      {slot ? <Icon name="back" size={22} /> : <ChevronLeft />}
+    </Link>
+  ) : (
+    <button type="button" onClick={onClick} aria-label={label} style={slot ? backShell : { ...shellStyle, ...style }}>
+      {slot ? <Icon name="back" size={22} /> : <ChevronLeft />}
     </button>
   );
+  return slot ? createPortal(el, slot) : el;
 }

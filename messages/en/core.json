@@ -11,7 +11,14 @@
   },
   "Nav": {
     "login": "Login",
-    "homeAriaLabel": "SkipperFinder home"
+    "homeAriaLabel": "SkipperFinder home",
+    "tabHome": "Home",
+    "tabRequests": "Requests",
+    "tabBookings": "Bookings",
+    "tabProfile": "Profile",
+    "tabBoard": "Listings",
+    "tabContact": "Contact",
+    "bottomNav": "Main navigation"
   },
   "Home": {
     "searchCrew": "Find crew",

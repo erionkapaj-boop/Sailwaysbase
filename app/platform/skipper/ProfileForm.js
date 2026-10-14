@@ -455,7 +455,7 @@ export default function ProfileForm({ profile, onSaved, availabilityVersion = 0 
           position: "fixed",
           left: 0,
           right: 0,
-          bottom: 0,
+          bottom: "var(--sf-bnav, 0px)",
           padding: "12px 16px",
           background: "rgba(250,248,244,0.94)",
           backdropFilter: "blur(8px)",

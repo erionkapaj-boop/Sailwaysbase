@@ -48,7 +48,7 @@ const MAP_CSS = `
 .bd-list { container-type: inline-size; container-name: board; min-width: 0; }
 .bd-item { border-radius: 14px; }
 .bd-item[data-hot="true"] > .bd-row { border-color: ${colors.ink}; box-shadow: 0 2px 4px rgba(22,40,60,0.05), 0 10px 24px rgba(22,40,60,0.08); }
-.bd-fab { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 45;
+.bd-fab { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--sf-bnav, 0px) + 24px + env(safe-area-inset-bottom, 0px)); z-index: 45;
   display: inline-flex; align-items: center; gap: 9px; min-height: 48px; padding: 0 22px; border: 0; border-radius: 999px;
   background: ${colors.ink}; color: #fff; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 6px 18px rgba(22,40,60,0.28); }
 .bd-fab:focus-visible { outline: 2px solid ${colors.accent}; outline-offset: 3px; }

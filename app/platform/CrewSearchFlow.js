@@ -6,6 +6,7 @@ import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
 import BackButton from "./components/BackButton";
+import Icon, { ROLE_ICON } from "./components/Icon";
 import PlacePicker from "./components/PlacePicker";
 import { Mark } from "./components/Logo";
 import { useLocalData } from "./useLocalData";
@@ -83,6 +84,7 @@ export default function CrewSearchFlow() {
   const [step, setStep] = useState(0);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [], languages: [] });
   const [roles, setRoles] = useState([]);
+  const [roleQuery, setRoleQuery] = useState("");
   const [dates, setDates] = useState({ start: "", end: "" });
   const [country, setCountry] = useState("");
   const [regionId, setRegionId] = useState("");
@@ -201,7 +203,7 @@ export default function CrewSearchFlow() {
         /* Η ενέργεια του βήματος μένει πάντα ορατή στο κάτω μέρος της οθόνης,
            * χωρίς κύλιση για να βρεθεί. */
         .sf-step-footer {
-          position: sticky; bottom: 0; z-index: 5;
+          position: sticky; bottom: var(--sf-bnav, 0px); z-index: 5;
           margin: 24px -20px 0; padding: 20px 20px calc(16px + env(safe-area-inset-bottom));
           background: linear-gradient(to bottom, rgba(252,251,249,0) 0, ${colors.bg} 20px);
         }
@@ -218,21 +220,51 @@ export default function CrewSearchFlow() {
       {current === "role" && (
         <div key="role" data-sf-step style={stepWrap}>
           <StepHeading>{t("whoTitle")}</StepHeading>
-          {CREW_ROLES.map((r) => (
-            <button
-              key={r.key}
-              type="button"
-              style={option(roles.includes(r.key))}
-              onClick={() => toggleRole(r.key)}
-            >
-              {r.label}
-              {r.blurb && (
-                <span style={{ ...muted, display: "block", fontSize: 12.5, fontWeight: 400, marginTop: 2 }}>
-                  {r.blurb}
+          <label style={{ position: "relative", display: "block", marginBottom: 14 }}>
+            <span style={{ position: "absolute", left: 14, top: 0, bottom: 0, display: "flex", alignItems: "center", color: colors.inkSoft }}>
+              <Icon name="search" size={18} />
+            </span>
+            <input
+              type="search"
+              value={roleQuery}
+              onChange={(e) => setRoleQuery(e.target.value)}
+              placeholder={t("roleSearch")}
+              aria-label={t("roleSearch")}
+              style={{ ...input, paddingLeft: 42, borderRadius: radius.pill, height: 46 }}
+            />
+          </label>
+          <div style={{ ...muted, fontSize: 12, letterSpacing: 0.4, textTransform: "uppercase", margin: "0 0 8px 4px" }}>{t("rolesLabel")}</div>
+          {CREW_ROLES.filter((r) => r.label.toLowerCase().includes(roleQuery.trim().toLowerCase())).map((r) => {
+            const on = roles.includes(r.key);
+            return (
+              <button
+                key={r.key}
+                type="button"
+                aria-pressed={on}
+                style={{ ...option(on), display: "flex", alignItems: "center", gap: 14 }}
+                onClick={() => toggleRole(r.key)}
+              >
+                <span
+                  style={{
+                    width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: on ? colors.ink : colors.seaGlass, color: on ? "#fff" : colors.ink,
+                  }}
+                >
+                  <Icon name={ROLE_ICON[r.key]} size={22} />
                 </span>
-              )}
-            </button>
-          ))}
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontWeight: 500 }}>{r.label}</span>
+                  {r.blurb && (
+                    <span style={{ ...muted, display: "block", fontSize: 12.5, fontWeight: 400, marginTop: 2 }}>{r.blurb}</span>
+                  )}
+                </span>
+                <span style={{ color: on ? colors.ink : "#A9B3BD" }}>
+                  <Icon name={on ? "check" : "chev"} size={18} />
+                </span>
+              </button>
+            );
+          })}
           <p style={{ ...muted, fontSize: 13, margin: "12px 0 0" }}>
             {t("whoHint")}
           </p>

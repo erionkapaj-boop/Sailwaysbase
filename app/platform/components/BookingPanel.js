@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import StatusPill from "./StatusPill";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
 import { useLocalData } from "../useLocalData";
@@ -18,7 +19,7 @@ import {
   getBookingCounterpart,
   departureLabel,
 } from "../../../lib/platform/db";
-import { card, muted, button, input, select, badge, colors, money, radius, tapTarget } from "../../../lib/platform/theme";
+import { card, muted, button, input, select, colors, money, radius, tapTarget } from "../../../lib/platform/theme";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import { labelForRole } from "../../../lib/platform/roles";
 import { useConfirm } from "./ConfirmDialog";
@@ -284,7 +285,7 @@ export default function BookingPanel({
                 style={{ width: 7, height: 7, borderRadius: "50%", background: colors.danger, flexShrink: 0 }}
               />
             )}
-            <span style={badge(statusTone)}>{statusLabel}</span>
+            <StatusPill tone={statusTone}>{statusLabel}</StatusPill>
             <span
               style={{
                 color: colors.inkSoft,

@@ -1,12 +1,13 @@
 "use client";
 import { useTranslations } from "next-intl";
+import StatusPill from "./StatusPill";
 import { useFormat } from "../useFormat";
 import { useLocalData } from "../useLocalData";
 import { formatCredits } from "../../../lib/platform/credits";
 import { useEffect, useState } from "react";
 import { listRequestPings, withdrawPing, cancelBookingRequest, departureLabel } from "../../../lib/platform/db";
 import { labelForRole } from "../../../lib/platform/roles";
-import { card, muted, badge, button, colors, money } from "../../../lib/platform/theme";
+import { card, muted, button, colors, money } from "../../../lib/platform/theme";
 import { useConfirm } from "./ConfirmDialog";
 import { boatLine } from "../../../lib/platform/boat";
 import { friendlyError } from "../../../lib/platform/friendlyError";
@@ -122,7 +123,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
             {L.text(departureLabel(request))} · {L.text(request.boat_types?.name)}
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={badge(statusTone)}>{statusLabel}</span>
+            <StatusPill tone={statusTone}>{statusLabel}</StatusPill>
             <span
               style={{
                 color: colors.inkSoft,

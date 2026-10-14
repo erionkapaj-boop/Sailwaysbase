@@ -11,7 +11,14 @@
   },
   "Nav": {
     "login": "Σύνδεση",
-    "homeAriaLabel": "SkipperFinder, αρχική"
+    "homeAriaLabel": "SkipperFinder, αρχική",
+    "tabHome": "Αρχική",
+    "tabRequests": "Αιτήματα",
+    "tabBookings": "Κρατήσεις",
+    "tabProfile": "Προφίλ",
+    "tabBoard": "Αγγελίες",
+    "tabContact": "Επικοινωνία",
+    "bottomNav": "Κύρια πλοήγηση"
   },
   "Home": {
     "searchCrew": "Αναζήτηση πληρώματος",

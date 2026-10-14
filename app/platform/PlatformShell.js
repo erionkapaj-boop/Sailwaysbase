@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { displayName } from "../../lib/platform/names";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer, { AppFooter } from "./components/Footer";
 import Logo from "./components/Logo";
@@ -11,7 +10,6 @@ import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import HomeAppsMenu from "./components/HomeAppsMenu";
-import Avatar from "./components/Avatar";
 import AccountMenu from "./components/AccountMenu";
 import FeedbackProvider from "./components/FeedbackProvider";
 import SideNav, { SIDENAV_CSS } from "./components/SideNav";
@@ -24,6 +22,9 @@ import { hasPendingDelivery } from "../../lib/platform/pendingDelivery";
 import { isEnabledLocale, LOCALE_COOKIE } from "../../lib/platform/i18n";
 import { nav, colors, fontSans, container, card, h1, muted, button, tapTarget } from "../../lib/platform/theme";
 import PushPrompt from "./components/PushPrompt";
+import BottomNav, { BOTTOM_NAV_CSS } from "./components/BottomNav";
+import HeaderBackSlot from "./components/HeaderBackSlot";
+import { HeaderBackProvider } from "./components/HeaderBack";
 
 const navLink = {
   fontSize: 14,
@@ -41,32 +42,24 @@ const navLink = {
 // header shape — the parts they do have should sit where they sit everywhere
 // else. Roles beyond skipper (hostess, cook, deckhand) come through here
 // unchanged, since nothing in it is specific to what someone does on a boat.
-function AccountNavBar({ name, photoUrl, loading, items, activeHref, onSignOut, notifications, refreshNotifications, hideMenuOnWide }) {
+function AccountNavBar({ homeLabel, items, activeHref, onSignOut, notifications, refreshNotifications, hideMenuOnWide }) {
   const unreadNotifications = notifications?.pendingRequests ?? 0;
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
   return (
     <div data-sf-header style={{ ...nav, display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "center", columnGap: 10 }}>
-      <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} hideOnWide={hideMenuOnWide} />
+      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} hideOnWide={hideMenuOnWide} />
+        <HeaderBackSlot />
+      </div>
 
+      {/* Το λογότυπο οδηγεί πάντα στην αρχική· ο λογαριασμός ζει στο μενού και στο Προφίλ. */}
       <Link
         href="/platform"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none", minWidth: 0 }}
+        aria-label={homeLabel}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", minWidth: 0 }}
       >
-        <Avatar src={photoUrl} name={loading ? "" : name} size={34} />
-        <span
-          style={{
-            fontSize: 16,
-            fontWeight: 500,
-            color: colors.ink,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            minWidth: loading ? 60 : undefined,
-          }}
-        >
-          {name || ""}
-        </span>
+        <Logo />
       </Link>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
@@ -121,10 +114,9 @@ function buildMenuItems({ role, isAdmin, isOwner, adminCounts, t }) {
 }
 
 function NavBar() {
-  const { session, userRow, profile, loading, signOut, role, isAdmin, isOwner, notifications, refreshNotifications } = useAuth();
+  const { session, signOut, role, isAdmin, isOwner, notifications, refreshNotifications } = useAuth();
   const t = useTranslations("Nav");
   const ts = useTranslations("Shell");
-  const headerLocale = useLocale();
   const pathname = usePathname();
   // Δεν διαβάζεται από το AdminCountsContext: αυτό το provider ζει μέσα στο
   // app/platform/admin/layout.js, πιο βαθιά στο δέντρο από εδώ (το μενού
@@ -146,9 +138,7 @@ function NavBar() {
     return (
       <>
         <AccountNavBar
-          name={displayName(profile, headerLocale) || displayName(userRow, headerLocale) || (isAdmin ? ts("adminName") : undefined)}
-          photoUrl={profile?.photo_url || userRow?.photo_url}
-          loading={loading}
+          homeLabel={t("homeAriaLabel")}
           items={menuItems}
           activeHref={pathname}
           onSignOut={signOut}
@@ -169,7 +159,10 @@ function NavBar() {
   if (pathname === "/platform" || pathname === "/") {
     return (
       <div style={{ ...nav, borderBottom: "none", background: "transparent", backdropFilter: "none", position: "static", padding: "10px 14px" }}>
-        <HomeAppsMenu />
+        <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <HomeAppsMenu />
+          <HeaderBackSlot />
+        </div>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           <LanguageSwitcher compact />
           <Link href="/platform/login" style={{ ...navLink, ...tapTarget, color: colors.ink, fontSize: 15 }}>
@@ -183,9 +176,12 @@ function NavBar() {
   // Signed out: the plain marketing header.
   return (
     <div style={{ ...nav, flexWrap: "wrap", rowGap: 8, columnGap: 12 }}>
-      <Link href="/platform" style={{ textDecoration: "none" }} aria-label={t("homeAriaLabel")}>
-        <Logo />
-      </Link>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <HeaderBackSlot />
+        <Link href="/platform" style={{ textDecoration: "none" }} aria-label={t("homeAriaLabel")}>
+          <Logo />
+        </Link>
+      </div>
       {/* Header carries Login only — no search link (the home page is the
           search entry point) and deliberately no sign-up: registration is a
           step inside the flow, at the SMS OTP moment, not a separate door. */}
@@ -219,6 +215,7 @@ const globalStyles = `
 .platform-scope .sf-cta:active { background: ${colors.brandDark}; color: #fff; }
 ${NAV_CSS}
 ${SIDENAV_CSS}
+${BOTTOM_NAV_CSS}
 @keyframes sf-drawer-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sf-drawer-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 @keyframes sf-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
@@ -424,6 +421,7 @@ function ShellBody({ children }) {
         </div>
         <SiteFooter />
       </div>
+      <BottomNav />
     </div>
   );
 }
@@ -432,9 +430,11 @@ export default function PlatformShell({ children }) {
   return (
     <AuthProvider>
       <FeedbackProvider>
-        <style dangerouslySetInnerHTML={{ __html: globalStyles }} />
-        <HealthWatch />
-        <ShellBody>{children}</ShellBody>
+        <HeaderBackProvider>
+          <style dangerouslySetInnerHTML={{ __html: globalStyles }} />
+          <HealthWatch />
+          <ShellBody>{children}</ShellBody>
+        </HeaderBackProvider>
       </FeedbackProvider>
     </AuthProvider>
   );
