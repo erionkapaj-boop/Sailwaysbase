@@ -162,8 +162,10 @@ function NavBar() {
   }
 
   // Αρχική, χωρίς σύνδεση: μόνο οι τελείες αριστερά, γλώσσα και Σύνδεση δεξιά.
-  // Το λογότυπο είναι ήδη στο κέντρο της σελίδας.
-  if (pathname === "/platform") {
+  // Το λογότυπο είναι ήδη στο κέντρο της σελίδας. Στο skipperfinder.gr η αρχική
+  // είναι η ρίζα «/» (το middleware.js την ξαναγράφει σε /platform, αλλά η
+  // διεύθυνση στον browser μένει «/»), οπότε μετρά κι αυτή ως αρχική.
+  if (pathname === "/platform" || pathname === "/") {
     return (
       <div style={{ ...nav, borderBottom: "none", background: "transparent", backdropFilter: "none", position: "static", padding: "10px 14px" }}>
         <HomeAppsMenu />

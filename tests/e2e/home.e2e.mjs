@@ -2,7 +2,19 @@
 // σκάφους», γλώσσα και Σύνδεση δεξιά, λογότυπο, σλόγκαν, κουμπί αναζήτησης,
 // εμπειρίες, και κάτω η πόρτα για τους επαγγελματίες. Ελληνικά και αγγλικά.
 import { chromium } from "playwright";
+import http from "node:http";
 import { BASE, as, go, text, check, finish, shoot } from "./lib.mjs";
+
+// Στο skipperfinder.gr η αρχική είναι η ρίζα «/» (middleware.js): ίδια κεφαλίδα με το /platform.
+const html = await new Promise((resolve, reject) => {
+  const u = new URL(BASE + "/");
+  http.get({ host: u.hostname, port: u.port, path: "/", headers: { host: "skipperfinder.gr" } }, (res) => {
+    let b = "";
+    res.on("data", (c) => (b += c));
+    res.on("end", () => resolve(b));
+  }).on("error", reject);
+});
+check("skipperfinder.gr/: η νέα αρχική (τελείες, χωρίς λογότυπο στην κεφαλίδα)", html.includes('aria-label="Περισσότερα"') && html.includes("Δημιούργησε προφίλ"));
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 for (const locale of ["el", "en"]) {
