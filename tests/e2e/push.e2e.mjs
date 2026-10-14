@@ -93,19 +93,32 @@ const errors = [];
   await page.waitForTimeout(1500);
   check("το service worker καταχωρείται", await page.evaluate(async () => Boolean(await navigator.serviceWorker.getRegistration("/"))));
   check("το service worker δεν κρατά αντίγραφα σελίδων (κάθε deploy φαίνεται αμέσως)", (await page.evaluate(async () => (await caches.keys()).length)) === 0);
-  await page.waitForSelector("[data-push-prompt]", { timeout: 15000 }).catch(() => {}); // περιμένει το service worker να ενεργοποιηθεί
-  check("η πρόταση ειδοποιήσεων εμφανίζεται μετά τη σύνδεση", (await page.locator("[data-push-prompt]").count()) === 1, (await text(page)).slice(0, 300));
-  await page.locator("[data-push-prompt-later]").click();
-  await page.waitForTimeout(300);
-  check("«Αργότερα» την κρύβει και το θυμάται", (await page.locator("[data-push-prompt]").count()) === 0 && Number(await page.evaluate(() => localStorage.getItem("sf_push_prompt_until"))) > Date.now());
+  // Ο browser των τεστ στο CI (headless shell) δεν έχει ειδοποιήσεις· τοπικά έχει.
+  // Η εφαρμογή πρέπει να κάνει το σωστό και στις δύο περιπτώσεις.
+  const pushSupported = await page.evaluate(() => "PushManager" in window && "Notification" in window);
+  console.log(`   (ειδοποιήσεις στον browser των τεστ: ${pushSupported ? "ναι" : "όχι"})`);
+  if (pushSupported) {
+    await page.waitForSelector("[data-push-prompt]", { timeout: 15000 }).catch(() => {}); // περιμένει το service worker να ενεργοποιηθεί
+    check("η πρόταση ειδοποιήσεων εμφανίζεται μετά τη σύνδεση", (await page.locator("[data-push-prompt]").count()) === 1, (await text(page)).slice(0, 300));
+    await page.locator("[data-push-prompt-later]").click();
+    await page.waitForTimeout(300);
+    check("«Αργότερα» την κρύβει και το θυμάται", (await page.locator("[data-push-prompt]").count()) === 0 && Number(await page.evaluate(() => localStorage.getItem("sf_push_prompt_until"))) > Date.now());
+  } else {
+    await page.waitForTimeout(1500);
+    check("browser χωρίς ειδοποιήσεις: καμία πρόταση", (await page.locator("[data-push-prompt]").count()) === 0);
+  }
 
   await go(page, "/platform/profile");
   check("το προφίλ έχει την ενότητα «Ειδοποιήσεις στο κινητό»", (await page.locator("[data-push-settings]").count()) === 1 && (await text(page)).includes("Ειδοποιήσεις στο κινητό"));
-  check("δείχνει ότι δεν είναι ενεργές, με κουμπί ενεργοποίησης", (await page.locator('[data-push-state="off"]').count()) === 1 && (await page.locator("[data-push-on]").count()) === 1);
-  await page.locator("[data-push-on]").click();
-  await page.waitForTimeout(2500);
-  const afterClick = await text(page);
-  check("χωρίς υπηρεσία push (offline) δεν σπάει: μήνυμα, όχι σφάλμα σελίδας", afterClick.includes("Δεν ενεργοποιήθηκαν") || afterClick.includes("Ενεργές σε αυτή"), afterClick.slice(0, 500));
+  if (pushSupported) {
+    check("δείχνει ότι δεν είναι ενεργές, με κουμπί ενεργοποίησης", (await page.locator('[data-push-state="off"]').count()) === 1 && (await page.locator("[data-push-on]").count()) === 1);
+    await page.locator("[data-push-on]").click();
+    await page.waitForTimeout(2500);
+    const afterClick = await text(page);
+    check("χωρίς υπηρεσία push (offline) δεν σπάει: μήνυμα, όχι σφάλμα σελίδας", afterClick.includes("Δεν ενεργοποιήθηκαν") || afterClick.includes("Ενεργές σε αυτή"), afterClick.slice(0, 500));
+  } else {
+    check("browser χωρίς ειδοποιήσεις: το λέει, χωρίς κουμπί ενεργοποίησης", (await text(page)).includes("δεν υποστηρίζει ειδοποιήσεις") && (await page.locator("[data-push-on]").count()) === 0);
+  }
   await page.screenshot({ path: new URL("./output/design-push-settings-m.png", import.meta.url).pathname });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.screenshot({ path: new URL("./output/design-push-settings-d.png", import.meta.url).pathname });
