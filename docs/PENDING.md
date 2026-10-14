@@ -6,6 +6,13 @@
 
 ## Ανοιχτά αυτή τη στιγμή (13/10/2026)
 
+### Ενέργεια ιδιοκτήτη: χάρτης (0128 και ρύθμιση Vercel)
+1. **SQL** `0128_place_positions.sql` (δίνεται στη συνομιλία, ένα κομμάτι + έλεγχος).
+2. **Vercel → Settings → Environment Variables:** πρόσθεσε `NEXT_PUBLIC_MAP_URL` = `https://skipperfinder-maps.erionkapaj.workers.dev` (Production και Preview). Η τιμή διαβάζεται στο build.
+3. **Redeploy** του τελευταίου deployment (χωρίς cache), και **Promote** εκείνου.
+4. Μετά: `/platform/admin/map` → φίλτρο «Χωρίς θέση» και «Προς έλεγχο»: διόρθωσε τα 12 βασικά λιμάνια (ο Άλιμος λείπει) και ό,τι άλλο θες.
+Cloudflare (έγινε 14/10/2026): bucket `skipperfinder-maps`, Worker `skipperfinder-maps`, χάρτης Ελλάδας 530 MB. Ανανέωση χάρτη/συντεταγμένων: αλλαγή του `map/run.json` (`tiles` ή `coordinates`) και push.
+
 ### Ενέργεια ιδιοκτήτη: στοιχεία σκάφους στα αιτήματα (0127)
 Το SQL `0127_boat_details.sql` έτρεξε στην παραγωγή (έλεγχος 12-1-1-2-4 εντάξει). Μένει το Promote στο Vercel (κώδικας `ae72558`, GitHub πράσινο).
 
