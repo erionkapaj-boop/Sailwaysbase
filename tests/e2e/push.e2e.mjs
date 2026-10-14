@@ -95,8 +95,9 @@ const errors = [];
   check("το service worker δεν κρατά αντίγραφα σελίδων (κάθε deploy φαίνεται αμέσως)", (await page.evaluate(async () => (await caches.keys()).length)) === 0);
   // Ο browser των τεστ στο CI (headless shell) δεν έχει ειδοποιήσεις· τοπικά έχει.
   // Η εφαρμογή πρέπει να κάνει το σωστό και στις δύο περιπτώσεις.
-  const pushSupported = await page.evaluate(() => "PushManager" in window && "Notification" in window);
-  console.log(`   (ειδοποιήσεις στον browser των τεστ: ${pushSupported ? "ναι" : "όχι"})`);
+  const mode = await page.evaluate(() => (!("PushManager" in window && "Notification" in window) ? "unsupported" : Notification.permission === "denied" ? "denied" : "ok"));
+  const pushSupported = mode === "ok";
+  console.log(`   (ειδοποιήσεις στον browser των τεστ: ${mode})`);
   if (pushSupported) {
     await page.waitForSelector("[data-push-prompt]", { timeout: 15000 }).catch(() => {}); // περιμένει το service worker να ενεργοποιηθεί
     check("η πρόταση ειδοποιήσεων εμφανίζεται μετά τη σύνδεση", (await page.locator("[data-push-prompt]").count()) === 1, (await text(page)).slice(0, 300));
@@ -105,7 +106,7 @@ const errors = [];
     check("«Αργότερα» την κρύβει και το θυμάται", (await page.locator("[data-push-prompt]").count()) === 0 && Number(await page.evaluate(() => localStorage.getItem("sf_push_prompt_until"))) > Date.now());
   } else {
     await page.waitForTimeout(1500);
-    check("browser χωρίς ειδοποιήσεις: καμία πρόταση", (await page.locator("[data-push-prompt]").count()) === 0);
+    check(`browser ${mode}: καμία πρόταση`, (await page.locator("[data-push-prompt]").count()) === 0);
   }
 
   await go(page, "/platform/profile");
@@ -117,7 +118,9 @@ const errors = [];
     const afterClick = await text(page);
     check("χωρίς υπηρεσία push (offline) δεν σπάει: μήνυμα, όχι σφάλμα σελίδας", afterClick.includes("Δεν ενεργοποιήθηκαν") || afterClick.includes("Ενεργές σε αυτή"), afterClick.slice(0, 500));
   } else {
-    check("browser χωρίς ειδοποιήσεις: το λέει, χωρίς κουμπί ενεργοποίησης", (await text(page)).includes("δεν υποστηρίζει ειδοποιήσεις") && (await page.locator("[data-push-on]").count()) === 0);
+    const t = await text(page);
+    check(`browser ${mode === "denied" ? "με κλειστές ειδοποιήσεις" : "χωρίς ειδοποιήσεις"}: το λέει`,
+      mode === "denied" ? t.includes("Οι ειδοποιήσεις είναι κλειστές") : t.includes("δεν υποστηρίζει ειδοποιήσεις") && (await page.locator("[data-push-on]").count()) === 0, t.slice(0, 500));
   }
   await page.screenshot({ path: new URL("./output/design-push-settings-m.png", import.meta.url).pathname });
   await page.setViewportSize({ width: 1280, height: 900 });
