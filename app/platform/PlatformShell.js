@@ -21,6 +21,8 @@ import { hasPendingBroadcast } from "../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../lib/platform/pendingDelivery";
 import { isEnabledLocale, LOCALE_COOKIE } from "../../lib/platform/i18n";
 import { nav, colors, fontSans, container, card, h1, muted, button, tapTarget } from "../../lib/platform/theme";
+import Avatar from "./components/Avatar";
+import { displayName } from "../../lib/platform/names";
 import PushPrompt from "./components/PushPrompt";
 import BottomNav, { BOTTOM_NAV_CSS } from "./components/BottomNav";
 import HeaderBackSlot from "./components/HeaderBackSlot";
@@ -42,7 +44,7 @@ const navLink = {
 // header shape — the parts they do have should sit where they sit everywhere
 // else. Roles beyond skipper (hostess, cook, deckhand) come through here
 // unchanged, since nothing in it is specific to what someone does on a boat.
-function AccountNavBar({ homeLabel, items, activeHref, onSignOut, notifications, refreshNotifications, hideMenuOnWide }) {
+function AccountNavBar({ homeLabel, name, photoUrl, items, activeHref, onSignOut, notifications, refreshNotifications, hideMenuOnWide }) {
   const unreadNotifications = notifications?.pendingRequests ?? 0;
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
@@ -63,6 +65,11 @@ function AccountNavBar({ homeLabel, items, activeHref, onSignOut, notifications,
       </Link>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+        {/* Πλατιά οθόνη: ο λογαριασμός φαίνεται και οδηγεί στο προφίλ· στο κινητό μένει στο μενού. */}
+        <Link href="/platform/profile" className="sf-hide-narrow" style={{ alignItems: "center", gap: 8, textDecoration: "none", marginRight: 6, color: colors.ink, fontSize: 14 }}>
+          <Avatar src={photoUrl} name={name || ""} size={30} />
+          <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name || ""}</span>
+        </Link>
         <LanguageSwitcher />
         <NotificationPanel count={unreadNotifications} onRead={refreshNotifications} />
         <MessagesPanel count={unreadBookingIds.length} />
@@ -114,9 +121,10 @@ function buildMenuItems({ role, isAdmin, isOwner, adminCounts, t }) {
 }
 
 function NavBar() {
-  const { session, signOut, role, isAdmin, isOwner, notifications, refreshNotifications } = useAuth();
+  const { session, userRow, profile, signOut, role, isAdmin, isOwner, notifications, refreshNotifications } = useAuth();
   const t = useTranslations("Nav");
   const ts = useTranslations("Shell");
+  const headerLocale = useLocale();
   const pathname = usePathname();
   // Δεν διαβάζεται από το AdminCountsContext: αυτό το provider ζει μέσα στο
   // app/platform/admin/layout.js, πιο βαθιά στο δέντρο από εδώ (το μενού
@@ -139,6 +147,8 @@ function NavBar() {
       <>
         <AccountNavBar
           homeLabel={t("homeAriaLabel")}
+          name={displayName(profile, headerLocale) || displayName(userRow, headerLocale) || (isAdmin ? ts("adminName") : undefined)}
+          photoUrl={profile?.photo_url || userRow?.photo_url}
           items={menuItems}
           activeHref={pathname}
           onSignOut={signOut}

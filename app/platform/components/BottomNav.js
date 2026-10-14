@@ -87,6 +87,8 @@ export default function BottomNav() {
 
 export const BOTTOM_NAV_CSS = `
 .sf-bnav { display: none; }
+.sf-hide-narrow { display: none !important; }
+@media (min-width: 861px) { .sf-hide-narrow { display: flex !important; } }
 @media (max-width: 860px) {
   html[data-sf-bnav] { --sf-bnav: calc(60px + env(safe-area-inset-bottom)); }
   html[data-sf-bnav] .platform-scope { padding-bottom: var(--sf-bnav); }
