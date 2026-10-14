@@ -74,11 +74,11 @@ jobs:
           r=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets")
           echo "$r" | jq '{success, buckets: [.result.buckets[]?.name], errors}'
           [ "$(echo "$r" | jq -r .success)" = "true" ]
-      - name: Έχει ο λογαριασμός διεύθυνση workers.dev;
+      - name: Έχει ο λογαριασμός διεύθυνση workers.dev; (ενημερωτικό)
         run: |
           r=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain")
           echo "$r" | jq '{success, subdomain: .result.subdomain, errors}'
-          [ "$(echo "$r" | jq -r '.result.subdomain // empty')" != "" ] || { echo "Δεν έχει οριστεί διεύθυνση workers.dev (βλ. οδηγίες στη συνομιλία)."; exit 1; }
+          [ "$(echo "$r" | jq -r '.result.subdomain // empty')" != "" ] || echo "Δεν έχει οριστεί ακόμα· θα οριστεί στο βήμα «worker»."
       - name: Δέχεται το R2 τα κλειδιά αποθήκευσης;
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -107,6 +107,18 @@ jobs:
           cache: npm
           cache-dependency-path: map/worker/package-lock.json
       - run: npm ci
+      - name: Διεύθυνση workers.dev (ορίζεται μία φορά αν λείπει)
+        working-directory: .
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain"
+          cur=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api" | jq -r '.result.subdomain // empty')
+          if [ -n "$cur" ]; then echo "υπάρχει ήδη: $cur"; exit 0; fi
+          for name in skipperfinder skipperfinder-gr; do
+            r=$(curl -s -X PUT -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" --data "{\"subdomain\":\"$name\"}" "$api")
+            echo "$name → $(echo "$r" | jq -c '{success, errors}')"
+            [ "$(echo "$r" | jq -r .success)" = "true" ] && exit 0
+          done
+          echo "Δεν ορίστηκε διεύθυνση workers.dev"; exit 1
       - name: Δημιουργία bucket (αν δεν υπάρχει)
         run: npx wrangler r2 bucket create "$BUCKET" || echo "το bucket υπάρχει ήδη"
       - name: Ανέβασμα διακομιστή
