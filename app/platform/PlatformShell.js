@@ -23,6 +23,7 @@ import { hasPendingBroadcast } from "../../lib/platform/pendingBroadcast";
 import { hasPendingDelivery } from "../../lib/platform/pendingDelivery";
 import { isEnabledLocale, LOCALE_COOKIE } from "../../lib/platform/i18n";
 import { nav, colors, fontSans, container, card, h1, muted, button, tapTarget } from "../../lib/platform/theme";
+import PushPrompt from "./components/PushPrompt";
 
 const navLink = {
   fontSize: 14,
@@ -414,6 +415,7 @@ function ShellBody({ children }) {
     <div className="platform-scope" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <ViewAsBanner />
       <NavBar />
+      <PushPrompt />
       <div className={side ? "sf-with-sidenav" : undefined} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div style={{ flex: 1 }}>
           <PinChangeGate>

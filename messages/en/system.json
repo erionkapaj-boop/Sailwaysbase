@@ -480,5 +480,35 @@
       "reasonCancelled": "The client cancelled it.",
       "reasonExpired": "It expired."
     }
+  },
+  "Push": {
+    "messageTitle": "New message",
+    "messageBody": "Open the booking to read it.",
+    "testTitle": "Test notification",
+    "testBody": "Notifications work on this device.",
+    "fallbackTitle": "SkipperFinder",
+    "title": "Phone notifications",
+    "intro": "A new request, acceptance, cancellation or message reaches your phone right away, even with the screen off.",
+    "enable": "Turn on",
+    "enabling": "Turning on…",
+    "disable": "Turn off on this device",
+    "on": "On for this device.",
+    "off": "Not on for this device.",
+    "test": "Test notification",
+    "testSent": "Sent. It will arrive in a few seconds.",
+    "unsupported": "This browser does not support phone notifications.",
+    "denied": "Notifications are blocked for this site. Allow them in the browser settings and try again.",
+    "notConfigured": "Notifications are not available yet.",
+    "failed": "Could not turn them on. Try again.",
+    "err_too_soon": "Wait a few seconds before testing again.",
+    "err_no_device": "Turn on notifications on this device first.",
+    "installTitle": "Install to the home screen",
+    "installIos": "On iPhone, notifications only work from the installed app. Tap Safari's Share button, then \"Add to Home Screen\". Open the app from there and turn notifications on.",
+    "install": "Install the app",
+    "installHint": "Put the app on your phone's home screen so it opens with one tap.",
+    "promptTitle": "Phone notifications",
+    "promptBody": "Hear about new requests, acceptances and messages right away.",
+    "promptYes": "Turn on",
+    "promptLater": "Later"
   }
 }

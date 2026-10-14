@@ -43,6 +43,7 @@ import { CREW_ROLES, SUPPORTED_ROLES, labelForRole } from "../../../lib/platform
 import { container, card, h1, h2, muted, colors, radius, select, label, button, input, tapTarget } from "../../../lib/platform/theme";
 import SignedOutNotice from "../components/SignedOutNotice";
 import { friendlyError } from "../../../lib/platform/friendlyError";
+import PushSettings from "../components/PushSettings";
 
 // "Έγκριση σε εκκρεμότητα" vs "Εγκρίθηκε" vs "Δεν εγκρίθηκε" — a secondary
 // role goes through the same admin review as the main profile (0065), so it
@@ -994,6 +995,7 @@ function ClientIdentityProfile({ role }) {
       </div>
 
       <AccountAccess />
+      <PushSettings />
       <EmailSettings />
 
       <p style={{ ...muted, fontSize: 12.5, marginTop: 4, color: colors.inkSoft }}>
@@ -1072,6 +1074,7 @@ export default function ProfilePage() {
       <DeliveryAvailability profile={profile} />
       <SecondaryRoles profile={profile} />
       <AccountAccess />
+      <PushSettings />
       <EmailSettings />
       <DeleteAccount />
     </div>

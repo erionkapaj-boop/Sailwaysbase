@@ -1,10 +1,12 @@
-// Sailways Base — service worker
-// Σκόπιμα ΔΕΝ κάνει caching σελίδων/αρχείων: κάθε update της εφαρμογής πρέπει να φαίνεται αμέσως,
-// χωρίς κανείς να βλέπει παλιά, cached έκδοση. Ο μοναδικός του ρόλος προς το παρόν είναι να επιτρέψει
-// την εγκατάσταση της εφαρμογής στην αρχική οθόνη. Ο χειρισμός ειδοποιήσεων (push) είναι έτοιμος
-// από τώρα, αλλά ανενεργός μέχρι να συνδεθεί με πραγματικές ειδοποιήσεις σε επόμενο βήμα.
+// SkipperFinder — service worker
+// Σκόπιμα ΔΕΝ κάνει caching σελίδων/αρχείων: κάθε deploy φαίνεται αμέσως, χωρίς κανείς
+// να μένει σε παλιά έκδοση. Ρόλοι του: (1) να επιτρέπει την εγκατάσταση της εφαρμογής
+// στην αρχική οθόνη, (2) να παραλαμβάνει τις ειδοποιήσεις (push) και να χτυπά το
+// κινητό ακόμα και με κλειστή οθόνη, (3) να ανοίγει την εφαρμογή στη σωστή σελίδα
+// όταν πατηθεί η ειδοποίηση. Το payload το φτιάχνει ο διακομιστής
+// (lib/platform/pushMessage.js): { title, body, url, tag, badge }.
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
@@ -12,30 +14,51 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Έτοιμο για το επόμενο βήμα (push notifications) — προς το παρόν δεν στέλνεται ποτέ push, οπότε δεν κάνει τίποτα ακόμα.
 self.addEventListener("push", (event) => {
-  if (!event.data) return;
   let payload = {};
-  try { payload = event.data.json(); } catch { payload = { title: "Sailways Base", body: event.data.text() }; }
-  const title = payload.title || "Sailways Base";
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data ? event.data.text() : "" };
+  }
+  const title = payload.title || "SkipperFinder";
   const options = {
     body: payload.body || "",
-    icon: "/icon-192.png",
-    badge: "/icon-192.png",
-    data: { url: payload.url || "/" },
+    icon: "/skipperfinder-icon-192.png",
+    badge: "/skipperfinder-icon-192.png",
+    tag: payload.tag || undefined,
+    renotify: Boolean(payload.tag), // η νεότερη με την ίδια ετικέτα ξαναχτυπά
+    vibrate: [120, 60, 120],
+    timestamp: Date.now(),
+    data: { url: payload.url || "/platform" },
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      // Αριθμός αδιάβαστων στο εικονίδιο της εφαρμογής (όπου το υποστηρίζει η συσκευή).
+      payload.badge && self.navigator && self.navigator.setAppBadge ? self.navigator.setAppBadge(payload.badge).catch(() => {}) : Promise.resolve(),
+    ])
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/";
+  const target = new URL((event.notification.data && event.notification.data.url) || "/platform", self.location.origin).href;
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
       for (const client of clients) {
-        if ("focus" in client) return client.focus();
+        if (new URL(client.url).origin !== self.location.origin) continue;
+        await client.focus();
+        if ("navigate" in client && client.url !== target) {
+          try { await client.navigate(target); } catch {}
+        }
+        return;
       }
-      if (self.clients.openWindow) return self.clients.openWindow(url);
+      if (self.clients.openWindow) return self.clients.openWindow(target);
     })
   );
 });
+
+// Αν ο browser ανανεώσει μόνος του τη συσκευή (άλλο endpoint), η εφαρμογή την
+// ξαναγράφει στο επόμενο άνοιγμα, από το προφίλ ή την ειδοποίηση.
+self.addEventListener("pushsubscriptionchange", () => {});
