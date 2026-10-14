@@ -10,6 +10,7 @@ const CLIENT = "a0000000-0000-0000-0000-000000000002";
 const region = () => sql(`select id from regions where name = 'Κυκλάδες'`);
 const boat = sql(`select id from boat_types where name = 'Ιστιοπλοϊκό'`);
 const trusted = (q) => sql(`select set_config('platform.trusted', 'true', false); ${q}`);
+const t0 = sql(`select now()`);
 const wallet0 = num(`select wallet_balance from users where id = '${CLIENT}'`);
 
 // Αρκετά credits για τις τέσσερις θέσεις του σεναρίου, με κίνηση στο ιστορικό ώστε το υπόλοιπο να συμφωνεί.
@@ -84,10 +85,11 @@ await as(MARIA, async (page) => {
 
 // Καθαρισμός: τα επόμενα τεστ περιμένουν τα credits και τα αιτήματα όπως ήταν.
 trusted(`delete from request_drafts where user_id = '${CLIENT}';
-         delete from wallet_transactions where related_booking_request_id in (select id from booking_requests where board_open);
-         delete from booking_requests where board_open;
+         delete from wallet_transactions where related_booking_request_id in (select id from booking_requests where client_id = '${CLIENT}' and created_at >= '${t0}');
+         delete from notifications where data ->> 'request_id' in (select id::text from booking_requests where client_id = '${CLIENT}' and created_at >= '${t0}');
+         delete from booking_requests where client_id = '${CLIENT}' and created_at >= '${t0}';
          delete from wallet_transactions where user_id = '${CLIENT}' and note = 'e2e open_from_search';
          update users set wallet_balance = ${wallet0} where id = '${CLIENT}';`);
-check("καθαρισμός: το υπόλοιπο όπως πριν", num(`select wallet_balance from users where id = '${CLIENT}'`) === wallet0);
+check("καθαρισμός: υπόλοιπο, αιτήματα και αποστολές όπως πριν", num(`select wallet_balance from users where id = '${CLIENT}'`) === wallet0 && num(`select count(*) from booking_requests where client_id = '${CLIENT}' and created_at >= '${t0}'`) === 0);
 
 finish();
