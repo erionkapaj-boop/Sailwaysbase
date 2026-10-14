@@ -130,7 +130,8 @@ jobs:
           echo "ΔΙΕΥΘΥΝΣΗ ΧΑΡΤΗ: $url"
           echo "### Διεύθυνση χάρτη" >> "$GITHUB_STEP_SUMMARY"
           echo "\`$url\`" >> "$GITHUB_STEP_SUMMARY"
-          curl -s "$url/health"; echo
+          # Η καινούρια διεύθυνση χρειάζεται λίγα δευτερόλεπτα για το πιστοποιητικό SSL.
+          curl -s --retry 8 --retry-delay 5 --retry-all-errors "$url/health" || echo "(δεν απάντησε ακόμα)"; echo
 
   tiles:
     name: Χάρτης Ελλάδας στο R2
@@ -181,10 +182,12 @@ jobs:
         run: |
           sub=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r .result.subdomain)
           url="https://skipperfinder-maps.$sub.workers.dev"
-          curl -s "$url/tiles.json" -H "Origin: https://skipperfinder.gr"; echo
-          for t in 0/0/0 8/142/96; do echo "tile $t → $(curl -s -o /dev/null -w '%{http_code} %{size_download}B' -H 'Origin: https://skipperfinder.gr' "$url/tiles/$t.mvt")"; done
-          echo "font → $(curl -s -o /dev/null -w '%{http_code}' -H 'Origin: https://skipperfinder.gr' "$url/fonts/Noto%20Sans%20Regular/0-255.pbf")"
-          echo "sprite → $(curl -s -o /dev/null -w '%{http_code}' -H 'Origin: https://skipperfinder.gr' "$url/sprites/light.json")"
+          C="curl -s --retry 8 --retry-delay 5 --retry-all-errors -H Origin:https://skipperfinder.gr"
+          $C "$url/tiles.json"; echo
+          for t in 0/0/0 8/142/96; do echo "tile $t → $($C -o /dev/null -w '%{http_code} %{size_download}B' "$url/tiles/$t.mvt")"; done
+          echo "font → $($C -o /dev/null -w '%{http_code}' "$url/fonts/Noto%20Sans%20Regular/0-255.pbf")"
+          echo "sprite → $($C -o /dev/null -w '%{http_code}' "$url/sprites/light.json")"
+          echo "ξένο domain (πρέπει 403) → $(curl -s -o /dev/null -w '%{http_code}' -H 'Origin: https://evil.example' "$url/tiles/0/0/0.mvt")"
 
   coordinates:
     name: Συντεταγμένες των μερών
