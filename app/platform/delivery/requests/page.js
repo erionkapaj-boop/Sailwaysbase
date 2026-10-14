@@ -18,6 +18,7 @@ import { useConfirm } from "../../components/ConfirmDialog";
 import { container, card, h1, h2, muted, button, input, colors, money, badge, sectionLabel } from "../../../../lib/platform/theme";
 import SignedOutNotice from "../../components/SignedOutNotice";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
+import DeliveryClaimsPanel from "../../components/DeliveryClaimsPanel";
 
 const PING_LABEL = {
   pending: ["pingPending", colors.inkSoft],
@@ -205,6 +206,13 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
         </p>
       )}
 
+      {roleRequest.status === "open" && roleRequest.board_open && (
+        <>
+          <span style={{ ...badge("brand"), marginTop: 8 }}>{t("openBadge")}</span>
+          <DeliveryClaimsPanel roleRequest={roleRequest} onChanged={onChanged} />
+        </>
+      )}
+
       {roleRequest.status === "open" && roleRequest.expires_at && (
         <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
           {fee > 0
@@ -227,7 +235,7 @@ function RoleRequestRow({ roleRequest, request, onChanged }) {
               {busy ? "…" : t("withdraw")}
             </button>
           )}
-          {relisting ? (
+          {roleRequest.board_open ? null : relisting ? (
             <RelistForm roleRequest={roleRequest} request={request} onDone={() => { setRelisting(false); onChanged(); }} />
           ) : (
             <button

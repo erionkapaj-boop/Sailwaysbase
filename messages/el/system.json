@@ -466,6 +466,19 @@
     "boardClaimsNeedCredit": {
       "title": "Οι διεκδικήσεις σου περιμένουν credit",
       "body": "{count, plural, one {# διεκδίκηση δεν μπορεί να επιλεγεί} other {# διεκδικήσεις δεν μπορούν να επιλεγούν}} χωρίς credit."
+    },
+    "deliveryBoardClaimReceived": {
+      "title": "Νέα διεκδίκηση στη μεταφορά σου"
+    },
+    "deliveryBoardClaimChosen": {
+      "title": "Σε διάλεξαν για μια μεταφορά",
+      "body": "Η μεταφορά επιβεβαιώθηκε."
+    },
+    "deliveryBoardClaimClosed": {
+      "title": "Η μεταφορά που διεκδίκησες έκλεισε",
+      "reasonMatched": "Επιλέχθηκε άλλος επαγγελματίας.",
+      "reasonCancelled": "Ο πελάτης την ακύρωσε.",
+      "reasonExpired": "Έληξε."
     }
   }
 }

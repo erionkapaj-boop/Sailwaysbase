@@ -16,6 +16,7 @@ import {
   getPlatformSetting,
   createDeliveryRequest,
   createDeliveryRoleRequest,
+  createOpenDeliveryRoleRequest,
   searchDeliveryCandidates,
 } from "../../../lib/platform/db";
 import { savePendingDelivery, takePendingDelivery } from "../../../lib/platform/pendingDelivery";
@@ -150,6 +151,7 @@ function RoleBlock({
   removable,
   initialPrice,
   initialSelected,
+  initialOpen,
 }) {
   const [price, setPrice] = useState(initialPrice != null ? String(initialPrice) : "");
   const [candidates, setCandidates] = useState(null);
@@ -157,6 +159,8 @@ function RoleBlock({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(null);
+  // Leave the slot open (0126): nobody is picked now; professionals claim it.
+  const [openMode, setOpenMode] = useState(Boolean(initialOpen));
   const [restoredNotice] = useState(Boolean(initialPrice));
   const [topUpNeed, setTopUpNeed] = useState(0);
   const t = useTranslations("Delivery");
@@ -176,6 +180,8 @@ function RoleBlock({
   }
 
   const estimate = estimateFee(settings, role, miles);
+  // Also open when the search found nobody: the request is submitted as usual.
+  const isOpen = openMode || (candidates !== null && candidates.length === 0);
 
   async function handleSend() {
     setError("");
@@ -183,14 +189,14 @@ function RoleBlock({
       setError(t("errOfferedPrice"));
       return;
     }
-    if (selected.size === 0) {
+    if (!isOpen && selected.size === 0) {
       setError(t("errPickCandidate"));
       return;
     }
     // Τίποτα δεν έχει χρεωθεί ακόμα — δεν χάνεται τίποτα στέλνοντας στο
     // login τώρα, με τα ίδια δεδομένα έτοιμα να ξαναφανούν μόλις γυρίσει.
     if (!deliveryRequestId && !session) {
-      onAuthRequired(Number(price), Array.from(selected));
+      onAuthRequired(Number(price), Array.from(selected), isOpen);
       return;
     }
     // Αν τα credits δεν φτάνουν, αγορά επιτόπου· τίποτα δεν έχει σταλεί ακόμα.
@@ -206,7 +212,9 @@ function RoleBlock({
         onRequestCreated(dr);
         requestId = dr.id;
       }
-      const row = await createDeliveryRoleRequest(requestId, role, Number(price), Array.from(selected));
+      const row = isOpen
+        ? await createOpenDeliveryRoleRequest(requestId, role, Number(price))
+        : await createDeliveryRoleRequest(requestId, role, Number(price), Array.from(selected));
       trackFlow("delivery", "done");
       setSent(row);
       onSent?.(row);
@@ -227,8 +235,9 @@ function RoleBlock({
     return (
       <div style={{ ...card, borderLeft: `3px solid ${colors.accent}` }}>
         <p style={{ margin: 0, fontWeight: 600 }}>
-          {t("sentTo", { role: labelForRole(role), count: selected.size })}
+          {sent.board_open ? t("sentOpen", { role: labelForRole(role) }) : t("sentTo", { role: labelForRole(role), count: selected.size })}
         </p>
+        {sent.board_open && <p style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>{t("sentOpenNote")}</p>}
         <p style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>
           {t.rich("sentSummary", {
             price: `${formatMoney(sent.offered_price)}€`,
@@ -290,18 +299,41 @@ function RoleBlock({
         </div>
       )}
 
-      <p style={{ ...sectionLabel, margin: "0 0 8px" }}>
-        {t("candidatesHeading")} {candidates == null ? "" : `(${candidates.length})`}
-      </p>
-      {candidates == null && <p style={muted}>{t("loading")}</p>}
-      {candidates?.length === 0 && (
-        <p style={muted}>{t("noCandidates")}</p>
+      {candidates === null && <p style={muted}>{t("loading")}</p>}
+      {candidates?.length > 0 && (
+        <>
+          <p style={{ ...sectionLabel, margin: "0 0 8px" }}>
+            {t("candidatesHeading")} ({candidates.length})
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+            {candidates.map((s) => (
+              <CandidateCard key={s.id} s={s} selected={!openMode && selected.has(s.id)} onToggle={(id) => { setOpenMode(false); toggle(id); }} />
+            ))}
+          </div>
+        </>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
-        {candidates?.map((s) => (
-          <CandidateCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={toggle} />
-        ))}
-      </div>
+
+      {/* Nobody pleases, or nobody was found: the request stays open, professionals
+          claim it and the client chooses. */}
+      {isOpen ? (
+        <div style={{ padding: "12px 14px", borderLeft: `3px solid ${colors.accent}`, background: colors.seaGlass, borderRadius: radius.md, marginBottom: 14 }}>
+          <b style={{ fontWeight: 600, fontSize: 14.5 }}>{candidates?.length === 0 ? t("readyTitle") : t("leaveOpenTitle")}</b>
+          <p style={{ ...muted, margin: "6px 0 0", fontSize: 13.5, lineHeight: 1.55 }}>
+            {candidates?.length === 0 ? t("readyBody") : t("leaveOpenBody")}
+          </p>
+          {openMode && candidates?.length > 0 && (
+            <button type="button" style={{ ...button("secondary"), marginTop: 10 }} onClick={() => setOpenMode(false)}>
+              {t("backToList")}
+            </button>
+          )}
+        </div>
+      ) : (
+        candidates?.length > 0 && (
+          <button type="button" data-leave-open style={{ ...button("secondary"), width: "100%", marginBottom: 14 }} onClick={() => setOpenMode(true)}>
+            {t("leaveOpen")}
+          </button>
+        )
+      )}
 
       {error && <p style={{ color: colors.danger, fontSize: 13.5, margin: "0 0 10px" }}>{error}</p>}
       {awaitingVerification ? (
@@ -310,12 +342,14 @@ function RoleBlock({
           {t("pendingBody")}
         </div>
       ) : (
-        <button style={button("primary")} disabled={busy || !candidates?.length} onClick={handleSend}>
+        <button style={button("primary")} disabled={busy || candidates === null || (!isOpen && !selected.size)} onClick={handleSend}>
           {busy
             ? "..."
             : !session
               ? t("loginToSend")
-              : t("sendTo", { count: selected.size || 0 })}
+              : isOpen
+                ? t("completeRequest")
+                : t("sendTo", { count: selected.size || 0 })}
         </button>
       )}
     </div>
@@ -637,8 +671,8 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
   // πια, αφού όλα τα μπλοκ είναι ορατά από την αρχή. Τα υπόλοιπα μπλοκ
   // (φόρμα, επιλεγμένοι ρόλοι) διατηρούνται ούτως ή άλλως· μόνο το
   // συγκεκριμένο μπλοκ που ήταν σε εξέλιξη χρειάζεται να θυμηθεί τιμή/επιλογή.
-  function handleAuthRequired(role, price, selectedIds) {
-    savePendingDelivery({ formValues, pickedRoles, pendingBlock: { role, price, selected: selectedIds } });
+  function handleAuthRequired(role, price, selectedIds, open) {
+    savePendingDelivery({ formValues, pickedRoles, pendingBlock: { role, price, selected: selectedIds, open: Boolean(open) } });
     router.push("/platform/login?next=/platform/delivery");
   }
 
@@ -665,10 +699,11 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
         session={session}
         awaitingVerification={awaitingVerification}
         formValues={formValues}
-        onAuthRequired={(price, sel) => handleAuthRequired("skipper", price, sel)}
+        onAuthRequired={(price, sel, open) => handleAuthRequired("skipper", price, sel, open)}
         onRequestCreated={onRequestCreated}
         initialPrice={restoredBlock?.role === "skipper" ? restoredBlock.price : undefined}
         initialSelected={restoredBlock?.role === "skipper" ? restoredBlock.selected : undefined}
+        initialOpen={restoredBlock?.role === "skipper" ? restoredBlock.open : undefined}
       />
 
       {extraBlocks.map(({ key, role }) => (
@@ -683,12 +718,13 @@ function RolesStep({ formValues, pickedRoles, deliveryRequest, onRequestCreated,
           session={session}
           awaitingVerification={awaitingVerification}
           formValues={formValues}
-          onAuthRequired={(price, sel) => handleAuthRequired(role, price, sel)}
+          onAuthRequired={(price, sel, open) => handleAuthRequired(role, price, sel, open)}
           onRequestCreated={onRequestCreated}
           removable
           onRemove={() => setExtraBlocks((bs) => bs.filter((b) => b.key !== key))}
           initialPrice={restoredBlock?.role === role ? restoredBlock.price : undefined}
           initialSelected={restoredBlock?.role === role ? restoredBlock.selected : undefined}
+          initialOpen={restoredBlock?.role === role ? restoredBlock.open : undefined}
         />
       ))}
 

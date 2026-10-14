@@ -6,7 +6,10 @@ import { card, colors, shadow, tapTarget } from "../../../lib/platform/theme";
 
 // Το μενού με τις εννέα τελείες της αρχικής (όπως των Google). Εδώ μπαίνουν οι
 // είσοδοι που δεν είναι η κύρια ροή· η πρώτη είναι η μεταφορά σκάφους.
-const ITEMS = [{ href: "/platform/delivery", key: "boatDelivery" }];
+const ITEMS = [
+  { href: "/platform/delivery", key: "boatDelivery" },
+  { href: "/platform/board", key: "openRequests" },
+];
 
 export default function HomeAppsMenu() {
   const t = useTranslations("Home");

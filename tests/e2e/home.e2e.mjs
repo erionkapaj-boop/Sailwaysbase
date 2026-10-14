@@ -25,8 +25,8 @@ for (const locale of ["el", "en"]) {
   page.on("pageerror", (e) => errors.push(e.message));
   await go(page, "/platform");
   const L = locale === "el"
-    ? { tag: "Οι άνθρωποι πίσω από κάθε ταξίδι.", cta: "Αναζήτηση πληρώματος", other: "Έχεις κάτι άλλο στο μυαλό σου;", exp: "Ανακάλυψε εμπειρίες στη θάλασσα", pro: "Είσαι επαγγελματίας;", create: "Δημιούργησε προφίλ", login: "Σύνδεση", menu: "Περισσότερα", delivery: "Μεταφορά σκάφους", terms: "Όροι χρήσης" }
-    : { tag: "The people behind every voyage.", cta: "Find crew", other: "Something else in mind?", exp: "Discover experiences at sea", pro: "Are you a professional?", create: "Create a profile", login: "Login", menu: "More", delivery: "Boat delivery", terms: "Terms of use" };
+    ? { tag: "Οι άνθρωποι πίσω από κάθε ταξίδι.", cta: "Αναζήτηση πληρώματος", other: "Έχεις κάτι άλλο στο μυαλό σου;", exp: "Ανακάλυψε εμπειρίες στη θάλασσα", pro: "Είσαι επαγγελματίας;", create: "Δημιούργησε προφίλ", board: "Ανοιχτά αιτήματα", login: "Σύνδεση", menu: "Περισσότερα", delivery: "Μεταφορά σκάφους", terms: "Όροι χρήσης" }
+    : { tag: "The people behind every voyage.", cta: "Find crew", other: "Something else in mind?", exp: "Discover experiences at sea", pro: "Are you a professional?", create: "Create a profile", board: "Open requests", login: "Login", menu: "More", delivery: "Boat delivery", terms: "Terms of use" };
   const body = await text(page);
   check(`${locale}: όλα τα στοιχεία της αρχικής`, [L.tag, L.cta, L.other, L.exp, L.pro, L.create, L.login, L.terms].every((s) => body.includes(s)), body.slice(0, 300));
   check(`${locale}: χωρίς λογότυπο στην κεφαλίδα (μόνο ένα SkipperFinder)`, (body.match(/SkipperFinder/g) || []).length <= 2);
@@ -37,7 +37,7 @@ for (const locale of ["el", "en"]) {
   await dots.click();
   await page.waitForTimeout(300);
   const items = await page.getByRole("menuitem").allInnerTexts();
-  check(`${locale}: το μενού έχει μόνο τη μεταφορά σκάφους`, items.length === 1 && items[0].trim() === L.delivery, items.join("|"));
+  check(`${locale}: το μενού έχει τη μεταφορά σκάφους και τα ανοιχτά αιτήματα`, items.length === 2 && items[0].trim().startsWith(L.delivery) && items[1].trim().startsWith(L.board), items.join("|"));
   await shoot(page, `home-menu-${locale}`);
   await page.getByRole("menuitem").first().click();
   await page.waitForURL(/\/platform\/delivery/, { timeout: 10000 }).catch(() => {});

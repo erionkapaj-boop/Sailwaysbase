@@ -50,8 +50,12 @@
       "request_not_found": "The request was not found.",
       "already_resolved": "The claim is already closed.",
       "not_owner": "Not allowed.",
-      "insufficient_wallet": "You need 1 credit to claim."
-    }
+      "insufficient_wallet": "You need 1 credit to claim.",
+      "request_expired": "The request has expired."
+    },
+    "kindCrew": "Crew",
+    "kindDelivery": "Deliveries",
+    "deliveryEmpty": "There are no open deliveries right now."
   },
   "BoardNew": {
     "title": "Leave a request",

@@ -466,6 +466,19 @@
     "boardClaimsNeedCredit": {
       "title": "Your claims are waiting for a credit",
       "body": "{count, plural, one {# claim cannot be chosen} other {# claims cannot be chosen}} without a credit."
+    },
+    "deliveryBoardClaimReceived": {
+      "title": "New claim on your delivery"
+    },
+    "deliveryBoardClaimChosen": {
+      "title": "You were chosen for a delivery",
+      "body": "The delivery is confirmed."
+    },
+    "deliveryBoardClaimClosed": {
+      "title": "The delivery you claimed has closed",
+      "reasonMatched": "Another professional was chosen.",
+      "reasonCancelled": "The client cancelled it.",
+      "reasonExpired": "It expired."
     }
   }
 }

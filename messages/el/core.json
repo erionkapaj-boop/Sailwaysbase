@@ -23,7 +23,9 @@
     "discoverExperiences": "Ανακάλυψε εμπειρίες στη θάλασσα",
     "areYouPro": "Είσαι επαγγελματίας;",
     "createProfile": "Δημιούργησε προφίλ",
-    "appsMenu": "Περισσότερα"
+    "appsMenu": "Περισσότερα",
+    "openRequests": "Ανοιχτά αιτήματα",
+    "openRequestsHint": "Αιτήματα πελατών που περιμένουν επαγγελματία"
   },
   "LanguageSwitcher": {
     "change": "Αλλαγή γλώσσας"

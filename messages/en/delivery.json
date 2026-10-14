@@ -83,7 +83,16 @@
     "cancelledByClient": "Cancelled by the client",
     "cancelledByProfessional": "Cancelled by the professional",
     "quotedNote": "“{note}”",
-    "reasonOptional": "Reason (optional)"
+    "reasonOptional": "Reason (optional)",
+    "readyTitle": "Your request is ready",
+    "readyBody": "It will be shown to every delivery professional. Whoever is interested will accept it and you choose. Complete it below.",
+    "leaveOpen": "Not happy with anyone? Leave the request open",
+    "leaveOpenTitle": "Your request will stay open",
+    "leaveOpenBody": "It will be shown to every delivery professional. Those who are interested will accept it and you choose.",
+    "backToList": "Choose from the list",
+    "completeRequest": "Complete request",
+    "sentOpen": "Your request for {role} is open",
+    "sentOpenNote": "It is waiting for professionals to accept. Whoever is interested shows up under your delivery requests and you choose. It stays open until the departure date; if nobody takes it, the credits are returned."
   },
   "DeliveryInbox": {
     "err_not_open": "This position is no longer open.",
@@ -141,6 +150,23 @@
     "empty": "You have not sent a delivery request yet.",
     "miles": "{miles} nautical miles",
     "flexDays": "±{days, plural, one {# day} other {# days}}",
-    "covered": "Covered:"
+    "covered": "Covered:",
+    "openBadge": "Open request"
+  },
+  "DeliveryClaims": {
+    "claimsTitle": "Claimants",
+    "none": "Nobody has claimed it yet. Delivery professionals see it on the board.",
+    "claimedAt": "Claimed {date}",
+    "choose": "Choose",
+    "choosing": "Choosing…",
+    "chooseConfirm": "You are choosing this professional for the delivery. Your fee has already been charged; the professional is charged theirs too.",
+    "err": {
+      "claimant_cannot_pay": "The professional no longer has a credit. Try another or wait.",
+      "claim_not_active": "The claim is no longer active.",
+      "request_not_open": "The slot is no longer open.",
+      "request_expired": "The slot has expired.",
+      "date_overlap": "The professional now has another booking on the same days.",
+      "skipper_not_eligible": "The professional is no longer available."
+    }
   }
 }

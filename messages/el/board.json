@@ -50,8 +50,12 @@
       "request_not_found": "Το αίτημα δεν βρέθηκε.",
       "already_resolved": "Η διεκδίκηση έχει ήδη κλείσει.",
       "not_owner": "Δεν επιτρέπεται.",
-      "insufficient_wallet": "Χρειάζεσαι 1 credit για να διεκδικήσεις."
-    }
+      "insufficient_wallet": "Χρειάζεσαι 1 credit για να διεκδικήσεις.",
+      "request_expired": "Το αίτημα έχει λήξει."
+    },
+    "kindCrew": "Πληρώματα",
+    "kindDelivery": "Μεταφορές",
+    "deliveryEmpty": "Δεν υπάρχουν ανοιχτές μεταφορές αυτή τη στιγμή."
   },
   "BoardNew": {
     "title": "Άφησε αίτημα",

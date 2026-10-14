@@ -23,7 +23,9 @@
     "discoverExperiences": "Discover experiences at sea",
     "areYouPro": "Are you a professional?",
     "createProfile": "Create a profile",
-    "appsMenu": "More"
+    "appsMenu": "More",
+    "openRequests": "Open requests",
+    "openRequestsHint": "Client requests waiting for a professional"
   },
   "LanguageSwitcher": {
     "change": "Change language"

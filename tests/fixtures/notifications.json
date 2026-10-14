@@ -867,6 +867,66 @@
  },
  {
   "n": {
+   "kind": "delivery_board_claim_received",
+   "data": {
+    "origin": "Λαύριο",
+    "destination": "Λευκάδα",
+    "role": "skipper"
+   }
+  },
+  "r": {
+   "title": "Νέα διεκδίκηση στη μεταφορά σου",
+   "body": "Skipper · Λαύριο → Λευκάδα",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "delivery_board_claim_chosen",
+   "data": {
+    "origin": "Λαύριο",
+    "destination": "Λευκάδα",
+    "role": "skipper"
+   }
+  },
+  "r": {
+   "title": "Σε διάλεξαν για μια μεταφορά",
+   "body": "Skipper · Λαύριο → Λευκάδα · Η μεταφορά επιβεβαιώθηκε.",
+   "urgent": true
+  }
+ },
+ {
+  "n": {
+   "kind": "delivery_board_claim_closed",
+   "data": {
+    "origin": "Λαύριο",
+    "destination": "Λευκάδα",
+    "role": "skipper",
+    "reason": "matched"
+   }
+  },
+  "r": {
+   "title": "Η μεταφορά που διεκδίκησες έκλεισε",
+   "body": "Skipper · Λαύριο → Λευκάδα · Επιλέχθηκε άλλος επαγγελματίας."
+  }
+ },
+ {
+  "n": {
+   "kind": "delivery_board_claim_closed",
+   "data": {
+    "origin": "Λαύριο",
+    "destination": "Λευκάδα",
+    "role": "skipper",
+    "reason": "expired"
+   }
+  },
+  "r": {
+   "title": "Η μεταφορά που διεκδίκησες έκλεισε",
+   "body": "Skipper · Λαύριο → Λευκάδα · Έληξε."
+  }
+ },
+ {
+  "n": {
    "kind": "nonsense",
    "data": {}
   },
