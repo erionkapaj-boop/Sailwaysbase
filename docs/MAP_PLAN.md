@@ -43,6 +43,47 @@ Nominatim (όριο 1 αίτημα/δευτ. για όλους), MapTiler δωρ
 **Από τον ιδιοκτήτη, όταν ξεκινήσει η Φάση Α:** λογαριασμός Cloudflare (R2).
 Πότε ξεκινά: μετά τα βασικά που ορίζει ο ιδιοκτήτης.
 
+**Τεχνικό σχέδιο Φάσης Α (για όποιον υλοποιεί):**
+- *Δεδομένα:* ημερήσιο build του Protomaps → `pmtiles extract` για την Ελλάδα
+  (bbox `19.0,34.5,30.0,42.0`, maxzoom 15· αν το αρχείο ξεπεράσει ~1 GB, 14).
+  Γραμματοσειρές (Noto Sans, με ελληνικά) και sprites από τα `basemaps-assets`
+  του Protomaps, όλα στο **δικό μας** R2 bucket `skipperfinder-maps`.
+- *Παράδοση:* Cloudflare Worker `skipperfinder-maps` (διεύθυνση workers.dev,
+  χωρίς ανάγκη domain): `/tiles/{z}/{x}/{y}.mvt` (βιβλιοθήκη `pmtiles` πάνω σε
+  R2 binding με range), `/fonts/...`, `/sprites/...`, CORS μόνο για τα δικά μας
+  domains, Cache API. Δωρεάν όριο: 100.000 αιτήματα/ημέρα.
+- *Παραγωγή:* `.github/workflows/map-data.yml` (χειροκίνητη εκκίνηση): job
+  `tiles` (extract, ανέβασμα, deploy του Worker) και job `coordinates`
+  (Nominatim, 1 αίτημα/δευτ., ταυτοποιημένο User-Agent, μία φορά, αποτέλεσμα
+  ως artifact). Το περιβάλλον ανάπτυξης δεν φτάνει στο Protomaps/Overpass/
+  Nominatim· το GitHub Actions φτάνει.
+- *Μυστικά GitHub:* `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
+  `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (τα βάζει ο ιδιοκτήτης· ποτέ στη
+  συνομιλία). Στο Vercel: `NEXT_PUBLIC_MAP_URL` = διεύθυνση του Worker.
+- *Εκδόσεις (≥ 2 εβδομάδες):* `maplibre-gl` 6.11.2, `pmtiles` 4.4.1 (Worker),
+  `@protomaps/basemaps` 5.7.2.
+- *Εφαρμογή:* `app/platform/components/map/MapView.js` (dynamic import, χωρίς
+  SSR). Props: `layers` (σημεία/γραμμές/περιοχές ως GeoJSON με στυλ),
+  `onPick({lng, lat, place, region})`, `focus` (μέρος ή περιοχή). Στυλ από
+  `@protomaps/basemaps` (flavor light, `lang` = γλώσσα σελίδας), χρώματα
+  `lib/platform/theme.js`, αναφορά © OpenStreetMap. Χωρίς `NEXT_PUBLIC_MAP_URL`
+  (τεστ, τοπικά): απλό υπόβαθρο χωρίς δίκτυο, ίδια διεπαφή.
+- *Γεωγραφική γνώση:* `lib/platform/geo.js`: `whatIsHere(lng, lat)` (κοντινότερο
+  μέρος ≤ 3 ν.μ., αλλιώς περιοχή) και `whereIs(κείμενο)` (πάνω στο
+  `placeSearch`). Συντεταγμένες στο `lib/platform/countries/gr.coords.json`·
+  κέντρο και όρια περιοχών στο `gr.js`.
+- *Βάση (migration):* `create extension postgis`· `place_positions` (κλειδί
+  μέρους, lat, lng, πηγή `osm`|`owner`, ποιος/πότε) για τις διορθώσεις του
+  ιδιοκτήτη, ανάγνωση για όλους, εγγραφή μόνο admin μέσω RPC· στήλες κέντρου/
+  ορίων στο `regions`.
+- *Διαχείριση:* `/platform/admin/map`: όλα τα μέρη ως καρφίτσες, μεταφορά
+  καρφίτσας = διόρθωση, ένδειξη «ελέγχθηκε» για τα 12 βασικά λιμάνια.
+- *Τεστ:* μονάδας (`whatIsHere`, `whereIs`), βάσης (RPC, δικαιώματα),
+  περιήγησης (οθόνη διαχείρισης με το απλό υπόβαθρο).
+- *Σειρά:* (1) λογαριασμός Cloudflare και μυστικά από τον ιδιοκτήτη, (2)
+  workflow και Worker, εκτέλεση `coordinates`, (3) εκτέλεση `tiles`, (4)
+  MapView, geo, migration, οθόνη διαχείρισης, (5) SQL στον ιδιοκτήτη, Promote.
+
 **Σημειώσεις για αργότερα (όχι αποφάσεις):** τα μίλια μεταφοράς θέλουν
 διαδρομή στη θάλασσα, όχι ευθεία (η ευθεία περνά πάνω από στεριά)· κάθε
 λειτουργία που συλλέγει τοποθεσία ενημερώνει την πολιτική απορρήτου, που
