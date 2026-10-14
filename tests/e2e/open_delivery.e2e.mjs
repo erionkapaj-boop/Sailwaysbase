@@ -36,7 +36,7 @@ await as(MARIA, async (page) => {
   await fillForm(page, "Λαύριο", "Μάλτα", 2000, 30);
   await page.getByPlaceholder("π.χ. 1500").fill("3000");
   let t = await text(page);
-  check("υπάρχει λίστα και η επιλογή «άφησε ανοιχτό»", t.includes("Διαθέσιμοι για μεταφορές") && t.includes("Άφησε το αίτημα ανοιχτό"), t.slice(0, 400));
+  check("υπάρχει λίστα και η επιλογή «άφησε ανοιχτό»", (await page.getByRole("button", { name: "Επιλογή", exact: true }).count()) >= 1 && t.includes("Άφησε το αίτημα ανοιχτό"), t.slice(0, 400));
   await page.locator("[data-leave-open]").first().click();
   await page.waitForTimeout(400);
   await shoot(page, "open-delivery-leave");
@@ -88,8 +88,8 @@ await as(MARIA, async (page) => {
   console.log("\n== 5. Ο πελάτης διαλέγει");
   await go(page, "/platform/delivery/requests");
   await page.waitForTimeout(1200);
-  const t = (await text(page)).toLowerCase();
-  check("βλέπει τον διεκδικητή", t.includes("ανοιχτό αίτημα") && t.includes("διεκδικητές"));
+  const t = await text(page);
+  check("βλέπει τον διεκδικητή", t.includes("Ανοιχτό αίτημα") && (await page.getByRole("button", { name: "Επιλογή", exact: true }).count()) === 1, t.slice(0, 500));
   await shoot(page, "open-delivery-claims");
   await click(page, "Επιλογή");
   await page.waitForTimeout(500);
