@@ -6,10 +6,12 @@
 // User-Agent, χωρίς αυτόματη συμπλήρωση. Τα υπάρχοντα στοιχεία του αρχείου
 // ΔΕΝ ξαναζητούνται (οι διορθώσεις του ιδιοκτήτη μένουν)· `--force` τα ξαναβρίσκει.
 //
-//   node map/tools/geocode.mjs [--force] [--limit N]
+//   node map/tools/geocode.mjs [--force] [--retry] [--limit N]
+//     --retry: ξαναδοκιμάζει ΜΟΝΟ όσα λείπουν ή είναι σημειωμένα «προς έλεγχο»
 import { writeFileSync, existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { PLACES } from "../../lib/platform/places.js";
+import { pickBest, searchBox, regionViewbox } from "./geocode-rules.mjs";
 
 const OUT = new URL("../../lib/platform/countries/gr.coords.js", import.meta.url).pathname;
 const HEADER = `// Συντεταγμένες των μερών του gr.js (κλειδί: «Νησί – Λιμάνι» ή «Μέρος»).
@@ -19,6 +21,7 @@ const HEADER = `// Συντεταγμένες των μερών του gr.js (κ
 const UA = "SkipperFinder-geocoder/1.0 (+https://skipperfinder.gr)";
 const GREECE = { minLat: 34.5, maxLat: 42.0, minLng: 19.0, maxLng: 30.0 };
 const force = process.argv.includes("--force");
+const retry = process.argv.includes("--retry");
 const limit = Number(process.argv[process.argv.indexOf("--limit") + 1]) || Infinity;
 
 export const keyOf = (p) => (p.parent ? `${p.parent} – ${p.name}` : p.name);
@@ -35,8 +38,9 @@ const km = (a, b) => {
 };
 const inGreece = (r) => r.lat >= GREECE.minLat && r.lat <= GREECE.maxLat && r.lng >= GREECE.minLng && r.lng <= GREECE.maxLng;
 
-async function search(q) {
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&countrycodes=gr&accept-language=el&q=${encodeURIComponent(q)}`;
+async function search(q, box) {
+  const view = box ? `&viewbox=${box.map((n) => n.toFixed(4)).join(",")}&bounded=1` : "";
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&countrycodes=gr&accept-language=el${view}&q=${encodeURIComponent(q)}`;
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await fetch(url, { headers: { "User-Agent": UA } });
     if (res.status === 429 || res.status >= 500) { await sleep(5000 * (attempt + 1)); continue; }
@@ -57,21 +61,32 @@ const queries = (p) => {
 let done = 0, fresh = 0;
 for (const p of PLACES) {
   const key = keyOf(p);
-  if (places[key] && !force) continue;
+  const have = places[key];
+  if (have && !force && !(retry && (have.lat == null || have.review))) continue;
   if (fresh >= limit) break;
+  // Πλαίσιο: γύρω από το νησί-γονέα (αν έχει καλή θέση), αλλιώς η περιοχή του μέρους.
+  const parent = p.parent ? places[p.parent] : null;
+  const goodParent = parent && parent.lat != null && !parent.review ? parent : null;
+  const box = searchBox(goodParent, regionViewbox(p.region));
   let found = null;
-  for (const q of queries(p)) {
-    await sleep(1100); // 1 αίτημα/δευτ.
-    const rows = await search(q);
-    if (rows.length) { found = { rows, q }; break; }
+  for (const bounded of box ? [true, false] : [false]) {
+    for (const q of queries(p)) {
+      await sleep(1100); // 1 αίτημα/δευτ.
+      const rows = await search(q, bounded ? box : null);
+      const best = pickBest(rows);
+      if (best && !best.rejected) { found = { rows, best, bounded }; break; }
+      if (best && !found) found = { rows, best, bounded, weak: true };
+    }
+    if (found && !found.weak) break;
   }
   if (!found) {
     places[key] = { lat: null, lng: null, review: true, note: "δεν βρέθηκε" };
   } else {
-    const [a, b] = found.rows;
-    // Ύποπτο: δύο αποτελέσματα μακριά (>25 χλμ) ή το πρώτο δεν μοιάζει με τόπο.
-    const ambiguous = b && km(a, b) > 25;
-    places[key] = { lat: Number(a.lat.toFixed(5)), lng: Number(a.lng.toFixed(5)), review: Boolean(ambiguous), note: `${a.cls} · ${a.name}`.slice(0, 160) };
+    const a = found.best.pick;
+    const second = found.rows.find((r) => r !== a && !found.best.rejected);
+    // Ύποπτο: μόνο απορριπτέα αποτελέσματα, ή αναζήτηση έξω από το πλαίσιο, ή δύο μακρινά αποτελέσματα.
+    const doubtful = found.best.rejected || !found.bounded || (second && km(a, second) > 25);
+    places[key] = { lat: Number(a.lat.toFixed(5)), lng: Number(a.lng.toFixed(5)), review: Boolean(doubtful), note: `${a.cls} · ${a.name}`.slice(0, 160) };
   }
   fresh++; done++;
   if (done % 25 === 0) { console.log(`${done} μέρη…`); persist(); }

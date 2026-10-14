@@ -42,14 +42,17 @@ jobs:
     timeout-minutes: 2
     outputs:
       step: ${{ steps.pick.outputs.step }}
+      args: ${{ steps.pick.outputs.args }}
     steps:
       - uses: actions/checkout@v4
       - id: pick
         run: |
           step="${{ inputs.step }}"
           [ -n "$step" ] || step=$(jq -r .step map/run.json)
+          args=$(jq -r '.args // ""' map/run.json)
           echo "step=$step" >> "$GITHUB_OUTPUT"
-          echo "Βήμα: $step"
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+          echo "Βήμα: $step $args"
 
   check:
     name: Έλεγχος κλειδιών
@@ -202,8 +205,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Αναζήτηση στο OpenStreetMap (1 αίτημα/δευτ., ~7 λεπτά)
-        run: node --no-warnings map/tools/geocode.mjs
+      - name: Αναζήτηση στο OpenStreetMap (1 αίτημα/δευτ., ~7-20 λεπτά)
+        env:
+          ARGS: ${{ needs.plan.outputs.args }}
+        run: node --no-warnings map/tools/geocode.mjs $ARGS
       - name: Αποθήκευση στο αποθετήριο
         run: |
           git config user.name "map-data"

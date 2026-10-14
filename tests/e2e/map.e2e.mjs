@@ -7,7 +7,7 @@ import { BASE, as, go, text, check, finish, sql, num, shoot } from "./lib.mjs";
 sql(`delete from place_positions`);
 
 await as("6900002001", async (page) => {
-  page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") console.log(`   [console ${m.type()}] ${m.text().slice(0, 500)}`); });
+  page.on("console", (m) => { if (m.type() === "error") console.log(`   [console ${m.type()}] ${m.text().slice(0, 500)}`); });
   page.on("pageerror", (e) => console.log(`   [pageerror] ${String(e.stack || e.message).slice(0, 700)}`));
   await go(page, "/platform/admin/map");
   await page.waitForSelector('[data-map-ready="true"]', { timeout: 30000 });
@@ -83,6 +83,9 @@ await as("6900002002", async (page) => {
   check("ο πελάτης δεν βλέπει τη διαχείριση", (await text(page)).includes("Πρόσβαση μόνο για διαχειριστές"));
 });
 
+// Η γλώσσα που διάλεξε ο χρήστης αποθηκεύεται στον λογαριασμό του (users.locale):
+// επαναφορά, ώστε τα επόμενα τεστ να βρουν τον διαχειριστή στα ελληνικά.
+sql("select set_config('platform.trusted', 'true', false); update users set locale = 'el' where locale <> 'el';");
 sql(`delete from place_positions`);
 check("καθαρισμός", num(`select count(*) from place_positions`) === 0);
 finish();
