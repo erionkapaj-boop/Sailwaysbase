@@ -65,7 +65,14 @@
     "factPay": "Αμοιβή",
     "factDistance": "Απόσταση",
     "factRegion": "Περιοχή",
-    "roleFilter": "Ρόλος"
+    "roleFilter": "Ρόλος",
+    "mapShow": "Χάρτης",
+    "listShow": "Λίστα",
+    "searchArea": "Αναζήτηση σε αυτή την περιοχή",
+    "areaOnly": "Αιτήματα στην περιοχή του χάρτη",
+    "areaClear": "Όλες οι περιοχές",
+    "areaEmpty": "Δεν υπάρχουν αιτήματα σε αυτή την περιοχή του χάρτη.",
+    "pinAria": "{date} · {place}"
   },
   "BoardNew": {
     "title": "Άφησε αίτημα",

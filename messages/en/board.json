@@ -65,7 +65,14 @@
     "factPay": "Pay",
     "factDistance": "Distance",
     "factRegion": "Region",
-    "roleFilter": "Role"
+    "roleFilter": "Role",
+    "mapShow": "Map",
+    "listShow": "List",
+    "searchArea": "Search this area",
+    "areaOnly": "Requests in the map area",
+    "areaClear": "All areas",
+    "areaEmpty": "No requests in this map area.",
+    "pinAria": "{date} · {place}"
   },
   "BoardNew": {
     "title": "Leave a request",

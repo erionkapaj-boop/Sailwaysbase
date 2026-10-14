@@ -57,6 +57,7 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "resetBearing": "Reset to north",
-    "attribution": "Map information"
+    "attribution": "Map information",
+    "straightDistance": "≈ {miles} nm in a straight line"
   }
 }

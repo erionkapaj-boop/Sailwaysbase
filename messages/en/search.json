@@ -224,7 +224,9 @@
     "change": "Change",
     "regionsFailed": "Regions could not be loaded.",
     "retry": "Try again",
-    "regionsLoading": "Loading regions…"
+    "regionsLoading": "Loading regions…",
+    "mapHint": "Tap the map near another port to choose it.",
+    "mapNothing": "No port we cover here. Tap closer to a port."
   },
   "SearchPage": {
     "errInsufficientWallet": "You do not have enough credits. Get credits from the Credits page.",

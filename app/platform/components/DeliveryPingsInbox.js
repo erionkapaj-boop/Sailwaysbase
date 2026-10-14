@@ -12,6 +12,7 @@ import { labelForRole } from "../../../lib/platform/roles";
 import { formatMoney } from "../../../lib/platform/notifications";
 import { card, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 import { boatLine } from "../../../lib/platform/boat";
+import PlaceMap from "./map/PlaceMap";
 
 const ACCEPT_ERRORS = ["not_open", "already_resolved", "expired", "date_overlap", "insufficient_wallet", "skipper_not_eligible"];
 
@@ -138,6 +139,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
                 {t("decline")}
               </button>
             </div>
+            <PlaceMap from={request.origin_point} to={request.destination_point} showDistance />
           </div>
         );
       })}

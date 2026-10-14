@@ -17,6 +17,12 @@ import { whatIsHere, positionedPlaces } from "../../../../lib/platform/geo";
 //   pick        { lng, lat } → σημάδι «επιλεγμένο σημείο»
 //   draggable   { lng, lat } → καρφίτσα που μετακινείται· onDrag({ lng, lat }) στο τέλος
 //   positioned  οι θέσεις των μερών που χρησιμοποιεί το «τι είναι εδώ» (προεπιλογή: οι γνωστές)
+//   markers     [{ id, lng, lat, label, active?, ariaLabel? }] → ετικέτες-κουμπιά (π.χ. ημερομηνία)
+//               onMarker(id) πάτημα, onMarkerHover(id | null) πέρασμα του δείκτη
+//   onMove      (bounds) όταν ο χρήστης μετακινήσει/μεγεθύνει τον χάρτη: [[w, s], [e, n]]
+//   controls    θέση των κουμπιών μεγέθυνσης (προεπιλογή "bottom-right")
+//   gestures    "full" (προεπιλογή) | "tap": χωρίς μεγέθυνση με τη ροδέλα/περιστροφή,
+//               για μικρούς χάρτες μέσα σε σελίδα που κυλά
 // Ο εργάτης της βιβλιοθήκης σερβίρεται από τον φάκελο public (scripts/copy-maplibre.mjs).
 maplibregl.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 
@@ -28,9 +34,17 @@ const CSS = `
 .maplibregl-ctrl-group button { width: 44px !important; height: 44px !important; }
 .maplibregl-ctrl-attrib { font-size: 11px !important; }
 .maplibregl-canvas { outline: none; }
+.mv-pin { font: 600 13px/1 var(--font-platform-sans, -apple-system, sans-serif); color: ${MAP_COLORS.point}; background: #fff; border: 0; border-radius: 999px;
+  padding: 7px 11px; white-space: nowrap; cursor: pointer; box-shadow: 0 0 0 1px rgba(22,40,60,.10), 0 2px 6px rgba(22,40,60,.18);
+  transition: transform .15s ease, background .15s ease, color .15s ease; }
+.mv-pin:hover { transform: scale(1.06); }
+.mv-pin[data-active="true"] { background: ${MAP_COLORS.point}; color: #fff; transform: scale(1.08); }
+.mv-pin:focus-visible { outline: 2px solid ${MAP_COLORS.point}; outline-offset: 2px; }
+.mv-pin[data-static="true"] { cursor: default; }
+@media (prefers-reduced-motion: reduce) { .mv-pin { transition: none; } }
 `;
 
-export default function MapViewInner({ layers = [], onPick, onFeature, focus, pick, draggable, onDrag, positioned, interactive = true }) {
+export default function MapViewInner({ layers = [], onPick, onFeature, focus, pick, draggable, onDrag, positioned, interactive = true, markers, onMarker, onMarkerHover, onMove, gestures = "full", controls = "bottom-right" }) {
   const t = useTranslations("Map");
   const lang = useLocale();
   const box = useRef(null);
@@ -38,7 +52,8 @@ export default function MapViewInner({ layers = [], onPick, onFeature, focus, pi
   const readyRef = useRef(false);
   const markerRef = useRef(null);
   const handlers = useRef({});
-  handlers.current = { onPick, onFeature, onDrag, positioned };
+  handlers.current = { onPick, onFeature, onDrag, positioned, onMarker, onMarkerHover, onMove };
+  const pinsRef = useRef(new Map());
   const layersRef = useRef(layers);
   layersRef.current = layers;
 
@@ -62,7 +77,18 @@ export default function MapViewInner({ layers = [], onPick, onFeature, focus, pi
     });
     el.__map = map; // γάντζος για τα τεστ περιήγησης
     mapRef.current = map;
-    if (interactive) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+    if (interactive) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), controls);
+    if (interactive && gestures === "tap") {
+      map.scrollZoom.disable();
+      map.dragRotate.disable();
+      map.touchPitch.disable();
+      map.touchZoomRotate.disableRotation();
+    }
+    map.on("moveend", (e) => {
+      if (!e.originalEvent) return; // μόνο κινήσεις του χρήστη, όχι του κώδικα
+      const b = map.getBounds();
+      handlers.current.onMove?.([[b.getWest(), b.getSouth()], [b.getEast(), b.getNorth()]]);
+    });
 
     map.on("load", () => {
       readyRef.current = true;
@@ -84,6 +110,8 @@ export default function MapViewInner({ layers = [], onPick, onFeature, focus, pi
     ro.observe(el);
     return () => {
       ro.disconnect();
+      pinsRef.current.forEach((p) => p.marker.remove());
+      pinsRef.current.clear();
       markerRef.current?.remove();
       markerRef.current = null;
       readyRef.current = false;
@@ -110,7 +138,8 @@ export default function MapViewInner({ layers = [], onPick, onFeature, focus, pi
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !focus) return;
-    if (focus.bounds) map.fitBounds(focus.bounds, { padding: 40, duration: 600, maxZoom: 13 });
+    if (focus.bounds) map.fitBounds(focus.bounds, { padding: focus.padding ?? 40, duration: focus.instant ? 0 : 600, maxZoom: focus.maxZoom ?? 13 });
+    else if (focus.instant) map.jumpTo({ center: [focus.lng, focus.lat], zoom: focus.zoom || 11 });
     else map.flyTo({ center: [focus.lng, focus.lat], zoom: focus.zoom || 11, duration: 600 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusKey]);
@@ -137,6 +166,53 @@ export default function MapViewInner({ layers = [], onPick, onFeature, focus, pi
     }
   }, [draggable?.lng, draggable?.lat, !!draggable]);
 
+  // Ετικέτες-κουμπιά (π.χ. ημερομηνίες αιτημάτων). Ενημερώνονται χωρίς να ξαναφτιάχνονται.
+  const markersKey = JSON.stringify(markers || null);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const pins = pinsRef.current;
+    const wanted = new Set();
+    for (const m of markers || []) {
+      wanted.add(m.id);
+      let pin = pins.get(m.id);
+      if (!pin) {
+        // Το MapLibre μετακινεί το εξωτερικό στοιχείο με transform· το κουμπί μέσα
+        // μπορεί έτσι να έχει δικό του (μεγέθυνση στο πέρασμα).
+        const wrap = document.createElement("div");
+        // Χωρίς onMarker η ετικέτα είναι μόνο ένδειξη (όχι κουμπί).
+        const el = document.createElement(onMarker ? "button" : "div");
+        wrap.appendChild(el);
+        if (onMarker) el.type = "button";
+        else el.setAttribute("aria-hidden", "true");
+        el.className = "mv-pin";
+        el.dataset.mapPin = m.id;
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          handlers.current.onMarker?.(m.id);
+        });
+        el.addEventListener("mouseenter", () => handlers.current.onMarkerHover?.(m.id));
+        el.addEventListener("mouseleave", () => handlers.current.onMarkerHover?.(null));
+        const marker = new maplibregl.Marker({ element: wrap, anchor: "center" }).setLngLat([m.lng, m.lat]).addTo(map);
+        pin = { marker, el };
+        pins.set(m.id, pin);
+      }
+      pin.marker.setLngLat([m.lng, m.lat]);
+      pin.el.textContent = m.label;
+      if (onMarker) pin.el.setAttribute("aria-label", m.ariaLabel || m.label);
+      pin.el.dataset.active = m.active ? "true" : "false";
+      pin.el.dataset.static = onMarker ? "false" : "true";
+      pin.marker.getElement().style.zIndex = m.active ? "3" : "1";
+    }
+    for (const [id, pin] of pins) {
+      if (!wanted.has(id)) {
+        pin.marker.remove();
+        pins.delete(id);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markersKey]);
+
   return (
     <>
       <style>{CSS}</style>
@@ -159,7 +235,7 @@ function syncLayers(map, layers, pick) {
     map.addSource(src, { type: "geojson", data: l.data || EMPTY });
     const color = l.color || MAP_COLORS.point;
     if (l.kind === "lines") {
-      map.addLayer({ id: `${src}-line`, type: "line", source: src, paint: { "line-color": color, "line-width": l.width || 3 }, layout: { "line-cap": "round", "line-join": "round" } });
+      map.addLayer({ id: `${src}-line`, type: "line", source: src, paint: { "line-color": color, "line-width": l.width || 3, ...(l.dash ? { "line-dasharray": l.dash } : {}) }, layout: { "line-cap": "round", "line-join": "round" } });
     } else if (l.kind === "areas") {
       map.addLayer({ id: `${src}-fill`, type: "fill", source: src, paint: { "fill-color": color, "fill-opacity": 0.15 } });
       map.addLayer({ id: `${src}-line`, type: "line", source: src, paint: { "line-color": color, "line-width": 1.5 } });

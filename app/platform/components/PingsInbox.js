@@ -21,6 +21,7 @@ import { card, sectionLabel, muted, button, colors, money } from "../../../lib/p
 import LoadError from "./LoadError";
 import { boatLine } from "../../../lib/platform/boat";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
+import PlaceMap from "./map/PlaceMap";
 
 const CLIENT_CATEGORIES = reviewCategoriesForRole("client");
 
@@ -355,6 +356,7 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
           </div>
         )}
       </div>
+      <PlaceMap from={r.departure_point || r.ports?.name} to={r.arrival_point} fallback={r.regions?.name} />
     </div>
   );
 }

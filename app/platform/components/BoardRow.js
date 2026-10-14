@@ -37,6 +37,27 @@ export const BOARD_CSS = `
   .bd-extra { order: 6; }
   .bd-note { grid-column: 1 / -1; }
 }
+/* Μέσα στη λίστα δίπλα στον χάρτη η στενή στήλη μετρά, όχι η οθόνη. */
+@container board (max-width: 860px) {
+  .bd-row { grid-template-columns: 64px minmax(0,1fr) 150px; padding: 16px 18px; gap: 10px 18px; align-items: start; }
+  .bd-date { width: 64px; height: 64px; }
+  .bd-date b { font-size: 22px; }
+  .bd-facts { order: 0; grid-column: 2 / 3; grid-row: 2; display: flex; flex-wrap: wrap; gap: 4px 18px; border-top: none; padding-top: 0; }
+  .bd-facts > div { display: flex !important; gap: 6px; }
+  .bd-facts dd { text-align: left; }
+  .bd-act { order: 0; grid-column: 3; grid-row: 1 / span 2; }
+  .bd-note { order: 0; grid-column: 2 / 4; grid-row: auto; }
+  .bd-extra { order: 0; }
+}
+@container board (max-width: 560px) {
+  .bd-row { grid-template-columns: 64px minmax(0,1fr); padding: 16px; gap: 14px 16px; }
+  .bd-note { order: 3; grid-column: 1 / -1; border-top: none; padding-top: 0; }
+  .bd-facts { order: 4; grid-column: 1 / -1; grid-row: auto; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; border-top: 1px solid ${colors.border}; padding-top: 12px; }
+  .bd-facts > div { display: contents !important; }
+  .bd-facts dd { text-align: right; }
+  .bd-act { order: 5; grid-column: 1 / -1; grid-row: auto; }
+  .bd-extra { order: 6; }
+}
 `;
 
 const ICON = { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };

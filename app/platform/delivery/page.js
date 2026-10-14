@@ -38,6 +38,7 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
 import BoatFields from "../components/BoatFields";
 import { boatValid } from "../../../lib/platform/boat";
+import PlaceMap from "../components/map/PlaceMap";
 
 const REQUEST_ERRORS = ["account_not_verified", "no_client_profile", "invalid_distance", "invalid_date_mode"];
 
@@ -455,6 +456,7 @@ function DeliveryForm({ onCreated }) {
           </p>
         </div>
       </div>
+      <PlaceMap from={origin} to={destination} showDistance height={220} />
 
       <div style={{ margin: "18px 0" }}>
         <label style={label}>{t("date")}</label>

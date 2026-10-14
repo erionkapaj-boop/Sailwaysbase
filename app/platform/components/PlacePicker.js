@@ -14,6 +14,9 @@ import { COUNTRIES, regionExamples, regionIn } from "../../../lib/platform/place
 import { logPlaceMiss } from "../../../lib/platform/health";
 import { colors, muted, select } from "../../../lib/platform/theme";
 import { useLocalData } from "../useLocalData";
+import MapView from "./map/MapView";
+import { usePlacePositions } from "./map/usePlacePositions";
+import { locatePoint } from "../../../lib/platform/geo";
 
 // «Από πού ξεκινά το ταξίδι;» — ένα πεδίο για νησί, πόλη ή λιμάνι.
 //
@@ -277,6 +280,12 @@ export default function PlacePicker({
       <div data-place-picker="selected">
         {styleTag}
         <Summary title={title} sub={sub} onChange={startEditing} invalid={invalid} />
+        <ChoiceMap
+          point={choice.kind === "region" ? regionName : choice.kind === "custom" ? regionName : value.point}
+          label={title}
+          index={index}
+          onPick={(entry) => onChange({ regionId: entry.regionId, point: pointOf(entry) })}
+        />
         {ports && (
           <div style={{ marginTop: 24 }}>
             <p style={label}>{t("port")}</p>
@@ -527,6 +536,33 @@ export default function PlacePicker({
         </div>
       )}
       {!arrival && trimmed.length < 2 && <RegionsState regions={regions} failed={failed} onRetry={onRetry} />}
+    </div>
+  );
+}
+
+// Χάρτης κάτω από την επιλογή: δείχνει πού είναι, και ένα πάτημα κοντά σε άλλο
+// γνωστό λιμάνι (μέσα σε περιοχή που καλύπτουμε) το διαλέγει.
+function ChoiceMap({ point, label, index, onPick }) {
+  const t = useTranslations("PlacePicker");
+  const positioned = usePlacePositions();
+  const [missed, setMissed] = useState(false);
+  const loc = useMemo(() => locatePoint(point, { positioned }), [point, positioned]);
+  useEffect(() => setMissed(false), [point]);
+  if (!loc) return null;
+  const focus = loc.kind === "region" ? { bounds: loc.bounds, padding: 30, maxZoom: 9, instant: true } : { lng: loc.lng, lat: loc.lat, zoom: 10, instant: true };
+
+  function handlePick({ here }) {
+    const p = here?.kind === "place" ? here.place : null;
+    const entry = p && index.find((e) => e.type === "place" && e.name === p.name && (e.parent || null) === (p.parent || null));
+    if (!entry || !entry.covered) return setMissed(true);
+    setMissed(false);
+    onPick(entry);
+  }
+
+  return (
+    <div data-choice-map style={{ marginTop: 14 }}>
+      <MapView height={200} markers={[{ id: "choice", lng: loc.lng, lat: loc.lat, label }]} focus={focus} gestures="tap" positioned={positioned} onPick={handlePick} />
+      <p style={{ ...muted, fontSize: 12.5, margin: "8px 2px 0" }}>{missed ? t("mapNothing") : t("mapHint")}</p>
     </div>
   );
 }

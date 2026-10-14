@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { distanceNm, whatIsHere, whereIs, positionedPlaces, boundsOf, placeKey } from "../../lib/platform/geo.js";
+import { distanceNm, whatIsHere, whereIs, positionedPlaces, boundsOf, placeKey, locatePoint } from "../../lib/platform/geo.js";
 import { buildPlaceIndex } from "../../lib/platform/placeSearch.js";
 import { PLACES } from "../../lib/platform/places.js";
 
@@ -42,5 +42,16 @@ ok("«Lavrio» (λατινικά) → Λαύριο, με θέση", found.length
 ok("άγνωστο μέρος → κενό", whereIs(index, "Ξξξξξξ", { positioned }).length === 0);
 ok("όρια σημείων", JSON.stringify(boundsOf([{ lng: 1, lat: 2 }, { lng: 3, lat: 0 }])) === "[[1,0],[3,2]]");
 ok("κλειδί λιμανιού νησιού", placeKey({ name: "Νάουσα", parent: "Πάρος" }) === "Πάρος – Νάουσα");
+
+const fake2 = { ...fake, "Πάρος – Νάουσα": { lat: 37.1235, lng: 25.2387 } };
+const pos2 = positionedPlaces({ coords: fake2 });
+ok("θέση αιτήματος: «Νάουσα (Πάρος)» → το λιμάνι της Πάρου", locatePoint("Νάουσα (Πάρος)", { positioned: pos2 })?.key === "Πάρος – Νάουσα");
+ok("θέση αιτήματος: όνομα μέρους", locatePoint("Λαύριο", { positioned: pos2 })?.lat === 37.7133);
+ok("θέση αιτήματος: χωρίς τόνους, κεφαλαία, λατινικά", locatePoint("LAVRIO", { positioned: pos2 })?.key === "Λαύριο" && locatePoint("λαυριο", { positioned: pos2 })?.key === "Λαύριο");
+ok("θέση αιτήματος: λιμάνι με όνομα μόνο του", locatePoint("Άλιμος", { positioned: pos2 })?.key === "Αθήνα – Άλιμος");
+const reg = locatePoint("Κυκλάδες", { positioned: pos2 });
+ok("θέση αιτήματος: περιοχή → κέντρο και όρια της περιοχής", reg?.kind === "region" && reg.bounds && reg.lat > 37 && reg.lat < 37.5, reg);
+ok("θέση αιτήματος: άγνωστο ή κενό → τίποτα", locatePoint("Λαυριοπολη", { positioned: pos2 }) === null && locatePoint("  ", { positioned: pos2 }) === null);
+ok("θέση αιτήματος: μέρος χωρίς συντεταγμένες → τίποτα", locatePoint("Σύρος", { positioned: pos2 }) === null);
 
 console.log(`${passed} έλεγχοι`);

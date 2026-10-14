@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -9,6 +9,9 @@ import { useLocalData } from "../useLocalData";
 import Toast from "../components/Toast";
 import LoadError from "../components/LoadError";
 import BoardRow, { BOARD_CSS } from "../components/BoardRow";
+import MapView from "../components/map/MapView";
+import { usePlacePositions } from "../components/map/usePlacePositions";
+import { locatePoint, boundsOf } from "../../../lib/platform/geo";
 import { boatLine } from "../../../lib/platform/boat";
 import {
   boardRequests, claimBoardRequest, withdrawBoardClaim, myBoardClaims, listLookups,
@@ -38,6 +41,62 @@ function chip(active) {
   };
 }
 
+// Λίστα και χάρτης (μοτίβο Airbnb): σε μεγάλη οθόνη ο χάρτης κολλά δεξιά, σε
+// μικρή ανοίγει πάνω από τη λίστα με το κουμπί «Χάρτης».
+const MAP_CSS = `
+.bd-split { display: block; }
+.bd-list { container-type: inline-size; container-name: board; min-width: 0; }
+.bd-item { border-radius: 14px; }
+.bd-item[data-hot="true"] > .bd-row { border-color: ${colors.ink}; box-shadow: 0 2px 4px rgba(22,40,60,0.05), 0 10px 24px rgba(22,40,60,0.08); }
+.bd-fab { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 45;
+  display: inline-flex; align-items: center; gap: 9px; min-height: 48px; padding: 0 22px; border: 0; border-radius: 999px;
+  background: ${colors.ink}; color: #fff; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 6px 18px rgba(22,40,60,0.28); }
+.bd-fab:focus-visible { outline: 2px solid ${colors.accent}; outline-offset: 3px; }
+.bd-area { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 5; display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: #fff; color: ${colors.ink}; font: inherit; font-size: 14px; font-weight: 600;
+  white-space: nowrap; cursor: pointer; box-shadow: 0 1px 2px rgba(22,40,60,0.08), 0 6px 16px rgba(22,40,60,0.14); }
+.bd-overlay { position: fixed; inset: 0; z-index: 60; background: ${colors.bg}; }
+.bd-sheet { position: absolute; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 6; background: #fff;
+  border-radius: 16px; padding: 16px; box-shadow: 0 8px 28px rgba(22,40,60,0.22); }
+.bd-sheet .bd-date { width: 56px; height: 56px; }
+@media (min-width: 1100px) {
+  .bd-split[data-map="true"] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 42%); gap: 24px; align-items: start; }
+  .bd-mapcol { position: sticky; top: 88px; height: calc(100vh - 112px); }
+}
+@media (prefers-reduced-motion: reduce) { .bd-item > .bd-row { transition: none; } }
+`;
+
+const MapIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+    <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" /><path d="M9 4v14M15 6v14" />
+  </svg>
+);
+const ListIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+    <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
+  </svg>
+);
+const SearchIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" />
+  </svg>
+);
+
+// true σε οθόνη από 1100px και πάνω (μετά τη φόρτωση, ώστε να μη διαφέρει από τον διακομιστή).
+function useWide() {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia("(min-width: 1100px)");
+    const on = () => setWide(m.matches);
+    on();
+    m.addEventListener("change", on);
+    return () => m.removeEventListener("change", on);
+  }, []);
+  return wide;
+}
+
+const inBounds = (p, b) => p && b && p.lng >= b[0][0] && p.lng <= b[1][0] && p.lat >= b[0][1] && p.lat <= b[1][1];
+
 // Δημόσιος πίνακας ανοιχτών αιτημάτων: ανώνυμα, χωρίς λογαριασμό. Κοντινότερη
 // ημερομηνία πρώτα, συνεχής κύλιση. Εγγραφή και αγορά credits ζητούνται μόνο
 // όταν πατηθεί «Διεκδίκηση», και η αγορά είναι πάντα το τελευταίο βήμα.
@@ -63,6 +122,16 @@ export default function BoardPage() {
   const [working, setWorking] = useState(null);
   const sentinel = useRef(null);
   const seq = useRef(0);
+  const wide = useWide();
+  const positioned = usePlacePositions();
+  const [mapOpen, setMapOpen] = useState(false); // μικρή οθόνη: ο χάρτης πάνω από τη λίστα
+  const [hot, setHot] = useState(null); // αίτημα που δείχνει ο δείκτης (κάρτα ↔ ετικέτα)
+  const [chosen, setChosen] = useState(null); // μεγάλη οθόνη: αίτημα που πατήθηκε στον χάρτη
+  const [picked, setPicked] = useState(null); // μικρή οθόνη: το αίτημα της κάρτας κάτω από τον χάρτη
+  const [area, setArea] = useState(null); // φίλτρο «σε αυτή την περιοχή του χάρτη»
+  const [moved, setMoved] = useState(null); // όρια μετά από κίνηση του χρήστη (για το κουμπί αναζήτησης)
+  const [mapFocus, setMapFocus] = useState(null);
+  const fittedFor = useRef(null);
 
   const isPro = Boolean(profile?.id);
   const approved = profile?.approval_status === "approved";
@@ -104,6 +173,10 @@ export default function BoardPage() {
   useEffect(() => {
     setItems([]);
     setDone(false);
+    setArea(null);
+    setMoved(null);
+    setPicked(null);
+    fittedFor.current = null;
     loadPage(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, kind]);
@@ -198,6 +271,97 @@ export default function BoardPage() {
   const monthOf = (iso) => f.monthNames("short")[Number(String(iso).slice(5, 7)) - 1];
   const dayOf = (iso) => Number(String(iso).slice(8, 10));
   const closesOn = (r) => f.dateRange(String(r.closes_at).slice(0, 10), String(r.closes_at).slice(0, 10));
+
+  // Θέσεις στον χάρτη: λιμάνι αναχώρησης (πλήρωμα) ή αφετηρία και προορισμός (μεταφορά).
+  const regionRaw = (id) => lookups.regions.find((r) => r.id === id)?.name || "";
+  const located = useMemo(
+    () =>
+      items.map((r) =>
+        kind === "delivery"
+          ? { r, from: locatePoint(r.origin_point, { positioned }), to: locatePoint(r.destination_point, { positioned }) }
+          : { r, from: locatePoint(r.departure_point, { positioned }) || locatePoint(regionRaw(r.region_id), { positioned }), to: null }
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, kind, positioned, lookups.regions]
+  );
+  const shown = area ? located.filter((x) => inBounds(x.from, area) || inBounds(x.to, area)) : located;
+  const onMap = shown.filter((x) => x.from);
+  const shortDate = (r) => {
+    const iso = kind === "delivery" ? r.departure_date : r.start_date;
+    return `${dayOf(iso)} ${monthOf(iso)}`;
+  };
+
+  // Μία ετικέτα ανά σημείο: πολλά αιτήματα στο ίδιο λιμάνι δείχνουν «15 Ιουν +2».
+  const markers = useMemo(() => {
+    const groups = new Map();
+    for (const x of onMap) {
+      const k = `${x.from.lat.toFixed(3)},${x.from.lng.toFixed(3)}`;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(x);
+    }
+    return [...groups.values()].map((g) => {
+      const first = g[0];
+      const ids = g.map((x) => x.r.id);
+      const label = g.length > 1 ? `${shortDate(first.r)} +${g.length - 1}` : shortDate(first.r);
+      return {
+        id: first.r.id,
+        lng: first.from.lng,
+        lat: first.from.lat,
+        label,
+        ariaLabel: t("pinAria", { date: label, place: L.text(first.from.kind === "place" ? first.from.place.name : first.from.region) }),
+        active: ids.includes(hot) || ids.includes(picked) || ids.includes(chosen),
+        ids,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onMap.map((x) => x.r.id).join(","), hot, picked, chosen, positioned]);
+
+  const routeLayers = useMemo(() => {
+    if (kind !== "delivery") return [];
+    const line = (x) => ({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[x.from.lng, x.from.lat], [x.to.lng, x.to.lat]] } });
+    const all = onMap.filter((x) => x.to);
+    const activeId = hot || picked || chosen;
+    return [
+      { id: "routes", kind: "lines", color: "#8E99A4", width: 2, dash: [2, 2], data: { type: "FeatureCollection", features: all.filter((x) => x.r.id !== activeId).map(line) } },
+      { id: "route-active", kind: "lines", color: colors.ink, width: 3, data: { type: "FeatureCollection", features: all.filter((x) => x.r.id === activeId).map(line) } },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, onMap.map((x) => x.r.id).join(","), hot, picked, chosen]);
+
+  // Ο χάρτης πλαισιώνει τα αιτήματα μία φορά ανά είδος (όχι σε κάθε «περισσότερα»).
+  useEffect(() => {
+    if (fittedFor.current === kind || area) return;
+    const pts = located.flatMap((x) => [x.from, x.to].filter(Boolean));
+    if (!pts.length) return;
+    fittedFor.current = kind;
+    const b = boundsOf(pts);
+    setMapFocus({ bounds: b, padding: 60, maxZoom: 9, key: `${kind}-${Date.now()}` });
+  }, [located, kind, area]);
+
+  const showMap = tab === "all" && (wide || mapOpen);
+  useEffect(() => {
+    if (!mapOpen || wide) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const esc = (e) => e.key === "Escape" && setMapOpen(false);
+    window.addEventListener("keydown", esc);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", esc);
+    };
+  }, [mapOpen, wide]);
+  useEffect(() => {
+    if (wide) setMapOpen(false);
+  }, [wide]);
+
+  function onMarker(id) {
+    if (wide) {
+      setChosen(id);
+      document.querySelector(`[data-board-item="${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      setPicked(id);
+    }
+  }
 
   function actionFor(r, claimKind) {
     return r.claimed_by_me ? (
@@ -311,8 +475,8 @@ export default function BoardPage() {
   const stateTone = { active: "brand", chosen: "success", closed: "neutral", withdrawn: "neutral" };
 
   return (
-    <div style={{ ...container, maxWidth: 1080 }}>
-      <style>{BOARD_CSS}</style>
+    <div style={{ ...container, maxWidth: wide && tab === "all" ? 1440 : 1080 }}>
+      <style>{BOARD_CSS + MAP_CSS}</style>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
         <div style={{ minWidth: 0, flex: "1 1 320px" }}>
           <h1 style={{ ...h1, marginBottom: 8 }}>{t("title")}</h1>
@@ -357,17 +521,41 @@ export default function BoardPage() {
               ))}
             </select>
             <span style={{ ...muted, fontSize: 13, marginLeft: "auto" }}>
-              {!busy || items.length > 0 ? (done ? t("showing", { count: items.length }) : t("showingMore", { count: items.length })) : ""}
+              {area ? t("showing", { count: shown.length }) : !busy || items.length > 0 ? (done ? t("showing", { count: items.length }) : t("showingMore", { count: items.length })) : ""}
             </span>
           </div>
+          <div className="bd-split" data-map={wide ? "true" : "false"}>
+          <div className="bd-list">
           {failed ? (
             <LoadError what={t("loadWhat")} onRetry={() => loadPage(true)} />
           ) : (
             <>
-              {items.map((r) => (
-                kind === "delivery" ? <DeliveryCard key={r.id} r={r} /> : <Card key={r.id} r={r} />
+              {area && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "0 0 14px" }}>
+                  <span style={{ fontSize: 14, fontWeight: 500 }}>{t("areaOnly")}</span>
+                  <button type="button" data-board-area-clear style={{ ...button("secondary"), minHeight: 36, padding: "0 14px", fontSize: 13 }} onClick={() => setArea(null)}>
+                    {t("areaClear")}
+                  </button>
+                </div>
+              )}
+              {shown.map(({ r }) => (
+                <div
+                  key={r.id}
+                  className="bd-item"
+                  data-board-item={r.id}
+                  data-hot={hot === r.id || chosen === r.id ? "true" : "false"}
+                  onMouseEnter={() => setHot(r.id)}
+                  onMouseLeave={() => setHot((h) => (h === r.id ? null : h))}
+                >
+                  {kind === "delivery" ? DeliveryCard({ r }) : Card({ r })}
+                </div>
               ))}
               {busy && <p style={muted}>{t("loading")}</p>}
+              {!busy && items.length > 0 && shown.length === 0 && (
+                <div style={{ ...card, textAlign: "center" }}>
+                  <p style={{ ...muted, margin: 0 }}>{t("areaEmpty")}</p>
+                </div>
+              )}
               {!busy && items.length === 0 && (
                 <div style={{ ...card, textAlign: "center" }}>
                   <p style={{ ...muted, margin: 0 }}>{kind === "delivery" ? t("deliveryEmpty") : t("empty")}</p>
@@ -381,6 +569,67 @@ export default function BoardPage() {
                 </div>
               )}
             </>
+          )}
+          </div>
+          {showMap && (
+            <div className={wide ? "bd-mapcol" : "bd-overlay"} data-board-map role={wide ? undefined : "dialog"} aria-label={wide ? undefined : t("mapShow")}>
+              <div style={{ position: "relative", height: "100%" }}>
+                <MapView
+                  height="100%"
+                  markers={markers}
+                  layers={routeLayers}
+                  focus={mapFocus}
+                  positioned={positioned}
+                  onMarker={onMarker}
+                  onMarkerHover={wide ? setHot : undefined}
+                  onMove={(b) => setMoved(b)}
+                  onPick={() => { setPicked(null); setChosen(null); }}
+                  controls={wide ? "bottom-right" : "top-right"}
+                />
+                {moved && (
+                  <button type="button" className="bd-area" data-board-search-area onClick={() => { setArea(moved); setMoved(null); setPicked(null); }}>
+                    <SearchIcon /> {t("searchArea")}
+                  </button>
+                )}
+                {!wide && (
+                  <>
+                    <button type="button" className="bd-fab" data-board-list style={{ position: "absolute", bottom: picked ? 230 : "calc(24px + env(safe-area-inset-bottom, 0px))" }} onClick={() => setMapOpen(false)}>
+                      <ListIcon /> {t("listShow")}
+                    </button>
+                    {picked && (() => {
+                      const x = located.find((y) => y.r.id === picked);
+                      if (!x) return null;
+                      const r = x.r;
+                      const iso = kind === "delivery" ? r.departure_date : r.start_date;
+                      const route = kind === "delivery" ? t("route", { from: L.text(r.origin_point), to: L.text(r.destination_point) }) : L.text(r.departure_point || regionName(r.region_id));
+                      return (
+                        <div className="bd-sheet" data-board-sheet>
+                          <div style={{ display: "grid", gridTemplateColumns: "56px minmax(0,1fr)", gap: "4px 14px" }}>
+                            <div className="bd-date" aria-hidden="true"><b>{dayOf(iso)}</b><span>{monthOf(iso)}</span></div>
+                            <div style={{ minWidth: 0 }}>
+                              <h3 className="bd-title" style={{ fontSize: 16 }}>{labelForRole(r.crew_role)}</h3>
+                              <p className="bd-route" style={{ fontSize: 14 }}>{route}</p>
+                              {boatLine(r) && <p className="bd-boat" style={{ fontSize: 13 }}>{boatLine(r)}</p>}
+                              <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>
+                                {kind === "delivery" ? `${td("miles", { miles: r.distance_miles })} · ${r.offered_price}€` : f.dateRange(r.start_date, r.end_date)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="bd-act" style={{ marginTop: 12 }}>{actionFor(r, kind)}</div>
+                          {notice?.requestId === r.id && <ClaimNotice kind={notice.kind} />}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          </div>
+          {!wide && !mapOpen && items.length > 0 && (
+            <button type="button" className="bd-fab" data-board-map-open onClick={() => setMapOpen(true)}>
+              <MapIcon /> {t("mapShow")}
+            </button>
           )}
         </>
       )}

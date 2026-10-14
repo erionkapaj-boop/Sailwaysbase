@@ -57,6 +57,7 @@
     "zoomIn": "Μεγέθυνση",
     "zoomOut": "Σμίκρυνση",
     "resetBearing": "Προσανατολισμός προς βορρά",
-    "attribution": "Πληροφορίες χάρτη"
+    "attribution": "Πληροφορίες χάρτη",
+    "straightDistance": "≈ {miles} ν.μ. σε ευθεία"
   }
 }

@@ -25,6 +25,7 @@ import { useConfirm } from "./ConfirmDialog";
 import Avatar from "./Avatar";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import ReplacementCandidates from "./ReplacementCandidates";
+import PlaceMap from "./map/PlaceMap";
 
 const STATUS_LABEL = {
   confirmed: ["statusConfirmed", "success"],
@@ -436,6 +437,7 @@ export default function BookingPanel({
 
       {expanded && (
         <div style={{ padding: "0 18px 18px" }}>
+      <PlaceMap from={booking.departure_point || booking.ports?.name} to={booking.arrival_point} fallback={booking.regions?.name} style={{ margin: "0 0 14px" }} />
       {/* Exactly when it was confirmed: useful in a dispute about who knew
           what when. confirmed_at is missing only on legacy data from before
           the column existed; nothing is shown then rather than a wrong time. */}

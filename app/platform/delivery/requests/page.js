@@ -19,6 +19,7 @@ import { container, card, h1, h2, muted, button, input, colors, money, badge, se
 import SignedOutNotice from "../../components/SignedOutNotice";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import DeliveryClaimsPanel from "../../components/DeliveryClaimsPanel";
+import PlaceMap from "../../components/map/PlaceMap";
 
 const PING_LABEL = {
   pending: ["pingPending", colors.inkSoft],
@@ -306,6 +307,7 @@ export default function MyDeliveryRequestsPage() {
               </p>
             );
           })()}
+          <PlaceMap from={request.origin_point} to={request.destination_point} showDistance style={{ margin: "14px 0 6px" }} />
           {(role_requests || []).map((rr) => (
             <RoleRequestRow key={rr.id} roleRequest={rr} request={request} onChanged={load} />
           ))}

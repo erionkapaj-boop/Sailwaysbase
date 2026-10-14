@@ -10,6 +10,7 @@ import { card, muted, badge, button, colors, money } from "../../../lib/platform
 import { useConfirm } from "./ConfirmDialog";
 import { boatLine } from "../../../lib/platform/boat";
 import { friendlyError } from "../../../lib/platform/friendlyError";
+import PlaceMap from "./map/PlaceMap";
 
 const REQ_STATUS = {
   open: ["statusOpen", "brand"],
@@ -160,6 +161,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
 
       {expanded && (
         <div style={{ padding: "0 18px 18px", borderTop: `1px solid ${colors.border}`, paddingTop: 14 }}>
+          <PlaceMap from={request.departure_point || request.ports?.name} to={request.arrival_point} fallback={request.regions?.name} style={{ margin: "0 0 14px" }} />
           {loadingPings && <p style={muted}>{t("loading")}</p>}
           {!loadingPings && pings.length === 0 && <p style={muted}>{t("noPings")}</p>}
           {!loadingPings &&

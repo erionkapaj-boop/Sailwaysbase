@@ -11,6 +11,7 @@ import { labelForRole } from "../../../lib/platform/roles";
 import { formatMoney } from "../../../lib/platform/notifications";
 import { card, muted, colors, money, badge, input, button } from "../../../lib/platform/theme";
 import { boatLine } from "../../../lib/platform/boat";
+import PlaceMap from "./map/PlaceMap";
 
 const STATUS_KEYS = { confirmed: "statusConfirmed", completed: "statusCompleted", cancelled: "statusCancelled" };
 
@@ -94,6 +95,7 @@ export default function DeliveryBookingCard({ booking: initial }) {
       <p style={{ margin: "8px 0 0", fontSize: 14 }}>
         {t.rich("agreedPrice", { price: `${formatMoney(booking.offered_price)}€`, m: (c) => <span style={{ ...money, color: colors.ink, fontWeight: 600 }}>{c}</span> })}
       </p>
+      {booking.status !== "cancelled" && <PlaceMap from={booking.origin_point} to={booking.destination_point} showDistance />}
       {counterpart && booking.status !== "cancelled" && (
         <p style={{ ...muted, fontSize: 13.5, margin: "8px 0 0" }}>
           {t("contact")} <span style={{ ...money, color: colors.ink }}>{L.person(counterpart)}</span>
