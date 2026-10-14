@@ -8,6 +8,7 @@ import { useFormat } from "../useFormat";
 import { useLocalData } from "../useLocalData";
 import Toast from "../components/Toast";
 import LoadError from "../components/LoadError";
+import BoardRow, { BOARD_CSS } from "../components/BoardRow";
 import {
   boardRequests, claimBoardRequest, withdrawBoardClaim, myBoardClaims, listLookups,
   deliveryBoardRequests, claimDeliveryBoardRequest, withdrawDeliveryBoardClaim, myDeliveryBoardClaims,
@@ -15,9 +16,16 @@ import {
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { CREW_ROLES, labelForRole } from "../../../lib/platform/roles";
 import { savePendingClaim, getPendingClaim, getPendingClaimKind, clearPendingClaim } from "../../../lib/platform/pendingClaim";
-import { container, card, h1, muted, button, badge, colors, money, sectionLabel } from "../../../lib/platform/theme";
+import { container, card, h1, muted, button, badge, colors, money, select, radius } from "../../../lib/platform/theme";
 
 const PAGE = 20;
+
+const segWrap = { display: "inline-flex", padding: 3, background: colors.seaGlass, borderRadius: radius.lg, gap: 2 };
+const seg = (on) => ({
+  minHeight: 44, padding: "0 18px", border: "none", borderRadius: radius.md, fontSize: 14, fontFamily: "inherit", cursor: "pointer",
+  fontWeight: on ? 600 : 400, color: colors.ink, background: on ? colors.card : "transparent",
+  boxShadow: on ? "0 1px 3px rgba(22,40,60,0.10)" : "none", transition: "background .18s ease, box-shadow .18s ease",
+});
 
 function chip(active) {
   return {
@@ -186,89 +194,74 @@ export default function BoardPage() {
   const boatName = (id) => L.text(lookups.boatTypes.find((b) => b.id === id)?.name || "");
   const place = (r) => L.text(r.departure_point || regionName(r.region_id));
 
+  const monthOf = (iso) => f.monthNames("short")[Number(String(iso).slice(5, 7)) - 1];
+  const dayOf = (iso) => Number(String(iso).slice(8, 10));
+  const closesOn = (r) => f.dateRange(String(r.closes_at).slice(0, 10), String(r.closes_at).slice(0, 10));
+
+  function actionFor(r, claimKind) {
+    return r.claimed_by_me ? (
+      <>
+        <span style={{ ...badge("success"), textAlign: "center" }}>{t("claimed")}</span>
+        <button type="button" style={button("secondary")} disabled={working === r.id} onClick={() => withdraw(r.id, claimKind)}>
+          {t("withdraw")}
+        </button>
+      </>
+    ) : (
+      <button type="button" style={button("primary")} disabled={working === r.id} onClick={() => claim(r.id, claimKind)}>
+        {working === r.id ? t("claiming") : t("claim")}
+      </button>
+    );
+  }
+
   function Card({ r }) {
-    const mineClaim = r.claimed_by_me;
+    const sameRoute = !r.arrival_point || r.arrival_point === r.departure_point;
     return (
-      <div style={card}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
-          <b style={{ fontWeight: 600 }}>{labelForRole(r.crew_role)}</b>
-          <span style={money}>{f.dateRange(r.start_date, r.end_date)}</span>
-        </div>
-        <p style={{ margin: "6px 0 0" }}>
-          {r.arrival_point && r.arrival_point !== r.departure_point
-            ? t("route", { from: L.text(r.departure_point || regionName(r.region_id)), to: L.text(r.arrival_point) })
-            : place(r)}
-        </p>
-        <p style={{ ...muted, fontSize: 13, margin: "4px 0 0" }}>
-          {[regionName(r.region_id), boatName(r.boat_type_id), r.party_size ? t("party", { count: r.party_size }) : "", r.private_cabin ? t("privateCabin") : ""]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {r.note && (
-          <p data-user-text style={{ margin: "8px 0 0", fontSize: 14, whiteSpace: "pre-wrap" }}>
-            {r.note}
-          </p>
-        )}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
-          <span style={{ ...muted, fontSize: 12 }}>
-            {t("claimsCount", { count: r.claims_count })} · {t("closes", { date: f.dateRange(String(r.closes_at).slice(0, 10), String(r.closes_at).slice(0, 10)) })}
-          </span>
-          {mineClaim ? (
-            <button type="button" style={button("secondary")} disabled={working === r.id} onClick={() => withdraw(r.id)}>
-              {t("withdraw")}
-            </button>
-          ) : (
-            <button type="button" style={button("primary")} disabled={working === r.id} onClick={() => claim(r.id)}>
-              {working === r.id ? t("claiming") : t("claim")}
-            </button>
-          )}
-        </div>
-        {mineClaim && <span style={{ ...badge("success"), marginTop: 10 }}>{t("claimed")}</span>}
-        {notice?.requestId === r.id && <ClaimNotice kind={notice.kind} />}
-      </div>
+      <BoardRow
+        day={dayOf(r.start_date)}
+        month={monthOf(r.start_date)}
+        title={labelForRole(r.crew_role)}
+        route={sameRoute ? place(r) : t("route", { from: L.text(r.departure_point || regionName(r.region_id)), to: L.text(r.arrival_point) })}
+        meta={[
+          regionName(r.region_id) && { icon: "pin", text: regionName(r.region_id) },
+          boatName(r.boat_type_id) && { icon: "boat", text: boatName(r.boat_type_id) },
+          r.party_size && { icon: "users", text: t("party", { count: r.party_size }) },
+          r.private_cabin && { icon: "bed", text: t("privateCabin") },
+        ].filter(Boolean)}
+        facts={[
+          { label: t("factDates"), value: f.dateRange(r.start_date, r.end_date) },
+          { label: t("factOpenUntil"), value: closesOn(r) },
+          { label: t("factClaims"), value: r.claims_count },
+        ]}
+        note={r.note}
+        action={actionFor(r, "crew")}
+        extra={notice?.requestId === r.id ? <ClaimNotice kind={notice.kind} /> : null}
+      />
     );
   }
 
   function DeliveryCard({ r }) {
     const covers = ["covers_tickets", "covers_travel", "covers_food", "covers_fuel", "covers_port_expenses"].filter((k) => r[k]);
     return (
-      <div style={card}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
-          <b style={{ fontWeight: 600 }}>{labelForRole(r.crew_role)}</b>
-          <span style={money}>{f.date(r.departure_date)}</span>
-        </div>
-        <p style={{ margin: "6px 0 0" }}>{t("route", { from: L.text(r.origin_point), to: L.text(r.destination_point) })}</p>
-        <p style={{ ...muted, fontSize: 13, margin: "4px 0 0" }}>
-          {[td("miles", { miles: r.distance_miles }), r.flexible_days > 0 ? td("flexDays", { days: r.flexible_days }) : "", `${r.offered_price}€`].filter(Boolean).join(" · ")}
-        </p>
-        {covers.length > 0 && (
-          <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-            {td("covered")}{" "}
-            {covers.map((k) => (k === "covers_food" && r.food_allowance_amount != null ? `${td(k)} (${r.food_allowance_amount}€)` : td(k))).join(", ")}
-          </p>
-        )}
-        {r.notes && (
-          <p data-user-text style={{ margin: "8px 0 0", fontSize: 14, whiteSpace: "pre-wrap" }}>
-            {r.notes}
-          </p>
-        )}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
-          <span style={{ ...muted, fontSize: 12 }}>
-            {t("claimsCount", { count: r.claims_count })} · {t("closes", { date: f.date(String(r.closes_at).slice(0, 10)) })}
-          </span>
-          {r.claimed_by_me ? (
-            <button type="button" style={button("secondary")} disabled={working === r.id} onClick={() => withdraw(r.id, "delivery")}>
-              {t("withdraw")}
-            </button>
-          ) : (
-            <button type="button" style={button("primary")} disabled={working === r.id} onClick={() => claim(r.id, "delivery")}>
-              {working === r.id ? t("claiming") : t("claim")}
-            </button>
-          )}
-        </div>
-        {r.claimed_by_me && <span style={{ ...badge("success"), marginTop: 10 }}>{t("claimed")}</span>}
-        {notice?.requestId === r.id && <ClaimNotice kind={notice.kind} />}
-      </div>
+      <BoardRow
+        day={dayOf(r.departure_date)}
+        month={monthOf(r.departure_date)}
+        title={labelForRole(r.crew_role)}
+        route={t("route", { from: L.text(r.origin_point), to: L.text(r.destination_point) })}
+        meta={[
+          { icon: "route", text: td("miles", { miles: r.distance_miles }) },
+          r.flexible_days > 0 && { icon: "pin", text: td("flexDays", { days: r.flexible_days }) },
+          ...covers.map((k) => ({ icon: "euro", text: k === "covers_food" && r.food_allowance_amount != null ? `${td(k)} (${r.food_allowance_amount}€)` : td(k) })),
+        ].filter(Boolean)}
+        facts={[
+          { label: t("factDeparture"), value: f.date(r.departure_date) },
+          { label: t("factPay"), value: `${r.offered_price}€` },
+          { label: t("factOpenUntil"), value: closesOn(r) },
+          { label: t("factClaims"), value: r.claims_count },
+        ]}
+        note={r.notes}
+        action={actionFor(r, "delivery")}
+        extra={notice?.requestId === r.id ? <ClaimNotice kind={notice.kind} /> : null}
+      />
     );
   }
 
@@ -315,25 +308,27 @@ export default function BoardPage() {
   const stateTone = { active: "brand", chosen: "success", closed: "neutral", withdrawn: "neutral" };
 
   return (
-    <div style={container}>
-      <h1 style={{ ...h1, marginBottom: 8 }}>{t("title")}</h1>
-      <p style={{ ...muted, margin: "0 0 20px" }}>{t("subtitle")}</p>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
-        {isPro && (
-          <>
-            <button type="button" style={chip(tab === "all")} onClick={() => setTab("all")}>
-              {t("tabAll")}
-            </button>
-            <button type="button" style={chip(tab === "mine")} onClick={() => setTab("mine")}>
-              {t("tabMine")}
-            </button>
-          </>
-        )}
-        <Link href="/platform/board/new" style={{ ...button("secondary"), textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 36, padding: "0 14px", fontSize: 13, ...(isPro ? { marginLeft: "auto" } : {}) }}>
+    <div style={{ ...container, maxWidth: 1080 }}>
+      <style>{BOARD_CSS}</style>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0, flex: "1 1 320px" }}>
+          <h1 style={{ ...h1, marginBottom: 8 }}>{t("title")}</h1>
+          <p style={{ ...muted, margin: "0 0 24px", maxWidth: 620 }}>{t("subtitle")}</p>
+        </div>
+        <Link href="/platform/board/new" className="bd-leave" style={button("secondary")}>
           {t("leaveRequest")}
         </Link>
       </div>
+
+      {isPro && (
+        <div role="tablist" style={{ ...segWrap, marginBottom: 12 }}>
+          {[["all", "tabAll"], ["mine", "tabMine"]].map(([k, label]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} style={seg(tab === k)} onClick={() => setTab(k)}>
+              {t(label)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {pendingId && !notice && session && !approved && (
         <div style={{ ...card, borderLeft: `3px solid ${colors.accent}` }}>
@@ -344,22 +339,23 @@ export default function BoardPage() {
 
       {tab === "all" && (
         <>
-          <div role="tablist" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-            {["crew", "delivery"].map((k) => (
-              <button key={k} type="button" role="tab" aria-selected={kind === k} data-board-kind={k} style={chip(kind === k)} onClick={() => { setKind(k); setRole(null); setNotice(null); }}>
-                {t(k === "crew" ? "kindCrew" : "kindDelivery")}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            <button type="button" style={chip(role === null)} onClick={() => setRole(null)}>
-              {t("allRoles")}
-            </button>
-            {CREW_ROLES.map((r) => (
-              <button key={r.key} type="button" style={chip(role === r.key)} onClick={() => setRole(r.key)}>
-                {r.label}
-              </button>
-            ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 0 16px", borderBottom: `1px solid ${colors.border}`, marginBottom: 16 }}>
+            <div role="tablist" style={segWrap}>
+              {["crew", "delivery"].map((k) => (
+                <button key={k} type="button" role="tab" aria-selected={kind === k} data-board-kind={k} style={seg(kind === k)} onClick={() => { setKind(k); setRole(null); setNotice(null); }}>
+                  {t(k === "crew" ? "kindCrew" : "kindDelivery")}
+                </button>
+              ))}
+            </div>
+            <select aria-label={t("roleFilter")} value={role || ""} onChange={(e) => setRole(e.target.value || null)} style={{ ...select, width: "auto", minWidth: 180, height: 44, fontSize: 15 }}>
+              <option value="">{t("allRoles")}</option>
+              {CREW_ROLES.map((r) => (
+                <option key={r.key} value={r.key}>{r.label}</option>
+              ))}
+            </select>
+            <span style={{ ...muted, fontSize: 13, marginLeft: "auto" }}>
+              {!busy || items.length > 0 ? (done ? t("showing", { count: items.length }) : t("showingMore", { count: items.length })) : ""}
+            </span>
           </div>
           {failed ? (
             <LoadError what={t("loadWhat")} onRetry={() => loadPage(true)} />

@@ -58,7 +58,7 @@ await as("6900002005", async (page) => {
   check("η διεκδίκηση καταχωρήθηκε", (await text(page)).includes("Διεκδίκησες"));
   check("στη βάση, ενεργή", num(`select count(*) from open_request_claims where request_id = '${reqId}' and status = 'active'`) === 1);
   check("χωρίς χρέωση", bal(kostasId) === kostas0);
-  await page.getByRole("button", { name: "Οι διεκδικήσεις μου", exact: true }).click();
+  await page.getByRole("tab", { name: "Οι διεκδικήσεις μου", exact: true }).click();
   await page.waitForTimeout(600);
   check("στις διεκδικήσεις μου", (await text(page)).includes("Ενεργή"));
 });

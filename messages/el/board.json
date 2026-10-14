@@ -55,7 +55,17 @@
     },
     "kindCrew": "Πληρώματα",
     "kindDelivery": "Μεταφορές",
-    "deliveryEmpty": "Δεν υπάρχουν ανοιχτές μεταφορές αυτή τη στιγμή."
+    "deliveryEmpty": "Δεν υπάρχουν ανοιχτές μεταφορές αυτή τη στιγμή.",
+    "showing": "{count, plural, one {# αίτημα} other {# αιτήματα}}",
+    "showingMore": "{count}+ αιτήματα",
+    "factDates": "Ημερομηνίες",
+    "factDeparture": "Αναχώρηση",
+    "factOpenUntil": "Ανοιχτό έως",
+    "factClaims": "Διεκδικήσεις",
+    "factPay": "Αμοιβή",
+    "factDistance": "Απόσταση",
+    "factRegion": "Περιοχή",
+    "roleFilter": "Ρόλος"
   },
   "BoardNew": {
     "title": "Άφησε αίτημα",

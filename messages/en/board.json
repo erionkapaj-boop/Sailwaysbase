@@ -55,7 +55,17 @@
     },
     "kindCrew": "Crew",
     "kindDelivery": "Deliveries",
-    "deliveryEmpty": "There are no open deliveries right now."
+    "deliveryEmpty": "There are no open deliveries right now.",
+    "showing": "{count, plural, one {# request} other {# requests}}",
+    "showingMore": "{count}+ requests",
+    "factDates": "Dates",
+    "factDeparture": "Departure",
+    "factOpenUntil": "Open until",
+    "factClaims": "Claims",
+    "factPay": "Pay",
+    "factDistance": "Distance",
+    "factRegion": "Region",
+    "roleFilter": "Role"
   },
   "BoardNew": {
     "title": "Leave a request",
