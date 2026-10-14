@@ -208,7 +208,7 @@ jobs:
         run: |
           git config user.name "map-data"
           git config user.email "map-data@users.noreply.github.com"
-          git add lib/platform/countries/gr.coords.json
+          git add lib/platform/countries/gr.coords.js
           if git diff --cached --quiet; then echo "καμία αλλαγή"; exit 0; fi
           git commit -m "map: συντεταγμένες μερών (παράγονται αυτόματα από το OpenStreetMap)"
           git pull --rebase origin "${GITHUB_REF_NAME}"

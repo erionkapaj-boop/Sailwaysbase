@@ -36,7 +36,9 @@ where f not in (
   'skipper_profile_id_of(p_user_id uuid)',
   -- 0119: write-only log of a place name that wasn't found (no user, no read
   -- back); text cleaned and capped, per-session and global hourly limits
-  'log_place_miss(p_query text, p_region_id uuid, p_session text)'
+  'log_place_miss(p_query text, p_region_id uuid, p_session text)',
+  -- 0128: θέσεις μερών που διόρθωσε ο ιδιοκτήτης (δημόσια γεωγραφία, μόνο ανάγνωση, χωρίς προσωπικά δεδομένα)
+  'place_positions_public()'
 );
 select pg_temp.check('κάθε πίνακας έχει row-level security: ' || coalesce(string_agg(relname, ', '), '—'), count(*) = 0)
 from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and not relrowsecurity;

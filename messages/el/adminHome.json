@@ -22,7 +22,8 @@
       "headingSystem": "Σύστημα",
       "settings": "Ρυθμίσεις",
       "ghost": "Δοκιμές (Ghost Mode)",
-      "board": "Ανοιχτά αιτήματα"
+      "board": "Ανοιχτά αιτήματα",
+      "map": "Χάρτης"
     }
   },
   "AdminUi": {

@@ -29,6 +29,8 @@ from pg_proc where pronamespace = 'public'::regnamespace and proname like 'admin
   and proname not in (
     'admin_add_board_external',         -- εξωτερικός υποψήφιος σε αίτημα πίνακα, όχι λογαριασμός
     'admin_remove_board_external',      -- το ίδιο: αφαίρεση εξωτερικού υποψηφίου
+    'admin_set_place_position',         -- θέση μέρους στον χάρτη, όχι λογαριασμός
+    'admin_reset_place_position',       -- το ίδιο: επαναφορά θέσης μέρους
     'admin_cancel_offer',               -- κλείνει πρόταση αντικατάστασης, όχι λογαριασμό
     'admin_set_contact_message_status', -- μήνυμα φόρμας επικοινωνίας
     'admin_suspend_account'             -- αρνείται μόνη της διαχειριστές και υπαλλήλους

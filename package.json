@@ -3,21 +3,24 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/copy-maplibre.mjs && next dev",
     "build": "next build",
     "start": "next start",
     "check": "node scripts/check-platform.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
-    "prebuild": "node scripts/check-platform.mjs && node scripts/check-i18n.mjs --gate",
+    "prebuild": "node scripts/copy-maplibre.mjs && node scripts/check-platform.mjs && node scripts/check-i18n.mjs --gate",
+    "postinstall": "node scripts/copy-maplibre.mjs",
     "test:db": "bash tests/db/run.sh",
     "test:e2e": "bash tests/e2e/run.sh",
     "test": "npm run test:unit && bash tests/db/run.sh && bash tests/e2e/run.sh",
     "test:perf": "E2E_EXTRA_SQL=tests/perf/scale.sql E2E_SPECS=timing.perf.mjs bash tests/e2e/run.sh",
-    "test:unit": "node tests/unit/placeSearch.test.mjs && node tests/unit/phone.test.mjs && node tests/unit/format.test.mjs && node tests/unit/translit.test.mjs && node tests/unit/notifications.test.mjs && node tests/unit/localData.test.mjs && node scripts/check-i18n.mjs"
+    "test:unit": "node tests/unit/placeSearch.test.mjs && node tests/unit/phone.test.mjs && node tests/unit/format.test.mjs && node tests/unit/translit.test.mjs && node tests/unit/notifications.test.mjs && node tests/unit/localData.test.mjs && node tests/unit/geo.test.mjs && node scripts/check-i18n.mjs"
   },
   "dependencies": {
+    "@protomaps/basemaps": "5.7.2",
     "@supabase/supabase-js": "^2.45.0",
     "libphonenumber-js": "^1.13.15",
+    "maplibre-gl": "6.11.2",
     "next": "15.5.26",
     "next-intl": "^4.14.1",
     "react": "^19.3.0",

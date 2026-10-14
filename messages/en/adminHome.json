@@ -22,7 +22,8 @@
       "headingSystem": "System",
       "settings": "Settings",
       "ghost": "Testing (Ghost Mode)",
-      "board": "Open requests"
+      "board": "Open requests",
+      "map": "Map"
     }
   },
   "AdminUi": {

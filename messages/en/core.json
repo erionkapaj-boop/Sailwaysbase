@@ -51,5 +51,12 @@
     "yearLabel": "Year built",
     "hint": "Optional. The professional sees which boat they will take on.",
     "invalid": "Check the length (10–300 ft) and the year (from 1900)."
+  },
+  "Map": {
+    "label": "Map",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "resetBearing": "Reset to north",
+    "attribution": "Map information"
   }
 }

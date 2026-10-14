@@ -1,16 +1,21 @@
 // Βρίσκει συντεταγμένες για τα μέρη του λεξικού (lib/platform/places.js) από το
 // OpenStreetMap (Nominatim), ΜΙΑ φορά, και τις γράφει στο
-// lib/platform/countries/gr.coords.json. Δεν τρέχει στην εφαρμογή.
+// lib/platform/countries/gr.coords.js. Δεν τρέχει στην εφαρμογή.
 //
 // Κανόνες χρήσης του Nominatim: 1 αίτημα το δευτερόλεπτο, ταυτοποιημένο
 // User-Agent, χωρίς αυτόματη συμπλήρωση. Τα υπάρχοντα στοιχεία του αρχείου
 // ΔΕΝ ξαναζητούνται (οι διορθώσεις του ιδιοκτήτη μένουν)· `--force` τα ξαναβρίσκει.
 //
 //   node map/tools/geocode.mjs [--force] [--limit N]
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { writeFileSync, existsSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { PLACES } from "../../lib/platform/places.js";
 
-const OUT = new URL("../../lib/platform/countries/gr.coords.json", import.meta.url).pathname;
+const OUT = new URL("../../lib/platform/countries/gr.coords.js", import.meta.url).pathname;
+const HEADER = `// Συντεταγμένες των μερών του gr.js (κλειδί: «Νησί – Λιμάνι» ή «Μέρος»).
+// Παράγεται από το map/tools/geocode.mjs (OpenStreetMap)· οι διορθώσεις του
+// ιδιοκτήτη ζουν στη βάση (place_positions) και υπερισχύουν. Μην το αλλάζεις με το χέρι.
+`;
 const UA = "SkipperFinder-geocoder/1.0 (+https://skipperfinder.gr)";
 const GREECE = { minLat: 34.5, maxLat: 42.0, minLng: 19.0, maxLng: 30.0 };
 const force = process.argv.includes("--force");
@@ -18,7 +23,7 @@ const limit = Number(process.argv[process.argv.indexOf("--limit") + 1]) || Infin
 
 export const keyOf = (p) => (p.parent ? `${p.parent} – ${p.name}` : p.name);
 
-const existing = existsSync(OUT) ? JSON.parse(readFileSync(OUT, "utf8")) : { places: {} };
+const existing = existsSync(OUT) ? (await import(pathToFileURL(OUT).href)).default : { places: {} };
 const places = existing.places || {};
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -74,7 +79,7 @@ for (const p of PLACES) {
 
 function persist() {
   const sorted = Object.fromEntries(Object.entries(places).sort(([x], [y]) => x.localeCompare(y, "el")));
-  writeFileSync(OUT, JSON.stringify({ generated: new Date().toISOString().slice(0, 10), source: "OpenStreetMap (Nominatim), © OpenStreetMap contributors", places: sorted }, null, 1) + "\n");
+  writeFileSync(OUT, HEADER + "export default " + JSON.stringify({ generated: new Date().toISOString().slice(0, 10), source: "OpenStreetMap (Nominatim), © OpenStreetMap contributors", places: sorted }, null, 1) + ";\n");
 }
 persist();
 const all = Object.values(places);
