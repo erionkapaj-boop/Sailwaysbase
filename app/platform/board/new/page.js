@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "../../AuthContext";
 import { useLocalData } from "../../useLocalData";
 import SignedOutNotice from "../../components/SignedOutNotice";
+import BoatFields from "../../components/BoatFields";
+import { boatValid } from "../../../../lib/platform/boat";
 import { listLookups, postOpenRequest } from "../../../../lib/platform/db";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { CREW_ROLES } from "../../../../lib/platform/roles";
@@ -20,7 +22,7 @@ export default function NewBoardRequest() {
   const router = useRouter();
   const { session, loading } = useAuth();
   const [lookups, setLookups] = useState({ regions: [], boatTypes: [] });
-  const [f, setF] = useState({ role: "skipper", start: "", end: "", regionId: "", departure: "", arrival: "", boatTypeId: "", partySize: "", privateCabin: false, note: "" });
+  const [f, setF] = useState({ role: "skipper", start: "", end: "", regionId: "", departure: "", arrival: "", boatTypeId: "", partySize: "", privateCabin: false, note: "", boatModel: "", boatLengthFt: "", boatYear: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [needCredit, setNeedCredit] = useState(false);
@@ -35,7 +37,7 @@ export default function NewBoardRequest() {
   if (!session) return <SignedOutNotice />;
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
-  const ready = f.start && f.end && f.regionId && f.departure.trim() && f.arrival.trim() && f.boatTypeId;
+  const ready = f.start && f.end && f.regionId && f.departure.trim() && f.arrival.trim() && f.boatTypeId && boatValid({ model: f.boatModel, lengthFt: f.boatLengthFt, year: f.boatYear });
 
   async function submit(e) {
     e.preventDefault();
@@ -47,6 +49,7 @@ export default function NewBoardRequest() {
         start: f.start, end: f.end, regionId: f.regionId, departure: f.departure, arrival: f.arrival,
         boatTypeId: f.boatTypeId, role: f.role, partySize: f.partySize ? Number(f.partySize) : null,
         privateCabin: f.privateCabin, note: f.note,
+        boatModel: f.boatModel, boatLengthFt: f.boatLengthFt, boatYear: f.boatYear,
       });
       router.push("/platform/requests?board=1");
     } catch (err) {
@@ -108,6 +111,10 @@ export default function NewBoardRequest() {
               <option key={b.id} value={b.id}>{L.text(b.name)}</option>
             ))}
           </select>
+        </div>
+        <div style={field}>
+          <BoatFields idPrefix="bn-boatinfo" value={{ model: f.boatModel, lengthFt: f.boatLengthFt, year: f.boatYear }}
+            onChange={(p) => setF((cur) => ({ ...cur, ...(p.model !== undefined && { boatModel: p.model }), ...(p.lengthFt !== undefined && { boatLengthFt: p.lengthFt }), ...(p.year !== undefined && { boatYear: p.year }) }))} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, alignItems: "end", ...field }}>
           <div>

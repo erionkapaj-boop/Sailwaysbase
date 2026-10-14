@@ -19,6 +19,7 @@ import {
 import Stars from "./Stars";
 import { card, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 import LoadError from "./LoadError";
+import { boatLine } from "../../../lib/platform/boat";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 
 const CLIENT_CATEGORIES = reviewCategoriesForRole("client");
@@ -217,6 +218,7 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
           <div style={{ fontWeight: 500, fontSize: 15 }}>
             {L.text(departureLabel(r))} · {L.text(r.boat_types?.name)}
           </div>
+          {boatLine(r) && <p data-boat-line style={{ ...muted, fontSize: 13, margin: "4px 0 0" }}>{boatLine(r)}</p>}
           {(r.party_size != null || r.private_cabin != null) && (
             <p style={{ ...muted, fontSize: 13, margin: "2px 0 0" }}>
               {r.party_size != null && <>{t("partySize", { count: r.party_size })}</>}

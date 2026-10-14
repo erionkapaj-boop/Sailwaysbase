@@ -15,6 +15,8 @@
 update platform_settings set value = 0 where key = 'board_after_start_days';
 update platform_settings set value = 365 where key = 'board_max_days';
 
+-- (drop: η υπογραφή με στοιχεία σκάφους προστέθηκε στο 0127· ώστε η εκτέλεση να επαναλαμβάνεται)
+drop function if exists post_open_request(date, date, uuid, text, text, uuid, crew_role, int, boolean, text, text, int, int);
 create or replace function post_open_request(
   p_start date, p_end date, p_region_id uuid, p_departure_point text, p_arrival_point text,
   p_boat_type_id uuid, p_crew_role crew_role, p_party_size int default null,

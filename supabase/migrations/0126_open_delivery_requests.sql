@@ -128,6 +128,8 @@ grant execute on function create_open_delivery_role_request(uuid, crew_role, num
 -- ---------------------------------------------------------------------------
 -- Δημόσιος πίνακας μεταφορών (ανώνυμα, χωρίς λογαριασμό). Κοντινότερη αναχώρηση πρώτα.
 -- ---------------------------------------------------------------------------
+-- (drop: ο τύπος επιστροφής άλλαξε στο 0127· ώστε η εκτέλεση να επαναλαμβάνεται)
+drop function if exists delivery_board_requests(crew_role, date, uuid, int);
 create or replace function delivery_board_requests(
   p_role crew_role default null, p_after_date date default null, p_after_id uuid default null, p_limit int default 20)
 returns table (

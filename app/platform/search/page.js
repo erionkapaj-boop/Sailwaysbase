@@ -51,6 +51,8 @@ import {
 } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
+import BoatFields from "../components/BoatFields";
+import { boatLine, boatValid } from "../../../lib/platform/boat";
 
 const BROADCAST_ERRORS = {
   insufficient_wallet: "errInsufficientWallet",
@@ -803,6 +805,7 @@ function Checkout({
   emptyByRole,
 }) {
   const t = useTranslations("SearchPage");
+  const tBoat = useTranslations("Boat");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sentSlots, setSentSlots] = useState(new Set());
@@ -886,6 +889,9 @@ function Checkout({
         languageId: filters.languageId || "",
         partySize: filters.partySize,
         privateCabin: filters.privateCabin,
+        boatModel: filters.boatModel || "",
+        boatLengthFt: filters.boatLengthFt || "",
+        boatYear: filters.boatYear || "",
       },
       selections,
       open,
@@ -946,6 +952,10 @@ function Checkout({
       setError(t("needPartyAndCabin"));
       return;
     }
+    if (!boatValid({ model: filters.boatModel, lengthFt: filters.boatLengthFt, year: filters.boatYear })) {
+      setError(tBoat("invalid"));
+      return;
+    }
     setError("");
     setBusy(true);
     // Όσα credits χρειάζονται για ό,τι δεν έχει φύγει ακόμα, απέναντι σε όσα
@@ -991,6 +1001,9 @@ function Checkout({
               role,
               partySize: Number(filters.partySize),
               privateCabin: filters.privateCabin,
+              boatModel: filters.boatModel,
+              boatLengthFt: filters.boatLengthFt,
+              boatYear: filters.boatYear,
             });
             nowSent.add(slotKey);
             setSentSlots(new Set(nowSent));
@@ -1007,6 +1020,9 @@ function Checkout({
             crewRole: role,
             partySize: Number(filters.partySize),
             privateCabin: filters.privateCabin,
+            boatModel: filters.boatModel,
+            boatLengthFt: filters.boatLengthFt,
+            boatYear: filters.boatYear,
           });
           const picked = Array.from(selectionsByRole[role]);
           try {
@@ -1290,6 +1306,9 @@ function SearchPageInner() {
     languageId: params.get("lang") || "",
     partySize: params.get("party") || "",
     privateCabin: params.get("cabin") === "true" ? true : params.get("cabin") === "false" ? false : undefined,
+    boatModel: params.get("bm") || "",
+    boatLengthFt: params.get("bl") || "",
+    boatYear: params.get("by") || "",
   };
   // sessionStorage doesn't exist during the server render, so this can only
   // be read after mount — reading it any earlier (e.g. a useState lazy
@@ -1395,6 +1414,7 @@ function SearchPageInner() {
     if (!filters.arrivalPoint || !filters.arrivalPoint.trim()) errors.arrivalPoint = true;
     if (!filters.partySize) errors.partySize = true;
     if (filters.privateCabin === undefined) errors.privateCabin = true;
+    if (!boatValid({ model: filters.boatModel, lengthFt: filters.boatLengthFt, year: filters.boatYear })) errors.boat = true;
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -1668,6 +1688,10 @@ function SearchPageInner() {
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>{t("requiredField")}</p>
             )}
           </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <BoatFields idPrefix="sr-boat" value={{ model: filters.boatModel, lengthFt: filters.boatLengthFt, year: filters.boatYear }}
+              onChange={(p) => setFilters((f) => ({ ...f, ...(p.model !== undefined && { boatModel: p.model }), ...(p.lengthFt !== undefined && { boatLengthFt: p.lengthFt }), ...(p.year !== undefined && { boatYear: p.year }) }))} />
+          </div>
         </div>
       ) : (
         <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -1691,6 +1715,7 @@ function SearchPageInner() {
               {" · "}
               {t("cabinValue", { value: filters.privateCabin ? t("yes") : t("no") })}
               {boatTypeName ? ` · ${L.text(boatTypeName)}` : ""}
+              {boatLine({ boat_model: filters.boatModel, boat_length_ft: filters.boatLengthFt, boat_year: filters.boatYear }) ? ` · ${boatLine({ boat_model: filters.boatModel, boat_length_ft: filters.boatLengthFt, boat_year: filters.boatYear })}` : ""}
             </span>
           </div>
           <button

@@ -160,6 +160,8 @@ RLS στους πίνακες. Οι triggers-φρουροί δέχονται α�
 το `open`. UI: `app/platform/board`, `components/BoardRequestPanel`, `admin/board`.
 Διεκδίκηση σε εξέλιξη: `lib/platform/pendingClaim.js` (εγγραφή και αγορά credits τελευταία).
 
+**Στοιχεία σκάφους** (0127). `boat_model`, `boat_length_ft`, `boat_year` (προαιρετικά) στα `booking_requests`, `delivery_requests` και στις κρατήσεις τους (αντιγράφονται με trigger στην εισαγωγή κράτησης). Έλεγχος τιμών: `check_boat_details` + περιορισμοί πίνακα. UI: `components/BoatFields`, εμφάνιση με `lib/platform/boat.js` (`boatLine`). Προσοχή: συναρτήσεις που φτιάχνουν γραμμή με `(…)::πίνακας` σπάνε όταν προστεθούν στήλες· η `list_my_delivery_pings` χρησιμοποιεί `jsonb_populate_record` για αυτόν τον λόγο.
+
 ## 5. Αποφάσεις και γιατί
 
 - **Κανόνες στη βάση, όχι στις οθόνες.** Το δημόσιο κλειδί είναι μέσα σε κάθε

@@ -36,6 +36,8 @@ import {
   sectionLabel, tapTarget } from "../../../lib/platform/theme";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
+import BoatFields from "../components/BoatFields";
+import { boatValid } from "../../../lib/platform/boat";
 
 const REQUEST_ERRORS = ["account_not_verified", "no_client_profile", "invalid_distance", "invalid_date_mode"];
 
@@ -363,6 +365,7 @@ function RoleBlock({
 // χρέωση.
 function DeliveryForm({ onCreated }) {
   const t = useTranslations("Delivery");
+  const tb = useTranslations("Boat");
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [distanceMiles, setDistanceMiles] = useState("");
@@ -376,6 +379,7 @@ function DeliveryForm({ onCreated }) {
   const [coversFuel, setCoversFuel] = useState(false);
   const [coversPortExpenses, setCoversPortExpenses] = useState(false);
   const [notes, setNotes] = useState("");
+  const [boat, setBoat] = useState({ model: "", lengthFt: "", year: "" });
   const [error, setError] = useState("");
   // Ροή «Αίτημα μεταφοράς σκάφους» (0117): άνοιξε τη φόρμα → στάλθηκε.
   useEffect(() => {
@@ -401,6 +405,10 @@ function DeliveryForm({ onCreated }) {
       setError(t("errFood"));
       return;
     }
+    if (!boatValid(boat)) {
+      setError(tb("invalid"));
+      return;
+    }
     onCreated({
       origin,
       destination,
@@ -415,6 +423,9 @@ function DeliveryForm({ onCreated }) {
       coversFuel,
       coversPortExpenses,
       notes: notes.trim() || null,
+      boatModel: boat.model.trim() || null,
+      boatLengthFt: boat.lengthFt || null,
+      boatYear: boat.year || null,
     });
   }
 
@@ -538,6 +549,10 @@ function DeliveryForm({ onCreated }) {
             {t("formPort")}
           </label>
         </div>
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <BoatFields idPrefix="dl-boat" value={boat} onChange={(p) => setBoat((cur) => ({ ...cur, ...p }))} />
       </div>
 
       <label style={label}>{t("notes")}</label>

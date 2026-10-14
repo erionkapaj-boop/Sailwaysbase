@@ -8,6 +8,7 @@ import { listRequestPings, withdrawPing, cancelBookingRequest, departureLabel } 
 import { labelForRole } from "../../../lib/platform/roles";
 import { card, muted, badge, button, colors, money } from "../../../lib/platform/theme";
 import { useConfirm } from "./ConfirmDialog";
+import { boatLine } from "../../../lib/platform/boat";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 
 const REQ_STATUS = {
@@ -134,6 +135,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
             </span>
           </span>
         </div>
+        {boatLine(request) && <p data-boat-line style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>{boatLine(request)}</p>}
         <p style={{ ...muted, margin: "6px 0 0" }}>
           <span style={money}>{f.dateRange(request.start_date, request.end_date)}</span>
           {" · "}

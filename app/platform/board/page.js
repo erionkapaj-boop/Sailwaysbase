@@ -9,6 +9,7 @@ import { useLocalData } from "../useLocalData";
 import Toast from "../components/Toast";
 import LoadError from "../components/LoadError";
 import BoardRow, { BOARD_CSS } from "../components/BoardRow";
+import { boatLine } from "../../../lib/platform/boat";
 import {
   boardRequests, claimBoardRequest, withdrawBoardClaim, myBoardClaims, listLookups,
   deliveryBoardRequests, claimDeliveryBoardRequest, withdrawDeliveryBoardClaim, myDeliveryBoardClaims,
@@ -221,6 +222,7 @@ export default function BoardPage() {
         month={monthOf(r.start_date)}
         title={labelForRole(r.crew_role)}
         route={sameRoute ? place(r) : t("route", { from: L.text(r.departure_point || regionName(r.region_id)), to: L.text(r.arrival_point) })}
+        boat={boatLine(r)}
         meta={[
           regionName(r.region_id) && { icon: "pin", text: regionName(r.region_id) },
           boatName(r.boat_type_id) && { icon: "boat", text: boatName(r.boat_type_id) },
@@ -247,10 +249,11 @@ export default function BoardPage() {
         month={monthOf(r.departure_date)}
         title={labelForRole(r.crew_role)}
         route={t("route", { from: L.text(r.origin_point), to: L.text(r.destination_point) })}
+        boat={boatLine(r)}
         meta={[
           { icon: "route", text: td("miles", { miles: r.distance_miles }) },
           r.flexible_days > 0 && { icon: "pin", text: td("flexDays", { days: r.flexible_days }) },
-          ...covers.map((k) => ({ icon: "euro", text: k === "covers_food" && r.food_allowance_amount != null ? `${td(k)} (${r.food_allowance_amount}€)` : td(k) })),
+          ...covers.map((k) => ({ icon: "check", text: k === "covers_food" && r.food_allowance_amount != null ? `${td(k)} (${r.food_allowance_amount}€)` : td(k) })),
         ].filter(Boolean)}
         facts={[
           { label: t("factDeparture"), value: f.date(r.departure_date) },

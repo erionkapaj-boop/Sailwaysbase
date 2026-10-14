@@ -10,6 +10,7 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 import { labelForRole } from "../../../lib/platform/roles";
 import { formatMoney } from "../../../lib/platform/notifications";
 import { card, muted, colors, money, badge, input, button } from "../../../lib/platform/theme";
+import { boatLine } from "../../../lib/platform/boat";
 
 const STATUS_KEYS = { confirmed: "statusConfirmed", completed: "statusCompleted", cancelled: "statusCancelled" };
 
@@ -73,6 +74,7 @@ export default function DeliveryBookingCard({ booking: initial }) {
           {STATUS_KEYS[booking.status] ? t(STATUS_KEYS[booking.status]) : booking.status}
         </span>
       </div>
+      {boatLine(booking) && <p data-boat-line style={{ ...muted, fontSize: 13, margin: "4px 0 0" }}>{boatLine(booking)}</p>}
       <p style={{ ...muted, margin: "6px 0 0" }}>
         <span style={money}>{f.date(booking.departure_date)}</span>
         {booking.flexible_days > 0 ? ` (${t("flexDays", { days: booking.flexible_days })})` : ""} · {t("miles", { miles: booking.distance_miles })}

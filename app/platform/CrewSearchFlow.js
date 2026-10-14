@@ -10,6 +10,8 @@ import PlacePicker from "./components/PlacePicker";
 import { Mark } from "./components/Logo";
 import { useLocalData } from "./useLocalData";
 import { COUNTRIES } from "../../lib/platform/places";
+import BoatFields from "./components/BoatFields";
+import { boatValid } from "../../lib/platform/boat";
 import { button, colors, input, label, muted, radius, select, h2 } from "../../lib/platform/theme";
 
 // Progressive disclosure (brief §4): one question on screen at a time, gentle
@@ -91,6 +93,7 @@ export default function CrewSearchFlow() {
   const [boatTypeId, setBoatTypeId] = useState("");
   const [languageId, setLanguageId] = useState("");
   const [partySize, setPartySize] = useState("");
+  const [boatInfo, setBoatInfo] = useState({ model: "", lengthFt: "", year: "" });
   const [privateCabin, setPrivateCabin] = useState(undefined);
 
   const [lookupsError, setLookupsError] = useState(false);
@@ -176,6 +179,9 @@ export default function CrewSearchFlow() {
       lang: languageId || "",
       party: partySize || "",
       cabin: privateCabin === undefined ? "" : String(privateCabin),
+      bm: boatInfo.model.trim(),
+      bl: boatInfo.lengthFt || "",
+      by: boatInfo.year || "",
     });
     router.push(`/platform/search?${params.toString()}`);
   }
@@ -411,6 +417,9 @@ export default function CrewSearchFlow() {
               {t("cabinHint")}
             </p>
           </div>
+          <div style={{ marginBottom: 24 }}>
+            <BoatFields idPrefix="wz-boat" value={boatInfo} onChange={(p) => setBoatInfo((cur) => ({ ...cur, ...p }))} />
+          </div>
           <div className="sf-step-footer">
             {(!partySize || privateCabin === undefined) && (
               <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px", textAlign: "center" }}>
@@ -421,7 +430,7 @@ export default function CrewSearchFlow() {
                     : t("missingCabin")}
               </p>
             )}
-            <button type="button" disabled={!partySize || privateCabin === undefined} onClick={finish} style={cta}>
+            <button type="button" disabled={!partySize || privateCabin === undefined || !boatValid(boatInfo)} onClick={finish} style={cta}>
               {t("finish")}
             </button>
           </div>

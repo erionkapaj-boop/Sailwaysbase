@@ -11,6 +11,7 @@ import { listMyDeliveryPings, acceptDeliveryRoleRequest, declineDeliveryRoleRequ
 import { labelForRole } from "../../../lib/platform/roles";
 import { formatMoney } from "../../../lib/platform/notifications";
 import { card, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
+import { boatLine } from "../../../lib/platform/boat";
 
 const ACCEPT_ERRORS = ["not_open", "already_resolved", "expired", "date_overlap", "insufficient_wallet", "skipper_not_eligible"];
 
@@ -100,6 +101,7 @@ export default function DeliveryPingsInbox({ skipperId }) {
             <div style={{ fontWeight: 500, fontSize: 15 }}>
               {L.text(request.origin_point)} → {L.text(request.destination_point)} · {labelForRole(role_request.crew_role)}
             </div>
+            {boatLine(request) && <p data-boat-line style={{ ...muted, fontSize: 13, margin: "4px 0 0" }}>{boatLine(request)}</p>}
             <p style={{ ...muted, margin: "6px 0 0" }}>
               <span style={money}>{f.date(request.departure_date)}</span>
               {request.flexible_days > 0 ? ` (${td("flexDays", { days: request.flexible_days })})` : ""} · {td("miles", { miles: request.distance_miles })}

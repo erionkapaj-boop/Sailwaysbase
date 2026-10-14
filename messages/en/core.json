@@ -42,5 +42,14 @@
   "Experiences": {
     "title": "Experiences at sea",
     "note": "Coming soon."
+  },
+  "Boat": {
+    "title": "The boat",
+    "modelLabel": "Boat model",
+    "modelPlaceholder": "e.g. Lagoon 42, Bavaria 46",
+    "lengthLabel": "Length (ft)",
+    "yearLabel": "Year built",
+    "hint": "Optional. The professional sees which boat they will take on.",
+    "invalid": "Check the length (10–300 ft) and the year (from 1900)."
   }
 }

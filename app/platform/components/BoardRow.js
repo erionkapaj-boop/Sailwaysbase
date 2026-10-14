@@ -17,6 +17,7 @@ export const BOARD_CSS = `
 .bd-leave { height: 44px !important; min-height: 44px; padding: 0 18px !important; align-self: flex-start; flex-shrink: 0; text-decoration: none; }
 .bd-title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
 .bd-route { margin: 4px 0 0; font-size: 15px; }
+.bd-boat { margin: 4px 0 0; font-size: 14px; font-weight: 500; letter-spacing: -0.005em; }
 .bd-meta { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: ${colors.inkSoft}; }
 .bd-meta span { display: inline-flex; align-items: center; gap: 6px; }
 .bd-facts { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13px; }
@@ -45,14 +46,14 @@ const PATHS = {
   bed: <><path d="M3 18V7M3 14h18v4M21 14v-2.5A2.5 2.5 0 0 0 18.5 9H11v5" /><circle cx="7" cy="11" r="1.6" /></>,
   pin: <><path d="M12 21s7-6.2 7-11.2A7 7 0 0 0 5 9.8C5 14.8 12 21 12 21Z" /><circle cx="12" cy="10" r="2.4" /></>,
   route: <><circle cx="6" cy="18" r="2.2" /><circle cx="18" cy="6" r="2.2" /><path d="M8 18h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16" /></>,
-  euro: <><path d="M17.5 6.5A6 6 0 1 0 17.5 17.5M4 10h9M4 14h9" /></>,
+  check: <path d="M5 12.5l4.5 4.5L19 7" />,
 };
 export function Icon({ name }) {
   return <svg {...ICON}>{PATHS[name]}</svg>;
 }
 
 // date: "YYYY-MM-DD" της έναρξης· monthShort: όνομα μήνα στη γλώσσα της σελίδας.
-export default function BoardRow({ day, month, title, route, meta = [], facts = [], note, action, extra }) {
+export default function BoardRow({ day, month, title, route, boat, meta = [], facts = [], note, action, extra }) {
   return (
     <div className="bd-row">
       <div className="bd-date" aria-hidden="true">
@@ -62,6 +63,7 @@ export default function BoardRow({ day, month, title, route, meta = [], facts = 
       <div className="bd-main">
         <h3 className="bd-title">{title}</h3>
         {route && <p className="bd-route">{route}</p>}
+        {boat && <p className="bd-boat" data-boat-line>{boat}</p>}
         {meta.length > 0 && (
           <div className="bd-meta">
             {meta.map((m) => (
