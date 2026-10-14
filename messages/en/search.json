@@ -255,8 +255,6 @@
     "searching": "Searching...",
     "search": "Search",
     "availableCount": "{count, plural, one {# available {role}} other {# available {role}}}",
-    "noneAvailable": "No {role} available on these dates",
-    "noneAvailableHint": "Try other dates or a nearby region. Many professionals open availability close to the trip.",
     "changeSearch": "Change search",
     "pickHint": "Choose as many as you like. The first to accept takes the request.",
     "needPartyAndCabin": "Enter the number of people and the private cabin option before sending the request.",
@@ -273,8 +271,7 @@
     "notifyYou": "We will notify you as soon as someone accepts.",
     "trackRequest": "Track request",
     "yourOrder": "Your order",
-    "emptyRole": "You selected nobody for {role}, so no request is sent.",
-    "shortRole": "For {role} you requested {requested} positions and selected {picked}. {slots, plural, one {1 request is sent} other {# requests are sent}}.",
+    "shortRole": "For {role} you requested {requested} positions and selected {picked}. {open, plural, one {The other position stays open} other {The other # positions stay open}} to all professionals.",
     "perPosition": "{credits} per position, regardless of how many you selected.",
     "feeDirect": "You arrange the professional's fee directly with them.",
     "chargeNote": "The credit is charged when a professional accepts the request. If the professional cancels later, we look for a replacement at no extra charge; if none is found, the credit is returned.",
@@ -309,6 +306,17 @@
     "change": "Change",
     "loading": "Loading…",
     "selectionCount": "{count, plural, one {<m>#</m> selection} other {<m>#</m> selections}}",
-    "selectedCount": "{count, plural, one {<m>#</m> selected} other {<m>#</m> selected}}"
+    "selectedCount": "{count, plural, one {<m>#</m> selected} other {<m>#</m> selected}}",
+    "readyTitle": "Your request is ready",
+    "readyBody": "It will be shown to every professional that fits your dates. Whoever is interested will accept it and you choose. Complete it below.",
+    "leaveOpen": "Not happy with anyone? Leave the request open",
+    "leaveOpenTitle": "Your request will stay open",
+    "leaveOpenBody": "It will be shown to every matching professional. Those who are interested will accept it and you choose.",
+    "backToList": "Choose from the list",
+    "openSlots": "{count, plural, one {Open request} other {# open requests}}",
+    "doneOpenTitle": "{count, plural, one {Your request is open} other {Your # requests are open}}",
+    "openDoneNote": "{count, plural, one {It is waiting for professionals to accept. Whoever is interested shows up under Requests and you choose. It stays open until the start date or until you close it.} other {They are waiting for professionals to accept. Those who are interested show up under Requests and you choose. They stay open until the start date or until you close them.}}",
+    "reservedOpenOne": "{total} reserved, charged only when you choose a professional.",
+    "reservedOpenMany": "{total} reserved, {fee} for each request. Each is charged only when you choose a professional."
   }
 }

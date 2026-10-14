@@ -37,8 +37,14 @@ select pg_temp.check('το υπόλοιπο μένει 6, καμία κίνησ�
 select pg_temp.check('δεσμεύεται 1 credit και το αίτημα είναι στον πίνακα',
   user_reserved_credits(:'CLIENT') = 1
   and (select board_open and fee_paid_at is not null and client_charged_at is null from booking_requests where id = :'r1'));
-select pg_temp.check('λήγει μέσα στα όρια (≤ 10 ημέρες)',
-  (select expires_at <= now() + interval '10 days 1 minute' and expires_at > now() from booking_requests where id = :'r1'));
+select pg_temp.check('λήγει στο τέλος της ημέρας έναρξης (ανοιχτό μέχρι την αναχώρηση)',
+  (select expires_at = (start_date + 1)::timestamptz from booking_requests where id = :'r1'));
+select pg_temp.act('authenticated', :'CLIENT');
+select (post_open_request(current_date + 40, current_date + 42, :'cyclades', 'Πάρος', 'Πάρος', null, 'hostess', 2, null, null)).id as r_noboat \gset
+select pg_temp.act('postgres');
+select pg_temp.check('χωρίς τύπο σκάφους (hostess) δεκτό, ανοιχτό μέχρι την έναρξη (40 ημέρες)',
+  (select board_open and boat_type_id is null and expires_at = (start_date + 1)::timestamptz from booking_requests where id = :'r_noboat'));
+delete from booking_requests where id = :'r_noboat';
 
 \echo '== ο πελάτης δεν στήνει αίτημα πίνακα με απευθείας εισαγωγή'
 select pg_temp.act('authenticated', :'CLIENT');

@@ -24,6 +24,7 @@ import {
   createBookingRequest,
   cancelBookingRequest,
   payAndBroadcast,
+  postOpenRequest,
   listRequestPings,
   getMyReservedCredits,
   getMyRequestDraft,
@@ -480,6 +481,9 @@ function RoleSection({
   onBoatTypeChange,
   positions,
   onPositionsChange,
+  openMode,
+  onOpenModeChange,
+  onSearched,
 }) {
   const t = useTranslations("SearchPage");
   const L = useLocalData();
@@ -541,6 +545,7 @@ function RoleSection({
         languageId: sharedFilters.languageId || null,
       });
       setResults(data);
+      onSearched((data || []).length === 0);
       if (pendingSelectedRef.current) {
         // Ένα αίτημα σε εξέλιξη μπορεί να περίμενε μέρες (π.χ. την πίστωση
         // credits): όποιος δεν είναι πια στα αποτελέσματα δεν επιλέγεται.
@@ -564,6 +569,7 @@ function RoleSection({
     boatTypeId,
     role,
     onSetSelection,
+    onSearched,
   ]);
 
   const hasCompleteIncoming = Boolean(
@@ -694,10 +700,10 @@ function RoleSection({
               {t("availableCount", { count: results.length, role: roleLabel.toLowerCase() })}
             </p>
           ) : (
-            <div data-no-results style={{ ...card, marginTop: 4 }}>
-              <b style={{ fontWeight: 600, fontSize: 15 }}>{t("noneAvailable", { role: roleLabel.toLowerCase() })}</b>
-              <p style={{ ...muted, margin: "6px 0 14px", fontSize: 13.5 }}>
-                {t("noneAvailableHint")}
+            <div data-no-results style={{ ...card, marginTop: 4, borderLeft: `3px solid ${colors.accent}` }}>
+              <b style={{ fontWeight: 600, fontSize: 15 }}>{t("readyTitle")}</b>
+              <p style={{ ...muted, margin: "6px 0 14px", fontSize: 13.5, lineHeight: 1.55 }}>
+                {t("readyBody")}
               </p>
               {onEditFilters && (
                 <button type="button" style={button("secondary")} onClick={onEditFilters}>
@@ -717,6 +723,31 @@ function RoleSection({
             <ProfessionalCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={onToggle} days={days} />
           ))}
 
+          {/* Nobody pleases, or not choosing now: the request stays open and
+              professionals claim it (0125). */}
+          {results.length > 0 && (
+            openMode ? (
+              <div style={{ ...card, borderLeft: `3px solid ${colors.accent}` }}>
+                <b style={{ fontWeight: 600, fontSize: 15 }}>{t("leaveOpenTitle")}</b>
+                <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5, lineHeight: 1.55 }}>{t("leaveOpenBody")}</p>
+                <button type="button" style={button("secondary")} onClick={() => onOpenModeChange(false)}>
+                  {t("backToList")}
+                </button>
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", margin: "6px 0 4px" }}>
+                <button
+                  type="button"
+                  data-leave-open
+                  onClick={() => onOpenModeChange(true)}
+                  style={{ ...button("secondary"), width: "100%" }}
+                >
+                  {t("leaveOpen")}
+                </button>
+              </div>
+            )
+          )}
+
 
         </div>
       )}
@@ -727,20 +758,22 @@ function RoleSection({
 // Shared by Checkout and the sticky summary bar so the two never disagree
 // about how many slots or how much it costs — the position-capping rule in
 // particular (see slotsFor below) is easy to get subtly wrong twice.
-function computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, fee) {
-  const activeRoles = supportedRoles.filter((r) => (selectionsByRole[r]?.size || 0) > 0);
+function computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, fee, openByRole = {}, emptyByRole = {}) {
+  const picksFor = (role) => selectionsByRole[role]?.size || 0;
+  // A role is part of the order once it has a pick, or the client chose to
+  // leave it open, or its search found nobody: the request is still
+  // submitted and stays open for professionals to accept (owner, 14/10/2026).
+  const activeRoles = supportedRoles.filter((r) => picksFor(r) > 0 || openByRole[r] || emptyByRole[r]);
   const positionsFor = (role) => positionsByRole[role] || 1;
-  // What actually gets sent for a role is capped at how many candidates got
-  // picked for it — asking for two skippers but only finding one available
-  // is exactly the ordinary case, not an error state: send the one, don't
-  // block the whole request waiting for a second person who may not exist.
-  // A position with genuinely nobody behind it just never goes out, rather
-  // than going out to nobody and quietly expiring.
-  const slotsFor = (role) => Math.min(positionsFor(role), selectionsByRole[role].size);
-  const totalSlots = activeRoles.reduce((n, r) => n + slotsFor(r), 0);
+  // Sent to the picked candidates: capped at how many were picked. Everything
+  // else (nobody picked, nobody found, or "leave it open" chosen) is left
+  // open on the board instead of being dropped.
+  const slotsFor = (role) => (openByRole[role] ? 0 : Math.min(positionsFor(role), picksFor(role)));
+  const openSlotsFor = (role) => positionsFor(role) - slotsFor(role);
+  const totalSlots = activeRoles.reduce((n, r) => n + slotsFor(r) + openSlotsFor(r), 0);
   const totalFee = fee != null ? totalSlots * fee : null;
-  const shortRoles = activeRoles.filter((r) => positionsFor(r) > selectionsByRole[r].size);
-  return { activeRoles, positionsFor, slotsFor, totalSlots, totalFee, shortRoles };
+  const shortRoles = activeRoles.filter((r) => !openByRole[r] && picksFor(r) > 0 && positionsFor(r) > picksFor(r));
+  return { activeRoles, positionsFor, slotsFor, openSlotsFor, totalSlots, totalFee, shortRoles };
 }
 
 // One combined checkout for the whole page, however many roles are open —
@@ -766,6 +799,8 @@ function Checkout({
   restoreSettled,
   restoredSent,
   restored,
+  openByRole,
+  emptyByRole,
 }) {
   const t = useTranslations("SearchPage");
   const [busy, setBusy] = useState(false);
@@ -791,7 +826,7 @@ function Checkout({
   const reopened = useRef(false);
   useEffect(() => {
     if (!restored || !restoreSettled || reopened.current || done || fee == null || !session) return;
-    const totals = computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, fee);
+    const totals = computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, fee, openByRole, emptyByRole);
     if (totals.activeRoles.length === 0) return;
     reopened.current = true;
     const needNow = (totals.totalSlots - sentSlots.size) * (Number(fee) || 0);
@@ -808,13 +843,15 @@ function Checkout({
   useEffect(() => {
     if (restoredSent?.length) setSentSlots(new Set(restoredSent));
   }, [restoredSent]);
-  const { activeRoles, positionsFor, slotsFor, totalSlots, totalFee, shortRoles } = computeOrderTotals(
+  const { activeRoles, positionsFor, slotsFor, openSlotsFor, totalSlots, totalFee, shortRoles } = computeOrderTotals(
     supportedRoles,
     selectionsByRole,
     positionsByRole,
-    fee
+    fee,
+    openByRole,
+    emptyByRole
   );
-  const emptyRoles = activeRoles.length ? supportedRoles.filter((r) => !selectionsByRole[r]?.size) : [];
+  const totalOpen = activeRoles.reduce((n, r) => n + openSlotsFor(r), 0);
 
   // A new account without SMS OTP waits for an admin to verify it (0075).
   // Until then it can browse and pick, but not send: sending charges the fee,
@@ -832,6 +869,7 @@ function Checkout({
       if (!set || set.size === 0) continue;
       selections[role] = { boatTypeId: boatTypesByRole[role] || "", positions: positionsFor(role), selected: Array.from(set) };
     }
+    const open = supportedRoles.filter((r) => openByRole[r]);
     return {
       roles: supportedRoles,
       filters: {
@@ -850,13 +888,14 @@ function Checkout({
         privateCabin: filters.privateCabin,
       },
       selections,
+      open,
     };
   }
 
   // Kept continuously while waiting, so whenever the account gets verified —
   // later today, after the app was closed — the same search and picks are
   // waiting on /platform/search instead of an empty form.
-  const selectionKey = activeRoles.map((r) => `${r}:${positionsFor(r)}:${[...selectionsByRole[r]].sort().join(",")}`).join("|");
+  const selectionKey = activeRoles.map((r) => `${r}:${positionsFor(r)}:${openByRole[r] ? "open" : ""}:${[...(selectionsByRole[r] || [])].sort().join(",")}`).join("|");
   useEffect(() => {
     if (awaitingVerification && activeRoles.length > 0 && !done) savePendingBroadcast(snapshot());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -935,10 +974,28 @@ function Checkout({
     let missed = 0;
     try {
       for (const role of activeRoles) {
-        const positions = slotsFor(role);
+        const positions = slotsFor(role) + openSlotsFor(role);
         for (let i = 0; i < positions; i++) {
           const slotKey = `${role}#${i}`;
           if (nowSent.has(slotKey)) continue;
+          if (i >= slotsFor(role)) {
+            // No pick: the request stays open on the board until the start
+            // date and professionals claim it (0125).
+            await postOpenRequest({
+              start: filters.startDate,
+              end: filters.endDate,
+              regionId: filters.regionId,
+              departure: filters.departurePoint,
+              arrival: filters.arrivalPoint,
+              boatTypeId: role === "skipper" ? boatTypesByRole[role] || null : null,
+              role,
+              partySize: Number(filters.partySize),
+              privateCabin: filters.privateCabin,
+            });
+            nowSent.add(slotKey);
+            setSentSlots(new Set(nowSent));
+            continue;
+          }
           const request = await createBookingRequest({
             startDate: filters.startDate,
             endDate: filters.endDate,
@@ -1009,26 +1066,33 @@ function Checkout({
         {done ? (
           <div>
             <p style={{ color: colors.ink, fontWeight: 600, fontSize: 17, margin: "0 0 6px" }}>
-              {t("sentTitle", { count: totalSlots })}
+              {totalOpen === totalSlots ? t("doneOpenTitle", { count: totalSlots }) : t("sentTitle", { count: totalSlots })}
             </p>
             {activeRoles.length > 0 && (
               <p style={{ ...muted, fontSize: 13.5, margin: "0 0 12px" }}>
                 {activeRoles
-                  .map((r) => `${labelForRole(r)}: ${t("slots", { count: slotsFor(r) })}`)
+                  .map((r) => `${labelForRole(r)}: ${t("slots", { count: slotsFor(r) + openSlotsFor(r) })}`)
                   .join(" · ")}
               </p>
             )}
             {totalFee > 0 && (
               <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 8px" }}>
-                {totalSlots === 1
-                  ? t("reservedOne", { total: formatCredits(totalFee) })
-                  : t("reservedMany", { total: formatCredits(totalFee), fee: formatCredits(fee) })}
+                {totalOpen === totalSlots
+                  ? totalSlots === 1
+                    ? t("reservedOpenOne", { total: formatCredits(totalFee) })
+                    : t("reservedOpenMany", { total: formatCredits(totalFee), fee: formatCredits(fee) })
+                  : totalSlots === 1
+                    ? t("reservedOne", { total: formatCredits(totalFee) })
+                    : t("reservedMany", { total: formatCredits(totalFee), fee: formatCredits(fee) })}
               </p>
             )}
             {notReached > 0 && (
               <p style={{ ...muted, fontSize: 13.5, lineHeight: 1.5, margin: "0 0 8px" }}>
                 {t("notReached", { count: notReached })}
               </p>
+            )}
+            {totalOpen > 0 && (
+              <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 8px" }}>{t("openDoneNote", { count: totalOpen })}</p>
             )}
             <p style={{ fontSize: 14, lineHeight: 1.55, margin: "0 0 16px" }}>
               {t("notifyYou")}
@@ -1051,10 +1115,13 @@ function Checkout({
                   {positionsFor(role) > 1 ? ` · ${t("slots", { count: positionsFor(role) })}` : ""}
                 </span>
                 <span style={{ ...muted, fontSize: 13 }}>
-                  {t.rich("selectionCount", {
-                    count: selectionsByRole[role].size,
-                    m: (chunks) => <span style={{ ...money, color: colors.ink }}>{chunks}</span>,
-                  })}
+                  {slotsFor(role) > 0 &&
+                    t.rich("selectionCount", {
+                      count: selectionsByRole[role]?.size || 0,
+                      m: (chunks) => <span style={{ ...money, color: colors.ink }}>{chunks}</span>,
+                    })}
+                  {slotsFor(role) > 0 && openSlotsFor(role) > 0 ? " · " : ""}
+                  {openSlotsFor(role) > 0 && t("openSlots", { count: openSlotsFor(role) })}
                 </span>
               </div>
             ))}
@@ -1063,14 +1130,6 @@ function Checkout({
                 available is the ordinary case, not an error. This just says
                 plainly what will actually go out, so it's never a surprise
                 after the fact. */}
-            {emptyRoles.length > 0 && (
-              <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px" }}>
-                {emptyRoles
-                  .map((r) => t("emptyRole", { role: labelForRole(r) }))
-                  .join(" ")}
-              </p>
-            )}
-
             {shortRoles.length > 0 && (
               <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px" }}>
                 {shortRoles
@@ -1079,7 +1138,7 @@ function Checkout({
                       role: labelForRole(r),
                       requested: positionsFor(r),
                       picked: selectionsByRole[r].size,
-                      slots: slotsFor(r),
+                      open: openSlotsFor(r),
                     })
                   )
                   .join(" ")}
@@ -1157,9 +1216,9 @@ function Checkout({
 // being undiscoverable). Hides itself once the real checkout panel is
 // already on screen, so there's never two of the same button visible at
 // once, and disappears entirely once the request has actually gone out.
-function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, fee, onGoToCheckout }) {
+function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, fee, onGoToCheckout, openByRole, emptyByRole }) {
   const t = useTranslations("SearchPage");
-  const { totalSlots, totalFee } = computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, fee);
+  const { totalSlots, totalFee } = computeOrderTotals(supportedRoles, selectionsByRole, positionsByRole, fee, openByRole, emptyByRole);
   // totalSlots is capped at how many positions were actually requested (see
   // computeOrderTotals) — picking 2 candidates for 1 requested position is
   // meant to read as "2 selected", not "1 selected", so this bar counts
@@ -1260,6 +1319,9 @@ function SearchPageInner() {
   // skippers, say) — defaults to one, also lifted up here so the checkout
   // can turn it into that many independent requests per role.
   const [positionsByRole, setPositionsByRole] = useState({});
+  // Roles the client left open (0125), and roles whose search found nobody.
+  const [openByRole, setOpenByRole] = useState({});
+  const [emptyByRole, setEmptyByRole] = useState({});
   // Lifted out of Checkout (see there) so the sticky summary bar knows when
   // to stop showing itself — once the request's actually gone out, there's
   // nothing left to jump down to.
@@ -1285,7 +1347,12 @@ function SearchPageInner() {
   function setRoleSelection(role, ids) {
     setSelectionsByRole((prev) => ({ ...prev, [role]: new Set(ids) }));
   }
+  function setRoleOpen(role, v) {
+    setOpenByRole((prev) => (Boolean(prev[role]) === v ? prev : { ...prev, [role]: v }));
+  }
+  const markSearched = useCallback((role, isEmpty) => setEmptyByRole((prev) => (Boolean(prev[role]) === isEmpty ? prev : { ...prev, [role]: isEmpty })), []);
   function toggleRoleSelection(role, id) {
+    setRoleOpen(role, false);
     setSelectionsByRole((prev) => {
       const next = new Set(prev[role] || []);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -1375,6 +1442,7 @@ function SearchPageInner() {
       if (sel.positions) positions[role] = sel.positions;
     }
     if (Object.keys(positions).length > 0) setPositionsByRole(positions);
+    if (p.open?.length) setOpenByRole(Object.fromEntries(p.open.map((r) => [r, true])));
   }
 
   useEffect(() => {
@@ -1659,6 +1727,9 @@ function SearchPageInner() {
           onBoatTypeChange={(boatTypeId) => setRoleBoatType(role, boatTypeId)}
           positions={getRolePositions(role)}
           onPositionsChange={(n) => setRolePositions(role, n)}
+          openMode={Boolean(openByRole[role])}
+          onOpenModeChange={(v) => setRoleOpen(role, v)}
+          onSearched={(isEmpty) => markSearched(role, isEmpty)}
         />
       ))}
       </div>
@@ -1678,6 +1749,8 @@ function SearchPageInner() {
           restoreSettled={restoreSettled}
           restoredSent={pending?.sent}
           restored={Boolean(pending)}
+          openByRole={openByRole}
+          emptyByRole={emptyByRole}
         />
       </div>
 
@@ -1687,6 +1760,8 @@ function SearchPageInner() {
           selectionsByRole={selectionsByRole}
           positionsByRole={positionsByRole}
           fee={fee}
+          openByRole={openByRole}
+          emptyByRole={emptyByRole}
           onGoToCheckout={() => checkoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
         />
       )}
