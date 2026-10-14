@@ -322,8 +322,10 @@ export default function BoardPage() {
     const all = onMap.filter((x) => x.to);
     const activeId = hot || picked || chosen;
     return [
-      { id: "routes", kind: "lines", color: "#8E99A4", width: 2, dash: [2, 2], data: { type: "FeatureCollection", features: all.filter((x) => x.r.id !== activeId).map(line) } },
-      { id: "route-active", kind: "lines", color: colors.ink, width: 3, data: { type: "FeatureCollection", features: all.filter((x) => x.r.id === activeId).map(line) } },
+      { id: "routes", kind: "lines", color: "#7D8C9B", width: 2, data: { type: "FeatureCollection", features: all.filter((x) => x.r.id !== activeId).map(line) } },
+      { id: "route-active", kind: "lines", color: colors.ink, width: 3.5, data: { type: "FeatureCollection", features: all.filter((x) => x.r.id === activeId).map(line) } },
+      // Το τέλος κάθε διαδρομής (η αρχή έχει την ετικέτα με την ημερομηνία).
+      { id: "route-ends", kind: "points", radius: 4, data: { type: "FeatureCollection", features: all.map((x) => ({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [x.to.lng, x.to.lat] } })) } },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, onMap.map((x) => x.r.id).join(","), hot, picked, chosen]);
