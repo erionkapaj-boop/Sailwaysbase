@@ -7,7 +7,6 @@ import { displayName } from "../../lib/platform/names";
 import { useAuth } from "./AuthContext";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
-import HomeAppsMenu from "./components/HomeAppsMenu";
 import PendingReadyBanner from "./components/PendingReadyBanner";
 import RequestDraftLine from "./components/RequestDraftLine";
 import { adminOverview } from "../../lib/platform/db";
@@ -112,13 +111,6 @@ export default function HomeEntry() {
 
   return (
     <div style={{ textAlign: "center" }}>
-      {/* Signed in, the header belongs to the account, so the dots sit here. */}
-      {session && (
-        <div style={{ position: "absolute", top: 10, left: 12 }}>
-          <HomeAppsMenu />
-        </div>
-      )}
-
       <div style={{ marginBottom: 40 }}>
         <Logo variant="stacked" />
         <p style={{ fontSize: 17, color: colors.ink, margin: "14px auto 0", maxWidth: 340, lineHeight: 1.5 }}>{t("tagline")}</p>

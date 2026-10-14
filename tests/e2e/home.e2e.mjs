@@ -61,7 +61,10 @@ await browser.close();
 
 await as("6900002002", async (page) => {
   await go(page, "/platform");
-  check("συνδεδεμένη: οι τελείες υπάρχουν", await page.getByRole("button", { name: "Περισσότερα", exact: true }).isVisible());
+  check("συνδεδεμένη: ένα μενού μόνο (όχι και τελείες)", !(await page.getByRole("button", { name: "Περισσότερα", exact: true }).count()));
+  await page.getByRole("button", { name: "Μενού", exact: true }).click();
+  check("συνδεδεμένη: το μενού έχει μεταφορά σκάφους και ανοιχτά αιτήματα", (await text(page)).includes("Μεταφορά σκάφους") && (await text(page)).includes("Ανοιχτά αιτήματα"));
+  await page.keyboard.press("Escape");
   check("συνδεδεμένη: χωρίς δεύτερη εγγραφή", !(await text(page)).includes("Δημιούργησε προφίλ"));
   await shoot(page, "home-signed-in");
 });

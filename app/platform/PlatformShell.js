@@ -44,7 +44,7 @@ const navLink = {
 // header shape — the parts they do have should sit where they sit everywhere
 // else. Roles beyond skipper (hostess, cook, deckhand) come through here
 // unchanged, since nothing in it is specific to what someone does on a boat.
-function AccountNavBar({ homeLabel, name, photoUrl, items, activeHref, onSignOut, notifications, refreshNotifications, hideMenuOnWide }) {
+function AccountNavBar({ isHome, homeLabel, name, photoUrl, items, activeHref, onSignOut, notifications, refreshNotifications, hideMenuOnWide }) {
   const unreadNotifications = notifications?.pendingRequests ?? 0;
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
@@ -56,13 +56,15 @@ function AccountNavBar({ homeLabel, name, photoUrl, items, activeHref, onSignOut
       </div>
 
       {/* Το λογότυπο οδηγεί πάντα στην αρχική· ο λογαριασμός ζει στο μενού και στο Προφίλ. */}
-      <Link
-        href="/platform"
-        aria-label={homeLabel}
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", minWidth: 0 }}
-      >
-        <Logo />
-      </Link>
+      {isHome ? <span /> : (
+        <Link
+          href="/platform"
+          aria-label={homeLabel}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", minWidth: 0 }}
+        >
+          <Logo />
+        </Link>
+      )}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
         {/* Πλατιά οθόνη: ο λογαριασμός φαίνεται και οδηγεί στο προφίλ· στο κινητό μένει στο μενού. */}
@@ -94,6 +96,8 @@ function AccountNavBar({ homeLabel, name, photoUrl, items, activeHref, onSignOut
 // σελίδα είναι «ενεργή»), οπότε εισάγεται αντί να ξαναγραφτεί.
 function buildMenuItems({ role, isAdmin, isOwner, adminCounts, t }) {
   const items = [{ href: "/platform", label: t("menuHome") }];
+  // Οι δύο είσοδοι που είχαν οι τελείες της αρχικής ζουν πλέον στο ίδιο μενού.
+  if (!isAdmin) items.push({ href: "/platform/delivery", label: t("menuDelivery") }, { href: "/platform/board", label: t("menuOpenRequests") });
   const own = [];
   own.push({ href: "/platform/requests", label: t("menuRequests") });
   own.push({ href: "/platform/bookings", label: isAdmin ? t("menuMyBookings") : t("menuBookings") });
@@ -146,6 +150,7 @@ function NavBar() {
     return (
       <>
         <AccountNavBar
+          isHome={pathname === "/platform" || pathname === "/"}
           homeLabel={t("homeAriaLabel")}
           name={displayName(profile, headerLocale) || displayName(userRow, headerLocale) || (isAdmin ? ts("adminName") : undefined)}
           photoUrl={profile?.photo_url || userRow?.photo_url}
