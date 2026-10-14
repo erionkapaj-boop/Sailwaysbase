@@ -93,6 +93,7 @@ const errors = [];
   await page.waitForTimeout(1500);
   check("το service worker καταχωρείται", await page.evaluate(async () => Boolean(await navigator.serviceWorker.getRegistration("/"))));
   check("το service worker δεν κρατά αντίγραφα σελίδων (κάθε deploy φαίνεται αμέσως)", (await page.evaluate(async () => (await caches.keys()).length)) === 0);
+  await page.waitForSelector("[data-push-prompt]", { timeout: 15000 }).catch(() => {}); // περιμένει το service worker να ενεργοποιηθεί
   check("η πρόταση ειδοποιήσεων εμφανίζεται μετά τη σύνδεση", (await page.locator("[data-push-prompt]").count()) === 1, (await text(page)).slice(0, 300));
   await page.locator("[data-push-prompt-later]").click();
   await page.waitForTimeout(300);
