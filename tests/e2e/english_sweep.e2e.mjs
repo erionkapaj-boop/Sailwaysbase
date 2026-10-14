@@ -72,7 +72,7 @@ try {
     await sweep(p, "client", CLIENT);
     // Τα ονόματα στα αγγλικά φαίνονται με λατινικά γράμματα (full_name_latin της βάσης).
     const latin = sql("select full_name_latin from users where id = 'a0000000-0000-0000-0000-000000000002'");
-    await p.goto(`${BASE}/platform`);
+    await p.goto(`${BASE}/platform/profile`);
     await p.waitForLoadState("networkidle");
     await p.waitForTimeout(1200);
     check(`το όνομα της πελάτισσας φαίνεται λατινικά («${latin}») και όχι ελληνικά`, (await p.innerText("body")).includes(latin.split(" ")[0]) && !(await p.innerText("body")).includes("Μαρία"));
