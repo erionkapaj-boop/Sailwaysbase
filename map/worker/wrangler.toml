@@ -1,0 +1,14 @@
+name = "skipperfinder-maps"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[[r2_buckets]]
+binding = "MAPS"
+bucket_name = "skipperfinder-maps"
+
+[vars]
+# Domains που επιτρέπεται να φορτώνουν τον χάρτη (CORS). Το localhost και τα
+# preview του Vercel επιτρέπονται πάντα από τον κώδικα.
+ALLOWED_ORIGINS = "https://skipperfinder.gr,https://www.skipperfinder.gr"
+ARCHIVE = "greece.pmtiles"

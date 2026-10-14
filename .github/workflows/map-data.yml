@@ -1,0 +1,200 @@
+name: Map data
+
+# Δεν τρέχει σε κάθε push: ξεκινά ΜΟΝΟ όταν αλλάξει το map/run.json
+# ({"step": "check" | "worker" | "tiles" | "coordinates"}). (Το κουμπί
+# «Run workflow» του GitHub δεν εμφανίζει workflows που δεν είναι στο κύριο
+# branch, γι' αυτό ξεκινά έτσι.)
+# Στήνει τον δικό μας χάρτη στο Cloudflare: έλεγχος κλειδιών, διακομιστής
+# (Worker), δεδομένα χάρτη στο R2, και συντεταγμένες των μερών.
+# Σχέδιο: docs/MAP_PLAN.md. Μυστικά (Settings → Secrets → Actions):
+#   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+on:
+  push:
+    paths:
+      - map/run.json
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "Τι να τρέξει"
+        type: choice
+        default: check
+        options:
+          - check        # έλεγχος κλειδιών και Cloudflare (δεν αλλάζει τίποτα)
+          - worker       # bucket + διακομιστής χάρτη
+          - tiles        # χάρτης Ελλάδας + γραμματοσειρές + εικονίδια → R2
+          - coordinates  # συντεταγμένες των μερών → commit στο αποθετήριο
+
+concurrency:
+  group: map-data
+  cancel-in-progress: false
+
+env:
+  BUCKET: skipperfinder-maps
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+jobs:
+  plan:
+    name: Τι θα τρέξει
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      step: ${{ steps.pick.outputs.step }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: pick
+        run: |
+          step="${{ inputs.step }}"
+          [ -n "$step" ] || step=$(jq -r .step map/run.json)
+          echo "step=$step" >> "$GITHUB_OUTPUT"
+          echo "Βήμα: $step"
+
+  check:
+    name: Έλεγχος κλειδιών
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Υπάρχουν τα μυστικά; (μόνο ονόματα, ποτέ τιμές)
+        run: |
+          missing=0
+          for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+            if [ -n "${!n}" ]; then echo "ok      $n"; else echo "ΛΕΙΠΕΙ  $n"; missing=1; fi
+          done
+          exit $missing
+      - name: Δέχεται το Cloudflare το token;
+        run: |
+          r=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/user/tokens/verify)
+          echo "$r" | jq '{success, status: .result.status, errors}'
+          [ "$(echo "$r" | jq -r .success)" = "true" ]
+      - name: Έχει το token δικαίωμα στο R2;
+        run: |
+          r=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets")
+          echo "$r" | jq '{success, buckets: [.result.buckets[]?.name], errors}'
+          [ "$(echo "$r" | jq -r .success)" = "true" ]
+      - name: Έχει ο λογαριασμός διεύθυνση workers.dev;
+        run: |
+          r=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain")
+          echo "$r" | jq '{success, subdomain: .result.subdomain, errors}'
+          [ "$(echo "$r" | jq -r '.result.subdomain // empty')" != "" ] || { echo "Δεν έχει οριστεί διεύθυνση workers.dev (βλ. οδηγίες στη συνομιλία)."; exit 1; }
+      - name: Δέχεται το R2 τα κλειδιά αποθήκευσης;
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          # Το bucket μπορεί να μην υπάρχει ακόμα: αρκεί να μην απορριφθούν τα κλειδιά.
+          out=$(aws s3 ls "s3://$BUCKET" --endpoint-url "https://$CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com" 2>&1 || true)
+          echo "$out" | head -5
+          if echo "$out" | grep -qi "InvalidAccessKeyId\|SignatureDoesNotMatch\|AccessDenied"; then echo "Τα κλειδιά R2 απορρίφθηκαν."; exit 1; fi
+
+  worker:
+    name: Bucket και διακομιστής χάρτη
+    if: needs.plan.outputs.step == 'worker' || needs.plan.outputs.step == 'tiles'
+    needs: [plan, check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: map/worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: map/worker/package-lock.json
+      - run: npm ci
+      - name: Δημιουργία bucket (αν δεν υπάρχει)
+        run: npx wrangler r2 bucket create "$BUCKET" || echo "το bucket υπάρχει ήδη"
+      - name: Ανέβασμα διακομιστή
+        run: npx wrangler deploy 2>&1 | tee /tmp/deploy.log
+      - name: Διεύθυνση του χάρτη
+        run: |
+          sub=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r .result.subdomain)
+          url="https://skipperfinder-maps.$sub.workers.dev"
+          echo "ΔΙΕΥΘΥΝΣΗ ΧΑΡΤΗ: $url"
+          echo "### Διεύθυνση χάρτη" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$url\`" >> "$GITHUB_STEP_SUMMARY"
+          curl -s "$url/health"; echo
+
+  tiles:
+    name: Χάρτης Ελλάδας στο R2
+    if: needs.plan.outputs.step == 'tiles'
+    needs: [plan, worker]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+    steps:
+      - name: Εργαλείο pmtiles
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo protomaps/go-pmtiles --pattern '*Linux_x86_64.tar.gz' --dir /tmp/pm
+          tar -xzf /tmp/pm/*.tar.gz -C /tmp/pm
+          /tmp/pm/pmtiles --help | head -3
+      - name: Πιο πρόσφατος χάρτης του Protomaps
+        run: |
+          for i in 0 1 2 3 4 5 6 7; do
+            d=$(date -u -d "-$i day" +%Y%m%d)
+            if curl -sfI "https://build.protomaps.com/$d.pmtiles" >/dev/null; then echo "BUILD=$d" >> "$GITHUB_ENV"; echo "build $d"; break; fi
+          done
+          grep -q BUILD "$GITHUB_ENV" || { echo "Δεν βρέθηκε πρόσφατος χάρτης"; exit 1; }
+      - name: Απόσπασμα Ελλάδας
+        run: |
+          /tmp/pm/pmtiles extract "https://build.protomaps.com/$BUILD.pmtiles" greece.pmtiles --bbox=19.0,34.5,30.0,42.0 --maxzoom=14
+          ls -lh greece.pmtiles
+          /tmp/pm/pmtiles show greece.pmtiles | head -20
+      - name: Γραμματοσειρές και εικονίδια
+        run: |
+          git clone --depth 1 https://github.com/protomaps/basemaps-assets.git assets
+          ls assets assets/fonts | head -30
+      - name: Ανέβασμα στο R2
+        run: |
+          EP="https://$CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com"
+          aws s3 cp greece.pmtiles "s3://$BUCKET/greece.pmtiles" --endpoint-url "$EP" --cache-control "public, max-age=3600"
+          for f in "Noto Sans Regular" "Noto Sans Medium" "Noto Sans Italic"; do
+            aws s3 sync "assets/fonts/$f" "s3://$BUCKET/fonts/$f" --endpoint-url "$EP" --only-show-errors
+          done
+          for f in assets/sprites/v4/light*; do
+            aws s3 cp "$f" "s3://$BUCKET/sprites/$(basename "$f")" --endpoint-url "$EP" --only-show-errors
+          done
+          aws s3 ls "s3://$BUCKET/" --endpoint-url "$EP"
+      - name: Δοκιμή από τον διακομιστή
+        run: |
+          sub=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r .result.subdomain)
+          url="https://skipperfinder-maps.$sub.workers.dev"
+          curl -s "$url/tiles.json" -H "Origin: https://skipperfinder.gr"; echo
+          for t in 0/0/0 8/142/96; do echo "tile $t → $(curl -s -o /dev/null -w '%{http_code} %{size_download}B' -H 'Origin: https://skipperfinder.gr' "$url/tiles/$t.mvt")"; done
+          echo "font → $(curl -s -o /dev/null -w '%{http_code}' -H 'Origin: https://skipperfinder.gr' "$url/fonts/Noto%20Sans%20Regular/0-255.pbf")"
+          echo "sprite → $(curl -s -o /dev/null -w '%{http_code}' -H 'Origin: https://skipperfinder.gr' "$url/sprites/light.json")"
+
+  coordinates:
+    name: Συντεταγμένες των μερών
+    if: needs.plan.outputs.step == 'coordinates'
+    needs: [plan, check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Αναζήτηση στο OpenStreetMap (1 αίτημα/δευτ., ~7 λεπτά)
+        run: node --no-warnings map/tools/geocode.mjs
+      - name: Αποθήκευση στο αποθετήριο
+        run: |
+          git config user.name "map-data"
+          git config user.email "map-data@users.noreply.github.com"
+          git add lib/platform/countries/gr.coords.json
+          if git diff --cached --quiet; then echo "καμία αλλαγή"; exit 0; fi
+          git commit -m "map: συντεταγμένες μερών (παράγονται αυτόματα από το OpenStreetMap)"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

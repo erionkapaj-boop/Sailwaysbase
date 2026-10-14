@@ -1,0 +1,10 @@
+{
+  "name": "skipperfinder-maps",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Διακομιστής χαρτών του SkipperFinder (Cloudflare Worker πάνω σε R2)",
+  "type": "module",
+  "scripts": { "deploy": "wrangler deploy", "dev": "wrangler dev" },
+  "dependencies": { "pmtiles": "4.4.1" },
+  "devDependencies": { "wrangler": "4.40.0" }
+}
