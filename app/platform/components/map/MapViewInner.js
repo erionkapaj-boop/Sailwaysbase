@@ -17,7 +17,8 @@ import { whatIsHere, positionedPlaces } from "../../../../lib/platform/geo";
 //   pick        { lng, lat } → σημάδι «επιλεγμένο σημείο»
 //   draggable   { lng, lat } → καρφίτσα που μετακινείται· onDrag({ lng, lat }) στο τέλος
 //   positioned  οι θέσεις των μερών που χρησιμοποιεί το «τι είναι εδώ» (προεπιλογή: οι γνωστές)
-//   markers     [{ id, lng, lat, label, active?, ariaLabel? }] → ετικέτες-κουμπιά (π.χ. ημερομηνία)
+//   markers     [{ id, lng, lat, label, active?, ariaLabel?, shape? }] → ετικέτες-κουμπιά (π.χ. ημερομηνία)
+//               shape: "pin" → κλασική καρφίτσα (στρογγυλή πάνω, μυτερή κάτω) με το γράμμα μέσα· η μύτη είναι στο σημείο
 //               onMarker(id) πάτημα, onMarkerHover(id | null) πέρασμα του δείκτη
 //   onMove      (bounds) όταν ο χρήστης μετακινήσει/μεγεθύνει τον χάρτη: [[w, s], [e, n]]
 //   controls    θέση των κουμπιών μεγέθυνσης (προεπιλογή "bottom-right")
@@ -41,6 +42,14 @@ const CSS = `
 .mv-pin[data-active="true"] { background: ${MAP_COLORS.point}; color: #fff; transform: scale(1.08); }
 .mv-pin:focus-visible { outline: 2px solid ${MAP_COLORS.point}; outline-offset: 2px; }
 .mv-pin[data-static="true"] { cursor: default; }
+.mv-drop { background: none; border: 0; padding: 0; margin: 0; line-height: 0; cursor: pointer; filter: drop-shadow(0 2px 3px rgba(22,40,60,.35)); transition: transform .15s ease; transform-origin: 50% 100%; }
+.mv-drop path { fill: #fff; stroke: ${MAP_COLORS.point}; stroke-width: 2; }
+.mv-drop text { fill: ${MAP_COLORS.point}; font: 700 12px/1 var(--font-platform-sans, -apple-system, sans-serif); }
+.mv-drop[data-active="true"] path { fill: ${MAP_COLORS.point}; }
+.mv-drop[data-active="true"] text { fill: #fff; }
+.mv-drop[data-static="true"] { cursor: default; }
+.mv-drop:hover { transform: scale(1.08); }
+.mv-drop:focus-visible { outline: 2px solid ${MAP_COLORS.point}; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .mv-pin { transition: none; } }
 `;
 
@@ -185,7 +194,7 @@ export default function MapViewInner({ layers = [], onPick, onFeature, focus, pi
         wrap.appendChild(el);
         if (onMarker) el.type = "button";
         else el.setAttribute("aria-hidden", "true");
-        el.className = "mv-pin";
+        el.className = m.shape === "pin" ? "mv-drop" : "mv-pin";
         el.dataset.mapPin = m.id;
         el.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -193,12 +202,17 @@ export default function MapViewInner({ layers = [], onPick, onFeature, focus, pi
         });
         el.addEventListener("mouseenter", () => handlers.current.onMarkerHover?.(m.id));
         el.addEventListener("mouseleave", () => handlers.current.onMarkerHover?.(null));
-        const marker = new maplibregl.Marker({ element: wrap, anchor: "center" }).setLngLat([m.lng, m.lat]).addTo(map);
+        const marker = new maplibregl.Marker({ element: wrap, anchor: m.shape === "pin" ? "bottom" : "center" }).setLngLat([m.lng, m.lat]).addTo(map);
         pin = { marker, el };
         pins.set(m.id, pin);
       }
       pin.marker.setLngLat([m.lng, m.lat]);
-      pin.el.textContent = m.label;
+      if (m.shape === "pin") {
+        if (!pin.el.firstChild) {
+          pin.el.innerHTML = '<svg width="24" height="31" viewBox="0 0 28 36" aria-hidden="true"><path d="M14 34.5S2.5 22.5 2.5 13.5a11.5 11.5 0 0 1 23 0C25.5 22.5 14 34.5 14 34.5Z"/><text x="14" y="18" text-anchor="middle"></text></svg>';
+        }
+        pin.el.querySelector("text").textContent = m.label;
+      } else pin.el.textContent = m.label;
       if (onMarker) pin.el.setAttribute("aria-label", m.ariaLabel || m.label);
       pin.el.dataset.active = m.active ? "true" : "false";
       pin.el.dataset.static = onMarker ? "false" : "true";

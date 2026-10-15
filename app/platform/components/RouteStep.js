@@ -54,6 +54,28 @@ function Field({ badge, label, value, placeholder, active, disabled, onOpen, onC
   );
 }
 
+// Ελαφριά καμπύλη από το Α στο Β (όχι ευθεία): το «πού πάμε» μετρά, όχι η διαδρομή.
+function arc(a, b) {
+  const dx = b.lng - a.lng;
+  const dy = b.lat - a.lat;
+  let px = -dy;
+  let py = dx;
+  if (py < 0) {
+    px = -px;
+    py = -py;
+  }
+  const k = 0.2;
+  const cx = (a.lng + b.lng) / 2 + px * k;
+  const cy = (a.lat + b.lat) / 2 + py * k;
+  const pts = [];
+  for (let i = 0; i <= 32; i++) {
+    const t = i / 32;
+    const u = 1 - t;
+    pts.push([u * u * a.lng + 2 * u * t * cx + t * t * b.lng, u * u * a.lat + 2 * u * t * cy + t * t * b.lat]);
+  }
+  return pts;
+}
+
 export default function RouteStep({ regions, country, from, setFrom, to, setTo, failed, onRetry, onNext }) {
   const t = useTranslations("CrewSearchFlow");
   const L = useLocalData();
@@ -78,16 +100,19 @@ export default function RouteStep({ regions, country, from, setFrom, to, setTo, 
   }
 
   const markers = [
-    locFrom && { id: "from", lng: locFrom.lng, lat: locFrom.lat, label: "A", active: active === "from", ariaLabel: t("fromLabel") },
-    locTo && { id: "to", lng: locTo.lng, lat: locTo.lat, label: "B", active: active === "to", ariaLabel: t("toLabel") },
+    locFrom && { id: "from", lng: locFrom.lng, lat: locFrom.lat, label: "A", shape: "pin", active: active === "from", ariaLabel: t("fromLabel") },
+    locTo && { id: "to", lng: locTo.lng, lat: locTo.lat, label: "B", shape: "pin", active: active === "to", ariaLabel: t("toLabel") },
   ].filter(Boolean);
   const layers = locFrom && locTo
-    ? [{ id: "route", kind: "lines", color: colors.ink, width: 3, data: { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[locFrom.lng, locFrom.lat], [locTo.lng, locTo.lat]] } }] } }]
+    ? [{ id: "route", kind: "lines", color: colors.ink, width: 2.5, data: { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: arc(locFrom, locTo) } }] } }]
     : [];
 
   let focus;
   if (locFrom && locTo && (locFrom.lng !== locTo.lng || locFrom.lat !== locTo.lat)) {
-    focus = { bounds: [[Math.min(locFrom.lng, locTo.lng), Math.min(locFrom.lat, locTo.lat)], [Math.max(locFrom.lng, locTo.lng), Math.max(locFrom.lat, locTo.lat)]], padding: 50, maxZoom: 9, instant: true };
+    const pts = arc(locFrom, locTo);
+    const lngs = pts.map((p) => p[0]);
+    const lats = pts.map((p) => p[1]);
+    focus = { bounds: [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], padding: 50, maxZoom: 9, instant: true };
   } else {
     const loc = active === "to" ? locTo || locFrom : locFrom || locTo;
     if (loc) focus = loc.kind === "region" ? { bounds: loc.bounds, padding: 30, maxZoom: 9, instant: true } : { lng: loc.lng, lat: loc.lat, zoom: 10, instant: true };
@@ -111,11 +136,6 @@ export default function RouteStep({ regions, country, from, setFrom, to, setTo, 
           field="to" badge="B" label={t("toLabel")} value={toTitle} placeholder={t("toPlaceholder")} active={active === "to"}
           disabled={!hasFrom} onOpen={() => open("to")} onClear={() => { setTo(""); setActive("from"); }} clearLabel={t("clearTo")}
         />
-      </div>
-
-      <div data-choice-map style={{ marginTop: 14 }}>
-        <MapView height={220} markers={markers} layers={layers} focus={focus} gestures="tap" controls="top-right" positioned={positioned} onPick={handlePick} onMarker={(id) => open(id)} />
-        <p style={{ ...muted, fontSize: 12.5, margin: "8px 2px 0" }}>{missed ? t("mapNothing") : active === "from" ? t("mapHintFrom") : t("mapHintTo")}</p>
       </div>
 
       <div style={{ marginTop: 16 }}>
@@ -147,6 +167,13 @@ export default function RouteStep({ regions, country, from, setFrom, to, setTo, 
           />
         )}
       </div>
+
+      {markers.length > 0 && (
+      <div data-choice-map style={{ marginTop: 20 }}>
+        <MapView height={180} markers={markers} layers={layers} focus={focus} gestures="tap" controls="top-right" positioned={positioned} onPick={handlePick} onMarker={(id) => open(id)} />
+        <p style={{ ...muted, fontSize: 12.5, margin: "8px 2px 0" }}>{missed ? t("mapNothing") : active === "from" ? t("mapHintFrom") : t("mapHintTo")}</p>
+      </div>
+      )}
 
       <div className="sf-step-footer">
         <button type="button" disabled={!hasFrom || (active === "from" && editingFrom)} onClick={onNext} style={cta}>
