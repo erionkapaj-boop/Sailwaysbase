@@ -12,8 +12,6 @@ import Icon, { ROLE_ICON, BOAT_ICON } from "./components/Icon";
 import Counter from "./components/Counter";
 import CabinChoice from "./components/CabinChoice";
 import { serializeCabins } from "../../lib/platform/cabin";
-import LanguagePicker from "./components/LanguagePicker";
-import { isLanguageCode } from "../../lib/platform/languages";
 import { BrandStep, ModelStep, FeetStep, YearStep } from "./components/BoatSteps";
 import { boatKind, boatName } from "../../lib/platform/boatCatalog";
 import RouteStep from "./components/RouteStep";
@@ -40,13 +38,12 @@ import { button, colors, input, label, muted, radius, select, h2 } from "../../l
 // asked for here instead, so landing on results means there's nothing left
 // to fill in, just candidates to browse and pick.
 function stepsFor(roles, kind) {
-  const base = ["role", "country", "where", "dates"];
-  // Γουλέτα: χωρίς μάρκα/μοντέλο (δεν υπάρχουν κατάλογοι)· μόνο πόδια.
+  // Trip first (country, port, dates, party, boat), then the help the client wants (roles) and where it sleeps.
+  // Gulet: no brand/model (no catalogues), feet only.
   const boat = kind === "gulet" ? ["boat", "feet", "year"] : ["boat", "brand", "model", "feet", "year"];
-  const withBoat = roles.includes("skipper") ? [...base, ...boat] : base;
-  // Καμπίνα: μία οθόνη για κάθε επαγγελματία που ζητά ο πελάτης, με τη σταθερή σειρά των ρόλων.
+  // One cabin screen for every professional the client asks for, in the fixed role order.
   const cabins = CREW_ROLES.filter((r) => roles.includes(r.key)).map((r) => `cabin:${r.key}`);
-  return [...withBoat, "party", "language", ...cabins];
+  return ["country", "where", "dates", "party", ...boat, "role", ...cabins];
 }
 
 const KIND_ORDER = ["sail", "cat", "motor", "gulet", "other"];
@@ -104,9 +101,6 @@ export default function CrewSearchFlow() {
   const [boatTypeId, setBoatTypeId] = useSessionState("sf_wizard:boatType", "");
   const [boatBrand, setBoatBrand] = useSessionState("sf_wizard:brand", "");
   const [boatModel, setBoatModel] = useSessionState("sf_wizard:modelName", "");
-  // Κωδικοί γλωσσών ISO («en,de»). null = δεν τις έχει πειράξει· τότε ισχύει η προεπιλογή: μόνο Αγγλικά.
-  const [languageRaw, setLanguageCodes] = useSessionState("sf_wizard:langs", null);
-  const languageCodes = Array.isArray(languageRaw) ? languageRaw.filter(isLanguageCode) : ["en"];
   const [partySize, setPartySize] = useSessionState("sf_wizard:party", "");
   const [boatInfo, setBoatInfo] = useSessionState("sf_wizard:boat", { model: "", lengthFt: "", year: "" });
   // null = δεν το άγγιξε: ισχύει «επιστροφή στο ίδιο λιμάνι» αν δεν υπάρχει άλλο «Προς».
@@ -175,15 +169,10 @@ export default function CrewSearchFlow() {
   const kind = boatKind(lookups.boatTypes.find((b) => b.id === boatTypeId)?.name || "");
   const STEPS = stepsFor(roles, kind);
 
-  // Picking "skipper" adds a "boat" step further on — recalculating the
-  // total live off `roles` made the fraction in the header change the
-  // instant a role got tapped, while the client was still standing on that
-  // same question. Assuming the longer, skipper-included count while still
-  // on the role step (then switching to the real one once they've moved
-  // past it, where `roles` is fixed for the rest of the flow) means the
-  // number only ever changes on the way to the next screen, not underneath
-  // an answer they're still choosing.
-  const displaySteps = step === 0 ? stepsFor(roles.includes("skipper") ? roles : [...roles, "skipper"], kind) : STEPS;
+  // The number of cabin screens depends on the roles picked ON the role step, so while standing on it
+  // the total assumes one cabin screen (then switches to the real count once the client has moved past
+  // it): the fraction in the header never changes underneath an answer still being chosen.
+  const displaySteps = STEPS[step] === "role" ? stepsFor(roles.slice(0, 1).length ? roles.slice(0, 1) : ["skipper"], kind) : STEPS;
 
   // Pushes history itself rather than inside a setStep updater — React
   // (StrictMode, in dev) can invoke an updater function twice per call,
@@ -216,7 +205,7 @@ export default function CrewSearchFlow() {
       point: departurePoint.trim(),
       arrival: arrivalPoint.trim() || departurePoint.trim(),
       boat: boatTypeId || "",
-      lang: languageCodes.join(","),
+      lang: "en", // English is assumed; the language choice comes later as an optional link on the summary
       party: partySize || "",
       cabin: serializeCabins(cabins, roles),
       bm: boatName(boatBrand, boatModel),
@@ -461,18 +450,6 @@ export default function CrewSearchFlow() {
           </div>
           <div className="sf-step-footer">
             <button type="button" onClick={() => { if (!partySize) setPartySize("2"); next(); }} style={cta}>
-              {t("continue")}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {current === "language" && (
-        <div key="language" data-sf-step style={stepWrap}>
-          <StepHeading>{t("languageTitle")}</StepHeading>
-          <LanguagePicker value={languageCodes} onChange={setLanguageCodes} />
-          <div className="sf-step-footer">
-            <button type="button" onClick={next} style={cta}>
               {t("continue")}
             </button>
           </div>

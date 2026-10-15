@@ -8,16 +8,12 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 await ctx.addCookies([{ name: "sf_locale", value: "el", url: BASE }]);
 const page = await ctx.newPage();
-const cont = () => page.locator(".sf-step-footer button").first().click();
-await page.goto(BASE + "/platform"); await page.waitForTimeout(1200);
-await page.locator("button, a").filter({ hasText: /Αναζήτηση πληρώματος/ }).first().click(); await page.waitForTimeout(500);
-await page.locator("button[aria-pressed]").nth(0).click(); await cont(); await page.waitForTimeout(500);
-await page.locator("button").filter({ hasText: /Ελλάδα/ }).first().click(); await page.waitForTimeout(2500);
-await cont(); await page.waitForTimeout(700);
-await pickDay(page, daysFromToday(40)); await pickDay(page, daysFromToday(43)); await cont(); await page.waitForTimeout(900);
-await page.locator("button[aria-pressed]").nth(0).click(); await page.waitForTimeout(700);
-for (let i = 0; i < 4; i++) { await page.getByRole("button", { name: "Παράλειψη", exact: true }).click(); await page.waitForTimeout(500); }
-await cont(); await page.waitForTimeout(700); // επιβάτες
+// The wizard no longer has a language screen (English is assumed); the picker lives in the results filters.
+await page.goto(BASE + "/platform/search?" + new URLSearchParams({ roles: "skipper", start: iso(daysFromToday(40)), end: iso(daysFromToday(43)), region: sql(`select id from regions where name = 'Κυκλάδες'`), point: "Νάξος", arrival: "Νάξος", boat: sql(`select id from boat_types where name = 'Ιστιοπλοϊκό'`), party: "4", cabin: "skipper:bunk", lang: "en" }));
+await page.waitForTimeout(2500);
+const openFilters = async () => { await page.getByRole("button", { name: /^(Αλλαγή|Change)$/ }).first().click(); await page.waitForTimeout(500); };
+await openFilters();
+await page.locator("[data-language-picker]").first().scrollIntoViewIfNeeded();
 
 const chips = () => page.locator("[data-language-picker] button[aria-pressed=true]");
 const names = async () => (await chips().allInnerTexts()).map((x) => x.trim());
@@ -59,10 +55,11 @@ await page.getByRole("button", { name: "Περισσότερες γλώσσες"
 // Αγγλικά: ίδιο πεδίο, αναζήτηση «Ger».
 await ctx.addCookies([{ name: "sf_locale", value: "en", url: BASE }]);
 await page.reload(); await page.waitForTimeout(2500);
-check("αγγλικά: τα chips είναι στα αγγλικά και διατηρούνται μετά την ανανέωση", (await names()).join() === "German", (await names()).join());
+await openFilters();
+check("αγγλικά: το chip είναι στα αγγλικά", (await names()).join() === "English", (await names()).join());
 if (!(await page.getByPlaceholder("Type a language").count())) await page.getByRole("button", { name: "More languages" }).click();
 await page.getByPlaceholder("Type a language").fill("Ger");
-check("«Ger» → German (δεύτερο όνομα: Γερμανικά)", (await page.locator("[data-language-option=de]").count()) === 0 && (await page.getByPlaceholder("Type a language").inputValue()) === "Ger");
+check("«Ger» → German με το ελληνικό όνομα δίπλα", (await page.locator("[data-language-option=de]").innerText()).includes("German") && (await page.locator("[data-language-option=de]").innerText()).includes("Γερμανικά"));
 await page.getByPlaceholder("Type a language").fill("Fren");
 check("«Fren» → French με το ελληνικό όνομα δίπλα", (await page.locator("[data-language-option=fr]").innerText()).includes("French") && (await page.locator("[data-language-option=fr]").innerText()).includes("Γαλλικά"));
 await shoot(page, "language-search-en");

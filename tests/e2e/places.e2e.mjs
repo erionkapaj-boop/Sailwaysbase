@@ -14,17 +14,15 @@ await as(MARIA, async (page) => {
   // ---- Οδηγός: ρόλος → χώρα → «από πού» → ημερομηνίες ----
   await go(page, "/platform");
   await page.locator("button.sf-cta").click();
-  await page.getByRole("button", { name: /^Skipper/ }).click();
-  await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(400);
 
   let t = await text(page);
-  check("πρώτα η χώρα, σε δική της σελίδα", t.includes("Ποια χώρα;") && !t.includes("Προς"));
+  check("πρώτα η χώρα, σε δική της σελίδα, με τίτλο «Πού θα ταξιδέψεις;»", t.includes("Πού θα ταξιδέψεις;") && !t.includes("Προς"));
   await shoot(page, "wizard-country");
   await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
   await page.waitForTimeout(400);
   t = await text(page);
-  check("μετά το μέρος (όχι περιοχή / λιμάνι ξεχωριστά)", t.includes("Πού;") && t.includes("Από") && t.includes("Επιστροφή στο ίδιο λιμάνι") && !t.includes("Προς") && !t.includes("Ποια περιοχή;"));
+  check("μετά το μέρος (όχι περιοχή / λιμάνι ξεχωριστά)", t.includes("Από ποιο λιμάνι;") && t.includes("Από") && t.includes("Επιστροφή στο ίδιο λιμάνι") && !t.includes("Προς") && !t.includes("Ποια περιοχή;"));
   check("ο χάρτης φαίνεται αμέσως, με προεπιλογή Άλιμο και ενεργό «Συνέχεια»",
     (await page.locator("[data-choice-map]").count()) === 1 && (await page.locator("[data-route-field=from] [data-place-title]").innerText()) === "Άλιμος" && !(await page.getByRole("button", { name: "Συνέχεια" }).isDisabled()));
   await shoot(page, "wizard-where-empty");
@@ -78,7 +76,7 @@ await as(MARIA, async (page) => {
   await page.waitForTimeout(400);
 
   // Ημερολόγιο μετά το μέρος· η ενέργεια φαίνεται χωρίς κύλιση, και σε κινητό.
-  check("το ημερολόγιο έρχεται μετά το μέρος", (await text(page)).includes("Πότε;"));
+  check("το ημερολόγιο έρχεται μετά το μέρος", (await text(page)).includes("Πότε θα ταξιδέψεις;"));
   await page.setViewportSize({ width: 390, height: 740 });
   await pickDay(page, daysFromToday(40));
   await pickDay(page, daysFromToday(43));
@@ -89,6 +87,12 @@ await as(MARIA, async (page) => {
   check("«Συνέχεια» ορατό στην οθόνη του κινητού χωρίς κύλιση", inView);
   await shoot(page, "wizard-dates");
   await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByRole("button", { name: "Συνέχεια" }).click();
+  await page.waitForTimeout(300);
+  check("επιβάτες: μία ερώτηση, μεγάλος μετρητής", (await text(page)).includes("Πόσοι επιβάτες θα είστε;") && (await page.locator("[data-counter] output").innerText()).trim() === "2");
+  await page.getByRole("button", { name: "Περισσότερο" }).click();
+  await page.getByRole("button", { name: "Περισσότερο" }).click();
+  check("ο μετρητής πάει στο 4", (await page.locator("[data-counter] output").innerText()).trim() === "4");
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(300);
   await page.getByRole("button", { name: "Ιστιοπλοϊκό" }).click();
@@ -115,19 +119,10 @@ await as(MARIA, async (page) => {
   await page.locator("#wz-boat-year").fill("2022");
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(300);
-  check("επιβάτες: μία ερώτηση, μεγάλος μετρητής", (await text(page)).includes("Πόσοι επιβάτες θα είστε;") && (await page.locator("[data-counter] output").innerText()).trim() === "2");
-  await page.getByRole("button", { name: "Περισσότερο" }).click();
-  await page.getByRole("button", { name: "Περισσότερο" }).click();
-  check("ο μετρητής πάει στο 4", (await page.locator("[data-counter] output").innerText()).trim() === "4");
-  await page.getByRole("button", { name: "Συνέχεια" }).click();
-  await page.waitForTimeout(300);
-  const chosen = () => page.locator("[data-language-picker] button[aria-pressed=true]").count();
-  check("γλώσσες: «Ποιες γλώσσες μιλάς;» με μόνο τα Αγγλικά επιλεγμένα (τικ)", (await text(page)).includes("Ποιες γλώσσες μιλάς;") && (await chosen()) === 1 && (await page.locator("[data-language=en]").count()) === 1);
-  await shoot(page, "wizard-language");
-  await page.getByRole("button", { name: "Περισσότερες γλώσσες" }).click();
-  await page.getByPlaceholder("Γράψε γλώσσα").fill("Πολ");
-  await page.locator("[data-language-option=pl]").click();
-  check("η Πολωνική προστέθηκε στις επιλεγμένες", (await page.locator("[data-language=pl]").getAttribute("aria-pressed")) === "true" && (await chosen()) === 2);
+  check("βοήθεια: «Ποια βοήθεια θα ήθελες στο ταξίδι σου;» μετά το σκάφος", (await text(page)).includes("Ποια βοήθεια θα ήθελες στο ταξίδι σου;") && (await text(page)).includes("Skipper") && (await text(page)).includes("Hostess"));
+  check("χωρίς οθόνη γλώσσας", !(await text(page)).includes("Ποιες γλώσσες"));
+  await shoot(page, "wizard-roles");
+  await page.getByRole("button", { name: /^Skipper/ }).click();
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(300);
   check("καμπίνα: τρεις επιλογές, μία ερώτηση", (await text(page)).includes("Πού θα κοιμάται ο Skipper;") && (await page.locator("[data-cabin-choice] button").count()) === 3);
@@ -140,7 +135,7 @@ await as(MARIA, async (page) => {
   check("η αναζήτηση πήρε την περιοχή από το μέρος", url.searchParams.get("region") === cyclades, url.search);
   check("σημείο αναχώρησης «Νάουσα (Πάρος)»", url.searchParams.get("point") === "Νάουσα (Πάρος)", url.searchParams.get("point"));
   check("τερματισμός «Μύκονος»", url.searchParams.get("arrival") === "Μύκονος");
-  check("γλώσσες στο URL: όσες επιλέχτηκαν, με την Πολωνική", (url.searchParams.get("lang") || "") === "en,pl", url.search);
+  check("γλώσσα στο URL: μόνο τα Αγγλικά (δεδομένα)", (url.searchParams.get("lang") || "") === "en", url.search);
   check("καμπίνα σκίπερ για τον Skipper στο URL", url.searchParams.get("cabin") === "skipper:skipper", url.search);
   check("σκάφος «Bavaria Cruiser 46», 46 πόδια, έτος 2022", url.searchParams.get("bm") === "Bavaria Cruiser 46" && url.searchParams.get("bl") === "46" && url.searchParams.get("by") === "2022", url.search);
   await page.waitForTimeout(1500);

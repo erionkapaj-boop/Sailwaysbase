@@ -16,10 +16,10 @@ for (const locale of ["el", "en"]) {
   const cont = () => page.locator(".sf-step-footer button").first().click();
   await page.goto(BASE + "/platform"); await page.waitForTimeout(1200);
   await page.locator("button, a").filter({ hasText: /Αναζήτηση πληρώματος/ }).first().click(); await page.waitForTimeout(500);
-  await page.locator("button[aria-pressed]").nth(0).click(); await cont(); await page.waitForTimeout(500);
   await page.locator("button").filter({ hasText: /Ελλάδα/ }).first().click(); await page.waitForTimeout(2500);
   await cont(); await page.waitForTimeout(700);
   await pickDay(page, daysFromToday(40)); await pickDay(page, daysFromToday(43)); await cont(); await page.waitForTimeout(900);
+  await cont(); await page.waitForTimeout(700); // επιβάτες
   await page.locator("button[aria-pressed]").nth(0).click(); await page.waitForTimeout(700); // ιστιοπλοϊκό
   if (locale === "en") { await ctx.addCookies([{ name: "sf_locale", value: "en", url: BASE }]); await page.reload(); await page.waitForTimeout(2500); }
   const t = async () => (await page.innerText("body")).replace(/\s+/g, " ");

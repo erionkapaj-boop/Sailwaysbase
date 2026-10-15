@@ -76,16 +76,16 @@ const b2 = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: p
   await page.goto(`${BASE}/platform`);
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Αναζήτηση πληρώματος" }).click();
-  await page.getByRole("button", { name: /Skipper/ }).first().click();
-  await page.getByRole("button", { name: "Συνέχεια" }).click();
+  await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
+  await page.waitForTimeout(1500);
   await page.goto(`${BASE}/platform/contact`);
   await page.waitForLoadState("networkidle");
   await page.goBack();
   await page.waitForTimeout(1500);
-  check("πίσω από άλλη οθόνη: ο οδηγός ανοίγει στο ίδιο βήμα", (await text(page)).includes("Ποια χώρα"));
+  check("πίσω από άλλη οθόνη: ο οδηγός ανοίγει στο ίδιο βήμα", (await text(page)).includes("Από ποιο λιμάνι;"));
   await page.getByRole("button", { name: "Πίσω" }).first().click();
   await page.waitForTimeout(600);
-  check("πίσω στο προηγούμενο βήμα: ο ρόλος μένει διαλεγμένος", (await page.getByRole("button", { name: /Skipper/ }).first().getAttribute("aria-pressed")) === "true");
+  check("πίσω στο προηγούμενο βήμα: η χώρα μένει", (await text(page)).includes("Πού θα ταξιδέψεις;") && (await page.evaluate(() => sessionStorage.getItem("sf_wizard:country"))) === '"GR"');
   await page.goto(`${BASE}/platform/contact`);
   await check_small_logo(page);
 }
