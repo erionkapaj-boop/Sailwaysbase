@@ -1,4 +1,4 @@
-import { colors, fontSerif } from "../../../lib/platform/theme";
+import { colors, fontSans, fontSerif } from "../../../lib/platform/theme";
 
 // Placeholder mark standing in for the supplied logo draft, which wasn't
 // included with the brief: helm wheel in navy with a sand-coloured hub,
@@ -63,6 +63,19 @@ export default function Logo({ variant = "inline" }) {
           whiteSpace: "nowrap",
         }}
       >
+        SkipperFinder
+      </span>
+    </span>
+  );
+}
+
+// Κέντρο της κεφαλίδας σε κάθε σελίδα εκτός αρχικής: μικρό τιμόνι + «SkipperFinder», διακριτικό. Ο καλών το τυλίγει
+// σε σύνδεσμο προς την αρχική (ο σταθερός τρόπος επιστροφής από οπουδήποτε).
+export function HeaderBrand() {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+      <Mark size={22} />
+      <span className="sf-brand-text" style={{ fontFamily: fontSans, fontSize: 14.5, fontWeight: 500, letterSpacing: "-0.005em", color: colors.ink, whiteSpace: "nowrap" }}>
         SkipperFinder
       </span>
     </span>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer, { AppFooter } from "./components/Footer";
-import { Mark } from "./components/Logo";
+import { HeaderBrand } from "./components/Logo";
 import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
 import LanguageSwitcher from "./components/LanguageSwitcher";
@@ -49,7 +49,7 @@ function AccountNavBar({ isAdmin, isHome, homeLabel, name, photoUrl, items, acti
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
   return (
-    <div data-sf-header style={{ ...nav, display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "center", columnGap: 10 }}>
+    <div data-sf-header data-signed-in style={{ ...nav, padding: "6px 14px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 10 }}>
       {/* Top left: the apps dots (boat delivery, open requests) and Back; the admin keeps the
           account menu here (it also has the permanent side menu). */}
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -61,19 +61,11 @@ function AccountNavBar({ isAdmin, isHome, homeLabel, name, photoUrl, items, acti
         <HeaderBackSlot />
       </div>
 
-      {/* Working pages: only the small helm mark, always links home. The full
-          logo lives on the home page alone. */}
-      {isHome ? <span /> : (
-        <Link
-          href="/platform"
-          aria-label={homeLabel}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", minWidth: 44, minHeight: 44, margin: "0 auto" }}
-        >
-          <Mark size={28} />
-        </Link>
-      )}
+      {/* Every page except the home: the small helm + «SkipperFinder», always links home (the fixed way back from
+          anywhere). The big logo lives on the home page alone. */}
+      {isHome ? <span /> : <HomeBrandLink label={homeLabel} />}
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4, justifySelf: "end" }}>
         {/* Πλατιά οθόνη: ο λογαριασμός φαίνεται και οδηγεί στο προφίλ· στο κινητό μένει στο μενού. */}
         <Link href="/platform/profile" className="sf-hide-narrow" style={{ alignItems: "center", gap: 8, textDecoration: "none", marginRight: 6, color: colors.ink, fontSize: 14 }}>
           <Avatar src={photoUrl} name={name || ""} size={30} />
@@ -187,7 +179,7 @@ function NavBar() {
         </div>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           <LanguageSwitcher compact />
-          <Link href="/platform/login" style={{ ...navLink, ...tapTarget, color: colors.ink, fontSize: 15 }}>
+          <Link href="/platform/login" style={{ ...navLink, ...tapTarget, padding: "0 8px", color: colors.ink, fontSize: 15 }}>
             {t("login")}
           </Link>
         </div>
@@ -195,25 +187,37 @@ function NavBar() {
     );
   }
 
-  // Signed out: the plain marketing header.
+  // Signed out, any other page: the same header as everywhere — dots on the left, helm + «SkipperFinder» in the
+  // middle (home), language and Login on the right. No search link (the home page is the search entry point) and
+  // deliberately no sign-up: registration is a step inside the flow, not a separate door.
   return (
-    <div style={{ ...nav, flexWrap: "wrap", rowGap: 8, columnGap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <div data-sf-header style={{ ...nav, padding: "6px 14px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <HomeAppsMenu />
         <HeaderBackSlot />
-        <Link href="/platform" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, textDecoration: "none" }} aria-label={t("homeAriaLabel")}>
-          <Mark size={28} />
-        </Link>
       </div>
-      {/* Header carries Login only — no search link (the home page is the
-          search entry point) and deliberately no sign-up: registration is a
-          step inside the flow, at the SMS OTP moment, not a separate door. */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", rowGap: 8 }}>
-        <LanguageSwitcher />
-        <Link href="/platform/login" style={{ ...navLink, color: colors.ink }}>
+      <HomeBrandLink label={t("homeAriaLabel")} />
+      <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "flex-end" }}>
+        <LanguageSwitcher compact />
+        <Link href="/platform/login" style={{ ...navLink, ...tapTarget, padding: "0 8px", color: colors.ink, fontSize: 15 }}>
           {t("login")}
         </Link>
       </div>
     </div>
+  );
+}
+
+// The centre of the header on every page but the home: helm + name, one tap to the home page.
+function HomeBrandLink({ label }) {
+  return (
+    <Link
+      href="/platform"
+      aria-label={label}
+      data-home-link
+      style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none", minWidth: 44, minHeight: 44, padding: "0 6px" }}
+    >
+      <HeaderBrand />
+    </Link>
   );
 }
 
@@ -230,6 +234,8 @@ const globalStyles = `
 }
 .platform-scope ::placeholder { color: ${colors.inkSoft}; opacity: 0.7; }
 .platform-scope button:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Signed in on a phone: four icons on the right leave no room for the name next to the helm — only the helm stays. */
+@media (max-width: 480px) { [data-sf-header][data-signed-in] .sf-brand-text { display: none; } }
 .platform-scope a:hover { color: ${colors.ink}; }
 .platform-scope input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.65; }
 .platform-scope input[type=date]::-webkit-calendar-picker-indicator:hover { opacity: 1; }

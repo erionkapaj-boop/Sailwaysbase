@@ -3,7 +3,7 @@
 // εμπειρίες, και κάτω η πόρτα για τους επαγγελματίες. Ελληνικά και αγγλικά.
 import { chromium } from "playwright";
 import http from "node:http";
-import { BASE, as, go, text, check, finish, shoot } from "./lib.mjs";
+import { BASE, as, go, text, check, finish, shoot, hydrationDiag } from "./lib.mjs";
 
 // Στο skipperfinder.gr η αρχική είναι η ρίζα «/» (middleware.js): ίδια κεφαλίδα με το /platform.
 const html = await new Promise((resolve, reject) => {
@@ -22,7 +22,11 @@ for (const locale of ["el", "en"]) {
   if (locale === "en") await ctx.addCookies([{ name: "sf_locale", value: "en", url: BASE }]);
   const page = await ctx.newPage();
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (e) => {
+    errors.push(e.message);
+    // React #418 intermittent (docs/PENDING.md): print what differs between server HTML and DOM.
+    if (/#418|#423|#425/.test(e.message)) hydrationDiag(page, `home ${locale} ${page.url()}`).catch(() => {});
+  });
   await go(page, "/platform");
   const L = locale === "el"
     ? { tag: "Οι άνθρωποι πίσω από κάθε ταξίδι.", cta: "Αναζήτηση πληρώματος", other: "Έχεις κάτι άλλο στο μυαλό σου;", exp: "Ανακάλυψε εμπειρίες στη θάλασσα", pro: "Είσαι επαγγελματίας;", create: "Δημιούργησε προφίλ", board: "Ανοιχτά αιτήματα", login: "Σύνδεση", menu: "Περισσότερα", delivery: "Μεταφορά σκάφους", terms: "Όροι χρήσης" }
@@ -93,7 +97,7 @@ await b2.close();
 
 async function check_small_logo(page) {
   const link = page.locator('a[aria-label^="SkipperFinder"]').first();
-  check("σελίδα χρήσης: μικρό τιμόνι που οδηγεί στην αρχική, χωρίς πλήρες λογότυπο", (await link.locator("svg").count()) > 0 && !(await link.innerText()).includes("SkipperFinder"));
+  check("σελίδα χρήσης: κέντρο κεφαλίδας με μικρό τιμόνι και «SkipperFinder» που οδηγεί στην αρχική", (await link.locator("svg").count()) > 0 && (await link.innerText()).includes("SkipperFinder"));
 }
 
 finish();
