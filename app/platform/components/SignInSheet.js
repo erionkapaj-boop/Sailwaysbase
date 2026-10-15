@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import GoogleButton from "./GoogleButton";
 import { signInWithGoogle } from "../../../lib/platform/db";
 import { friendlyError } from "../../../lib/platform/friendlyError";
-import { colors, radius, shadow, fontSans, muted } from "../../../lib/platform/theme";
+import { colors, shadow, fontSans, muted } from "../../../lib/platform/theme";
 
 // "One more step": the only moment a client is asked for an account (to send the request / buy credits).
 // One Google button, no forms, no codes. beforeRedirect() saves the request so it is restored exactly as it was
@@ -40,7 +40,7 @@ export default function SignInSheet({ open, onClose, beforeRedirect, next }) {
       onClick={onClose}
       style={{ position: "fixed", inset: 0, background: "rgba(22,40,60,0.38)", zIndex: 80, display: "flex", justifyContent: "center", alignItems: "flex-end" }}
     >
-      <style dangerouslySetInnerHTML={{ __html: "@keyframes sf-sheet-up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}@media(prefers-reduced-motion:reduce){[data-signin-sheet]{animation:none!important}}@media(min-width:640px){[data-signin-sheet-backdrop]{align-items:center!important}}" }} />
+      <style dangerouslySetInnerHTML={{ __html: "@keyframes sf-sheet-up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}@media(prefers-reduced-motion:reduce){[data-signin-sheet]{animation:none!important}}[data-signin-sheet]{border-radius:18px 18px 0 0}@media(min-width:640px){[data-signin-sheet-backdrop]{align-items:center!important}[data-signin-sheet]{border-radius:18px;margin:24px}}" }} />
       <div
         role="dialog"
         aria-modal="true"
@@ -49,7 +49,7 @@ export default function SignInSheet({ open, onClose, beforeRedirect, next }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%", maxWidth: 420, boxSizing: "border-box", background: colors.card, fontFamily: fontSans,
-          borderRadius: `${radius.lg + 4}px ${radius.lg + 4}px 0 0`, boxShadow: shadow.raised,
+          boxShadow: shadow.raised,
           padding: "22px 20px calc(20px + env(safe-area-inset-bottom))", animation: "sf-sheet-up 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both",
         }}
       >
