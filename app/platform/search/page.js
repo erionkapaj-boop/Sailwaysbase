@@ -57,6 +57,7 @@ import Icon from "../components/Icon";
 import { cabinAt, cabinOf, cabinsFilled, isMultiDay, isPrivateCabin, parseCabins, parsePositions, CABIN_UNKNOWN } from "../../../lib/platform/cabin";
 import LanguagePicker from "../components/LanguagePicker";
 import SignInSheet from "../components/SignInSheet";
+import { scrollToElement, scrollToTop } from "../../../lib/platform/motion";
 import { parseLanguageCodes } from "../../../lib/platform/languageFilter";
 import { languageCodeOfDbName } from "../../../lib/platform/languages";
 import { BOAT_UNKNOWN, boatLine, boatValid } from "../../../lib/platform/boat";
@@ -1567,7 +1568,7 @@ function SearchPageInner() {
   const boatTypeUnknown = filters.boatTypeId === BOAT_UNKNOWN;
 
   useEffect(() => {
-    if (checkoutDone) window.scrollTo({ top: 0 });
+    if (checkoutDone) scrollToTop();
   }, [checkoutDone]);
 
   const totalSelected = Object.values(selectionsByRole).reduce((n, set) => n + (set?.size || 0), 0);
@@ -1790,7 +1791,7 @@ function SearchPageInner() {
           showFullFilters={showFullFilters}
           onEditFilters={() => {
             setShowFullFilters(true);
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            scrollToTop();
           }}
           selected={getRoleSelection(role)}
           onToggle={(id) => toggleRoleSelection(role, id)}
@@ -1833,7 +1834,7 @@ function SearchPageInner() {
           fee={fee}
           openByRole={openByRole}
           emptyByRole={emptyByRole}
-          onGoToCheckout={() => checkoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          onGoToCheckout={() => scrollToElement(checkoutRef.current)}
         />
       )}
     </div>

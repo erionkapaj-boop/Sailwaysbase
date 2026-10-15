@@ -14,6 +14,7 @@ import { usePlacePositions } from "../components/map/usePlacePositions";
 import { locatePoint, boundsOf } from "../../../lib/platform/geo";
 import { boatLine } from "../../../lib/platform/boat";
 import { cabinKindFrom, isMultiDay, CABIN_UNKNOWN } from "../../../lib/platform/cabin";
+import { scrollToElement } from "../../../lib/platform/motion";
 import {
   boardRequests, claimBoardRequest, withdrawBoardClaim, myBoardClaims, listLookups,
   deliveryBoardRequests, claimDeliveryBoardRequest, withdrawDeliveryBoardClaim, myDeliveryBoardClaims,
@@ -368,7 +369,7 @@ export default function BoardPage() {
   function onMarker(id) {
     if (wide) {
       setChosen(id);
-      document.querySelector(`[data-board-item="${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrollToElement(document.querySelector(`[data-board-item="${id}"]`));
     } else {
       setPicked(id);
     }

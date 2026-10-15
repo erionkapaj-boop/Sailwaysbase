@@ -6,6 +6,7 @@ import { useFormat } from "../useFormat";
 import { useLocalData } from "../useLocalData";
 import LoadError from "./LoadError";
 import { useAuth } from "../AuthContext";
+import { scrollToElement } from "../../../lib/platform/motion";
 import {
   listMessages,
   sendMessage,
@@ -116,7 +117,7 @@ export default function BookingPanel({
   // Arriving here from the notification bell (?focus=<id>) should land the
   // booking in view already open, not just highlighted somewhere off-screen.
   useEffect(() => {
-    if (autoExpand) rootRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (autoExpand) scrollToElement(rootRef.current);
   }, [autoExpand]);
 
   async function handleSend() {

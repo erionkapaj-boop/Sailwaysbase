@@ -242,6 +242,13 @@ ${BOTTOM_NAV_CSS}
 @keyframes sf-drawer-slide-r { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes sf-drawer-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 @keyframes sf-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* Κίνηση (docs/DESIGN.md «Κίνηση»): ήπια παντού, ~240ms ease-out. Το scroll είναι πάντα smooth (και φέρνει το στοιχείο στο
+ * κέντρο, μέσω lib/platform/motion.js)· τα βασικά στοιχεία αλλάζουν χρώμα/περίγραμμα/διαφάνεια χωρίς άλμα. */
+:root { --sf-motion-ms: 240ms; --sf-ease: cubic-bezier(0.22, 0.61, 0.36, 1); }
+html { scroll-behavior: smooth; }
+.platform-scope button, .platform-scope a, .platform-scope input, .platform-scope select, .platform-scope textarea {
+  transition: background-color var(--sf-motion-ms) var(--sf-ease), border-color var(--sf-motion-ms) var(--sf-ease), color var(--sf-motion-ms) var(--sf-ease), opacity var(--sf-motion-ms) var(--sf-ease), box-shadow var(--sf-motion-ms) var(--sf-ease);
+}
 /* Όποιος έχει ζητήσει «λιγότερη κίνηση» από το σύστημά του δεν βλέπει κινήσεις. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }

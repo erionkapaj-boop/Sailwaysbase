@@ -10,6 +10,7 @@ import {
   searchPlaces,
   suggestedPlaces,
 } from "../../../lib/platform/placeSearch";
+import { scrollToElement } from "../../../lib/platform/motion";
 import { COUNTRIES, regionExamples, regionIn } from "../../../lib/platform/places";
 import { logPlaceMiss } from "../../../lib/platform/health";
 import { colors, muted, select } from "../../../lib/platform/theme";
@@ -185,9 +186,7 @@ export default function PlacePicker({
   useEffect(() => {
     const el = browseRef.current;
     if (!browsing || !el) return;
-    const tall = el.getBoundingClientRect().height > window.innerHeight * 0.8;
-    el.style.scrollMarginTop = tall ? "72px" : "0";
-    el.scrollIntoView({ block: tall ? "start" : "center", behavior: "smooth" });
+    scrollToElement(el);
   }, [browsing]);
 
   useEffect(() => {
