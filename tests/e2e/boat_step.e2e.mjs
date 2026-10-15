@@ -38,6 +38,9 @@ for (const locale of ["el", "en"]) {
   // Πίσω στη μάρκα και αλλαγή σε Jeanneau.
   for (let i = 0; i < 3; i++) { await backBtn().click(); await page.waitForTimeout(350); }
   check(`${locale}: πίσω στη μάρκα`, (await t()).includes(L.brandTitle));
+  // With a brand typed in the field the chips give way to suggestions: clear it first, as a user changing brand would.
+  const brandInput = page.locator("input[type=text]").first();
+  if ((await brandInput.inputValue()) !== "") { await brandInput.fill(""); await page.waitForTimeout(300); }
   await page.getByRole("button", { name: "Jeanneau", exact: true }).click(); await page.waitForTimeout(500);
   const modelInput = page.getByPlaceholder(L.modelPh);
   check(`${locale}: το μοντέλο της προηγούμενης μάρκας (Cruiser 46) δεν μένει`, (await modelInput.inputValue()) === "" && !(await t()).includes("Cruiser 46"));
