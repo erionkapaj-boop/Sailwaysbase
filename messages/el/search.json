@@ -41,7 +41,7 @@
     "kind_motor": "Μηχανοκίνητο",
     "kind_gulet": "Γουλέτα",
     "partyTitle": "Πόσοι επιβάτες θα είστε;",
-    "languageTitle": "Ποιες γλώσσες;"
+    "languageTitle": "Ποιες γλώσσες μιλάς;"
   },
   "HomeEntry": {
     "adminTitle": "Διαχείριση",
@@ -310,7 +310,7 @@
     "whereEndsLabel": "Πού τελειώνει",
     "datesLabel": "Ημερομηνίες",
     "pickDates": "Επίλεξε ημερομηνίες.",
-    "languageLabel": "Γλώσσα (προαιρετικό)",
+    "languageLabel": "Ποιες γλώσσες μιλάς;",
     "languageAny": "Αδιάφορο",
     "languageHint": "Θα δεις μόνο επαγγελματίες που μιλάνε αυτή τη γλώσσα.",
     "partyLabel": "Επιβάτες",

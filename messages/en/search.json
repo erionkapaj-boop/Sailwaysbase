@@ -41,7 +41,7 @@
     "kind_motor": "Motor yacht",
     "kind_gulet": "Gulet",
     "partyTitle": "How many passengers will you be?",
-    "languageTitle": "Which languages?"
+    "languageTitle": "Which languages do you speak?"
   },
   "HomeEntry": {
     "adminTitle": "Administration",
@@ -310,7 +310,7 @@
     "whereEndsLabel": "Where it ends",
     "datesLabel": "Dates",
     "pickDates": "Select dates.",
-    "languageLabel": "Language (optional)",
+    "languageLabel": "Which languages do you speak?",
     "languageAny": "No preference",
     "languageHint": "You will only see professionals who speak this language.",
     "partyLabel": "Passengers",

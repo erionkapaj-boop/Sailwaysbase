@@ -2,8 +2,9 @@
 import { useEffect, useState } from "react";
 import { useSessionState } from "./useSessionState";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { listLookups } from "../../lib/platform/db";
+import { useLocale, useTranslations } from "next-intl";
+import { useAuth } from "./AuthContext";
+import { listLookups, getClientLanguages } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
 import BackButton from "./components/BackButton";
@@ -88,7 +89,14 @@ function StepHeading({ children }) {
 
 export default function CrewSearchFlow() {
   const router = useRouter();
+  const locale = useLocale();
+  const { session, userRow } = useAuth();
   const t = useTranslations("CrewSearchFlow");
+  const [profileLanguageIds, setProfileLanguageIds] = useState([]);
+  useEffect(() => {
+    if (!session || !userRow?.id) return;
+    getClientLanguages(userRow.id).then(setProfileLanguageIds).catch(() => {});
+  }, [session, userRow?.id]);
   const L = useLocalData();
   const [step, setStep] = useState(0);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [], languages: [] });
@@ -150,7 +158,12 @@ export default function CrewSearchFlow() {
     if (typeof n === "number") setStep(n);
   }, []);
 
-  const defaultLanguageIds = lookups.languages.filter((l) => LANGUAGES[l.name] === "English").map((l) => l.id);
+  // Προεπιλογή «ποιες γλώσσες μιλάς»: όσες έχει δηλώσει ο συνδεδεμένος πελάτης στο προφίλ του·
+  // αλλιώς Αγγλικά και η γλώσσα της σελίδας.
+  const wantedNames = ["English", locale === "el" ? "Greek" : "English"];
+  const defaultLanguageIds = profileLanguageIds.length
+    ? profileLanguageIds
+    : lookups.languages.filter((l) => wantedNames.includes(LANGUAGES[l.name])).map((l) => l.id);
   const kind = boatKind(lookups.boatTypes.find((b) => b.id === boatTypeId)?.name || "");
   const STEPS = stepsFor(roles, kind);
 

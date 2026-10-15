@@ -111,11 +111,13 @@ await as(MARIA, async (page) => {
   check("ο μετρητής πάει στο 4", (await page.locator("[data-counter] output").innerText()).trim() === "4");
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(300);
-  check("γλώσσες: τα Αγγλικά προεπιλεγμένα με τικ", (await text(page)).includes("Ποιες γλώσσες;") && (await page.getByRole("button", { name: "Αγγλικά", exact: true }).getAttribute("aria-pressed")) === "true");
+  const chosen = () => page.locator("[data-language-picker] button[aria-pressed=true]").count();
+  const before = await chosen();
+  check("γλώσσες: «Ποιες γλώσσες μιλάς;» με κάποιες ήδη επιλεγμένες (τικ)", (await text(page)).includes("Ποιες γλώσσες μιλάς;") && before >= 1);
   await shoot(page, "wizard-language");
   await page.getByRole("button", { name: "Περισσότερες γλώσσες" }).click();
   await page.locator("[data-language-list]").getByRole("button", { name: "Πολωνικά", exact: true }).click();
-  check("η Πολωνική προστέθηκε στις επιλεγμένες", (await page.getByRole("button", { name: "Πολωνικά", exact: true }).getAttribute("aria-pressed")) === "true");
+  check("η Πολωνική προστέθηκε στις επιλεγμένες", (await page.getByRole("button", { name: "Πολωνικά", exact: true }).getAttribute("aria-pressed")) === "true" && (await chosen()) === before + 1);
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(300);
   await page.locator("select").nth(0).selectOption({ label: "Ναι" });
@@ -125,7 +127,7 @@ await as(MARIA, async (page) => {
   check("η αναζήτηση πήρε την περιοχή από το μέρος", url.searchParams.get("region") === cyclades, url.search);
   check("σημείο αναχώρησης «Νάουσα (Πάρος)»", url.searchParams.get("point") === "Νάουσα (Πάρος)", url.searchParams.get("point"));
   check("τερματισμός «Μύκονος»", url.searchParams.get("arrival") === "Μύκονος");
-  check("γλώσσες στο URL: δύο επιλεγμένες", (url.searchParams.get("lang") || "").split(",").filter(Boolean).length === 2, url.search);
+  check("γλώσσες στο URL: όσες επιλέχτηκαν, με την Πολωνική", (url.searchParams.get("lang") || "").split(",").filter(Boolean).length >= 2, url.search);
   check("σκάφος «Bavaria Cruiser 46», 46 πόδια", url.searchParams.get("bm") === "Bavaria Cruiser 46" && url.searchParams.get("bl") === "46", url.search);
   await page.waitForTimeout(1500);
   t = await text(page);
