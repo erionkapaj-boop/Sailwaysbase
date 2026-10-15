@@ -108,7 +108,13 @@ await as(MARIA, async (page) => {
   await page.getByRole("button", { name: "46 πόδια" }).click();
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(300);
-  check("στις τελευταίες λεπτομέρειες δεν υπάρχει πια μοντέλο ή μήκος", !(await page.locator("#wz-boat-model").count()) && !(await page.locator("#wz-boat-length").count()));
+  check("βήμα έτους μετά τα πόδια: προαιρετικό, με «Παράλειψη» όσο είναι άδειο",
+    (await text(page)).includes("Έτος κατασκευής") && (await page.locator("#wz-boat-year").count()) === 1 && (await page.getByRole("button", { name: "Παράλειψη" }).count()) === 1 && !(await page.locator("#wz-boat-model").count()) && !(await page.locator("#wz-boat-length").count()));
+  await page.locator("#wz-boat-year").fill("1800");
+  check("άκυρο έτος: δεν προχωρά", await page.getByRole("button", { name: "Συνέχεια" }).isDisabled());
+  await page.locator("#wz-boat-year").fill("2022");
+  await page.getByRole("button", { name: "Συνέχεια" }).click();
+  await page.waitForTimeout(300);
   check("επιβάτες: μία ερώτηση, μεγάλος μετρητής", (await text(page)).includes("Πόσοι επιβάτες θα είστε;") && (await page.locator("[data-counter] output").innerText()).trim() === "2");
   await page.getByRole("button", { name: "Περισσότερο" }).click();
   await page.getByRole("button", { name: "Περισσότερο" }).click();
@@ -136,7 +142,7 @@ await as(MARIA, async (page) => {
   check("τερματισμός «Μύκονος»", url.searchParams.get("arrival") === "Μύκονος");
   check("γλώσσες στο URL: όσες επιλέχτηκαν, με την Πολωνική", (url.searchParams.get("lang") || "").split(",").filter(Boolean).length >= 2, url.search);
   check("καμπίνα σκίπερ για τον Skipper στο URL", url.searchParams.get("cabin") === "skipper:skipper", url.search);
-  check("σκάφος «Bavaria Cruiser 46», 46 πόδια", url.searchParams.get("bm") === "Bavaria Cruiser 46" && url.searchParams.get("bl") === "46", url.search);
+  check("σκάφος «Bavaria Cruiser 46», 46 πόδια, έτος 2022", url.searchParams.get("bm") === "Bavaria Cruiser 46" && url.searchParams.get("bl") === "46" && url.searchParams.get("by") === "2022", url.search);
   await page.waitForTimeout(1500);
   t = await text(page);
   check("σύνοψη: μέρος πρώτα, μετά περιοχή", t.includes("Νάουσα (Πάρος) → Μύκονος · Κυκλάδες"), t.slice(0, 400));

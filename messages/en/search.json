@@ -8,7 +8,7 @@
     "boatTypesFailed": "Boat types could not be loaded.",
     "retry": "Try again",
     "boatTypesLoading": "Loading boat types…",
-    "extrasTitle": "A few final details",
+    "yearTitle": "Year built",
     "finish": "Finish",
     "whereTitle": "Where?",
     "fromLabel": "From",

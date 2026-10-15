@@ -15,13 +15,11 @@ import CabinChoice from "./components/CabinChoice";
 import { serializeCabins } from "../../lib/platform/cabin";
 import LanguagePicker from "./components/LanguagePicker";
 import { LANGUAGES } from "../../lib/platform/localData/en.js";
-import { BrandStep, ModelStep, FeetStep } from "./components/BoatSteps";
+import { BrandStep, ModelStep, FeetStep, YearStep } from "./components/BoatSteps";
 import { boatKind, boatName } from "../../lib/platform/boatCatalog";
 import RouteStep from "./components/RouteStep";
 import { useLocalData } from "./useLocalData";
 import { COUNTRIES } from "../../lib/platform/places";
-import BoatFields from "./components/BoatFields";
-import { boatValid } from "../../lib/platform/boat";
 import { button, colors, input, label, muted, radius, select, h2 } from "../../lib/platform/theme";
 
 // Progressive disclosure (brief §4): one question on screen at a time, gentle
@@ -36,20 +34,20 @@ import { button, colors, input, label, muted, radius, select, h2 } from "../../l
 // The "boat" step only makes sense when the search includes skipper: a boat
 // type is what a skipper operates, and hostess (or any future non-skipper
 // role) doesn't have one. A hostess-only search skips straight from "where" to
-// "extras" instead of asking a question that has no right answer for it.
+// the party-size question instead of asking something that has no right answer for it.
 //
-// "extras" (language/party size/private cabin) is always last — everything
+// The last step is always the last role's cabin question — everything
 // the results page used to ask for AFTER the wizard handed off now gets
 // asked for here instead, so landing on results means there's nothing left
 // to fill in, just candidates to browse and pick.
 function stepsFor(roles, kind) {
   const base = ["role", "country", "where", "dates"];
   // Γουλέτα: χωρίς μάρκα/μοντέλο (δεν υπάρχουν κατάλογοι)· μόνο πόδια.
-  const boat = kind === "gulet" ? ["boat", "feet"] : ["boat", "brand", "model", "feet"];
+  const boat = kind === "gulet" ? ["boat", "feet", "year"] : ["boat", "brand", "model", "feet", "year"];
   const withBoat = roles.includes("skipper") ? [...base, ...boat] : base;
   // Καμπίνα: μία οθόνη για κάθε επαγγελματία που ζητά ο πελάτης, με τη σταθερή σειρά των ρόλων.
   const cabins = CREW_ROLES.filter((r) => roles.includes(r.key)).map((r) => `cabin:${r.key}`);
-  return [...withBoat, "party", "language", ...cabins, "extras"];
+  return [...withBoat, "party", "language", ...cabins];
 }
 
 const KIND_ORDER = ["sail", "cat", "motor", "gulet", "other"];
@@ -121,6 +119,19 @@ export default function CrewSearchFlow() {
   // null = δεν το άγγιξε: ισχύει «επιστροφή στο ίδιο λιμάνι» αν δεν υπάρχει άλλο «Προς».
   const [sameReturnRaw, setSameReturn] = useSessionState("sf_wizard:sameReturn", null);
   const sameReturn = sameReturnRaw ?? !arrivalPoint.trim();
+  // Όταν αλλάζει η μάρκα αδειάζουν το μοντέλο, τα πόδια και το έτος· όταν αλλάζει το μοντέλο, τα πόδια
+  // και το έτος: κανένα υπόλειμμα από προηγούμενη επιλογή (docs/DESIGN.md «Σκάφος»).
+  const changeBrand = (b) => {
+    if (b === boatBrand) return;
+    setBoatBrand(b);
+    setBoatModel("");
+    setBoatInfo((cur) => ({ ...cur, lengthFt: "", year: "" }));
+  };
+  const changeModel = (m) => {
+    if (m === boatModel) return;
+    setBoatModel(m);
+    setBoatInfo((cur) => ({ ...cur, lengthFt: "", year: "" }));
+  };
   const [cabins, setCabins] = useSessionState("sf_wizard:cabins", {});
   // Το πιο μακρινό βήμα που έχει ανοίξει ο χρήστης: το «μπροστά» φτάνει μέχρι εκεί.
   const [furthest, setFurthest] = useSessionState("sf_wizard:furthest", 0);
@@ -397,6 +408,7 @@ export default function CrewSearchFlow() {
                     if (boatTypeId !== b.id) {
                       setBoatBrand("");
                       setBoatModel("");
+                      setBoatInfo((cur) => ({ ...cur, lengthFt: "", year: "" }));
                     }
                     setBoatTypeId(b.id);
                     next();
@@ -428,14 +440,14 @@ export default function CrewSearchFlow() {
       {current === "brand" && (
         <div key="brand" data-sf-step style={stepWrap}>
           <StepHeading>{t("brandTitle")}</StepHeading>
-          <BrandStep kind={kind} brand={boatBrand} setBrand={setBoatBrand} onNext={next} />
+          <BrandStep kind={kind} brand={boatBrand} setBrand={changeBrand} onNext={next} />
         </div>
       )}
 
       {current === "model" && (
         <div key="model" data-sf-step style={stepWrap}>
           <StepHeading>{t("modelTitle")}</StepHeading>
-          <ModelStep kind={kind} brand={boatBrand} model={boatModel} setModel={setBoatModel} onNext={next} />
+          <ModelStep kind={kind} brand={boatBrand} model={boatModel} setModel={changeModel} onNext={next} />
         </div>
       )}
 
@@ -443,6 +455,13 @@ export default function CrewSearchFlow() {
         <div key="feet" data-sf-step style={stepWrap}>
           <StepHeading>{t("feetTitle")}</StepHeading>
           <FeetStep kind={kind} brand={boatBrand} model={boatModel} feet={boatInfo.lengthFt} setFeet={(v) => setBoatInfo((cur) => ({ ...cur, lengthFt: v }))} onNext={next} />
+        </div>
+      )}
+
+      {current === "year" && (
+        <div key="year" data-sf-step style={stepWrap}>
+          <StepHeading>{t("yearTitle")}</StepHeading>
+          <YearStep kind={kind} brand={boatBrand} model={boatModel} year={boatInfo.year} setYear={(v) => setBoatInfo((cur) => ({ ...cur, year: v }))} onNext={next} />
         </div>
       )}
 
@@ -480,23 +499,17 @@ export default function CrewSearchFlow() {
             value={cabins[current.slice(6)] || ""}
             onChange={(k) => {
               setCabins((cur) => ({ ...cur, [current.slice(6)]: k }));
-              next();
+              // Στο τελευταίο βήμα η επιλογή δεν προχωρά μόνη της: ακολουθεί «Ολοκλήρωση».
+              if (step < STEPS.length - 1) next();
             }}
           />
-        </div>
-      )}
-
-      {current === "extras" && (
-        <div key="extras" data-sf-step style={stepWrap}>
-          <StepHeading>{t("extrasTitle")}</StepHeading>
-          <div style={{ marginBottom: 24 }}>
-            <BoatFields idPrefix="wz-boat" fields={["year"]} value={boatInfo} onChange={(p) => setBoatInfo((cur) => ({ ...cur, ...p }))} />
-          </div>
-          <div className="sf-step-footer">
-            <button type="button" disabled={!boatValid(boatInfo)} onClick={finish} style={cta}>
-              {t("finish")}
-            </button>
-          </div>
+          {step === STEPS.length - 1 && (
+            <div className="sf-step-footer">
+              <button type="button" disabled={!cabins[current.slice(6)]} onClick={finish} style={cta}>
+                {t("finish")}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

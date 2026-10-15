@@ -6,7 +6,7 @@ import { button, colors, input, muted, radius } from "../../../lib/platform/them
 import Icon, { BOAT_ICON } from "./Icon";
 import { boatImage } from "../../../lib/platform/boatImages";
 
-// Τρία βήματα της ροής για τον σκάφος (μετά τον τύπο): μάρκα → μοντέλο → πόδια.
+// Τέσσερα βήματα της ροής για το σκάφος (μετά τον τύπο): μάρκα → μοντέλο → πόδια → έτος.
 // Ένα πάτημα σε chip ή πρόταση προχωρά αμέσως· ελεύθερο κείμενο με «Συνέχεια»·
 // όλα προαιρετικά («Παράλειψη»). Τα δεδομένα βρίσκονται στο lib/platform/boatCatalog.js.
 const cta = { ...button("primary"), width: "100%", height: 52, padding: "0 18px", fontSize: 16, borderRadius: 12 };
@@ -165,6 +165,31 @@ export function FeetStep({ kind, brand, model, feet, setFeet, onNext }) {
         </div>
       )}
       <Footer canContinue={Boolean(feet) && !bad} onNext={onNext} onSkip={onNext} />
+    </div>
+  );
+}
+
+// Έτος κατασκευής: προαιρετικό. Άδειο = «Παράλειψη»· συμπληρωμένο και έγκυρο = «Συνέχεια».
+export function YearStep({ kind, brand, model, year, setYear, onNext }) {
+  const t = useTranslations("CrewSearchFlow");
+  const tb = useTranslations("Boat");
+  const bad = Boolean(year) && !(Number(year) >= 1900 && Number(year) <= 2100);
+  return (
+    <div>
+      <BoatPicture kind={kind} brand={brand} model={model} title={boatName(brand, model)} />
+      <input
+        id="wz-boat-year" type="text" inputMode="numeric" maxLength={4} autoComplete="off" autoFocus value={year} placeholder="2019" aria-label={t("yearTitle")}
+        onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
+        style={{ ...input, height: 56, fontSize: 20, borderRadius: 12, borderColor: bad ? colors.danger : undefined }}
+      />
+      {bad && <p style={{ ...muted, color: colors.danger, fontSize: 13, margin: "8px 0 0" }}>{tb("invalid")}</p>}
+      <div className="sf-step-footer">
+        {year ? (
+          <button type="button" disabled={bad} onClick={onNext} style={cta}>{t("continue")}</button>
+        ) : (
+          <button type="button" onClick={onNext} style={{ display: "block", margin: "0 auto", minHeight: 44, padding: "8px 16px", background: "none", border: 0, font: "inherit", fontSize: 15, color: colors.inkSoft, cursor: "pointer" }}>{t("skip")}</button>
+        )}
+      </div>
     </div>
   );
 }
