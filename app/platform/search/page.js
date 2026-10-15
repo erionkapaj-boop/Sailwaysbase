@@ -4,7 +4,7 @@ import { formatCredits } from "../../../lib/platform/credits";
 import TrustLine from "../components/TrustLine";
 import Avatar from "../components/Avatar";
 import LoadError from "../components/LoadError";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
 import { useLocalData } from "../useLocalData";
@@ -56,6 +56,8 @@ import CabinChoice from "../components/CabinChoice";
 import Icon from "../components/Icon";
 import { cabinOf, isPrivateCabin, parseCabins } from "../../../lib/platform/cabin";
 import LanguagePicker from "../components/LanguagePicker";
+import { parseLanguageCodes } from "../../../lib/platform/languageFilter";
+import { languageCodeOfDbName } from "../../../lib/platform/languages";
 import { boatLine, boatValid } from "../../../lib/platform/boat";
 
 const BROADCAST_ERRORS = {
@@ -84,6 +86,21 @@ function identityLine(s, t, L) {
   if (s.age) parts.push(t("ageYears", { age: s.age }));
   if (s.languages?.length > 0) parts.push(L.text(s.languages.join(", ")));
   return parts.join(" · ");
+}
+
+// Σημάδι δίπλα στον επαγγελματία: ποιες από τις γλώσσες που διάλεξε ο πελάτης μιλά (✓ Αγγλικά).
+function SpokenMatch({ s, t, L }) {
+  const codes = s.matched_languages;
+  if (!codes?.length) return null;
+  const names = (s.languages || []).filter((n) => codes.includes(languageCodeOfDbName(n))).map((n) => L.text(n));
+  if (!names.length) return null;
+  const text = names.join(", ");
+  return (
+    <div data-spoken-match aria-label={t("spokenMatch", { languages: text })} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 13, fontWeight: 500, color: colors.success }}>
+      <Icon name="check" size={14} stroke={2.4} />
+      <span>{text}</span>
+    </div>
+  );
 }
 
 // Bottom-sheet chrome, matching the pattern already established for the
@@ -236,6 +253,7 @@ function ProfessionalDetailSheet({ s, selected, onToggle, onClose, days }) {
               </div>
             )}
             {identityLine(s, t, L) && <div style={{ ...muted, fontSize: 13, marginTop: 8, lineHeight: 1.4 }}>{identityLine(s, t, L)}</div>}
+            <SpokenMatch s={s} t={t} L={L} />
           </div>
         </div>
 
@@ -421,6 +439,7 @@ function ProfessionalCard({ s, selected, onToggle, days }) {
             </div>
           )}
           {identityLine(s, t, L) && <div style={{ ...muted, fontSize: 13, marginTop: 4 }}>{identityLine(s, t, L)}</div>}
+          <SpokenMatch s={s} t={t} L={L} />
 
                     <div style={{ margin: "10px 0" }}>
             <RatingLine s={s} />
@@ -1323,6 +1342,11 @@ function SearchPageInner() {
   // including hydration; the effect below is what actually resolves it.
   const [pending, setPending] = useState(null);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], languages: [], regions: [] });
+  // Παλιοί σύνδεσμοι και προσχέδια έχουν ids γλωσσών της βάσης: αντιστοιχούνται σε κωδικούς ISO.
+  const legacyLanguageCodes = useMemo(
+    () => new Map(lookups.languages.map((l) => [l.id, languageCodeOfDbName(l.name)]).filter(([, c]) => c)),
+    [lookups.languages]
+  );
   const [lookupsFailed, setLookupsFailed] = useState(false);
   const [filters, setFilters] = useState(incoming);
   // Whether the destination is being kept in sync with the departure point —
@@ -1642,9 +1666,8 @@ function SearchPageInner() {
           <div style={{ gridColumn: "1 / -1" }}>
             <label style={label}>{t("languageLabel")}</label>
             <LanguagePicker
-              languages={lookups.languages}
-              value={(filters.languageId || "").split(",").filter(Boolean)}
-              onChange={(ids) => setFilters((f) => ({ ...f, languageId: ids.join(",") }))}
+              value={parseLanguageCodes(filters.languageId, legacyLanguageCodes)}
+              onChange={(codes) => setFilters((f) => ({ ...f, languageId: codes.join(",") }))}
             />
           </div>
           <div>

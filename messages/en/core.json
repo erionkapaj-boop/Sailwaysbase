@@ -72,7 +72,12 @@
     "more": "Increase"
   },
   "LanguagePicker": {
-    "more": "More languages"
+    "more": "More languages",
+    "search": "Type a language",
+    "noMatch": "No language found",
+    "fewer": "You may find fewer professionals",
+    "keepEnglish": "Keep English",
+    "remove": "Remove"
   },
   "Cabin": {
     "bunk": "Bunk",

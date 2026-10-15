@@ -2,9 +2,8 @@
 import { useEffect, useState } from "react";
 import { useSessionState } from "./useSessionState";
 import { useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
-import { useAuth } from "./AuthContext";
-import { listLookups, getClientLanguages } from "../../lib/platform/db";
+import { useTranslations } from "next-intl";
+import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
 import BackButton from "./components/BackButton";
@@ -14,7 +13,7 @@ import Counter from "./components/Counter";
 import CabinChoice from "./components/CabinChoice";
 import { serializeCabins } from "../../lib/platform/cabin";
 import LanguagePicker from "./components/LanguagePicker";
-import { LANGUAGES } from "../../lib/platform/localData/en.js";
+import { isLanguageCode } from "../../lib/platform/languages";
 import { BrandStep, ModelStep, FeetStep, YearStep } from "./components/BoatSteps";
 import { boatKind, boatName } from "../../lib/platform/boatCatalog";
 import RouteStep from "./components/RouteStep";
@@ -92,14 +91,7 @@ function StepHeading({ children }) {
 
 export default function CrewSearchFlow() {
   const router = useRouter();
-  const locale = useLocale();
-  const { session, userRow } = useAuth();
   const t = useTranslations("CrewSearchFlow");
-  const [profileLanguageIds, setProfileLanguageIds] = useState([]);
-  useEffect(() => {
-    if (!session || !userRow?.id) return;
-    getClientLanguages(userRow.id).then(setProfileLanguageIds).catch(() => {});
-  }, [session, userRow?.id]);
   const L = useLocalData();
   const [step, setStep] = useState(0);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [], languages: [] });
@@ -112,8 +104,9 @@ export default function CrewSearchFlow() {
   const [boatTypeId, setBoatTypeId] = useSessionState("sf_wizard:boatType", "");
   const [boatBrand, setBoatBrand] = useSessionState("sf_wizard:brand", "");
   const [boatModel, setBoatModel] = useSessionState("sf_wizard:modelName", "");
-  // null = δεν έχει πειράξει τις γλώσσες· τότε ισχύει η προεπιλογή (Αγγλικά).
-  const [languageIds, setLanguageIds] = useSessionState("sf_wizard:langs", null);
+  // Κωδικοί γλωσσών ISO («en,de»). null = δεν τις έχει πειράξει· τότε ισχύει η προεπιλογή: μόνο Αγγλικά.
+  const [languageRaw, setLanguageCodes] = useSessionState("sf_wizard:langs", null);
+  const languageCodes = Array.isArray(languageRaw) ? languageRaw.filter(isLanguageCode) : ["en"];
   const [partySize, setPartySize] = useSessionState("sf_wizard:party", "");
   const [boatInfo, setBoatInfo] = useSessionState("sf_wizard:boat", { model: "", lengthFt: "", year: "" });
   // null = δεν το άγγιξε: ισχύει «επιστροφή στο ίδιο λιμάνι» αν δεν υπάρχει άλλο «Προς».
@@ -179,12 +172,6 @@ export default function CrewSearchFlow() {
     if (typeof n === "number") setStep(n);
   }, []);
 
-  // Προεπιλογή «ποιες γλώσσες μιλάς»: όσες έχει δηλώσει ο συνδεδεμένος πελάτης στο προφίλ του·
-  // αλλιώς Αγγλικά και η γλώσσα της σελίδας.
-  const wantedNames = ["English", locale === "el" ? "Greek" : "English"];
-  const defaultLanguageIds = profileLanguageIds.length
-    ? profileLanguageIds
-    : lookups.languages.filter((l) => wantedNames.includes(LANGUAGES[l.name])).map((l) => l.id);
   const kind = boatKind(lookups.boatTypes.find((b) => b.id === boatTypeId)?.name || "");
   const STEPS = stepsFor(roles, kind);
 
@@ -229,7 +216,7 @@ export default function CrewSearchFlow() {
       point: departurePoint.trim(),
       arrival: arrivalPoint.trim() || departurePoint.trim(),
       boat: boatTypeId || "",
-      lang: (languageIds ?? defaultLanguageIds).join(","),
+      lang: languageCodes.join(","),
       party: partySize || "",
       cabin: serializeCabins(cabins, roles),
       bm: boatName(boatBrand, boatModel),
@@ -483,7 +470,7 @@ export default function CrewSearchFlow() {
       {current === "language" && (
         <div key="language" data-sf-step style={stepWrap}>
           <StepHeading>{t("languageTitle")}</StepHeading>
-          <LanguagePicker languages={lookups.languages} value={languageIds ?? defaultLanguageIds} onChange={setLanguageIds} />
+          <LanguagePicker value={languageCodes} onChange={setLanguageCodes} />
           <div className="sf-step-footer">
             <button type="button" onClick={next} style={cta}>
               {t("continue")}

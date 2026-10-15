@@ -250,6 +250,7 @@
     "errAlreadySent": "This request has already been sent.",
     "errNotVerified": "Your account is still being reviewed. You will be able to send a request once it is activated.",
     "ageYears": "{age} years old",
+    "spokenMatch": "Speaks {languages}",
     "enlargePhoto": "Enlarge photo",
     "perDay": "/day",
     "stayTotal": "{days, plural, one {<m>{total}€</m> for <m>{daysText}</m> day} other {<m>{total}€</m> for <m>{daysText}</m> days}}",

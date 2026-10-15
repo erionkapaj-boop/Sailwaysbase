@@ -250,6 +250,7 @@
     "errAlreadySent": "Αυτό το αίτημα έχει ήδη σταλεί.",
     "errNotVerified": "Ο λογαριασμός σου ελέγχεται ακόμα. Θα μπορείς να στείλεις αίτημα μόλις ενεργοποιηθεί.",
     "ageYears": "{age} ετών",
+    "spokenMatch": "Μιλάει {languages}",
     "enlargePhoto": "Μεγέθυνση φωτογραφίας",
     "perDay": "/ημέρα",
     "stayTotal": "<m>{total}€</m> για <m>{daysText}</m> {days, plural, one {ημέρα} other {ημέρες}}",
