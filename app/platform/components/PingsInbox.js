@@ -23,6 +23,8 @@ import { boatLine } from "../../../lib/platform/boat";
 import BoatThumb from "./BoatThumb";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import PlaceMap from "./map/PlaceMap";
+import Icon, { CABIN_ICON } from "./Icon";
+import { cabinKindFrom } from "../../../lib/platform/cabin";
 
 const CLIENT_CATEGORIES = reviewCategoriesForRole("client");
 
@@ -189,10 +191,12 @@ export default function PingsInbox({ skipperId }) {
 // πελάτη πριν αποφασίσει να διεκδικήσει.
 function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
   const t = useTranslations("PingsInbox");
+  const tc = useTranslations("Cabin");
   const f = useFormat();
   const L = useLocalData();
   const [showBreakdown, setShowBreakdown] = useState(false);
   const r = p.booking_requests;
+  const cabinKind = cabinKindFrom(r.cabin_kind, r.private_cabin);
   const cp = r.client_profiles;
   const isOffer = r.origin && r.origin !== "client";
   const isReplacement = r.origin === "admin_replacement";
@@ -226,11 +230,14 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
               <span data-boat-line>{boatLine(r)}</span>
             </div>
           )}
-          {(r.party_size != null || r.private_cabin != null) && (
-            <p style={{ ...muted, fontSize: 13, margin: "2px 0 0" }}>
-              {r.party_size != null && <>{t("partySize", { count: r.party_size })}</>}
-              {r.party_size != null && r.private_cabin != null ? " · " : ""}
-              {r.private_cabin != null && <>{t("privateCabin", { value: r.private_cabin ? t("yes") : t("no") })}</>}
+          {r.party_size != null && (
+            <p style={{ ...muted, fontSize: 13, margin: "2px 0 0" }}>{t("partySize", { count: r.party_size })}</p>
+          )}
+          {cabinKind && (
+            <p data-cabin={cabinKind} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "2px 8px", fontSize: 13.5, margin: "6px 0 0", color: colors.ink }}>
+              <Icon name={CABIN_ICON[cabinKind]} size={20} stroke={1.5} />
+              <b style={{ fontWeight: 600 }}>{tc(cabinKind)}</b>
+              <span style={{ color: colors.inkSoft }}>{tc(`${cabinKind}Hint`)}</span>
             </p>
           )}
           <p style={{ ...muted, margin: "6px 0 0" }}>

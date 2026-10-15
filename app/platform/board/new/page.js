@@ -48,7 +48,7 @@ export default function NewBoardRequest() {
       await postOpenRequest({
         start: f.start, end: f.end, regionId: f.regionId, departure: f.departure, arrival: f.arrival,
         boatTypeId: f.boatTypeId, role: f.role, partySize: f.partySize ? Number(f.partySize) : null,
-        privateCabin: f.privateCabin, note: f.note,
+        privateCabin: f.privateCabin, cabinKind: f.privateCabin ? "private" : "bunk", note: f.note,
         boatModel: f.boatModel, boatLengthFt: f.boatLengthFt, boatYear: f.boatYear,
       });
       router.push("/platform/requests?board=1");

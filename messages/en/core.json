@@ -77,7 +77,10 @@
   "Cabin": {
     "bunk": "Bunk",
     "private": "Private cabin",
-    "skipper": "Skipper cabin"
+    "skipper": "Skipper cabin",
+    "bunkHint": "Shared space with bunk beds.",
+    "privateHint": "Large cabin, usually with a toilet.",
+    "skipperHint": "Small cabin, one berth in the bow."
   },
   "BoatPicture": {
     "caption": "Illustrative AI image",

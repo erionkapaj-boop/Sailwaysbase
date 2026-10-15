@@ -13,6 +13,7 @@ import MapView from "../components/map/MapView";
 import { usePlacePositions } from "../components/map/usePlacePositions";
 import { locatePoint, boundsOf } from "../../../lib/platform/geo";
 import { boatLine } from "../../../lib/platform/boat";
+import { cabinKindFrom } from "../../../lib/platform/cabin";
 import {
   boardRequests, claimBoardRequest, withdrawBoardClaim, myBoardClaims, listLookups,
   deliveryBoardRequests, claimDeliveryBoardRequest, withdrawDeliveryBoardClaim, myDeliveryBoardClaims,
@@ -103,6 +104,7 @@ const inBounds = (p, b) => p && b && p.lng >= b[0][0] && p.lng <= b[1][0] && p.l
 export default function BoardPage() {
   const t = useTranslations("Board");
   const td = useTranslations("DeliveryRequests");
+  const tc = useTranslations("Cabin");
   const f = useFormat();
   const L = useLocalData();
   const router = useRouter();
@@ -265,6 +267,11 @@ export default function BoardPage() {
   }, [authLoading, session, approved, pendingId]);
 
   const regionName = (id) => L.text(lookups.regions.find((r) => r.id === id)?.name || "");
+  // Η ακριβής καμπίνα που ζήτησε ο πελάτης (παλιές γραμμές: από το true/false).
+  const cabinFor = (r) => {
+    const kind = cabinKindFrom(r.cabin_kind, r.private_cabin);
+    return kind ? { kind, label: tc(kind), hint: tc(`${kind}Hint`) } : null;
+  };
   const boatName = (id) => L.text(lookups.boatTypes.find((b) => b.id === id)?.name || "");
   const place = (r) => L.text(r.departure_point || regionName(r.region_id));
 
@@ -390,11 +397,11 @@ export default function BoardPage() {
         route={sameRoute ? place(r) : t("route", { from: L.text(r.departure_point || regionName(r.region_id)), to: L.text(r.arrival_point) })}
         boat={boatLine(r)}
         boatName={r.boat_model}
+        cabin={cabinFor(r)}
         meta={[
           regionName(r.region_id) && { icon: "pin", text: regionName(r.region_id) },
           boatName(r.boat_type_id) && { icon: "boat", text: boatName(r.boat_type_id) },
           r.party_size && { icon: "users", text: t("party", { count: r.party_size }) },
-          r.private_cabin && { icon: "bed", text: t("privateCabin") },
         ].filter(Boolean)}
         facts={[
           { label: t("factDates"), value: f.dateRange(r.start_date, r.end_date) },

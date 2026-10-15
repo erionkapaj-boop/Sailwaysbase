@@ -18,10 +18,10 @@ trusted(`update users set wallet_balance = wallet_balance + 6 where id = '${CLIE
          insert into wallet_transactions (user_id, type, amount, note) values ('${CLIENT}', 'adjustment', 6, 'e2e open_from_search');`);
 trusted(`delete from request_drafts where user_id = '${CLIENT}'`);
 
-function url(role, from, to, withBoat) {
+function url(role, from, to, withBoat, cabin = "true") {
   const q = new URLSearchParams({
     roles: role, start: iso(daysFromToday(from)), end: iso(daysFromToday(to)), region: region(),
-    point: "Νάξος", arrival: "Νάξος", boat: withBoat ? boat : "", party: "4", cabin: "true",
+    point: "Νάξος", arrival: "Νάξος", boat: withBoat ? boat : "", party: "4", cabin,
   });
   return `/platform/search?${q}`;
 }
@@ -29,7 +29,7 @@ const openRows = (role) => num(`select count(*) from booking_requests where clie
 
 await as(MARIA, async (page) => {
   console.log("\n== 1. Καμία διαθέσιμη hostess: το αίτημα είναι έτοιμο και ολοκληρώνεται");
-  await go(page, url("hostess", 200, 203, false));
+  await go(page, url("hostess", 200, 203, false, "hostess:skipper"));
   await page.waitForTimeout(1500);
   let t = await text(page);
   await shoot(page, "open-zero");
@@ -82,6 +82,40 @@ await as(MARIA, async (page) => {
   await page.waitForTimeout(1500);
   check("στα Αιτήματα φαίνονται και οι δύο μορφές", (await text(page)).toLowerCase().includes("ανοιχτό αίτημα"));
 });
+
+// Η ακριβής καμπίνα φτάνει όπως επιλέχτηκε: skipper cabin (hostess) και ιδιωτική (skipper, παλιός σύνδεσμος true).
+check("στη βάση: skipper cabin μένει skipper, ιδιωτική μένει ιδιωτική",
+  num(`select count(*) from booking_requests where client_id = '${CLIENT}' and crew_role = 'hostess' and board_open and cabin_kind = 'skipper' and private_cabin`) === 1 &&
+  num(`select count(*) from booking_requests where client_id = '${CLIENT}' and crew_role = 'skipper' and board_open and cabin_kind = 'private'`) >= 1);
+{
+  const { chromium } = await import("playwright");
+  const { BASE } = await import("./lib.mjs");
+  const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
+  for (const [locale, skipperLabel, privateLabel, skipperHint] of [
+    ["el", "Καμπίνα σκίπερ", "Ιδιωτική καμπίνα", "Μικρή καμπίνα, ένα κρεβάτι στην πλώρη."],
+    ["en", "Skipper cabin", "Private cabin", "Small cabin, one berth in the bow."],
+  ]) {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await ctx.addCookies([{ name: "sf_locale", value: locale, url: BASE }]);
+    const pg = await ctx.newPage();
+    // Όλες οι κάρτες του πίνακα, ανά ρόλο, ώστε να φανεί και του hostess (+200 ημέρες).
+    await pg.goto(BASE + "/platform/board");
+    await pg.waitForTimeout(2500);
+    for (let i = 0; i < 6; i++) {
+      const more = pg.getByRole("button", { name: /^(Περισσότερα|More|Show more)/ });
+      if (await more.count()) { await more.first().click(); await pg.waitForTimeout(800); } else break;
+    }
+    const sk = pg.locator('[data-cabin="skipper"]').first();
+    const pr = pg.locator('[data-cabin="private"]').first();
+    check(`${locale}: ο πίνακας δείχνει «${skipperLabel}» με το εικονίδιο και την περιγραφή της`,
+      (await sk.count()) === 1 && (await sk.innerText()).includes(skipperLabel) && (await sk.innerText()).includes(skipperHint) && (await sk.locator("svg").count()) === 1);
+    check(`${locale}: η κάρτα skipper cabin δεν γράφει «${privateLabel}»`, !(await sk.innerText()).includes(privateLabel));
+    check(`${locale}: η ιδιωτική καμπίνα γράφει «${privateLabel}»`, (await pr.count()) === 1 && (await pr.innerText()).includes(privateLabel));
+    if (locale === "el") { await pg.setViewportSize({ width: 390, height: 844 }); await sk.scrollIntoViewIfNeeded(); await shoot(pg, "cabin-board"); }
+    await ctx.close();
+  }
+  await browser.close();
+}
 
 // Καθαρισμός: τα επόμενα τεστ περιμένουν τα credits και τα αιτήματα όπως ήταν.
 trusted(`delete from request_drafts where user_id = '${CLIENT}';

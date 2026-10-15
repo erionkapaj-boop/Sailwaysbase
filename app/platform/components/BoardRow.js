@@ -1,5 +1,6 @@
 "use client";
 import BoatThumb from "./BoatThumb";
+import SharedIcon, { CABIN_ICON } from "./Icon";
 import { colors, radius, fontSans } from "../../../lib/platform/theme";
 
 // Γραμμή αιτήματος του δημόσιου πίνακα: μοτίβο καταλόγου (σταθερή στήλη
@@ -59,6 +60,9 @@ export const BOARD_CSS = `
   .bd-act { order: 5; grid-column: 1 / -1; grid-row: auto; }
   .bd-extra { order: 6; }
 }
+.bd-cabin { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin: 8px 0 0; font-size: 13.5px; color: ${colors.ink}; }
+.bd-cabin b { font-weight: 600; }
+.bd-cabin span { color: ${colors.inkSoft}; }
 `;
 
 const ICON = { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
@@ -75,7 +79,7 @@ export function Icon({ name }) {
 }
 
 // date: "YYYY-MM-DD" της έναρξης· monthShort: όνομα μήνα στη γλώσσα της σελίδας.
-export default function BoardRow({ day, month, title, route, boat, boatName, meta = [], facts = [], note, action, extra }) {
+export default function BoardRow({ day, month, title, route, boat, boatName, meta = [], cabin, facts = [], note, action, extra }) {
   return (
     <div className="bd-row">
       <div className="bd-date" aria-hidden="true">
@@ -100,6 +104,13 @@ export default function BoardRow({ day, month, title, route, boat, boatName, met
               </span>
             ))}
           </div>
+        )}
+        {cabin && (
+          <p className="bd-cabin" data-cabin={cabin.kind}>
+            <SharedIcon name={CABIN_ICON[cabin.kind]} size={20} stroke={1.5} />
+            <b>{cabin.label}</b>
+            <span>{cabin.hint}</span>
+          </p>
         )}
       </div>
       <dl className="bd-facts">
