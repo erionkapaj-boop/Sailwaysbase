@@ -104,5 +104,36 @@ for (const [label, w, h] of SIZES) {
     await ctx.close();
   }
 }
+
+// ---- Μέσα στον οδηγό αναζήτησης: το header είναι το ίδιο (τελείες, τιμόνι + SkipperFinder → αρχική) ----
+for (const [label, w, h] of SIZES) {
+  for (const [who, phone] of [["μη συνδεδεμένος", null], ["πελάτης", "6900002002"]]) {
+    const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+    const page = await ctx.newPage();
+    if (phone) await login(page, phone);
+    await page.goto(`${BASE}/platform`);
+    await page.waitForTimeout(1500);
+    check(`${who}, ${label}: στην αρχική δεν υπάρχει το κέντρο του header (μεγάλο λογότυπο)`, (await page.locator("[data-home-link]").count()) === 0);
+    await page.getByRole("button", { name: "Αναζήτηση πληρώματος", exact: true }).click();
+    await page.waitForTimeout(600);
+    await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
+    await page.waitForTimeout(1800);
+    check(`${who}, ${label}: μέσα στον οδηγό το header έχει τιμόνι + SkipperFinder`, (await page.locator("[data-home-link]").count()) === 1);
+    const apps = page.getByRole("button", { name: "Περισσότερα", exact: true });
+    check(`${who}, ${label}: οι τελείες υπάρχουν μέσα στον οδηγό`, (await apps.count()) >= 1);
+    // το header μένει ορατό όταν η σελίδα κυλά
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await page.waitForTimeout(500);
+    const top = await page.locator("[data-home-link]").evaluate((el) => el.getBoundingClientRect().top);
+    check(`${who}, ${label}: το header μένει στη θέση του όταν κυλάει η σελίδα`, top >= 0 && top < 70, String(top));
+    await shoot(page, `header-flow-${who === "πελάτης" ? "in" : "out"}-${label}`);
+    await page.locator("[data-home-link]").click();
+    await page.waitForTimeout(1200);
+    const onHome = (await page.locator("[data-sf-wizard]").count()) === 0 && (await page.getByRole("button", { name: "Αναζήτηση πληρώματος", exact: true }).count()) === 1;
+    check(`${who}, ${label}: το τιμόνι πάει στην αρχική από μέσα από τον οδηγό`, onHome && !page.url().includes("flow="), page.url());
+    check(`${who}, ${label}: στην αρχική φαίνεται «Συνέχισε το αίτημά σου» και το μεγάλο λογότυπο`, (await page.locator("[data-resume-request]").count()) === 1 && (await page.locator("[data-home-link]").count()) === 0);
+    await ctx.close();
+  }
+}
 await browser.close();
 finish();

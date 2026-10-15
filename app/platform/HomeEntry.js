@@ -9,7 +9,7 @@ import { useAuth } from "./AuthContext";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
 import Icon from "./components/Icon";
-import { flowSearch, inFlowUrl, isRestoredNavigation } from "../../lib/platform/flowUrl";
+import { flowSearch, inFlowUrl, isRestoredNavigation, setFlowActive } from "../../lib/platform/flowUrl";
 import PendingReadyBanner from "./components/PendingReadyBanner";
 import RequestDraftLine from "./components/RequestDraftLine";
 import { adminOverview } from "../../lib/platform/db";
@@ -121,8 +121,23 @@ export default function HomeEntry() {
     try {
       const furthest = Number(JSON.parse(sessionStorage.getItem("sf_wizard:furthest") || "0"));
       if (furthest > 0 && !sessionStorage.getItem("sf_wizard:done")) setResumeStep(Number(JSON.parse(sessionStorage.getItem("sf_wizard:step") || "0")) || 0);
+      else setResumeStep(null);
     } catch {}
-  }, []);
+    // Re-read whenever the flow closes (the header's home link leaves it without remounting this page).
+  }, [started]);
+
+  // The header shows its full form (helm + name → home) while the flow is open.
+  useEffect(() => {
+    setFlowActive(started);
+    return () => setFlowActive(false);
+  }, [started]);
+
+  // A link back to the home page (the header's centre) drops ?flow from the URL while this component stays mounted.
+  const paramsKey = params.toString();
+  useEffect(() => {
+    if (started && !inFlowUrl()) setStarted(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey]);
 
   function openWizard() {
     clearSessionState("sf_wizard:");

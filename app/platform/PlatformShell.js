@@ -27,6 +27,7 @@ import PushPrompt from "./components/PushPrompt";
 import BottomNav, { BOTTOM_NAV_CSS } from "./components/BottomNav";
 import HeaderBackSlot from "./components/HeaderBackSlot";
 import { HeaderBackProvider } from "./components/HeaderBack";
+import { useFlowActive } from "../../lib/platform/flowUrl";
 
 const navLink = {
   fontSize: 14,
@@ -128,6 +129,9 @@ function NavBar() {
   const ts = useTranslations("Shell");
   const headerLocale = useLocale();
   const pathname = usePathname();
+  // Inside the request flow (it lives at the home URL) the header is the full one, not the home page's.
+  const inFlow = useFlowActive();
+  const onHomePage = (pathname === "/platform" || pathname === "/") && !inFlow;
   // Δεν διαβάζεται από το AdminCountsContext: αυτό το provider ζει μέσα στο
   // app/platform/admin/layout.js, πιο βαθιά στο δέντρο από εδώ (το μενού
   // είναι πλέον site-wide, όχι μόνο admin), οπότε το context δεν θα έφτανε
@@ -149,7 +153,7 @@ function NavBar() {
       <>
         <AccountNavBar
           isAdmin={isAdmin}
-          isHome={pathname === "/platform" || pathname === "/"}
+          isHome={onHomePage}
           homeLabel={t("homeAriaLabel")}
           name={displayName(profile, headerLocale) || displayName(userRow, headerLocale) || (isAdmin ? ts("adminName") : undefined)}
           photoUrl={profile?.photo_url || userRow?.photo_url}
@@ -170,7 +174,7 @@ function NavBar() {
   // Το λογότυπο είναι ήδη στο κέντρο της σελίδας. Στο skipperfinder.gr η αρχική
   // είναι η ρίζα «/» (το middleware.js την ξαναγράφει σε /platform, αλλά η
   // διεύθυνση στον browser μένει «/»), οπότε μετρά κι αυτή ως αρχική.
-  if (pathname === "/platform" || pathname === "/") {
+  if (onHomePage) {
     return (
       <div style={{ ...nav, borderBottom: "none", background: "transparent", backdropFilter: "none", position: "static", padding: "10px 14px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
