@@ -52,8 +52,10 @@ async function searchAndPick(page, from, to, price) {
   await page.locator("input[type=number]").fill("4");
   await page.getByRole("button", { name: "Ιδιωτική καμπίνα" }).click();
   await selects.first().selectOption({ label: "Ιστιοπλοϊκό" });
+  console.log("DBG before submit party=", await page.locator("input[type=number]").first().inputValue(), "url=", page.url());
   await page.click("button[type=submit]");
   await page.waitForTimeout(2500);
+  console.log("DBG after submit party=", await page.locator("input[type=number]").first().inputValue().catch(() => "n/a"), "err=", await page.getByText("Υποχρεωτικό πεδίο").count(), "cards=", await page.getByRole("button", { name: "Επιλογή", exact: true }).count());
   await page.locator("div").filter({ hasText: `${price}€` }).filter({ has: page.getByRole("button", { name: "Επιλογή", exact: true }) }).last()
     .getByRole("button", { name: "Επιλογή", exact: true }).click();
   await page.waitForTimeout(500);
