@@ -1642,7 +1642,7 @@ function SearchPageInner() {
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "6px 0 0" }}>{t("pickDates")}</p>
             )}
           </div>
-          <div>
+          <div style={{ gridColumn: "1 / -1" }}>
             <label style={label}>{t("languageLabel")}</label>
             <LanguagePicker
               languages={lookups.languages}
@@ -1670,7 +1670,7 @@ function SearchPageInner() {
               </p>
             )}
           </div>
-          <div>
+          <div style={{ gridColumn: "1 / -1" }}>
             {supportedRoles.map((r) => (
               <div key={r} style={{ marginBottom: 12 }}>
                 <label style={label}>{t("cabinFor", { role: labelForRole(r) })}</label>
