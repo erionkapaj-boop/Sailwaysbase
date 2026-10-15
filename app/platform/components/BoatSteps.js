@@ -106,6 +106,7 @@ export function BrandStep({ kind, brand, setBrand, onNext }) {
   };
   return (
     <div>
+      <BoatPicture kind={kind} brand="" model="" title="" />
       <PickField
         value={text} onChange={(v) => { setText(v); setBrand(v.trim()); }} chips={KINDS[kind] || []}
         suggestions={(q) => searchBrands(q, kind)} placeholder={t("brandPlaceholder")} ariaLabel={t("brandTitle")} onPick={pick}
