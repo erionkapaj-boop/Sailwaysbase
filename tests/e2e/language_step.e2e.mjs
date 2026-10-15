@@ -2,7 +2,7 @@
 // γλώσσες ISO 639), προσθήκη με ένα πάτημα, ερώτηση όταν αφαιρούνται τα Αγγλικά, και σημάδι στα
 // αποτελέσματα για όποιον επαγγελματία μιλά γλώσσα που διάλεξε ο πελάτης.
 import { chromium } from "playwright";
-import { BASE, as, go, check, finish, sql, num, pickDay, daysFromToday, iso, shoot, text } from "./lib.mjs";
+import { BASE, OUT, as, go, check, finish, sql, num, pickDay, daysFromToday, iso, shoot, text } from "./lib.mjs";
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -81,8 +81,10 @@ await as("6900002002", async (page2) => {
   await page2.waitForTimeout(1500);
   const marks = page2.locator("[data-spoken-match]");
   check("στα αποτελέσματα κάθε επαγγελματίας δείχνει ✓ Αγγλικά", (await marks.count()) >= 1 && (await marks.first().innerText()).includes("Αγγλικά"), await text(page2).then((t) => t.slice(0, 200)));
-  await marks.first().scrollIntoViewIfNeeded();
-  await shoot(page2, "language-result-mark");
+  await page2.setViewportSize({ width: 390, height: 844 });
+  await marks.first().evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await page2.waitForTimeout(300);
+  await page2.screenshot({ path: `${OUT}/design-language-result-mark-m.png` });
   await go(page2, `/platform/search?${q("th")}`);
   await page2.waitForTimeout(1500);
   check("γλώσσα που δεν μιλά κανείς: κανένα αποτέλεσμα, χωρίς σφάλμα", (await page2.locator("[data-spoken-match]").count()) === 0);
