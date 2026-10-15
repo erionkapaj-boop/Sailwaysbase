@@ -389,6 +389,7 @@ export default function BoardPage() {
         title={labelForRole(r.crew_role)}
         route={sameRoute ? place(r) : t("route", { from: L.text(r.departure_point || regionName(r.region_id)), to: L.text(r.arrival_point) })}
         boat={boatLine(r)}
+        boatName={r.boat_model}
         meta={[
           regionName(r.region_id) && { icon: "pin", text: regionName(r.region_id) },
           boatName(r.boat_type_id) && { icon: "boat", text: boatName(r.boat_type_id) },
@@ -416,6 +417,7 @@ export default function BoardPage() {
         title={labelForRole(r.crew_role)}
         route={t("route", { from: L.text(r.origin_point), to: L.text(r.destination_point) })}
         boat={boatLine(r)}
+        boatName={r.boat_model}
         meta={[
           { icon: "route", text: td("miles", { miles: r.distance_miles }) },
           r.flexible_days > 0 && { icon: "pin", text: td("flexDays", { days: r.flexible_days }) },

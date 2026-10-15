@@ -10,6 +10,7 @@ import { labelForRole } from "../../../lib/platform/roles";
 import { card, muted, button, colors, money } from "../../../lib/platform/theme";
 import { useConfirm } from "./ConfirmDialog";
 import { boatLine } from "../../../lib/platform/boat";
+import BoatThumb from "./BoatThumb";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import PlaceMap from "./map/PlaceMap";
 
@@ -137,7 +138,12 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
             </span>
           </span>
         </div>
-        {boatLine(request) && <p data-boat-line style={{ ...muted, fontSize: 13, margin: "6px 0 0" }}>{boatLine(request)}</p>}
+        {boatLine(request) && (
+          <div style={{ ...muted, fontSize: 13, margin: "6px 0 0", display: "flex", alignItems: "center", gap: 10 }}>
+            <BoatThumb name={request.boat_model} />
+            <span data-boat-line>{boatLine(request)}</span>
+          </div>
+        )}
         <p style={{ ...muted, margin: "6px 0 0" }}>
           <span style={money}>{f.dateRange(request.start_date, request.end_date)}</span>
           {" · "}

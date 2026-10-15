@@ -1,4 +1,5 @@
 "use client";
+import BoatThumb from "./BoatThumb";
 import { colors, radius, fontSans } from "../../../lib/platform/theme";
 
 // Γραμμή αιτήματος του δημόσιου πίνακα: μοτίβο καταλόγου (σταθερή στήλη
@@ -74,7 +75,7 @@ export function Icon({ name }) {
 }
 
 // date: "YYYY-MM-DD" της έναρξης· monthShort: όνομα μήνα στη γλώσσα της σελίδας.
-export default function BoardRow({ day, month, title, route, boat, meta = [], facts = [], note, action, extra }) {
+export default function BoardRow({ day, month, title, route, boat, boatName, meta = [], facts = [], note, action, extra }) {
   return (
     <div className="bd-row">
       <div className="bd-date" aria-hidden="true">
@@ -84,7 +85,12 @@ export default function BoardRow({ day, month, title, route, boat, meta = [], fa
       <div className="bd-main">
         <h3 className="bd-title">{title}</h3>
         {route && <p className="bd-route">{route}</p>}
-        {boat && <p className="bd-boat" data-boat-line>{boat}</p>}
+        {boat && (
+          <p className="bd-boat" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <BoatThumb name={boatName} width={56} />
+            <span data-boat-line>{boat}</span>
+          </p>
+        )}
         {meta.length > 0 && (
           <div className="bd-meta">
             {meta.map((m) => (

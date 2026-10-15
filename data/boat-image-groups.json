@@ -1,0 +1,56 @@
+[
+ {
+  "id": "monohull-compact",
+  "file": "ai-monohull-compact.webp",
+  "width": 800,
+  "height": 600
+ },
+ {
+  "id": "monohull-cruising",
+  "file": "ai-monohull-cruising.webp",
+  "width": 800,
+  "height": 600
+ },
+ {
+  "id": "monohull-large",
+  "file": "ai-monohull-large.webp",
+  "width": 800,
+  "height": 600
+ },
+ {
+  "id": "monohull-performance",
+  "file": "ai-monohull-performance.webp",
+  "width": 800,
+  "height": 600
+ },
+ {
+  "id": "monohull-luxury",
+  "file": "ai-monohull-luxury.webp",
+  "width": 800,
+  "height": 600
+ },
+ {
+  "id": "catamaran-compact",
+  "file": "ai-catamaran-compact.webp",
+  "width": 800,
+  "height": 600
+ },
+ {
+  "id": "catamaran-large",
+  "file": "ai-catamaran-large.webp",
+  "width": 800,
+  "height": 600
+ },
+ {
+  "id": "catamaran-open",
+  "file": "ai-catamaran-open.webp",
+  "width": 800,
+  "height": 600
+ },
+ {
+  "id": "catamaran-luxury",
+  "file": "ai-catamaran-luxury.webp",
+  "width": 800,
+  "height": 600
+ }
+]

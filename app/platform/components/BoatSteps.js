@@ -78,21 +78,29 @@ function PickField({ value, onChange, chips, suggestions, placeholder, onPick, a
   );
 }
 
-// Εικόνα του σκάφους: φωτογραφία αν υπάρχει στο lib/platform/boatImages.js, αλλιώς η
-// σχηματική σιλουέτα του τύπου, πάντα στο ίδιο πλαίσιο.
+// Εικόνα του σκάφους: φωτογραφία του μοντέλου αν υπάρχει, αλλιώς η ενδεικτική εικόνα AI του
+// καταλόγου (με ορατή ένδειξη), αλλιώς η σχηματική σιλουέτα του τύπου.
 function BoatPicture({ kind, brand, model, title }) {
-  const src = boatImage(brand, model);
+  const t = useTranslations("BoatPicture");
+  const img = model ? boatImage(brand, model) : null;
   return (
-    <div style={{ marginBottom: 16, borderRadius: radius.md, background: colors.seaGlass, height: 112, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, overflow: "hidden", color: colors.ink }}>
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+    <div style={{ marginBottom: 16, borderRadius: radius.md, background: colors.seaGlass, overflow: "hidden", color: colors.ink }}>
+      {img ? (
+        <div style={{ position: "relative", height: 150 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={img.src} alt={img.illustrative ? t("alt") : title} loading="lazy" width={800} height={600} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+          {img.illustrative && (
+            <span style={{ position: "absolute", left: 8, bottom: 8, fontSize: 11.5, fontWeight: 500, padding: "3px 8px", borderRadius: 999, background: "rgba(255,255,255,0.92)", color: colors.ink }}>
+              {t("caption")}
+            </span>
+          )}
+        </div>
       ) : (
-        <>
+        <div style={{ height: 112, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Icon name={BOAT_ICON[kind] || "sail"} size={52} stroke={1.3} />
-          {title && <span style={{ fontSize: 14, fontWeight: 600 }}>{title}</span>}
-        </>
+        </div>
       )}
+      {title && <div style={{ padding: "8px 12px 12px", textAlign: "center", fontSize: 14, fontWeight: 600 }}>{title}</div>}
     </div>
   );
 }

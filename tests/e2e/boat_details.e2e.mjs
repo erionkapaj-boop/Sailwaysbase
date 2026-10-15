@@ -40,6 +40,7 @@ for (const [loc, expectedBoat] of [["el", "Lagoon 42 · 42 ft · 2019"], ["en", 
   await page.waitForTimeout(1500);
   const line = await page.locator("[data-boat-line]").first().innerText().catch(() => "");
   check(`${loc}: ο επισκέπτης βλέπει «${expectedBoat}» στον πίνακα`, line === expectedBoat, line);
+  check(`${loc}: δίπλα στο σκάφος φαίνεται η ενδεικτική εικόνα με ένδειξη AI`, (await page.locator("[data-boat-thumb]").first().innerText().catch(() => "")).trim() === "AI" && Boolean(await page.locator("[data-boat-thumb] img").first().getAttribute("src").catch(() => "")));
   await shoot(page, `boat-board-${loc}`);
   await ctx.close();
 }

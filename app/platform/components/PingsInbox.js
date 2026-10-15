@@ -20,6 +20,7 @@ import Stars from "./Stars";
 import { card, sectionLabel, muted, button, colors, money } from "../../../lib/platform/theme";
 import LoadError from "./LoadError";
 import { boatLine } from "../../../lib/platform/boat";
+import BoatThumb from "./BoatThumb";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import PlaceMap from "./map/PlaceMap";
 
@@ -219,7 +220,12 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
           <div style={{ fontWeight: 500, fontSize: 15 }}>
             {L.text(departureLabel(r))} · {L.text(r.boat_types?.name)}
           </div>
-          {boatLine(r) && <p data-boat-line style={{ ...muted, fontSize: 13, margin: "4px 0 0" }}>{boatLine(r)}</p>}
+          {boatLine(r) && (
+            <div style={{ ...muted, fontSize: 13, margin: "6px 0 0", display: "flex", alignItems: "center", gap: 10 }}>
+              <BoatThumb name={r.boat_model} />
+              <span data-boat-line>{boatLine(r)}</span>
+            </div>
+          )}
           {(r.party_size != null || r.private_cabin != null) && (
             <p style={{ ...muted, fontSize: 13, margin: "2px 0 0" }}>
               {r.party_size != null && <>{t("partySize", { count: r.party_size })}</>}

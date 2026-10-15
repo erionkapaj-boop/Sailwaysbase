@@ -78,5 +78,10 @@
     "bunk": "Bunk",
     "private": "Private cabin",
     "skipper": "Skipper cabin"
+  },
+  "BoatPicture": {
+    "caption": "Illustrative AI image",
+    "tag": "AI",
+    "alt": "Illustrative image: a typical boat of this kind"
   }
 }
