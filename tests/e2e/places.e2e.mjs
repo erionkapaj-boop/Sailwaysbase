@@ -105,7 +105,12 @@ await as(MARIA, async (page) => {
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(300);
   check("στις τελευταίες λεπτομέρειες δεν υπάρχει πια μοντέλο ή μήκος", !(await page.locator("#wz-boat-model").count()) && !(await page.locator("#wz-boat-length").count()));
-  await page.locator("input[type=number]").fill("4");
+  check("επιβάτες: μία ερώτηση, μεγάλος μετρητής", (await text(page)).includes("Πόσοι επιβάτες θα είστε;") && (await page.locator("[data-counter] output").innerText()).trim() === "2");
+  await page.getByRole("button", { name: "Περισσότερο" }).click();
+  await page.getByRole("button", { name: "Περισσότερο" }).click();
+  check("ο μετρητής πάει στο 4", (await page.locator("[data-counter] output").innerText()).trim() === "4");
+  await page.getByRole("button", { name: "Συνέχεια" }).click();
+  await page.waitForTimeout(300);
   await page.locator("select").nth(1).selectOption({ label: "Ναι" });
   await page.getByRole("button", { name: "Ολοκλήρωση" }).click();
   await page.waitForURL(/\/platform\/search\?/);

@@ -8,6 +8,7 @@ import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
 import BackButton from "./components/BackButton";
 import Icon, { ROLE_ICON, BOAT_ICON } from "./components/Icon";
+import Counter from "./components/Counter";
 import { BrandStep, ModelStep, FeetStep } from "./components/BoatSteps";
 import { boatKind, boatName } from "../../lib/platform/boatCatalog";
 import RouteStep from "./components/RouteStep";
@@ -40,7 +41,7 @@ function stepsFor(roles, kind) {
   // Γουλέτα: χωρίς μάρκα/μοντέλο (δεν υπάρχουν κατάλογοι)· μόνο πόδια.
   const boat = kind === "gulet" ? ["boat", "feet"] : ["boat", "brand", "model", "feet"];
   const withBoat = roles.includes("skipper") ? [...base, ...boat] : base;
-  return [...withBoat, "extras"];
+  return [...withBoat, "party", "extras"];
 }
 
 const KIND_ORDER = ["sail", "cat", "motor", "gulet", "other"];
@@ -399,6 +400,21 @@ export default function CrewSearchFlow() {
         </div>
       )}
 
+      {current === "party" && (
+        <div key="party" data-sf-step style={stepWrap}>
+          <StepHeading>{t("partyTitle")}</StepHeading>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 28, padding: "24px 0 8px" }}>
+            <span style={{ color: colors.ink }}><Icon name="users" size={64} stroke={1.3} /></span>
+            <Counter value={partySize || "2"} onChange={(n) => setPartySize(String(n))} min={1} max={50} ariaValue={t("partyTitle")} />
+          </div>
+          <div className="sf-step-footer">
+            <button type="button" onClick={() => { if (!partySize) setPartySize("2"); next(); }} style={cta}>
+              {t("continue")}
+            </button>
+          </div>
+        </div>
+      )}
+
       {current === "extras" && (
         <div key="extras" data-sf-step style={stepWrap}>
           <StepHeading>{t("extrasTitle")}</StepHeading>
@@ -414,19 +430,6 @@ export default function CrewSearchFlow() {
             </select>
             <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
               {t("languageHint")}
-            </p>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={label}>{t("partyLabel")}</label>
-            <input
-              type="number"
-              min={1}
-              style={input}
-              value={partySize}
-              onChange={(e) => setPartySize(e.target.value)}
-            />
-            <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              {t("partyHint")}
             </p>
           </div>
           <div style={{ marginBottom: 24 }}>
@@ -448,16 +451,10 @@ export default function CrewSearchFlow() {
             <BoatFields idPrefix="wz-boat" fields={["year"]} value={boatInfo} onChange={(p) => setBoatInfo((cur) => ({ ...cur, ...p }))} />
           </div>
           <div className="sf-step-footer">
-            {(!partySize || privateCabin === undefined) && (
-              <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px", textAlign: "center" }}>
-                {!partySize && privateCabin === undefined
-                  ? t("missingBoth")
-                  : !partySize
-                    ? t("missingParty")
-                    : t("missingCabin")}
-              </p>
+            {privateCabin === undefined && (
+              <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px", textAlign: "center" }}>{t("missingCabin")}</p>
             )}
-            <button type="button" disabled={!partySize || privateCabin === undefined || !boatValid(boatInfo)} onClick={finish} style={cta}>
+            <button type="button" disabled={privateCabin === undefined || !boatValid(boatInfo)} onClick={finish} style={cta}>
               {t("finish")}
             </button>
           </div>

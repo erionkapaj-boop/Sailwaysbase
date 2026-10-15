@@ -66,5 +66,9 @@
     "resetBearing": "Reset to north",
     "attribution": "Map information",
     "straightDistance": "≈ {miles} nm in a straight line"
+  },
+  "Counter": {
+    "less": "Decrease",
+    "more": "Increase"
   }
 }

@@ -66,5 +66,9 @@
     "resetBearing": "Προσανατολισμός προς βορρά",
     "attribution": "Πληροφορίες χάρτη",
     "straightDistance": "≈ {miles} ν.μ. σε ευθεία"
+  },
+  "Counter": {
+    "less": "Λιγότερο",
+    "more": "Περισσότερο"
   }
 }

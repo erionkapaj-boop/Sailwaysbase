@@ -171,7 +171,7 @@
     "loadWhat": "τα εισερχόμενα αιτήματα",
     "empty": "Δεν υπάρχουν εκκρεμή αιτήματα αυτή τη στιγμή.",
     "continueClaim": "Συνέχεια: Διεκδίκηση",
-    "partySize": "Άτομα: {count}",
+    "partySize": "{count, plural, one {# επιβάτης} other {# επιβάτες}}",
     "privateCabin": "Ιδιωτική καμπίνα: {value}",
     "yes": "Ναι",
     "no": "Όχι",

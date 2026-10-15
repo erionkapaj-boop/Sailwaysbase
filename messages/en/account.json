@@ -171,7 +171,7 @@
     "loadWhat": "incoming requests",
     "empty": "There are no pending requests at the moment.",
     "continueClaim": "Continue: Claim",
-    "partySize": "People: {count}",
+    "partySize": "{count, plural, one {# passenger} other {# passengers}}",
     "privateCabin": "Private cabin: {value}",
     "yes": "Yes",
     "no": "No",
