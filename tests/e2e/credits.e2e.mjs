@@ -44,6 +44,12 @@ async function setSetting(page, label, value) {
 
 // Αναζήτηση στις Κυκλάδες και επιλογή του επαγγελματία με την τιμή `price`.
 async function searchAndPick(page, from, to, price) {
+  const evs = [];
+  const t0 = Date.now();
+  const onNav = (f) => { if (f === page.mainFrame()) evs.push(`${Date.now() - t0}ms nav ${f.url()}`); };
+  const onReq = (r) => { if (/rpc|request_drafts|booking_requests|users/.test(r.url())) evs.push(`${Date.now() - t0}ms req ${r.method()} ${r.url().split("/").slice(-2).join("/")}`); };
+  page.on("framenavigated", onNav);
+  page.on("request", onReq);
   await go(page, "/platform/search");
   await pickDay(page, from);
   await pickDay(page, to);
@@ -52,8 +58,14 @@ async function searchAndPick(page, from, to, price) {
   await page.locator("input[type=number]").fill("4");
   await page.getByRole("button", { name: "Ιδιωτική καμπίνα" }).click();
   await selects.first().selectOption({ label: "Ιστιοπλοϊκό" });
+  const pv = await page.locator("input[type=number]").first().inputValue();
   await page.click("button[type=submit]");
   await page.waitForTimeout(2500);
+  const pv2 = await page.locator("input[type=number]").first().inputValue().catch(() => "n/a");
+  console.log("DBG party before/after submit =", pv, "/", pv2, "cards=", await page.getByRole("button", { name: "Επιλογή", exact: true }).count());
+  if (pv !== "4" || pv2 !== "4") console.log("DBG events:\n" + evs.join("\n"));
+  page.off("framenavigated", onNav);
+  page.off("request", onReq);
   await page.locator("div").filter({ hasText: `${price}€` }).filter({ has: page.getByRole("button", { name: "Επιλογή", exact: true }) }).last()
     .getByRole("button", { name: "Επιλογή", exact: true }).click();
   await page.waitForTimeout(500);
