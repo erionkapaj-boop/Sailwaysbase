@@ -1,7 +1,7 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { buildPlaceIndex, pointOf } from "../../../lib/platform/placeSearch";
+import { buildPlaceIndex, pointOf, suggestedPlaces } from "../../../lib/platform/placeSearch";
 import { locatePoint } from "../../../lib/platform/geo";
 import { button, colors, muted, radius } from "../../../lib/platform/theme";
 import { useLocalData } from "../useLocalData";
@@ -76,14 +76,16 @@ function arc(a, b) {
   return pts;
 }
 
-export default function RouteStep({ regions, country, from, setFrom, to, setTo, failed, onRetry, onNext }) {
+export default function RouteStep({ regions, country, from, setFrom, to, setTo, sameReturn, setSameReturn, failed, onRetry, onNext }) {
   const t = useTranslations("CrewSearchFlow");
   const L = useLocalData();
   const positioned = usePlacePositions();
   const index = useMemo(() => buildPlaceIndex(regions), [regions]);
   const [active, setActive] = useState("from");
-  const [panel, setPanel] = useState({ n: 0, edit: false });
-  const [editingFrom, setEditingFrom] = useState(true);
+  const [panel, setPanel] = useState({ n: 0, edit: true });
+  const [editingFrom, setEditingFrom] = useState(false);
+  // Μέχρι ο χρήστης να αγγίξει το «Από», η προεπιλογή ισχύει και το «Συνέχεια» μένει ενεργό.
+  const touched = useRef(false);
   const [missed, setMissed] = useState(false);
 
   const hasFrom = Boolean(from.regionId && from.point.trim());
@@ -91,9 +93,32 @@ export default function RouteStep({ regions, country, from, setFrom, to, setTo, 
   const toTitle = to.trim() ? L.text(to.trim()) : "";
 
   const locFrom = useMemo(() => (hasFrom ? locatePoint(choicePoint(index, from), { positioned }) : null), [hasFrom, index, from, positioned]);
-  const locTo = useMemo(() => (toTitle ? locatePoint(to.trim(), { positioned }) : null), [toTitle, to, positioned]);
+  const locTo = useMemo(() => (!sameReturn && toTitle ? locatePoint(to.trim(), { positioned }) : null), [sameReturn, toTitle, to, positioned]);
+
+  // Προεπιλεγμένο σημείο αναφοράς (το πρώτο βασικό λιμάνι της χώρας, π.χ. Άλιμος):
+  // ο χάρτης φαίνεται αμέσως και αλλάζει με ένα πάτημα στον χάρτη ή στη λίστα.
+  const defaultFrom = useMemo(() => {
+    const e = suggestedPlaces(index, country).find((x) => x.covered);
+    return e ? { regionId: e.regionId, point: pointOf(e) } : null;
+  }, [index, country]);
+  useEffect(() => {
+    if (!hasFrom && defaultFrom) setFrom(defaultFrom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasFrom, defaultFrom]);
+
+  function toggleReturn(on) {
+    setSameReturn(on);
+    if (on) {
+      setTo("");
+      setActive("from");
+    } else {
+      setActive("to");
+      setPanel((p) => ({ n: p.n + 1, edit: true }));
+    }
+  }
 
   function open(field) {
+    touched.current = true;
     // Στη μέση αλλαγής το «Συνέχεια» κλειδώνει αμέσως (όχι μετά την επανασύνδεση του πεδίου).
     if (field === "from") setEditingFrom(true);
     setActive(field);
@@ -130,18 +155,43 @@ export default function RouteStep({ regions, country, from, setFrom, to, setTo, 
     else setTo(entry.name);
   }
 
+  const mapBlock = (
+    <div data-choice-map style={{ marginTop: 16 }}>
+      <MapView height={200} markers={markers} layers={layers} focus={focus} gestures="tap" controls="top-right" positioned={positioned} onPick={handlePick} onMarker={(id) => open(id)} />
+      <p style={{ ...muted, fontSize: 12.5, margin: "8px 2px 0" }}>{missed ? t("mapNothing") : active === "from" ? t("mapHintFrom") : t("mapHintTo")}</p>
+    </div>
+  );
+
   return (
     <div>
       <div style={{ display: "grid", gap: 10 }}>
         <Field field="from" badge="A" label={t("fromLabel")} value={fromTitle} placeholder={t("fromPlaceholder")} active={active === "from"} onOpen={() => open("from")} />
-        <Field
-          field="to" badge="B" label={t("toLabel")} value={toTitle} placeholder={t("toPlaceholder")} active={active === "to"}
-          disabled={!hasFrom} onOpen={() => open("to")} onClear={() => { setTo(""); setActive("from"); }} clearLabel={t("clearTo")}
-        />
+        {!sameReturn && (
+          <Field
+            field="to" badge="B" label={t("toLabel")} value={toTitle} placeholder={t("toPlaceholder")} active={active === "to"}
+            disabled={!hasFrom} onOpen={() => open("to")} onClear={() => { setTo(""); setActive("from"); }} clearLabel={t("clearTo")}
+          />
+        )}
       </div>
 
+      <button
+        type="button"
+        role="switch"
+        aria-checked={sameReturn}
+        data-same-return
+        onClick={() => toggleReturn(!sameReturn)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, width: "100%", minHeight: 52, marginTop: 12, padding: "0 4px 0 2px", background: "none", border: 0, font: "inherit", fontSize: 15.5, color: colors.ink, cursor: "pointer", textAlign: "left" }}
+      >
+        <span>{t("sameReturn")}</span>
+        <span aria-hidden="true" style={{ position: "relative", flexShrink: 0, width: 46, height: 28, borderRadius: 14, background: sameReturn ? colors.ink : "#D5DADF", transition: "background .18s ease" }}>
+          <span style={{ position: "absolute", top: 3, left: sameReturn ? 21 : 3, width: 22, height: 22, borderRadius: "50%", background: "#fff", transition: "left .18s ease" }} />
+        </span>
+      </button>
+
+      {markers.length > 0 && mapBlock}
+
       <div style={{ marginTop: 16 }}>
-        {active === "from" ? (
+        {!hasFrom && defaultFrom ? null : active === "from" || sameReturn ? (
           <PlacePicker
             key={`from-${panel.n}`}
             bare
@@ -150,8 +200,8 @@ export default function RouteStep({ regions, country, from, setFrom, to, setTo, 
             country={country}
             value={from}
             onChange={setFrom}
-            autoFocus={!hasFrom || panel.edit}
-            onEditingChange={setEditingFrom}
+            autoFocus={touched.current}
+            onEditingChange={(v) => touched.current && setEditingFrom(v)}
             failed={failed}
             onRetry={onRetry}
           />
@@ -169,13 +219,6 @@ export default function RouteStep({ regions, country, from, setFrom, to, setTo, 
           />
         )}
       </div>
-
-      {markers.length > 0 && (
-      <div data-choice-map style={{ marginTop: 20 }}>
-        <MapView height={180} markers={markers} layers={layers} focus={focus} gestures="tap" controls="top-right" positioned={positioned} onPick={handlePick} onMarker={(id) => open(id)} />
-        <p style={{ ...muted, fontSize: 12.5, margin: "8px 2px 0" }}>{missed ? t("mapNothing") : active === "from" ? t("mapHintFrom") : t("mapHintTo")}</p>
-      </div>
-      )}
 
       <div className="sf-step-footer">
         <button type="button" disabled={!hasFrom || (active === "from" && editingFrom)} onClick={onNext} style={cta}>

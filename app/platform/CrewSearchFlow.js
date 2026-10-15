@@ -118,6 +118,9 @@ export default function CrewSearchFlow() {
   const [languageIds, setLanguageIds] = useSessionState("sf_wizard:langs", null);
   const [partySize, setPartySize] = useSessionState("sf_wizard:party", "");
   const [boatInfo, setBoatInfo] = useSessionState("sf_wizard:boat", { model: "", lengthFt: "", year: "" });
+  // null = δεν το άγγιξε: ισχύει «επιστροφή στο ίδιο λιμάνι» αν δεν υπάρχει άλλο «Προς».
+  const [sameReturnRaw, setSameReturn] = useSessionState("sf_wizard:sameReturn", null);
+  const sameReturn = sameReturnRaw ?? !arrivalPoint.trim();
   const [cabins, setCabins] = useSessionState("sf_wizard:cabins", {});
   // Το πιο μακρινό βήμα που έχει ανοίξει ο χρήστης: το «μπροστά» φτάνει μέχρι εκεί.
   const [furthest, setFurthest] = useSessionState("sf_wizard:furthest", 0);
@@ -369,6 +372,8 @@ export default function CrewSearchFlow() {
             }}
             to={arrivalPoint}
             setTo={setArrivalPoint}
+            sameReturn={sameReturn}
+            setSameReturn={setSameReturn}
             failed={lookupsError}
             onRetry={() => setLookupsAttempt((n) => n + 1)}
             onNext={next}

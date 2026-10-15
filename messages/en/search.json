@@ -18,6 +18,7 @@
     "clearTo": "Remove destination",
     "toTyping": "Destination",
     "mapNothing": "No known port here.",
+    "sameReturn": "Return to the same port",
     "mapHintFrom": "Tap the map to pick the start.",
     "mapHintTo": "Tap the map to pick the destination.",
     "brandTitle": "Which brand?",

@@ -146,6 +146,7 @@ export default function PlacePicker({
   const country = countryProp || ownCountry;
   const showCountryChoice = !countryProp && !arrival && COUNTRIES.length > 1;
   const inputRef = useRef(null);
+  const browseRef = useRef(null);
   const focusNext = useRef(autoFocus);
   const listId = useId();
 
@@ -178,6 +179,16 @@ export default function PlacePicker({
   useEffect(() => {
     if (!hasValue) setEditing(true);
   }, [hasValue]);
+
+  // «Δες τις περιοχές»: η λίστα έρχεται στο κέντρο της οθόνης (αν είναι ψηλότερη
+  // από την οθόνη, στην κορυφή της), όχι στο τέρμα κάτω.
+  useEffect(() => {
+    const el = browseRef.current;
+    if (!browsing || !el) return;
+    const tall = el.getBoundingClientRect().height > window.innerHeight * 0.8;
+    el.style.scrollMarginTop = tall ? "72px" : "0";
+    el.scrollIntoView({ block: tall ? "start" : "center", behavior: "smooth" });
+  }, [browsing]);
 
   useEffect(() => {
     if (editing && focusNext.current && inputRef.current) {
@@ -401,7 +412,7 @@ export default function PlacePicker({
   // ---- Περιοχές (για όποιον δεν ξέρει ακόμα) ------------------------------
   if (browsing && !arrival) {
     return (
-      <div data-place-picker="browse">
+      <div data-place-picker="browse" ref={browseRef}>
         {styleTag}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
           <p style={{ ...label, margin: 0 }}>{t("regionsIn", { country: countryName })}</p>
