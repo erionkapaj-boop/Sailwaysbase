@@ -395,7 +395,7 @@ export default function CrewSearchFlow() {
       {current === "feet" && (
         <div key="feet" data-sf-step style={stepWrap}>
           <StepHeading>{t("feetTitle")}</StepHeading>
-          <FeetStep brand={boatBrand} model={boatModel} feet={boatInfo.lengthFt} setFeet={(v) => setBoatInfo((cur) => ({ ...cur, lengthFt: v }))} onNext={next} />
+          <FeetStep kind={kind} brand={boatBrand} model={boatModel} feet={boatInfo.lengthFt} setFeet={(v) => setBoatInfo((cur) => ({ ...cur, lengthFt: v }))} onNext={next} />
         </div>
       )}
 

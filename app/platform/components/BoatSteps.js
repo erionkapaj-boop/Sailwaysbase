@@ -3,17 +3,20 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { KINDS, boatName, inferFeet, modelsFor, searchBrands, searchModels } from "../../../lib/platform/boatCatalog";
 import { button, colors, input, muted, radius } from "../../../lib/platform/theme";
-import Icon from "./Icon";
+import Icon, { BOAT_ICON } from "./Icon";
+import { boatImage } from "../../../lib/platform/boatImages";
 
 // Τρία βήματα της ροής για τον σκάφος (μετά τον τύπο): μάρκα → μοντέλο → πόδια.
 // Ένα πάτημα σε chip ή πρόταση προχωρά αμέσως· ελεύθερο κείμενο με «Συνέχεια»·
 // όλα προαιρετικά («Παράλειψη»). Τα δεδομένα βρίσκονται στο lib/platform/boatCatalog.js.
 const cta = { ...button("primary"), width: "100%", height: 52, padding: "0 18px", fontSize: 16, borderRadius: 12 };
 
+// Επιλογές σε ισόπλατο πλέγμα δύο στηλών (όχι chips ανομοιόμορφου πλάτους).
 const chipStyle = {
-  padding: "10px 16px", borderRadius: radius.pill, fontSize: 15, fontFamily: "inherit", cursor: "pointer",
-  border: `1px solid ${colors.border}`, background: colors.card, color: colors.ink, minHeight: 44,
+  padding: "10px 12px", borderRadius: radius.md, fontSize: 15, fontFamily: "inherit", cursor: "pointer", textAlign: "center", lineHeight: 1.25,
+  border: `1px solid ${colors.border}`, background: colors.card, color: colors.ink, minHeight: 52, width: "100%", overflowWrap: "anywhere",
 };
+const gridStyle = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 };
 const rowStyle = {
   display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", minHeight: 52, padding: "10px 16px",
   background: "transparent", border: 0, borderTop: `1px solid #F1EEE8`, font: "inherit", fontSize: 15.5, textAlign: "left", cursor: "pointer", color: colors.ink,
@@ -26,7 +29,7 @@ function Footer({ canContinue, onNext, onSkip }) {
       {canContinue ? (
         <button type="button" onClick={onNext} style={cta}>{t("continue")}</button>
       ) : (
-        <button type="button" onClick={onSkip} style={{ ...button("secondary"), width: "100%", height: 52, borderRadius: 12 }}>{t("skip")}</button>
+        <button type="button" onClick={onSkip} style={{ display: "block", margin: "0 auto", minHeight: 44, padding: "8px 16px", background: "none", border: 0, font: "inherit", fontSize: 15, color: colors.inkSoft, cursor: "pointer" }}>{t("skip")}</button>
       )}
     </div>
   );
@@ -51,7 +54,7 @@ function PickField({ value, onChange, chips, suggestions, placeholder, onPick, a
         />
       </label>
       {!q && chips.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+        <div style={{ ...gridStyle, marginTop: 16 }}>
           {chips.map((c) => (
             <button key={c} type="button" style={chipStyle} onClick={() => onPick(c)}>{c}</button>
           ))}
@@ -70,6 +73,25 @@ function PickField({ value, onChange, chips, suggestions, placeholder, onPick, a
             </button>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+// Εικόνα του σκάφους: φωτογραφία αν υπάρχει στο lib/platform/boatImages.js, αλλιώς η
+// σχηματική σιλουέτα του τύπου, πάντα στο ίδιο πλαίσιο.
+function BoatPicture({ kind, brand, model, title }) {
+  const src = boatImage(brand, model);
+  return (
+    <div style={{ marginBottom: 16, borderRadius: radius.md, background: colors.seaGlass, height: 112, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, overflow: "hidden", color: colors.ink }}>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <>
+          <Icon name={BOAT_ICON[kind] || "sail"} size={52} stroke={1.3} />
+          {title && <span style={{ fontSize: 14, fontWeight: 600 }}>{title}</span>}
+        </>
       )}
     </div>
   );
@@ -102,7 +124,7 @@ export function ModelStep({ kind, brand, model, setModel, onNext }) {
   };
   return (
     <div>
-      {brand && <p style={{ ...muted, margin: "0 0 12px", fontSize: 14 }}>{brand}</p>}
+      <BoatPicture kind={kind} brand={brand} model="" title={brand} />
       <PickField
         value={text} onChange={(v) => { setText(v); setModel(v.trim()); }} chips={modelsFor(brand, kind).slice(0, 8)}
         suggestions={(q) => searchModels(q, brand, kind)} placeholder={t("modelPlaceholder")} ariaLabel={t("modelTitle")} onPick={pick}
@@ -112,13 +134,13 @@ export function ModelStep({ kind, brand, model, setModel, onNext }) {
   );
 }
 
-export function FeetStep({ brand, model, feet, setFeet, onNext }) {
+export function FeetStep({ kind, brand, model, feet, setFeet, onNext }) {
   const t = useTranslations("CrewSearchFlow");
   const guess = feet ? null : inferFeet(brand, model);
   const bad = feet && !(Number(feet) >= 10 && Number(feet) <= 300);
   return (
     <div>
-      {(brand || model) && <p style={{ ...muted, margin: "0 0 12px", fontSize: 14 }}>{boatName(brand, model)}</p>}
+      <BoatPicture kind={kind} brand={brand} model={model} title={boatName(brand, model)} />
       <div style={{ position: "relative" }}>
         <input
           type="text" inputMode="numeric" maxLength={3} autoComplete="off" autoFocus value={feet} placeholder="42" aria-label={t("feetTitle")}
@@ -129,7 +151,7 @@ export function FeetStep({ brand, model, feet, setFeet, onNext }) {
       </div>
       {bad && <p style={{ ...muted, color: colors.danger, fontSize: 13, margin: "8px 0 0" }}>{t("feetInvalid")}</p>}
       {guess && (
-        <div style={{ marginTop: 14 }}>
+        <div style={{ ...gridStyle, marginTop: 16 }}>
           <button type="button" style={chipStyle} onClick={() => setFeet(String(guess))}>{t("feetGuess", { n: guess })}</button>
         </div>
       )}
