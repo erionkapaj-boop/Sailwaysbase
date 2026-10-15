@@ -57,7 +57,7 @@ export async function pickDay(page, date) {
 // Στο production το React δεν λέει ποιο στοιχείο διαφέρει στην υδάτωση. Εδώ συγκρίνεται το HTML που
 // έστειλε ο διακομιστής με το DOM μετά την ανάκαμψη· ό,τι υπάρχει μόνο στο ένα τυπώνεται, ώστε το
 // στοιχείο που αλλάζει στο πρώτο render να φανεί στο log (και στο CI).
-async function hydrationDiag(page, phone) {
+export async function hydrationDiag(page, phone) {
   await page.waitForTimeout(400);
   const url = page.url();
   const ssr = await (await page.request.get(url)).text();
