@@ -48,10 +48,10 @@
     "kind_gulet": "Γουλέτα",
     "partyTitle": "Πόσοι επιβάτες θα είστε;",
     "languageTitle": "Ποιες γλώσσες μιλάς;",
-    "cabinTitle_skipper": "Πού θα κοιμάται ο Skipper;",
-    "cabinTitle_hostess": "Πού θα κοιμάται η Hostess;",
-    "cabinTitle_deckhand": "Πού θα κοιμάται ο Ναύτης;",
-    "cabinTitle_cook": "Πού θα κοιμάται ο Μάγειρας;"
+    "cabinTitle_skipper": "Πού θα μένει ο skipper;",
+    "cabinTitle_hostess": "Πού θα μένει η hostess;",
+    "cabinTitle_deckhand": "Πού θα μένει ο deckhand;",
+    "cabinTitle_cook": "Πού θα μένει ο μάγειρας;"
   },
   "HomeEntry": {
     "adminTitle": "Διαχείριση",

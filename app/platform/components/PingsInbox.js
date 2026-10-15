@@ -24,7 +24,7 @@ import BoatThumb from "./BoatThumb";
 import { reviewCategoriesForRole } from "../../../lib/platform/reviewCategories";
 import PlaceMap from "./map/PlaceMap";
 import Icon, { CABIN_ICON } from "./Icon";
-import { cabinKindFrom } from "../../../lib/platform/cabin";
+import { cabinKindFrom, isMultiDay, CABIN_UNKNOWN } from "../../../lib/platform/cabin";
 
 const CLIENT_CATEGORIES = reviewCategoriesForRole("client");
 
@@ -197,7 +197,8 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
   const L = useLocalData();
   const [showBreakdown, setShowBreakdown] = useState(false);
   const r = p.booking_requests;
-  const cabinKind = cabinKindFrom(r.cabin_kind, r.private_cabin);
+  // Multi-day trip with no answer from the client: say so (a day trip has no accommodation to state).
+  const cabinKind = cabinKindFrom(r.cabin_kind, r.private_cabin) || (isMultiDay(r.start_date, r.end_date) ? CABIN_UNKNOWN : "");
   const cp = r.client_profiles;
   const isOffer = r.origin && r.origin !== "client";
   const isReplacement = r.origin === "admin_replacement";
@@ -237,8 +238,8 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
           {cabinKind && (
             <p data-cabin={cabinKind} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "2px 8px", fontSize: 13.5, margin: "6px 0 0", color: colors.ink }}>
               <Icon name={CABIN_ICON[cabinKind]} size={20} stroke={1.5} />
-              <b style={{ fontWeight: 600 }}>{tc(cabinKind)}</b>
-              <span style={{ color: colors.inkSoft }}>{tc(`${cabinKind}Hint`)}</span>
+              <b style={{ fontWeight: 600 }}>{cabinKind === CABIN_UNKNOWN ? tc("notSpecified") : tc(cabinKind)}</b>
+              {cabinKind !== CABIN_UNKNOWN && <span style={{ color: colors.inkSoft }}>{tc(`${cabinKind}Hint`)}</span>}
             </p>
           )}
           <p style={{ ...muted, margin: "6px 0 0" }}>

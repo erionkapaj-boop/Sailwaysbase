@@ -1,15 +1,15 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { CABIN_KINDS } from "../../../lib/platform/cabin";
+import { CABIN_CHOICES } from "../../../lib/platform/cabin";
 import { colors, radius } from "../../../lib/platform/theme";
 import Icon, { CABIN_ICON } from "./Icon";
 
-// Τρεις επιλογές καμπίνας σε κουτιά με εικονίδιο. onChange(kind). compact: για τα φίλτρα αποτελεσμάτων.
+// Οι τρεις επιλογές καμπίνας και «Δεν ξέρω ακόμα» σε κουτιά με εικονίδιο. onChange(kind). compact: για τα φίλτρα αποτελεσμάτων.
 export default function CabinChoice({ value, onChange, compact = false, invalid = false }) {
   const t = useTranslations("Cabin");
   return (
-    <div data-cabin-choice style={{ display: "grid", gridTemplateColumns: compact ? "repeat(3, 1fr)" : "1fr", gap: compact ? 8 : 12 }}>
-      {CABIN_KINDS.map((k) => {
+    <div data-cabin-choice style={{ display: "grid", gridTemplateColumns: compact ? "repeat(2, 1fr)" : "1fr", gap: compact ? 8 : 12 }}>
+      {CABIN_CHOICES.map((k) => {
         const on = value === k;
         return (
           <button

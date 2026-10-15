@@ -48,10 +48,10 @@
     "kind_gulet": "Gulet",
     "partyTitle": "How many passengers will you be?",
     "languageTitle": "Which languages do you speak?",
-    "cabinTitle_skipper": "Where will the Skipper sleep?",
-    "cabinTitle_hostess": "Where will the Hostess sleep?",
-    "cabinTitle_deckhand": "Where will the Deckhand sleep?",
-    "cabinTitle_cook": "Where will the Cook sleep?"
+    "cabinTitle_skipper": "Where will the skipper stay?",
+    "cabinTitle_hostess": "Where will the hostess stay?",
+    "cabinTitle_deckhand": "Where will the deckhand stay?",
+    "cabinTitle_cook": "Where will the cook stay?"
   },
   "HomeEntry": {
     "adminTitle": "Administration",

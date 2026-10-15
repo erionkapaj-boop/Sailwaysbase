@@ -13,7 +13,7 @@ import MapView from "../components/map/MapView";
 import { usePlacePositions } from "../components/map/usePlacePositions";
 import { locatePoint, boundsOf } from "../../../lib/platform/geo";
 import { boatLine } from "../../../lib/platform/boat";
-import { cabinKindFrom } from "../../../lib/platform/cabin";
+import { cabinKindFrom, isMultiDay, CABIN_UNKNOWN } from "../../../lib/platform/cabin";
 import {
   boardRequests, claimBoardRequest, withdrawBoardClaim, myBoardClaims, listLookups,
   deliveryBoardRequests, claimDeliveryBoardRequest, withdrawDeliveryBoardClaim, myDeliveryBoardClaims,
@@ -270,8 +270,9 @@ export default function BoardPage() {
   const regionName = (id) => L.text(lookups.regions.find((r) => r.id === id)?.name || "");
   // Η ακριβής καμπίνα που ζήτησε ο πελάτης (παλιές γραμμές: από το true/false).
   const cabinFor = (r) => {
-    const kind = cabinKindFrom(r.cabin_kind, r.private_cabin);
-    return kind ? { kind, label: tc(kind), hint: tc(`${kind}Hint`) } : null;
+    const kind = cabinKindFrom(r.cabin_kind, r.private_cabin) || (isMultiDay(r.start_date, r.end_date) ? CABIN_UNKNOWN : "");
+    if (!kind) return null;
+    return kind === CABIN_UNKNOWN ? { kind, label: tc("notSpecified"), hint: "" } : { kind, label: tc(kind), hint: tc(`${kind}Hint`) };
   };
   const boatName = (id) => L.text(lookups.boatTypes.find((b) => b.id === id)?.name || "");
   const place = (r) => L.text(r.departure_point || regionName(r.region_id));

@@ -63,7 +63,7 @@ const P = {
 };
 
 // Το εικονίδιο κάθε ρόλου πληρώματος (κλειδιά του lib/platform/roles.js).
-export const CABIN_ICON = { bunk: "bunk", private: "bedDouble", skipper: "bedSingle" };
+export const CABIN_ICON = { bunk: "bunk", private: "bedDouble", skipper: "bedSingle", unknown: "question" };
 
 export const BOAT_ICON = { sail: "sail", cat: "cat", motor: "motor", gulet: "gulet", other: "sail" };
 

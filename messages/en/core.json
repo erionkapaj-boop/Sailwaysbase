@@ -83,6 +83,8 @@
     "bunk": "Bunk",
     "private": "Private cabin",
     "skipper": "Skipper cabin",
+    "unknown": "I don't know yet",
+    "notSpecified": "Accommodation: not specified",
     "bunkHint": "Shared space with bunk beds.",
     "privateHint": "Large cabin, usually with a toilet.",
     "skipperHint": "Small cabin, one berth in the bow."

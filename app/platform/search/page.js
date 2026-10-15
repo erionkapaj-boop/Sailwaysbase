@@ -54,7 +54,7 @@ import { trackFlow, noteFailure } from "../../../lib/platform/health";
 import BoatFields from "../components/BoatFields";
 import CabinChoice from "../components/CabinChoice";
 import Icon from "../components/Icon";
-import { cabinOf, isPrivateCabin, parseCabins } from "../../../lib/platform/cabin";
+import { cabinOf, isMultiDay, isPrivateCabin, parseCabins, CABIN_UNKNOWN } from "../../../lib/platform/cabin";
 import LanguagePicker from "../components/LanguagePicker";
 import { parseLanguageCodes } from "../../../lib/platform/languageFilter";
 import { languageCodeOfDbName } from "../../../lib/platform/languages";
@@ -968,7 +968,7 @@ function Checkout({
     }
     if (awaitingVerification) return;
     trackFlow("request", "send");
-    if (!filters.partySize || !supportedRoles.every((r) => cabinOf(filters, r))) {
+    if (!filters.partySize || (isMultiDay(filters.startDate, filters.endDate) && !supportedRoles.every((r) => cabinOf(filters, r)))) {
       setError(t("needPartyAndCabin"));
       return;
     }
@@ -1312,7 +1312,7 @@ function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, f
 function SearchPageInner() {
   const t = useTranslations("SearchPage");
   const tCabinNs = useTranslations("Cabin");
-  const tCabin = (k) => (k ? tCabinNs(k) : "");
+  const tCabin = (k) => (k === CABIN_UNKNOWN ? tCabinNs("notSpecified") : k ? tCabinNs(k) : "");
   const L = useLocalData();
   const fmt = useFormat();
   const router = useRouter();
@@ -1444,7 +1444,7 @@ function SearchPageInner() {
     if (!filters.departurePoint || !filters.departurePoint.trim()) errors.departurePoint = true;
     if (!filters.arrivalPoint || !filters.arrivalPoint.trim()) errors.arrivalPoint = true;
     if (!filters.partySize) errors.partySize = true;
-    if (!supportedRoles.every((r) => cabinOf(filters, r))) errors.privateCabin = true;
+    if (isMultiDay(filters.startDate, filters.endDate) && !supportedRoles.every((r) => cabinOf(filters, r))) errors.privateCabin = true;
     if (!boatValid({ model: filters.boatModel, lengthFt: filters.boatLengthFt, year: filters.boatYear })) errors.boat = true;
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1458,7 +1458,7 @@ function SearchPageInner() {
   const earlyRoles = (params.get("roles") || "skipper").split(",").filter((r) => SUPPORTED_ROLES.includes(r));
   function isComplete(f) {
     return Boolean(
-      f.startDate && f.endDate && f.regionId && f.departurePoint && f.arrivalPoint && f.partySize && earlyRoles.every((r) => cabinOf(f, r))
+      f.startDate && f.endDate && f.regionId && f.departurePoint && f.arrivalPoint && f.partySize && (!isMultiDay(f.startDate, f.endDate) || earlyRoles.every((r) => cabinOf(f, r)))
     );
   }
   const [showFullFilters, setShowFullFilters] = useState(!isComplete(incoming));
@@ -1692,6 +1692,7 @@ function SearchPageInner() {
               </p>
             )}
           </div>
+          {isMultiDay(filters.startDate, filters.endDate) && (
           <div style={{ gridColumn: "1 / -1" }}>
             {supportedRoles.map((r) => (
               <div key={r} style={{ marginBottom: 12 }}>
@@ -1711,6 +1712,7 @@ function SearchPageInner() {
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>{t("requiredField")}</p>
             )}
           </div>
+          )}
           <div style={{ gridColumn: "1 / -1" }}>
             <BoatFields idPrefix="sr-boat" value={{ model: filters.boatModel, lengthFt: filters.boatLengthFt, year: filters.boatYear }}
               onChange={(p) => setFilters((f) => ({ ...f, ...(p.model !== undefined && { boatModel: p.model }), ...(p.lengthFt !== undefined && { boatLengthFt: p.lengthFt }), ...(p.year !== undefined && { boatYear: p.year }) }))} />
@@ -1735,8 +1737,12 @@ function SearchPageInner() {
                   }`}
               {" · "}
               {t("people", { count: Number(filters.partySize) })}
-              {" · "}
-              {supportedRoles.map((r) => (supportedRoles.length > 1 ? `${labelForRole(r)}: ` : "") + tCabin(cabinOf(filters, r))).join(", ")}
+              {isMultiDay(filters.startDate, filters.endDate) && (
+                <>
+                  {" · "}
+                  {supportedRoles.map((r) => (supportedRoles.length > 1 ? `${labelForRole(r)}: ` : "") + tCabin(cabinOf(filters, r))).join(", ")}
+                </>
+              )}
               {boatTypeName ? ` · ${L.text(boatTypeName)}` : boatTypeUnknown ? ` · ${t("boatNotSet")}` : ""}
               {boatLine({ boat_model: filters.boatModel, boat_length_ft: filters.boatLengthFt, boat_year: filters.boatYear }) ? ` · ${boatLine({ boat_model: filters.boatModel, boat_length_ft: filters.boatLengthFt, boat_year: filters.boatYear })}` : ""}
             </span>

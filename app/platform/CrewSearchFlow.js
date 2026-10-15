@@ -12,7 +12,7 @@ import ForwardButton from "./components/ForwardButton";
 import Icon, { ROLE_ICON, BOAT_ICON } from "./components/Icon";
 import Counter from "./components/Counter";
 import CabinChoice from "./components/CabinChoice";
-import { serializeCabins } from "../../lib/platform/cabin";
+import { serializeCabins, isMultiDay } from "../../lib/platform/cabin";
 import { BrandStep, ModelStep, FeetStep, YearStep } from "./components/BoatSteps";
 import { boatKind, boatName } from "../../lib/platform/boatCatalog";
 import { BOAT_UNKNOWN } from "../../lib/platform/boat";
@@ -37,13 +37,14 @@ import { button, colors, input, label, muted, radius, select, h2 } from "../../l
 // the results page used to ask for AFTER the wizard handed off now gets
 // asked for here instead, so landing on results means there's nothing left
 // to fill in, just candidates to browse and pick.
-function stepsFor(roles, kind, boatUnknown = false) {
+function stepsFor(roles, kind, boatUnknown = false, multiDay = true) {
   // Trip first (country, port, dates, party, boat), then the help the client wants (roles) and where it sleeps.
   // Gulet: no brand/model (no catalogues), feet only.
   // «Δεν ξέρω ακόμα»: μετά τον τύπο σκάφους δεν ρωτιέται τίποτα άλλο για το σκάφος.
   const boat = boatUnknown ? ["boat"] : kind === "gulet" ? ["boat", "feet", "year"] : ["boat", "brand", "model", "feet", "year"];
   // One cabin screen for every professional the client asks for, in the fixed role order.
-  const cabins = CREW_ROLES.filter((r) => roles.includes(r.key)).map((r) => `cabin:${r.key}`);
+  // Only for a multi-day trip: a day trip has nowhere to stay.
+  const cabins = multiDay ? CREW_ROLES.filter((r) => roles.includes(r.key)).map((r) => `cabin:${r.key}`) : [];
   return ["country", "where", "dates", "party", ...boat, "role", ...cabins];
 }
 
@@ -170,12 +171,13 @@ export default function CrewSearchFlow() {
 
   const kind = boatKind(lookups.boatTypes.find((b) => b.id === boatTypeId)?.name || "");
   const boatUnknown = boatTypeId === BOAT_UNKNOWN;
-  const STEPS = stepsFor(roles, kind, boatUnknown);
+  const multiDay = isMultiDay(dates.start, dates.end);
+  const STEPS = stepsFor(roles, kind, boatUnknown, multiDay);
 
   // The number of cabin screens depends on the roles picked ON the role step, so while standing on it
   // the total assumes one cabin screen (then switches to the real count once the client has moved past
   // it): the fraction in the header never changes underneath an answer still being chosen.
-  const displaySteps = STEPS[step] === "role" ? stepsFor(roles.slice(0, 1).length ? roles.slice(0, 1) : ["skipper"], kind, boatUnknown) : STEPS;
+  const displaySteps = STEPS[step] === "role" ? stepsFor(roles.slice(0, 1).length ? roles.slice(0, 1) : ["skipper"], kind, boatUnknown, multiDay) : STEPS;
 
   // Pushes history itself rather than inside a setStep updater — React
   // (StrictMode, in dev) can invoke an updater function twice per call,
@@ -210,7 +212,7 @@ export default function CrewSearchFlow() {
       boat: boatTypeId || "",
       lang: "en", // English is assumed; the language choice comes later as an optional link on the summary
       party: partySize || "",
-      cabin: serializeCabins(cabins, roles),
+      cabin: multiDay ? serializeCabins(cabins, roles) : "",
       bm: boatName(boatBrand, boatModel),
       bl: boatInfo.lengthFt || "",
       by: boatInfo.year || "",
@@ -309,8 +311,8 @@ export default function CrewSearchFlow() {
           <RoleInfoSheet role={infoRole} label={infoRole ? t(`roleName_${infoRole}`) : ""} onClose={() => setInfoRole(null)} />
           {roles.length > 0 && (
             <div className="sf-step-footer">
-              <button type="button" onClick={next} style={cta}>
-                {t("continue")}
+              <button type="button" onClick={step === STEPS.length - 1 ? finish : next} style={cta}>
+                {step === STEPS.length - 1 ? t("finish") : t("continue")}
               </button>
             </div>
           )}
