@@ -32,7 +32,7 @@ await as("6900002002", async (page) => {
 });
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
-for (const [loc, expectedBoat] of [["el", "Lagoon 42 · 42 ft · 2019"], ["en", "Lagoon 42 · 42 ft · 2019"]]) {
+for (const [loc, expectedBoat] of [["el", "Lagoon 42 · 2019"], ["en", "Lagoon 42 · 2019"]]) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await ctx.addCookies([{ name: "sf_locale", value: loc, url: BASE }]);
   const page = await ctx.newPage();
@@ -59,7 +59,7 @@ select id, 'skipper', 900, 0, 0, 0, 0, now(), (departure_date + 1)::timestamptz,
   await page.locator('[data-board-kind="delivery"]').click();
   await page.waitForTimeout(1500);
   const line = await page.locator("[data-boat-line]").first().innerText().catch(() => "");
-  check("ο πίνακας μεταφορών δείχνει «Bavaria 46 · 46 ft · 2015»", line === "Bavaria 46 · 46 ft · 2015", line);
+  check("ο πίνακας μεταφορών δείχνει «Bavaria 46 · 2015»", line === "Bavaria 46 · 2015", line);
   await shoot(page, "boat-delivery-board");
   await ctx.close();
 }
