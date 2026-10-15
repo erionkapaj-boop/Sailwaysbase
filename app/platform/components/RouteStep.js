@@ -114,7 +114,7 @@ export default function RouteStep({ regions, country, from, setFrom, to, setTo, 
       </div>
 
       <div data-choice-map style={{ marginTop: 14 }}>
-        <MapView height={220} markers={markers} layers={layers} focus={focus} gestures="tap" positioned={positioned} onPick={handlePick} onMarker={(id) => open(id)} />
+        <MapView height={220} markers={markers} layers={layers} focus={focus} gestures="tap" controls="top-right" positioned={positioned} onPick={handlePick} onMarker={(id) => open(id)} />
         <p style={{ ...muted, fontSize: 12.5, margin: "8px 2px 0" }}>{missed ? t("mapNothing") : active === "from" ? t("mapHintFrom") : t("mapHintTo")}</p>
       </div>
 
