@@ -134,7 +134,15 @@ export SUPABASE_SERVICE_ROLE_KEY="$PLATFORM_SUPABASE_SERVICE_ROLE_KEY"
 if [ -n "${E2E_DEV:-}" ]; then
   setsid npx next dev -p "$APP_PORT" > "$OUT/app.log" 2>&1 &
 else
-  npm run build > "$OUT/build.log" 2>&1 || { tail -30 "$OUT/build.log"; exit 1; }
+  # next/font downloads the Google fonts at build time: a network hiccup fails the build for no reason of ours.
+  # Retry (only when the failure is that download), so a transient fetch error does not turn the run red.
+  built=0
+  for attempt in 1 2 3; do
+    if npm run build > "$OUT/build.log" 2>&1; then built=1; break; fi
+    if ! grep -q "An error occurred in \`next/font\`" "$OUT/build.log"; then break; fi
+    echo "build: font download failed (attempt $attempt), retrying"; sleep 5
+  done
+  [ "$built" = 1 ] || { tail -30 "$OUT/build.log"; exit 1; }
   setsid npx next start -p "$APP_PORT" > "$OUT/app.log" 2>&1 &
 fi
 pids+=($!)
