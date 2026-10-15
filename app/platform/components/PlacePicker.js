@@ -32,6 +32,10 @@ import { locatePoint } from "../../../lib/platform/geo";
 //                   βήμα (οδηγός). Χωρίς αυτό και με πολλές χώρες, το πεδίο
 //                   δείχνει δικό του επιλογέα χώρας.
 // onEditingChange(true|false): αν ο πελάτης είναι στη μέση αλλαγής.
+// bare:             χωρίς δική του περίληψη και χάρτη (τα δείχνει η γονική οθόνη, π.χ.
+//                   το βήμα «Από / Προς» με έναν κοινό χάρτη)· μένουν οι υπόλοιπες επιλογές.
+//                   Αν η τιμή αλλάξει απ' έξω (πάτημα στον χάρτη), κλείνει την πληκτρολόγηση.
+// openEditing:      ανοίγει κατευθείαν σε πληκτρολόγηση, ακόμα και με υπάρχουσα τιμή.
 //
 // Σχεδίαση: λίστες με γραμμές (docs/DESIGN.md), όχι σύννεφο από κουμπιά.
 
@@ -84,6 +88,21 @@ const SearchIcon = () => (
   </svg>
 );
 
+// Ο τίτλος μιας επιλογής (αφετηρία) όπως τον δείχνει η περίληψη· για πεδία «Από».
+export function placeTitle(index, value, L) {
+  const choice = describeChoice(index, value || {});
+  if (choice.kind === "empty") return "";
+  const regionName = choice.region?.name || "";
+  return L.text(choice.kind === "place" ? choice.entry.name : choice.kind === "region" ? regionName : choice.text);
+}
+
+// Το κείμενο με το οποίο βρίσκεται στον χάρτη η επιλογή (περιοχή → όνομα περιοχής, μέρος → όνομα).
+export function choicePoint(index, value) {
+  const choice = describeChoice(index, value || {});
+  if (choice.kind === "empty") return "";
+  return choice.kind === "region" || choice.kind === "custom" ? choice.region?.name || "" : value.point;
+}
+
 function placeMeta(e, t, L) {
   if (e.type === "country") return t("allRegions");
   if (e.type === "region")
@@ -103,6 +122,8 @@ export default function PlacePicker({
   onRetry,
   onEditingChange,
   country: countryProp,
+  bare = false,
+  openEditing = false,
 }) {
   const t = useTranslations("PlacePicker");
   const locale = useLocale();
@@ -114,7 +135,7 @@ export default function PlacePicker({
   const choice = arrival ? null : describeChoice(index, value || {});
   const hasValue = arrival ? Boolean(String(value || "").trim()) : choice.kind !== "empty";
 
-  const [editing, setEditing] = useState(!hasValue);
+  const [editing, setEditing] = useState(!hasValue || openEditing);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [browsing, setBrowsing] = useState(false);
@@ -133,6 +154,25 @@ export default function PlacePicker({
   useEffect(() => {
     onEditingChange?.(editingNow);
   }, [editingNow, onEditingChange]);
+
+  // bare: η τιμή άλλαξε απ' έξω (π.χ. πάτημα στον χάρτη) → κλείνει η πληκτρολόγηση.
+  const valueKey = JSON.stringify(value ?? null);
+  const firstValue = useRef(true);
+  useEffect(() => {
+    if (firstValue.current) {
+      firstValue.current = false;
+      return;
+    }
+    if (bare && hasValue) {
+      setQuery("");
+      setBrowsing(false);
+      setOpenRegion(null);
+      setUnlisted(false);
+      setUncovered(null);
+      setEditing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valueKey]);
 
   // Μια επιλογή που ήρθε απ' έξω (σύνδεσμος, «καθαρισμός») αλλάζει και την προβολή.
   useEffect(() => {
@@ -256,6 +296,7 @@ export default function PlacePicker({
 
   // ---- Επιλεγμένο ---------------------------------------------------------
   if (!editing && hasValue) {
+    if (arrival && bare) return null;
     if (arrival) {
       const match = searchPlaces(index, value, 1)[0];
       const same = match && match.name === String(value).trim();
@@ -279,15 +320,17 @@ export default function PlacePicker({
     return (
       <div data-place-picker="selected">
         {styleTag}
-        <Summary title={title} sub={sub} onChange={startEditing} invalid={invalid} />
-        <ChoiceMap
-          point={choice.kind === "region" ? regionName : choice.kind === "custom" ? regionName : value.point}
-          label={title}
-          index={index}
-          onPick={(entry) => onChange({ regionId: entry.regionId, point: pointOf(entry) })}
-        />
+        {!bare && <Summary title={title} sub={sub} onChange={startEditing} invalid={invalid} />}
+        {!bare && (
+          <ChoiceMap
+            point={choice.kind === "region" ? regionName : choice.kind === "custom" ? regionName : value.point}
+            label={title}
+            index={index}
+            onPick={(entry) => onChange({ regionId: entry.regionId, point: pointOf(entry) })}
+          />
+        )}
         {ports && (
-          <div style={{ marginTop: 24 }}>
+          <div style={{ marginTop: bare ? 0 : 24 }}>
             <p style={label}>{t("port")}</p>
             <div className="sf-pp-list">
               <button type="button" className="sf-pp-row" aria-pressed={!choice.port}

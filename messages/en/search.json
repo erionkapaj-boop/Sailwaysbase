@@ -4,9 +4,6 @@
     "continue": "Continue",
     "whenTitle": "When?",
     "countryTitle": "Which country?",
-    "fromTitle": "Where does the trip start?",
-    "endsElsewhere": "Ends at a different place",
-    "whereEnds": "Where does it end?",
     "boatTitle": "What type of boat?",
     "boatTypesFailed": "Boat types could not be loaded.",
     "retry": "Try again",
@@ -25,7 +22,17 @@
     "missingBoth": "Enter the number of people and the cabin option.",
     "missingParty": "Enter the number of people.",
     "missingCabin": "Answer the cabin question.",
-    "finish": "Finish"
+    "finish": "Finish",
+    "whereTitle": "Where?",
+    "fromLabel": "From",
+    "toLabel": "To",
+    "fromPlaceholder": "Port, island or town",
+    "toPlaceholder": "Same place",
+    "clearTo": "Remove destination",
+    "toTyping": "Destination",
+    "mapNothing": "No known port here.",
+    "mapHintFrom": "Tap the map to pick the start.",
+    "mapHintTo": "Tap the map to pick the destination."
   },
   "HomeEntry": {
     "adminTitle": "Administration",

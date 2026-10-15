@@ -19,12 +19,12 @@ await as(MARIA, async (page) => {
   await page.waitForTimeout(400);
 
   let t = await text(page);
-  check("πρώτα η χώρα, σε δική της σελίδα", t.includes("Ποια χώρα;") && !t.includes("Από πού ξεκινά το ταξίδι;"));
+  check("πρώτα η χώρα, σε δική της σελίδα", t.includes("Ποια χώρα;") && !t.includes("Προς"));
   await shoot(page, "wizard-country");
   await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
   await page.waitForTimeout(400);
   t = await text(page);
-  check("μετά το μέρος (όχι περιοχή / λιμάνι ξεχωριστά)", t.includes("Από πού ξεκινά το ταξίδι;") && !t.includes("Ποια περιοχή;"));
+  check("μετά το μέρος (όχι περιοχή / λιμάνι ξεχωριστά)", t.includes("Πού;") && t.includes("Από") && t.includes("Προς") && !t.includes("Ποια περιοχή;"));
   await shoot(page, "wizard-where-empty");
   const bases = (await page.locator("[data-base-ports] .sf-pp-name").allInnerTexts()).map((x) => x.trim());
   check("βασικά λιμάνια: η λίστα του ιδιοκτήτη, με τη σειρά της",
@@ -32,9 +32,9 @@ await as(MARIA, async (page) => {
   check("χωρίς εσωτερικούς όρους στη σελίδα", !/προτεινόμεν/i.test(await text(page)));
   await page.locator("[data-base-ports] .sf-pp-row").filter({ hasText: "Gouvia Marina" }).click();
   t = await text(page);
-  check("Κέρκυρα – Gouvia: νησί, περιοχή και λιμάνι επιλεγμένο",
-    t.includes("Κέρκυρα") && t.includes("Ιόνιο · Ελλάδα") && (await page.getByRole("button", { name: "Gouvia Marina", exact: true }).getAttribute("aria-pressed")) === "true", t.slice(0, 300));
-  await page.getByRole("button", { name: "Αλλαγή", exact: true }).click();
+  check("Κέρκυρα – Gouvia: νησί στο πεδίο «Από» και λιμάνι επιλεγμένο",
+    (await page.locator("[data-route-field=from] [data-place-title]").innerText()) === "Κέρκυρα" && (await page.getByRole("button", { name: "Gouvia Marina", exact: true }).getAttribute("aria-pressed")) === "true", t.slice(0, 300));
+  await page.locator("[data-route-field=from] button").first().click();
   check("το πεδίο έχει ήδη την εστίαση", await combobox(page).evaluate((el) => el === document.activeElement));
   check("χωρίς περιοχή δεν συνεχίζει", await page.getByRole("button", { name: "Συνέχεια" }).isDisabled());
 
@@ -48,7 +48,7 @@ await as(MARIA, async (page) => {
   // Λάθος γραφή → σωστό μέρος, με την περιοχή του.
   await pickPlace(page, "παρωσ", "Πάρος");
   t = await text(page);
-  check("Πάρος → Κυκλάδες · Ελλάδα", t.includes("Κυκλάδες · Ελλάδα"), t.slice(0, 300));
+  check("Πάρος στο πεδίο «Από»", (await page.locator("[data-route-field=from] [data-place-title]").innerText()) === "Πάρος", t.slice(0, 300));
   check("λιμάνια της Πάρου, με «Όπου βολεύει» προεπιλεγμένο",
     t.includes("Νάουσα") && (await page.getByRole("button", { name: "Όπου βολεύει" }).getAttribute("aria-pressed")) === "true");
   check("ενημέρωση για την περιοχή", t.includes("Επαγγελματίες διαθέσιμοι στις Κυκλάδες."));
@@ -57,7 +57,7 @@ await as(MARIA, async (page) => {
   check("επιλογή λιμανιού", (await page.getByRole("button", { name: "Νάουσα", exact: true }).getAttribute("aria-pressed")) === "true");
 
   // Όσο αλλάζει το μέρος, δεν προχωρά με την παλιά επιλογή· Esc = ακύρωση.
-  await page.getByRole("button", { name: "Αλλαγή", exact: true }).click();
+  await page.locator("[data-route-field=from] button").first().click();
   check("στη μέση αλλαγής δεν συνεχίζει", await page.getByRole("button", { name: "Συνέχεια" }).isDisabled());
   await combobox(page).press("Escape");
   check("Esc κρατά την προηγούμενη επιλογή",
@@ -65,9 +65,11 @@ await as(MARIA, async (page) => {
       (await page.getByRole("button", { name: "Νάουσα", exact: true }).getAttribute("aria-pressed")) === "true");
 
   // Τέλος σε άλλο σημείο: ελεύθερο, με προτάσεις.
-  await page.getByLabel("Τελειώνει σε άλλο σημείο").check();
+  await page.locator("[data-route-field=to] button").first().click();
   await page.getByRole("combobox").fill("mikonos");
   await page.getByRole("option", { name: /^Μύκονος/ }).click();
+  check("πεδίο «Προς»: Μύκονος, με καρφίτσες Α και Β στον ίδιο χάρτη",
+    (await page.locator("[data-route-field=to] [data-place-title]").innerText()) === "Μύκονος" && (await page.locator("[data-choice-map]").count()) === 1);
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(400);
 

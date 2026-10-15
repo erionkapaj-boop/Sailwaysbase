@@ -8,8 +8,7 @@ import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
 import BackButton from "./components/BackButton";
 import Icon, { ROLE_ICON } from "./components/Icon";
-import PlacePicker from "./components/PlacePicker";
-import { Mark } from "./components/Logo";
+import RouteStep from "./components/RouteStep";
 import { useLocalData } from "./useLocalData";
 import { COUNTRIES } from "../../lib/platform/places";
 import BoatFields from "./components/BoatFields";
@@ -90,8 +89,6 @@ export default function CrewSearchFlow() {
   const [regionId, setRegionId] = useSessionState("sf_wizard:region", "");
   const [departurePoint, setDeparturePoint] = useSessionState("sf_wizard:from", "");
   const [arrivalPoint, setArrivalPoint] = useSessionState("sf_wizard:to", "");
-  const [sameDestination, setSameDestination] = useSessionState("sf_wizard:same", true);
-  const [pickingPlace, setPickingPlace] = useState(true);
   const [boatTypeId, setBoatTypeId] = useSessionState("sf_wizard:boatType", "");
   const [languageId, setLanguageId] = useSessionState("sf_wizard:lang", "");
   const [partySize, setPartySize] = useSessionState("sf_wizard:party", "");
@@ -182,7 +179,7 @@ export default function CrewSearchFlow() {
       end: dates.end,
       region: regionId,
       point: departurePoint.trim(),
-      arrival: sameDestination ? departurePoint.trim() : arrivalPoint.trim(),
+      arrival: arrivalPoint.trim() || departurePoint.trim(),
       boat: boatTypeId || "",
       lang: languageId || "",
       party: partySize || "",
@@ -294,12 +291,11 @@ export default function CrewSearchFlow() {
                   setRegionId("");
                   setDeparturePoint("");
                   setArrivalPoint("");
-                  setSameDestination(true);
                 }
                 next();
               }}
             >
-              <Mark size={22} />
+              <Icon name="pin" size={22} />
               <span style={{ flex: 1 }}>{L.text(c.name)}</span>
               <svg width="7" height="12" viewBox="0 0 7 12" fill="none" aria-hidden="true" style={{ color: "#A9B3BD" }}>
                 <path d="M1 1l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -311,56 +307,21 @@ export default function CrewSearchFlow() {
 
       {current === "where" && (
         <div key="where" data-sf-step style={stepWrap}>
-          <StepHeading>{t("fromTitle")}</StepHeading>
-          <PlacePicker
+          <StepHeading>{t("whereTitle")}</StepHeading>
+          <RouteStep
             regions={lookups.regions}
             country={country || COUNTRIES[0].code}
-            value={{ regionId, point: departurePoint }}
-            onChange={({ regionId: r, point }) => {
+            from={{ regionId, point: departurePoint }}
+            setFrom={({ regionId: r, point }) => {
               setRegionId(r);
               setDeparturePoint(point);
             }}
-            autoFocus
-            onEditingChange={setPickingPlace}
+            to={arrivalPoint}
+            setTo={setArrivalPoint}
             failed={lookupsError}
             onRetry={() => setLookupsAttempt((n) => n + 1)}
+            onNext={next}
           />
-
-          {regionId && !pickingPlace && (
-            <>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, margin: "20px 0 0", minHeight: 44, cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  style={{ width: 18, height: 18, accentColor: colors.ink }}
-                  checked={!sameDestination}
-                  onChange={(e) => {
-                    const different = e.target.checked;
-                    setSameDestination(!different);
-                    if (!different) setArrivalPoint("");
-                  }}
-                />
-                {t("endsElsewhere")}
-              </label>
-
-              {!sameDestination && (
-                <div style={{ marginTop: 8 }}>
-                  <p style={{ ...muted, fontSize: 13, margin: "0 0 8px" }}>{t("whereEnds")}</p>
-                  <PlacePicker mode="arrival" regions={lookups.regions} value={arrivalPoint} onChange={setArrivalPoint} autoFocus />
-                </div>
-              )}
-            </>
-          )}
-
-          <div className="sf-step-footer">
-            <button
-              type="button"
-              disabled={pickingPlace || !regionId || !departurePoint.trim() || (!sameDestination && !arrivalPoint.trim())}
-              onClick={next}
-              style={cta}
-            >
-              {t("continue")}
-            </button>
-          </div>
         </div>
       )}
 
