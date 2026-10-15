@@ -3,10 +3,10 @@
 import { sql } from "./lib.mjs";
 
 export const PUBLIC = ["/platform/login", "/platform/register", "/platform/forgot-pin", "/platform/about",
-  "/platform/terms", "/platform/privacy", "/platform/contact", "/platform/professionals", "/platform/experiences", "/platform/board"];
+  "/platform/terms", "/platform/privacy", "/platform/contact", "/platform/experiences", "/platform/board"];
 export const EVERYONE = ["/platform", "/platform/search", "/platform/requests", "/platform/bookings", "/platform/wallet", "/platform/wallet/buy",
   "/platform/profile", "/platform/delivery", "/platform/delivery/requests", "/platform/contact",
-  "/platform/about", "/platform/professionals"];
+  "/platform/about"];
 export const PRO_ONLY = ["/platform/availability"];
 export function adminPages() {
   const client = sql("select id from users where full_name = 'Μαρία Πελάτη'");

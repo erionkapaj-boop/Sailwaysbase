@@ -1,11 +1,6 @@
-import { getTranslations } from "next-intl/server";
-import ProfessionalsBody from "./ProfessionalsBody";
+import { redirect } from "next/navigation";
 
-export async function generateMetadata() {
-  const t = await getTranslations("ProfessionalsMeta");
-  return { title: t("title") };
-}
-
+// Παλιός σύνδεσμος: η εγγραφή επαγγελματία ανοίγει κατευθείαν τη φόρμα.
 export default function ProfessionalsPage() {
-  return <ProfessionalsBody />;
+  redirect("/platform/register?as=professional");
 }

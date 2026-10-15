@@ -442,7 +442,7 @@ export default function BoardPage() {
           <>
             <p style={{ ...muted, margin: "0 0 10px" }}>{t("guestNote")}</p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Link href="/platform/professionals" style={{ ...button("primary"), textDecoration: "none" }}>
+              <Link href="/platform/register?as=professional" style={{ ...button("primary"), textDecoration: "none" }}>
                 {t("signupToClaim")}
               </Link>
               <Link href={`/platform/login?next=${next}`} style={{ ...button("secondary"), textDecoration: "none" }}>

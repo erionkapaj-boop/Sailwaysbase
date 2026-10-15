@@ -150,7 +150,7 @@ export default function HomeEntry() {
       {!session && (
         <div style={{ marginTop: 96 }}>
           <p style={{ ...muted, fontSize: 14, margin: "0 0 12px" }}>{t("areYouPro")}</p>
-          <Link href="/platform/professionals" style={{ ...button("secondary"), ...pill, fontSize: 16, minHeight: 48, padding: "12px 28px", borderColor: colors.ink }}>
+          <Link href="/platform/register?as=professional" style={{ ...button("secondary"), ...pill, fontSize: 16, minHeight: 48, padding: "12px 28px", borderColor: colors.ink }}>
             {t("createProfile")}
           </Link>
         </div>

@@ -48,8 +48,8 @@ for (const locale of ["el", "en"]) {
   check(`${locale}: οι εμπειρίες ανοίγουν`, page.url().includes("/platform/experiences"));
   await go(page, "/platform");
   await page.getByRole("link", { name: L.create, exact: true }).click();
-  await page.waitForURL(/professionals/, { timeout: 10000 }).catch(() => {});
-  check(`${locale}: το «Δημιούργησε προφίλ» ανοίγει την εγγραφή επαγγελματία`, page.url().includes("/platform/professionals"));
+  await page.waitForURL(/register/, { timeout: 10000 }).catch(() => {});
+  check(`${locale}: το «Δημιούργησε προφίλ» ανοίγει κατευθείαν τη φόρμα, με το πρώτο πεδίο έτοιμο`, page.url().includes("/platform/register?as=professional") && (await page.locator("#reg-name").isVisible()) && (await page.evaluate(() => document.activeElement?.id)) === "reg-name");
   await go(page, "/platform");
   await page.getByRole("button", { name: L.cta, exact: true }).click();
   await page.waitForTimeout(800);

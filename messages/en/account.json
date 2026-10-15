@@ -32,9 +32,6 @@
     "title": "Contact",
     "description": "SkipperFinder contact form. The message goes directly to platform administration."
   },
-  "ProfessionalsMeta": {
-    "title": "For professionals"
-  },
   "LayoutMeta": {
     "description": "Find crew for your boat in Greece."
   },
@@ -53,14 +50,6 @@
   "SideNav": {
     "menu": "Side menu",
     "logout": "Log out"
-  },
-  "Professionals": {
-    "title": "For professionals",
-    "intro": "Sign up as {roles}. You declare your availability and your own price, and receive requests from clients.",
-    "start": "Start registration",
-    "needs": "You only need your full name, mobile number and email. The mobile number is verified by SMS.",
-    "haveAccount": "Already have an account?",
-    "login": "Log in"
   },
   "Contact": {
     "topicGeneral": "General question",

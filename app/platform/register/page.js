@@ -1,5 +1,6 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
@@ -223,6 +224,7 @@ function RegisterInner() {
           <input
             id="reg-name"
             required
+            autoFocus
             style={{ ...input, marginBottom: 16 }}
             value={form.fullName}
             onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
@@ -268,6 +270,12 @@ function RegisterInner() {
               : otpEnabled
               ? t("noteOtp")
               : t("noteReview")}
+          </p>
+          <p style={{ ...muted, fontSize: 13, margin: "16px 0 0", textAlign: "center" }}>
+            {t("haveAccount")}{" "}
+            <Link href="/platform/login" style={{ color: colors.ink }}>
+              {t("loginLink")}
+            </Link>
           </p>
         </form>
       )}
