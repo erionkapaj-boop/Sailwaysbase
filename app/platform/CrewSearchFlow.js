@@ -43,6 +43,8 @@ function stepsFor(roles, kind) {
   return [...withBoat, "extras"];
 }
 
+const KIND_ORDER = ["sail", "cat", "motor", "gulet", "other"];
+
 const stepWrap = {
   animation: "sf-step-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both",
 };
@@ -336,7 +338,7 @@ export default function CrewSearchFlow() {
         <div key="boat" data-sf-step style={stepWrap}>
           <StepHeading>{t("boatTitle")}</StepHeading>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {lookups.boatTypes.map((b) => {
+            {[...lookups.boatTypes].sort((x, y) => KIND_ORDER.indexOf(boatKind(x.name)) - KIND_ORDER.indexOf(boatKind(y.name))).map((b) => {
               const k = boatKind(b.name);
               const on = boatTypeId === b.id;
               return (
