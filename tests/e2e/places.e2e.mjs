@@ -120,7 +120,7 @@ await as(MARIA, async (page) => {
   check("η Πολωνική προστέθηκε στις επιλεγμένες", (await page.getByRole("button", { name: "Πολωνικά", exact: true }).getAttribute("aria-pressed")) === "true" && (await chosen()) === before + 1);
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(300);
-  check("καμπίνα: τρεις επιλογές, μία ερώτηση", (await text(page)).includes("Πού θα κοιμάται ο επαγγελματίας;") && (await page.locator("[data-cabin-choice] button").count()) === 3);
+  check("καμπίνα: τρεις επιλογές, μία ερώτηση", (await text(page)).includes("Πού θα κοιμάται ο Skipper;") && (await page.locator("[data-cabin-choice] button").count()) === 3);
   await shoot(page, "wizard-cabin");
   await page.locator("[data-cabin-choice]").getByRole("button", { name: "Καμπίνα σκίπερ" }).click();
   await page.waitForTimeout(300);
@@ -131,7 +131,7 @@ await as(MARIA, async (page) => {
   check("σημείο αναχώρησης «Νάουσα (Πάρος)»", url.searchParams.get("point") === "Νάουσα (Πάρος)", url.searchParams.get("point"));
   check("τερματισμός «Μύκονος»", url.searchParams.get("arrival") === "Μύκονος");
   check("γλώσσες στο URL: όσες επιλέχτηκαν, με την Πολωνική", (url.searchParams.get("lang") || "").split(",").filter(Boolean).length >= 2, url.search);
-  check("καμπίνα σκίπερ στο URL", url.searchParams.get("cabin") === "skipper", url.search);
+  check("καμπίνα σκίπερ για τον Skipper στο URL", url.searchParams.get("cabin") === "skipper:skipper", url.search);
   check("σκάφος «Bavaria Cruiser 46», 46 πόδια", url.searchParams.get("bm") === "Bavaria Cruiser 46" && url.searchParams.get("bl") === "46", url.search);
   await page.waitForTimeout(1500);
   t = await text(page);

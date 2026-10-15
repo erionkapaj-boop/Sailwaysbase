@@ -36,7 +36,10 @@
     "kind_gulet": "Gulet",
     "partyTitle": "How many passengers will you be?",
     "languageTitle": "Which languages do you speak?",
-    "cabinTitle": "Where will the professional sleep?"
+    "cabinTitle_skipper": "Where will the Skipper sleep?",
+    "cabinTitle_hostess": "Where will the Hostess sleep?",
+    "cabinTitle_deckhand": "Where will the Deckhand sleep?",
+    "cabinTitle_cook": "Where will the Cook sleep?"
   },
   "HomeEntry": {
     "adminTitle": "Administration",
@@ -328,6 +331,7 @@
     "doneOpenTitle": "{count, plural, one {Your request is open} other {Your # requests are open}}",
     "openDoneNote": "{count, plural, one {It is waiting for professionals to accept. Whoever is interested shows up under Requests and you choose. It stays open until the start date or until you close it.} other {They are waiting for professionals to accept. Those who are interested show up under Requests and you choose. They stay open until the start date or until you close them.}}",
     "reservedOpenOne": "{total} reserved, charged only when you choose a professional.",
-    "reservedOpenMany": "{total} reserved, {fee} for each request. Each is charged only when you choose a professional."
+    "reservedOpenMany": "{total} reserved, {fee} for each request. Each is charged only when you choose a professional.",
+    "cabinFor": "Where will they sleep: {role}"
   }
 }

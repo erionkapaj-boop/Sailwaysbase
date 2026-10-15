@@ -53,7 +53,7 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
 import BoatFields from "../components/BoatFields";
 import CabinChoice from "../components/CabinChoice";
-import { cabinKindFrom, isPrivateCabin } from "../../../lib/platform/cabin";
+import { cabinOf, isPrivateCabin, parseCabins } from "../../../lib/platform/cabin";
 import LanguagePicker from "../components/LanguagePicker";
 import { boatLine, boatValid } from "../../../lib/platform/boat";
 
@@ -891,6 +891,7 @@ function Checkout({
         boatTypeId: boatTypesByRole.skipper || "",
         languageId: filters.languageId || "",
         cabinKind: filters.cabinKind || "",
+        cabins: filters.cabins || {},
         partySize: filters.partySize,
         privateCabin: filters.privateCabin,
         boatModel: filters.boatModel || "",
@@ -952,7 +953,7 @@ function Checkout({
     }
     if (awaitingVerification) return;
     trackFlow("request", "send");
-    if (!filters.partySize || filters.privateCabin === undefined) {
+    if (!filters.partySize || !supportedRoles.every((r) => cabinOf(filters, r))) {
       setError(t("needPartyAndCabin"));
       return;
     }
@@ -1004,7 +1005,7 @@ function Checkout({
               boatTypeId: role === "skipper" ? boatTypesByRole[role] || null : null,
               role,
               partySize: Number(filters.partySize),
-              privateCabin: filters.privateCabin,
+              privateCabin: isPrivateCabin(cabinOf(filters, role)),
               boatModel: filters.boatModel,
               boatLengthFt: filters.boatLengthFt,
               boatYear: filters.boatYear,
@@ -1023,7 +1024,7 @@ function Checkout({
             maxPriceFilter: null,
             crewRole: role,
             partySize: Number(filters.partySize),
-            privateCabin: filters.privateCabin,
+            privateCabin: isPrivateCabin(cabinOf(filters, role)),
             boatModel: filters.boatModel,
             boatLengthFt: filters.boatLengthFt,
             boatYear: filters.boatYear,
@@ -1311,8 +1312,9 @@ function SearchPageInner() {
     boatTypeId: params.get("boat") || "",
     languageId: params.get("lang") || "",
     partySize: params.get("party") || "",
-    cabinKind: cabinKindFrom(params.get("cabin"), undefined),
-    privateCabin: isPrivateCabin(cabinKindFrom(params.get("cabin"), undefined)),
+    cabins: parseCabins(params.get("cabin")).map,
+    cabinKind: parseCabins(params.get("cabin")).all,
+    privateCabin: isPrivateCabin(parseCabins(params.get("cabin")).all),
     boatModel: params.get("bm") || "",
     boatLengthFt: params.get("bl") || "",
     boatYear: params.get("by") || "",
@@ -1420,7 +1422,7 @@ function SearchPageInner() {
     if (!filters.departurePoint || !filters.departurePoint.trim()) errors.departurePoint = true;
     if (!filters.arrivalPoint || !filters.arrivalPoint.trim()) errors.arrivalPoint = true;
     if (!filters.partySize) errors.partySize = true;
-    if (filters.privateCabin === undefined) errors.privateCabin = true;
+    if (!supportedRoles.every((r) => cabinOf(filters, r))) errors.privateCabin = true;
     if (!boatValid({ model: filters.boatModel, lengthFt: filters.boatLengthFt, year: filters.boatYear })) errors.boat = true;
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1431,9 +1433,10 @@ function SearchPageInner() {
   // literally just made a step earlier. Collapsed to a one-line summary
   // whenever the incoming state is already complete; "Αλλαγή" reopens it in
   // place for anyone who does want to change something.
+  const earlyRoles = (params.get("roles") || "skipper").split(",").filter((r) => SUPPORTED_ROLES.includes(r));
   function isComplete(f) {
     return Boolean(
-      f.startDate && f.endDate && f.regionId && f.departurePoint && f.arrivalPoint && f.partySize && f.privateCabin !== undefined
+      f.startDate && f.endDate && f.regionId && f.departurePoint && f.arrivalPoint && f.partySize && earlyRoles.every((r) => cabinOf(f, r))
     );
   }
   const [showFullFilters, setShowFullFilters] = useState(!isComplete(incoming));
@@ -1668,16 +1671,20 @@ function SearchPageInner() {
             )}
           </div>
           <div>
-            <label style={label}>{t("cabinLabel")}</label>
-            <CabinChoice
-              compact
-              invalid={Boolean(fieldErrors.privateCabin)}
-              value={cabinKindFrom(filters.cabinKind, filters.privateCabin)}
-              onChange={(k) => {
-                setFilters((f) => ({ ...f, cabinKind: k, privateCabin: isPrivateCabin(k) }));
-                clearFieldError("privateCabin");
-              }}
-            />
+            {supportedRoles.map((r) => (
+              <div key={r} style={{ marginBottom: 12 }}>
+                <label style={label}>{t("cabinFor", { role: labelForRole(r) })}</label>
+                <CabinChoice
+                  compact
+                  invalid={Boolean(fieldErrors.privateCabin) && !cabinOf(filters, r)}
+                  value={cabinOf(filters, r)}
+                  onChange={(k) => {
+                    setFilters((f) => ({ ...f, cabins: { ...(f.cabins || {}), [r]: k } }));
+                    clearFieldError("privateCabin");
+                  }}
+                />
+              </div>
+            ))}
             {fieldErrors.privateCabin && (
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>{t("requiredField")}</p>
             )}
@@ -1707,7 +1714,7 @@ function SearchPageInner() {
               {" · "}
               {t("people", { count: Number(filters.partySize) })}
               {" · "}
-              {tCabin(cabinKindFrom(filters.cabinKind, filters.privateCabin))}
+              {supportedRoles.map((r) => (supportedRoles.length > 1 ? `${labelForRole(r)}: ` : "") + tCabin(cabinOf(filters, r))).join(", ")}
               {boatTypeName ? ` · ${L.text(boatTypeName)}` : ""}
               {boatLine({ boat_model: filters.boatModel, boat_length_ft: filters.boatLengthFt, boat_year: filters.boatYear }) ? ` · ${boatLine({ boat_model: filters.boatModel, boat_length_ft: filters.boatLengthFt, boat_year: filters.boatYear })}` : ""}
             </span>

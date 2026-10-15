@@ -11,6 +11,7 @@ import BackButton from "./components/BackButton";
 import Icon, { ROLE_ICON, BOAT_ICON } from "./components/Icon";
 import Counter from "./components/Counter";
 import CabinChoice from "./components/CabinChoice";
+import { serializeCabins } from "../../lib/platform/cabin";
 import LanguagePicker from "./components/LanguagePicker";
 import { LANGUAGES } from "../../lib/platform/localData/en.js";
 import { BrandStep, ModelStep, FeetStep } from "./components/BoatSteps";
@@ -45,7 +46,9 @@ function stepsFor(roles, kind) {
   // Γουλέτα: χωρίς μάρκα/μοντέλο (δεν υπάρχουν κατάλογοι)· μόνο πόδια.
   const boat = kind === "gulet" ? ["boat", "feet"] : ["boat", "brand", "model", "feet"];
   const withBoat = roles.includes("skipper") ? [...base, ...boat] : base;
-  return [...withBoat, "party", "language", "cabin", "extras"];
+  // Καμπίνα: μία οθόνη για κάθε επαγγελματία που ζητά ο πελάτης, με τη σταθερή σειρά των ρόλων.
+  const cabins = CREW_ROLES.filter((r) => roles.includes(r.key)).map((r) => `cabin:${r.key}`);
+  return [...withBoat, "party", "language", ...cabins, "extras"];
 }
 
 const KIND_ORDER = ["sail", "cat", "motor", "gulet", "other"];
@@ -114,7 +117,7 @@ export default function CrewSearchFlow() {
   const [languageIds, setLanguageIds] = useSessionState("sf_wizard:langs", null);
   const [partySize, setPartySize] = useSessionState("sf_wizard:party", "");
   const [boatInfo, setBoatInfo] = useSessionState("sf_wizard:boat", { model: "", lengthFt: "", year: "" });
-  const [cabinKind, setCabinKind] = useSessionState("sf_wizard:cabinKind", "");
+  const [cabins, setCabins] = useSessionState("sf_wizard:cabins", {});
 
   const [lookupsError, setLookupsError] = useState(false);
   const [lookupsAttempt, setLookupsAttempt] = useState(0);
@@ -211,7 +214,7 @@ export default function CrewSearchFlow() {
       boat: boatTypeId || "",
       lang: (languageIds ?? defaultLanguageIds).join(","),
       party: partySize || "",
-      cabin: cabinKind,
+      cabin: serializeCabins(cabins, roles),
       bm: boatName(boatBrand, boatModel),
       bl: boatInfo.lengthFt || "",
       by: boatInfo.year || "",
@@ -445,13 +448,13 @@ export default function CrewSearchFlow() {
         </div>
       )}
 
-      {current === "cabin" && (
-        <div key="cabin" data-sf-step style={stepWrap}>
-          <StepHeading>{t("cabinTitle")}</StepHeading>
+      {current?.startsWith("cabin:") && (
+        <div key={current} data-sf-step style={stepWrap}>
+          <StepHeading>{t(`cabinTitle_${current.slice(6)}`)}</StepHeading>
           <CabinChoice
-            value={cabinKind}
+            value={cabins[current.slice(6)] || ""}
             onChange={(k) => {
-              setCabinKind(k);
+              setCabins((cur) => ({ ...cur, [current.slice(6)]: k }));
               next();
             }}
           />
