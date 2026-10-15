@@ -46,9 +46,9 @@ const P = {
   bed: '<path d="M3 18V7M3 14h18v4M21 14v-2.5A2.5 2.5 0 0 0 18.5 9H11v5"/><circle cx="7" cy="11" r="1.6"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   // καμπίνες
-  bunk: '<path d="M4 3v18M20 3v18M4 8.5h16M4 16.5h16"/><path d="M7.5 8.5V6.5h5v2M7.5 16.5v-2h5v2"/>',
-  berth: '<path d="M4 8v10M20 18v-2.5"/><rect x="4" y="13" width="16" height="3.5" rx="1"/><rect x="6.2" y="10" width="4.6" height="3" rx="1.3"/>',
-  door: '<path d="M6 21V4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21M4 21h16M14.5 12.5v.1"/>',
+  bunk: '<path d="M4 3.5v17M20 3.5v17"/><rect x="4" y="8.2" width="16" height="2.6" rx="1"/><rect x="4" y="15.2" width="16" height="2.6" rx="1"/><rect x="6.2" y="5.6" width="4.6" height="2.6" rx="1.2"/><rect x="6.2" y="12.6" width="4.6" height="2.6" rx="1.2"/>',
+  bedDouble: '<path d="M3.5 19V6.5h17V19"/><rect x="3.5" y="12.6" width="17" height="4" rx="1.2"/><rect x="5.8" y="9.2" width="5.4" height="3.4" rx="1.4"/><rect x="12.8" y="9.2" width="5.4" height="3.4" rx="1.4"/>',
+  bedSingle: '<path d="M6.6 19V6.5h10.8V19"/><rect x="6.6" y="12.6" width="10.8" height="4" rx="1.2"/><rect x="8.4" y="9.2" width="7.2" height="3.4" rx="1.4"/>',
   // τύποι σκάφους (σιλουέτες γραμμής)
   sail: '<path d="M2.4 15.6h19.2l-3.3 4.6H5.9Z"/><path d="M10.6 2.8v12.8"/><path d="M10.6 3.6 19.4 15.6h-8.8"/><path d="M8.8 6.4 4 15.6h4.8"/>',
   cat: '<path d="M2.4 14.4C3 17.8 4 20.4 6 20.4s3-2.6 3.6-6"/><path d="M14.4 14.4c.6 3.4 1.6 6 3.6 6s3-2.6 3.6-6"/><path d="M2.4 14.4h19.2"/><path d="M7.8 14.4 9 11.4h6l1.2 3"/><path d="M12 2.8v8.6"/><path d="M12 3.6 18 11.4h-6"/>',
@@ -62,7 +62,7 @@ const P = {
 };
 
 // Το εικονίδιο κάθε ρόλου πληρώματος (κλειδιά του lib/platform/roles.js).
-export const CABIN_ICON = { bunk: "bunk", private: "door", skipper: "berth" };
+export const CABIN_ICON = { bunk: "bunk", private: "bedDouble", skipper: "bedSingle" };
 
 export const BOAT_ICON = { sail: "sail", cat: "cat", motor: "motor", gulet: "gulet", other: "sail" };
 

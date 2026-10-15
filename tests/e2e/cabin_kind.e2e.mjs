@@ -18,7 +18,7 @@ for (const [i, kind] of kinds.entries()) {
        insert into booking_request_pings (booking_request_id, skipper_id) select id, '${SP_KOSTAS}' from r;`);
 }
 
-const labels = { el: { bunk: "Κουκέτα", private: "Ιδιωτική καμπίνα", skipper: "Καμπίνα σκίπερ" }, en: { bunk: "Bunk", private: "Private cabin", skipper: "Skipper cabin" } };
+const labels = { el: { bunk: "Κουκέτα", private: "Ιδιωτική καμπίνα", skipper: "Skipper cabin" }, en: { bunk: "Bunk", private: "Private cabin", skipper: "Skipper cabin" } };
 const hints = { el: { bunk: "Κοινός χώρος με κουκέτες.", private: "Μεγάλη καμπίνα, συνήθως με τουαλέτα.", skipper: "Μικρή καμπίνα, ένα κρεβάτι στην πλώρη." },
                 en: { bunk: "Shared space with bunk beds.", private: "Large cabin, usually with a toilet.", skipper: "Small cabin, one berth in the bow." } };
 await as("6900002005", async (page) => {

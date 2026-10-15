@@ -126,7 +126,7 @@ await as(MARIA, async (page) => {
   await page.waitForTimeout(300);
   check("καμπίνα: τρεις επιλογές, μία ερώτηση", (await text(page)).includes("Πού θα κοιμάται ο Skipper;") && (await page.locator("[data-cabin-choice] button").count()) === 3);
   await shoot(page, "wizard-cabin");
-  await page.locator("[data-cabin-choice]").getByRole("button", { name: "Καμπίνα σκίπερ" }).click();
+  await page.locator("[data-cabin-choice]").getByRole("button", { name: "Skipper cabin" }).click();
   await page.waitForTimeout(300);
   await page.getByRole("button", { name: "Ολοκλήρωση" }).click();
   await page.waitForURL(/\/platform\/search\?/);

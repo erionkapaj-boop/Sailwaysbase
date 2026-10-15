@@ -92,7 +92,7 @@ check("στη βάση: skipper cabin μένει skipper, ιδιωτική μέ�
   const { BASE } = await import("./lib.mjs");
   const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
   for (const [locale, skipperLabel, privateLabel, skipperHint] of [
-    ["el", "Καμπίνα σκίπερ", "Ιδιωτική καμπίνα", "Μικρή καμπίνα, ένα κρεβάτι στην πλώρη."],
+    ["el", "Skipper cabin", "Ιδιωτική καμπίνα", "Μικρή καμπίνα, ένα κρεβάτι στην πλώρη."],
     ["en", "Skipper cabin", "Private cabin", "Small cabin, one berth in the bow."],
   ]) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
