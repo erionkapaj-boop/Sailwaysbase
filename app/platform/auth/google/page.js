@@ -69,6 +69,7 @@ function GoogleReturn() {
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [autoCreating, setAutoCreating] = useState(false);
 
   const isProfessional = kind === "professional";
   const userId = session?.user?.id || null;
@@ -131,10 +132,42 @@ function GoogleReturn() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  // New client with Google only (0132): the account is created from the Google name and email, with no phone and no
+  // code; the phone is asked later, only when needed. Then straight back to where the client was.
+  async function createClientAndContinue(name) {
+    setBusy(true);
+    try {
+      await createUserDraft({ fullName: name, phone: "", email: identity?.email, crewRole: null, phoneVerified: true });
+      trackFlow("register", "done");
+      await refresh();
+      const next = readGoogleIntent().next;
+      clearGoogleIntent();
+      router.replace(next || (hasPendingBroadcast() ? "/platform/search" : hasPendingDelivery() ? "/platform/delivery" : "/platform"));
+    } catch (err) {
+      setAutoCreating(false);
+      if (ERRORS[err.message]) noteFailure(err.message);
+      setError(ERRORS[err.message] ? t(ERRORS[err.message]) : friendlyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Arrived from the "One more step" sheet (as=client): no form at all.
+  useEffect(() => {
+    if (me !== null || !identity || asParam !== "client" || autoCreating) return;
+    setAutoCreating(true);
+    createClientAndContinue(fullName.trim() || identity.name || (identity.email || "").split("@")[0] || "Client");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, identity, asParam]);
+
   async function submit(e) {
     e.preventDefault();
     setError("");
     if (!kind) return setError(t("chooseKind"));
+    if (kind === "client") {
+      if (!fullName.trim()) return setError(t("chooseKind"));
+      return createClientAndContinue(fullName.trim());
+    }
     setTried(true);
     const fullPhone = phone;
     if (!phoneValid || !isValidPhone(normalizePhone(fullPhone))) {
@@ -189,7 +222,7 @@ function GoogleReturn() {
     );
   }
 
-  if (me !== null) {
+  if (me !== null || (autoCreating && !error)) {
     return (
       <div style={{ ...container, maxWidth: 460 }}>
         <p style={muted} role="status">
@@ -251,24 +284,27 @@ function GoogleReturn() {
           onChange={(e) => setFullName(e.target.value)}
         />
 
-        <label style={label} htmlFor="g-phone">
-          {t("phoneLabel")}
-        </label>
-        <div style={{ marginBottom: isProfessional ? 4 : 20 }}>
-          <PhoneField
-            id="g-phone"
-            showErrors={tried}
-            onChange={({ phone: p, valid }) => {
-              setPhone(p);
-              setPhoneValid(valid);
-            }}
-          />
-        </div>
         {isProfessional && (
-          <p style={{ ...muted, fontSize: 12.5, margin: "0 0 20px" }}>
-            {t("phoneVisibility")}
-          </p>
+          <>
+            <label style={label} htmlFor="g-phone">
+              {t("phoneLabel")}
+            </label>
+            <div style={{ marginBottom: 4 }}>
+              <PhoneField
+                id="g-phone"
+                showErrors={tried}
+                onChange={({ phone: p, valid }) => {
+                  setPhone(p);
+                  setPhoneValid(valid);
+                }}
+              />
+            </div>
+            <p style={{ ...muted, fontSize: 12.5, margin: "0 0 20px" }}>
+              {t("phoneVisibility")}
+            </p>
+          </>
         )}
+        {!isProfessional && <div style={{ marginBottom: 20 }} />}
 
         <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%", minHeight: 52 }}>
           {busy ? t("sending") : t("continue")}

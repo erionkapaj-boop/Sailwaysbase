@@ -56,6 +56,7 @@ import CabinChoice from "../components/CabinChoice";
 import Icon from "../components/Icon";
 import { cabinAt, cabinOf, cabinsFilled, isMultiDay, isPrivateCabin, parseCabins, parsePositions, CABIN_UNKNOWN } from "../../../lib/platform/cabin";
 import LanguagePicker from "../components/LanguagePicker";
+import SignInSheet from "../components/SignInSheet";
 import { parseLanguageCodes } from "../../../lib/platform/languageFilter";
 import { languageCodeOfDbName } from "../../../lib/platform/languages";
 import { BOAT_UNKNOWN, boatLine, boatValid } from "../../../lib/platform/boat";
@@ -834,6 +835,7 @@ function Checkout({
   // Credits δεσμευμένα σε άλλα ανοιχτά αιτήματα (0122): χρεώνονται με την
   // αποδοχή, άρα δεν είναι διαθέσιμα για νέο αίτημα.
   const [reserved, setReserved] = useState(0);
+  const [signInOpen, setSignInOpen] = useState(false);
 
   const { userRow, isAdmin, viewingAs } = useAuth();
   const balance = Number(userRow?.wallet_balance ?? 0);
@@ -963,8 +965,9 @@ function Checkout({
       // Nothing below this line has run yet (no request created, nothing
       // charged) — there's nothing to lose by sending whoever isn't signed
       // in to log in first and letting them finish from where they left off.
+      // "One more step": a small Google-only sheet (no forms); the request is saved first and comes back as it was.
       savePendingBroadcast(snapshot());
-      router.push("/platform/login?next=/platform/search");
+      setSignInOpen(true);
       return;
     }
     if (awaitingVerification) return;
@@ -1219,9 +1222,10 @@ function Checkout({
               </div>
             ) : (
               <button style={{ ...button("primary"), width: "100%" }} disabled={busy} onClick={handleCheckout}>
-                {busy ? t("sending") : session ? t("completeRequest") : t("logInToSend")}
+                {busy ? t("sending") : t("completeRequest")}
               </button>
             )}
+            <SignInSheet open={signInOpen} onClose={() => setSignInOpen(false)} next="/platform/search" />
             {!awaitingVerification && <p style={{ ...muted, fontSize: 12, margin: "10px 0 0", textAlign: "center", lineHeight: 1.5 }}>
               {t.rich(session ? "termsSignedIn" : "termsSignedOut", {
                 terms: (chunks) => (

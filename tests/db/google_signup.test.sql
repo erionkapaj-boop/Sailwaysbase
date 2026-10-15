@@ -57,9 +57,19 @@ select pg_temp.check('ταυτότητα Google με ανεπιβεβαίωτο 
 select pg_temp.check('εγγραφή μόνο με τηλέφωνο: όπως πριν, ανεπιβεβαίωτος',
   (select phone_verified_at is null from users where id = :'GPHONE'));
 
-\echo '== το τηλέφωνο μένει υποχρεωτικό'
+\echo '== το τηλέφωνο: υποχρεωτικό για επαγγελματίες, όχι για πελάτη με Google (0132)'
 select pg_temp.act('authenticated', :'GNOPHONE');
-select pg_temp.expect($$select complete_registration('Χωρίς Τηλέφωνο', null, null, null, true)$$, 'phone_required');
+select pg_temp.expect($$select complete_registration('Επαγγελματίας Χωρίς Τηλέφωνο', null, null, 'skipper', true)$$, 'phone_required');
+select complete_registration('Πελάτης Χωρίς Τηλέφωνο', null, null, null, true);
+select pg_temp.act('postgres');
+select pg_temp.check('πελάτης με Google χωρίς τηλέφωνο: ενεργός και επαληθευμένος, χωρίς κινητό',
+  (select phone_number is null and phone_verified_at is not null and status = 'active' and role = 'client' and email = 'nophone@gmail.com' from users where id = :'GNOPHONE'));
+select pg_temp.check('έχει προφίλ πελάτη', (select count(*) = 1 from client_profiles where user_id = :'GNOPHONE'));
+select pg_temp.check('ο επαγγελματίας χωρίς κινητό δεν δημιουργήθηκε', (select count(*) = 0 from skipper_profiles sp join users u on u.id = sp.user_id where u.id = :'GNOPHONE'));
+-- Χωρίς Google, το κινητό μένει υποχρεωτικό ακόμα και για πελάτη.
+insert into auth.users (id, phone, email, raw_app_meta_data) values ('d1000000-0000-0000-0000-000000000006', null, null, '{}');
+select pg_temp.act('authenticated', 'd1000000-0000-0000-0000-000000000006');
+select pg_temp.expect($$select complete_registration('Χωρίς Google', null, null, null, true)$$, 'phone_required');
 
 \echo '== ο χρήστης δεν μπορεί να γράψει δική του ταυτότητα Google'
 select pg_temp.act('authenticated', :'GPHONE');

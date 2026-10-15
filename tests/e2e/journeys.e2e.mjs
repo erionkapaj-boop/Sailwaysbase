@@ -10,7 +10,7 @@
 //   Ε. πελάτης 0 credits → αποστολή → αγορά → επιβεβαίωση → οι επιλογές του
 //      έμειναν, τα αιτήματα φεύγουν
 import { chromium } from "playwright";
-import { BASE, text, check, finish, sql, num, pickDay, daysFromToday, pickPlace } from "./lib.mjs";
+import { BASE, text, check, finish, sql, num, pickDay, daysFromToday, pickPlace, hydrationDiag } from "./lib.mjs";
 import { TEST_PIN } from "./gateway.mjs";
 
 const U = {
@@ -50,7 +50,11 @@ const errors = [];
 async function login(who, viewport = { width: 390, height: 844 }) {
   const ctx = await browser.newContext({ viewport });
   const page = await ctx.newPage();
-  page.on("pageerror", (e) => errors.push(`${who}: ${e.message}`));
+  page.on("pageerror", (e) => {
+    errors.push(`${who}: ${e.message}`);
+    // React #418 intermittent (docs/PENDING.md): print what differs between server HTML and DOM.
+    if (/#418|#423|#425/.test(e.message)) hydrationDiag(page, `${who} ${page.url()}`).catch(() => {});
+  });
   await page.goto(`${BASE}/platform/login`);
   await page.waitForLoadState("networkidle");
   await page.locator("input").nth(0).fill(U[who][0]);

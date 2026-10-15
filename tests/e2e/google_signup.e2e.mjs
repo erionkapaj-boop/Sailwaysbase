@@ -48,27 +48,21 @@ const cleanup = () => {
 };
 cleanup();
 
-// 1. Νέος πελάτης: Εγγραφή → Google → στοιχεία → κωδικός.
+// 1. Νέος πελάτης: Εγγραφή → Google → κατευθείαν μέσα (0132): χωρίς φόρμα, χωρίς κινητό, χωρίς κωδικό.
 await persona({ email: "nea.pelatis@gmail.com", name: "Νέα Πελάτισσα" });
 await browser(async (page) => {
   await page.goto(`${BASE}/platform/register`);
   await page.waitForLoadState("networkidle");
   await shoot(page, "google-register");
   await page.getByRole("button", { name: "Συνέχεια με Google" }).click();
-  await page.waitForURL(/\/platform\/auth\/google/);
-  await page.getByText("Στοιχεία λογαριασμού").waitFor();
+  await page.waitForURL((u) => !u.pathname.includes("/auth/google") && !u.pathname.includes("/register"), { timeout: 20000 });
+  await page.waitForTimeout(1500);
   const t = await text(page);
-  check("δείχνει τον λογαριασμό Google", t.includes("nea.pelatis@gmail.com"), t.slice(0, 300));
-  check("το όνομα έρχεται από τη Google", (await page.inputValue("#g-name")) === "Νέα Πελάτισσα");
-  check("ο πελάτης δεν ρωτιέται για ιδιότητα", !t.includes("Είμαι") && !t.includes("Ιδιότητα"));
-  await shoot(page, "google-return-client");
-  await page.fill("#g-phone", "6900009001");
-  await page.getByRole("button", { name: "Συνέχεια" }).click();
-  await page.waitForURL(/\/platform\/set-pin/);
-  check("πάει στον κωδικό", true);
+  check("ο νέος πελάτης μπαίνει κατευθείαν, χωρίς φόρμα στοιχείων, κινητού ή κωδικού", !t.includes("Στοιχεία λογαριασμού") && !page.url().includes("set-pin"), page.url());
 });
-check("ο λογαριασμός ξεκίνησε επαληθευμένος, με το email και το τηλέφωνο",
-  row("nea.pelatis@gmail.com") === "t|active|client|nea.pelatis@gmail.com|+306900009001", row("nea.pelatis@gmail.com"));
+check("ο λογαριασμός ξεκίνησε επαληθευμένος, με το email της Google και χωρίς κινητό",
+  row("nea.pelatis@gmail.com") === "t|active|client|nea.pelatis@gmail.com", row("nea.pelatis@gmail.com"));
+check("το όνομα έρχεται από τη Google", sql(`select full_name from users where email = 'nea.pelatis@gmail.com'`) === "Νέα Πελάτισσα");
 
 // 2. Ο ίδιος άνθρωπος ξαναμπαίνει με Google: κατευθείαν μέσα, χωρίς φόρμα.
 await browser(async (page) => {
@@ -116,7 +110,8 @@ await browser(async (page) => {
   await page.getByText("Στοιχεία λογαριασμού").waitFor();
   const t = await text(page);
   check("από τη σύνδεση: ρωτά αν είναι πελάτης ή επαγγελματίας", t.includes("Είμαι") && t.includes("Πελάτης") && t.includes("Επαγγελματίας"));
-  await page.getByRole("button", { name: "Πελάτης", exact: true }).click();
+  // Ο πελάτης δεν δίνει πια κινητό στην εγγραφή (0132)· ο κανόνας «το κινητό ανήκει σε άλλον» ισχύει για επαγγελματία.
+  await page.getByRole("button", { name: "Επαγγελματίας", exact: true }).click();
   await page.fill("#g-phone", MARIA);
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.getByText("Δεν γίνεται εγγραφή με αυτό το τηλέφωνο").waitFor();
