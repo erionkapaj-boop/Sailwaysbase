@@ -44,6 +44,9 @@ const P = {
   shield: '<path d="M12 3.5 19 6v5.5c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6Z"/><path d="m9 12 2 2 4-4"/>',
   bed: '<path d="M3 18V7M3 14h18v4M21 14v-2.5A2.5 2.5 0 0 0 18.5 9H11v5"/><circle cx="7" cy="11" r="1.6"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  // καμπίνες
+  bunk: '<path d="M4 3v18M20 3v18M4 8.5h16M4 16.5h16"/><path d="M7.5 8.5V6.5h5v2M7.5 16.5v-2h5v2"/>',
+  door: '<path d="M6 21V4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21M4 21h16M14.5 12.5v.1"/>',
   // τύποι σκάφους (σιλουέτες γραμμής)
   sail: '<path d="M3 16.5h18l-2.6 4H5.6Z"/><path d="M12 3v13.5M12 4.5 18.5 14H12M10.5 7 6 14h4.5"/>',
   cat: '<path d="M2.5 17h7l-1.3 3.2H3.8ZM14.5 17h7l-1.3 3.2h-4.4Z"/><path d="M9 17.2V15h6v2.2M12 3v12M12 4.5l5 8.5h-5"/>',
@@ -57,6 +60,8 @@ const P = {
 };
 
 // Το εικονίδιο κάθε ρόλου πληρώματος (κλειδιά του lib/platform/roles.js).
+export const CABIN_ICON = { bunk: "bunk", private: "door", skipper: "helm" };
+
 export const BOAT_ICON = { sail: "sail", cat: "cat", motor: "motor", gulet: "gulet", other: "sail" };
 
 export const ROLE_ICON = { skipper: "helm", hostess: "tray", deckhand: "anchor", cook: "chef" };

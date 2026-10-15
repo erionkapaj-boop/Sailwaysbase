@@ -52,6 +52,8 @@ import {
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
 import BoatFields from "../components/BoatFields";
+import CabinChoice from "../components/CabinChoice";
+import { cabinKindFrom, isPrivateCabin } from "../../../lib/platform/cabin";
 import LanguagePicker from "../components/LanguagePicker";
 import { boatLine, boatValid } from "../../../lib/platform/boat";
 
@@ -888,6 +890,7 @@ function Checkout({
         // whether skipper itself has a pick yet.
         boatTypeId: boatTypesByRole.skipper || "",
         languageId: filters.languageId || "",
+        cabinKind: filters.cabinKind || "",
         partySize: filters.partySize,
         privateCabin: filters.privateCabin,
         boatModel: filters.boatModel || "",
@@ -1290,6 +1293,8 @@ function StickySummaryBar({ supportedRoles, selectionsByRole, positionsByRole, f
 
 function SearchPageInner() {
   const t = useTranslations("SearchPage");
+  const tCabinNs = useTranslations("Cabin");
+  const tCabin = (k) => (k ? tCabinNs(k) : "");
   const L = useLocalData();
   const fmt = useFormat();
   const router = useRouter();
@@ -1306,7 +1311,8 @@ function SearchPageInner() {
     boatTypeId: params.get("boat") || "",
     languageId: params.get("lang") || "",
     partySize: params.get("party") || "",
-    privateCabin: params.get("cabin") === "true" ? true : params.get("cabin") === "false" ? false : undefined,
+    cabinKind: cabinKindFrom(params.get("cabin"), undefined),
+    privateCabin: isPrivateCabin(cabinKindFrom(params.get("cabin"), undefined)),
     boatModel: params.get("bm") || "",
     boatLengthFt: params.get("bl") || "",
     boatYear: params.get("by") || "",
@@ -1663,18 +1669,15 @@ function SearchPageInner() {
           </div>
           <div>
             <label style={label}>{t("cabinLabel")}</label>
-            <select
-              style={fieldErrors.privateCabin ? { ...select, border: `1px solid ${colors.danger}` } : select}
-              value={filters.privateCabin === undefined ? "" : String(filters.privateCabin)}
-              onChange={(e) => {
-                setFilters((f) => ({ ...f, privateCabin: e.target.value === "true" }));
+            <CabinChoice
+              compact
+              invalid={Boolean(fieldErrors.privateCabin)}
+              value={cabinKindFrom(filters.cabinKind, filters.privateCabin)}
+              onChange={(k) => {
+                setFilters((f) => ({ ...f, cabinKind: k, privateCabin: isPrivateCabin(k) }));
                 clearFieldError("privateCabin");
               }}
-            >
-              <option value="">{t("choose")}</option>
-              <option value="true">{t("yes")}</option>
-              <option value="false">{t("no")}</option>
-            </select>
+            />
             {fieldErrors.privateCabin && (
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>{t("requiredField")}</p>
             )}
@@ -1704,7 +1707,7 @@ function SearchPageInner() {
               {" · "}
               {t("people", { count: Number(filters.partySize) })}
               {" · "}
-              {t("cabinValue", { value: filters.privateCabin ? t("yes") : t("no") })}
+              {tCabin(cabinKindFrom(filters.cabinKind, filters.privateCabin))}
               {boatTypeName ? ` · ${L.text(boatTypeName)}` : ""}
               {boatLine({ boat_model: filters.boatModel, boat_length_ft: filters.boatLengthFt, boat_year: filters.boatYear }) ? ` · ${boatLine({ boat_model: filters.boatModel, boat_length_ft: filters.boatLengthFt, boat_year: filters.boatYear })}` : ""}
             </span>

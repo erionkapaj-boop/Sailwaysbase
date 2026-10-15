@@ -10,6 +10,7 @@ import { CREW_ROLES } from "../../lib/platform/roles";
 import BackButton from "./components/BackButton";
 import Icon, { ROLE_ICON, BOAT_ICON } from "./components/Icon";
 import Counter from "./components/Counter";
+import CabinChoice from "./components/CabinChoice";
 import LanguagePicker from "./components/LanguagePicker";
 import { LANGUAGES } from "../../lib/platform/localData/en.js";
 import { BrandStep, ModelStep, FeetStep } from "./components/BoatSteps";
@@ -44,7 +45,7 @@ function stepsFor(roles, kind) {
   // Γουλέτα: χωρίς μάρκα/μοντέλο (δεν υπάρχουν κατάλογοι)· μόνο πόδια.
   const boat = kind === "gulet" ? ["boat", "feet"] : ["boat", "brand", "model", "feet"];
   const withBoat = roles.includes("skipper") ? [...base, ...boat] : base;
-  return [...withBoat, "party", "language", "extras"];
+  return [...withBoat, "party", "language", "cabin", "extras"];
 }
 
 const KIND_ORDER = ["sail", "cat", "motor", "gulet", "other"];
@@ -113,7 +114,7 @@ export default function CrewSearchFlow() {
   const [languageIds, setLanguageIds] = useSessionState("sf_wizard:langs", null);
   const [partySize, setPartySize] = useSessionState("sf_wizard:party", "");
   const [boatInfo, setBoatInfo] = useSessionState("sf_wizard:boat", { model: "", lengthFt: "", year: "" });
-  const [privateCabin, setPrivateCabin] = useSessionState("sf_wizard:cabin", undefined);
+  const [cabinKind, setCabinKind] = useSessionState("sf_wizard:cabinKind", "");
 
   const [lookupsError, setLookupsError] = useState(false);
   const [lookupsAttempt, setLookupsAttempt] = useState(0);
@@ -210,7 +211,7 @@ export default function CrewSearchFlow() {
       boat: boatTypeId || "",
       lang: (languageIds ?? defaultLanguageIds).join(","),
       party: partySize || "",
-      cabin: privateCabin === undefined ? "" : String(privateCabin),
+      cabin: cabinKind,
       bm: boatName(boatBrand, boatModel),
       bl: boatInfo.lengthFt || "",
       by: boatInfo.year || "",
@@ -444,32 +445,27 @@ export default function CrewSearchFlow() {
         </div>
       )}
 
+      {current === "cabin" && (
+        <div key="cabin" data-sf-step style={stepWrap}>
+          <StepHeading>{t("cabinTitle")}</StepHeading>
+          <CabinChoice
+            value={cabinKind}
+            onChange={(k) => {
+              setCabinKind(k);
+              next();
+            }}
+          />
+        </div>
+      )}
+
       {current === "extras" && (
         <div key="extras" data-sf-step style={stepWrap}>
           <StepHeading>{t("extrasTitle")}</StepHeading>
           <div style={{ marginBottom: 24 }}>
-            <label style={label}>{t("cabinLabel")}</label>
-            <select
-              style={select}
-              value={privateCabin === undefined ? "" : String(privateCabin)}
-              onChange={(e) => setPrivateCabin(e.target.value === "true")}
-            >
-              <option value="">{t("cabinChoose")}</option>
-              <option value="true">{t("yes")}</option>
-              <option value="false">{t("no")}</option>
-            </select>
-            <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              {t("cabinHint")}
-            </p>
-          </div>
-          <div style={{ marginBottom: 24 }}>
             <BoatFields idPrefix="wz-boat" fields={["year"]} value={boatInfo} onChange={(p) => setBoatInfo((cur) => ({ ...cur, ...p }))} />
           </div>
           <div className="sf-step-footer">
-            {privateCabin === undefined && (
-              <p style={{ ...muted, fontSize: 12.5, margin: "0 0 10px", textAlign: "center" }}>{t("missingCabin")}</p>
-            )}
-            <button type="button" disabled={privateCabin === undefined || !boatValid(boatInfo)} onClick={finish} style={cta}>
+            <button type="button" disabled={!boatValid(boatInfo)} onClick={finish} style={cta}>
               {t("finish")}
             </button>
           </div>

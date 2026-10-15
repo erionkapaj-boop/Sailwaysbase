@@ -23,8 +23,8 @@ await as(MARIA, async (page) => {
   const selects = page.locator("select");
   await pickPlace(page, "Μύκονος");
   await page.locator("input[type=number]").fill("4");
-  await selects.nth(1).selectOption({ label: "Ναι" });
-  await selects.nth(2).selectOption({ label: "Ιστιοπλοϊκό" });
+  await page.getByRole("button", { name: "Ιδιωτική καμπίνα" }).click();
+  await selects.first().selectOption({ label: "Ιστιοπλοϊκό" });
   await page.click("button[type=submit]");
   await page.waitForTimeout(2500);
   const t = await text(page);

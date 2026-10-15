@@ -184,8 +184,8 @@ try {
   const selects = maria.locator("select");
   await pickPlace(maria, "Νάξος");
   await maria.locator("input[type=number]").fill("4");
-  await selects.nth(1).selectOption({ label: "Ναι" });
-  await selects.nth(2).selectOption({ label: "Ιστιοπλοϊκό" });
+  await maria.getByRole("button", { name: "Ιδιωτική καμπίνα" }).click();
+  await selects.first().selectOption({ label: "Ιστιοπλοϊκό" });
   await maria.click("button[type=submit]");
   await maria.waitForTimeout(2500);
   await maria.locator("div").filter({ hasText: "260€" }).filter({ has: btn(maria, "Επιλογή") }).last().getByRole("button", { name: "Επιλογή", exact: true }).click();

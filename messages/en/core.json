@@ -73,5 +73,10 @@
   },
   "LanguagePicker": {
     "more": "More languages"
+  },
+  "Cabin": {
+    "bunk": "Bunk",
+    "private": "Private cabin",
+    "skipper": "Skipper cabin"
   }
 }
