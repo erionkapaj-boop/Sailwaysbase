@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
+import RoleInfoSheet from "./components/RoleInfoSheet";
 import BackButton from "./components/BackButton";
 import ForwardButton from "./components/ForwardButton";
 import Icon, { ROLE_ICON, BOAT_ICON } from "./components/Icon";
@@ -119,6 +120,7 @@ export default function CrewSearchFlow() {
     setBoatModel(m);
     setBoatInfo((cur) => ({ ...cur, lengthFt: "", year: "" }));
   };
+  const [infoRole, setInfoRole] = useState(null);
   const [cabins, setCabins] = useSessionState("sf_wizard:cabins", {});
   // Το πιο μακρινό βήμα που έχει ανοίξει ο χρήστης: το «μπροστά» φτάνει μέχρι εκεί.
   const [furthest, setFurthest] = useSessionState("sf_wizard:furthest", 0);
@@ -269,14 +271,15 @@ export default function CrewSearchFlow() {
             {CREW_ROLES.map((r) => {
               const on = roles.includes(r.key);
               return (
+                <div key={r.key} style={{ position: "relative", display: "flex" }}>
                 <button
-                  key={r.key}
                   type="button"
                   aria-pressed={on}
+                  data-role-card={r.key}
                   onClick={() => toggleRole(r.key)}
                   style={{
                     position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
-                    minHeight: 132, padding: "18px 10px", borderRadius: radius.md, fontFamily: "inherit", fontSize: 16, fontWeight: 500, cursor: "pointer",
+                    width: "100%", minHeight: 132, padding: "18px 10px", borderRadius: radius.md, fontFamily: "inherit", fontSize: 16, fontWeight: 500, cursor: "pointer",
                     transition: "background 0.18s ease, border-color 0.18s ease",
                     border: `${on ? 2 : 1}px solid ${on ? colors.ink : colors.border}`,
                     background: on ? colors.seaGlass : colors.card, color: colors.ink,
@@ -288,11 +291,22 @@ export default function CrewSearchFlow() {
                     </span>
                   )}
                   <Icon name={ROLE_ICON[r.key]} size={40} stroke={1.5} />
-                  {r.label}
+                  {t(`roleName_${r.key}`)}
                 </button>
+                <button
+                  type="button"
+                  data-role-info={r.key}
+                  aria-label={t("roleInfoLabel", { role: t(`roleName_${r.key}`) })}
+                  onClick={() => setInfoRole(r.key)}
+                  style={{ position: "absolute", top: 2, left: 2, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", border: 0, background: "transparent", color: colors.inkSoft, cursor: "pointer", padding: 0 }}
+                >
+                  <Icon name="info" size={20} stroke={1.6} />
+                </button>
+                </div>
               );
             })}
           </div>
+          <RoleInfoSheet role={infoRole} label={infoRole ? t(`roleName_${infoRole}`) : ""} onClose={() => setInfoRole(null)} />
           {roles.length > 0 && (
             <div className="sf-step-footer">
               <button type="button" onClick={next} style={cta}>

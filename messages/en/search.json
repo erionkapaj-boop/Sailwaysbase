@@ -1,5 +1,15 @@
 {
   "CrewSearchFlow": {
+    "roleInfoLabel": "What the {role} role does",
+    "roleName_skipper": "Skipper",
+    "roleName_hostess": "Hostess",
+    "roleName_cook": "Cook",
+    "roleName_deckhand": "Deckhand",
+    "roleInfoClose": "Close",
+    "roleInfo_skipper": "Sails the boat and looks after your safety. Knows the waters, the weather and the best spots.",
+    "roleInfo_hostess": "Prepares breakfast and a light lunch, keeps the boat tidy and helps the skipper in ports and at anchor. You simply enjoy the trip.",
+    "roleInfo_cook": "Cooks all the meals on board.",
+    "roleInfo_deckhand": "An extra pair of hands on deck for lines, mooring and docking. Usually on larger boats, together with a hostess or a cook.",
     "whoTitle": "What help would you like on your trip?",
     "continue": "Continue",
     "whenTitle": "When are you travelling?",
