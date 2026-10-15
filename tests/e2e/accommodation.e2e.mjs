@@ -32,7 +32,9 @@ await as("6900002002", async (page) => {
   // 1. Ημερήσια εκδρομή: η διαμονή παραλείπεται, η βοήθεια είναι το τελευταίο βήμα.
   await toRoles(page, 12, 12);
   await page.locator('[data-role-card="skipper"]').click();
-  check("ημερήσια εκδρομή: το τελευταίο βήμα έχει «Ολοκλήρωση», όχι «Συνέχεια»", (await cont().innerText()).trim() === "Ολοκλήρωση", await cont().innerText());
+  await cont().click();
+  await page.waitForTimeout(500);
+  check("ημερήσια εκδρομή: μετά τη βοήθεια η σύνοψη, χωρίς γραμμές διαμονής", (await page.locator("[data-summary]").count()) === 1 && (await page.locator('[data-summary-row^="cabin-"]').count()) === 0);
   await cont().click();
   await page.waitForURL(/\/platform\/search\?/);
   const day = new URL(page.url());

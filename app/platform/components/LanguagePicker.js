@@ -20,7 +20,9 @@ const smallBtn = (primary) => ({
   border: `1px solid ${primary ? colors.ink : colors.border}`, background: primary ? colors.ink : colors.card, color: primary ? "#fff" : colors.ink,
 });
 
-export default function LanguagePicker({ value = [], onChange }) {
+// extra: English is assumed and never offered or shown; only the ADDED languages appear as chips, behind a small
+// "+ Another language?" link (used on the request summary).
+export default function LanguagePicker({ value = [], onChange, extra = false }) {
   const t = useTranslations("LanguagePicker");
   const locale = useLocale() === "el" ? "el" : "en";
   const other = locale === "el" ? "en" : "el";
@@ -28,10 +30,10 @@ export default function LanguagePicker({ value = [], onChange }) {
   const [q, setQ] = useState("");
   const [confirmEnglish, setConfirmEnglish] = useState(false);
   const inputRef = useRef(null);
-  const suggestions = useMemo(() => searchLanguages(q, { exclude: value }), [q, value]);
+  const suggestions = useMemo(() => searchLanguages(q, { exclude: extra ? [...value, "en"] : value }), [q, value, extra]);
   const typed = q.trim().length >= 2;
   // "No language found" only when nothing matches; if only already-chosen languages match, show nothing.
-  const anyMatch = useMemo(() => searchLanguages(q, { limit: 1 }).length > 0, [q]);
+  const anyMatch = useMemo(() => searchLanguages(q, { limit: 1, ...(extra ? { exclude: ["en"] } : {}) }).length > 0, [q, extra]);
 
   const add = (code) => {
     onChange([...value, code]);
@@ -52,6 +54,20 @@ export default function LanguagePicker({ value = [], onChange }) {
             {languageLabel(code, locale)}
           </button>
         ))}
+        {extra ? (
+          <button
+            type="button"
+            data-language-link
+            aria-expanded={open}
+            onClick={() => {
+              setOpen((o) => !o);
+              setQ("");
+            }}
+            style={{ display: "inline-flex", alignItems: "center", minHeight: 44, padding: "0 4px", border: 0, background: "transparent", fontFamily: "inherit", fontSize: 14.5, color: colors.inkSoft, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}
+          >
+            {t("another")}
+          </button>
+        ) : (
         <button
           type="button"
           aria-label={t("more")}
@@ -64,6 +80,7 @@ export default function LanguagePicker({ value = [], onChange }) {
         >
           <Icon name={open ? "minus" : "plus"} size={18} stroke={2} />
         </button>
+        )}
       </div>
 
       {confirmEnglish && value.includes("en") && (

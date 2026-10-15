@@ -73,11 +73,18 @@ if (added.length) sql(`insert into user_languages (user_id, language_id) values 
 const region = sql(`select id from regions where name = 'Κυκλάδες'`);
 const boat = sql(`select id from boat_types where name = 'Ιστιοπλοϊκό'`);
 const q = (lang) => new URLSearchParams({ roles: "skipper", start: iso(daysFromToday(12)), end: iso(daysFromToday(14)), region, point: "Νάξος", arrival: "Νάξος", boat, party: "4", cabin: "skipper:bunk", lang });
+// Ένας επαγγελματίας μιλά και Γερμανικά.
+const german = sql(`select id from languages where name = 'Γερμανικά'`);
+const germanUser = sql(`select u.id from users u where u.role = 'skipper' and not exists (select 1 from user_languages ul where ul.user_id = u.id and ul.language_id = '${german}') limit 1`);
+sql(`insert into user_languages (user_id, language_id) values ('${germanUser}', '${german}')`);
 await as("6900002002", async (page2) => {
   await go(page2, `/platform/search?${q("en")}`);
   await page2.waitForTimeout(1500);
+  check("μόνο Αγγλικά (δεδομένα): κανένα σημάδι, βρίσκονται όλοι", (await page2.locator("[data-spoken-match]").count()) === 0 && (await page2.getByRole("button", { name: "Επιλογή", exact: true }).count()) >= 2);
+  await go(page2, `/platform/search?${q("en,de")}`);
+  await page2.waitForTimeout(1500);
   const marks = page2.locator("[data-spoken-match]");
-  check("στα αποτελέσματα κάθε επαγγελματίας δείχνει ✓ Αγγλικά", (await marks.count()) >= 1 && (await marks.first().innerText()).includes("Αγγλικά"), await text(page2).then((t) => t.slice(0, 200)));
+  check("προστέθηκαν Γερμανικά: σημάδι μόνο σε όποιον τα μιλά, και μόνο για τα Γερμανικά", (await marks.count()) === 1 && (await marks.first().innerText()).includes("Γερμανικά") && !(await marks.first().innerText()).includes("Αγγλικά"), String(await marks.count()));
   await page2.setViewportSize({ width: 390, height: 844 });
   await marks.first().evaluate((el) => el.scrollIntoView({ block: "center" }));
   await page2.waitForTimeout(300);
@@ -86,5 +93,6 @@ await as("6900002002", async (page2) => {
   await page2.waitForTimeout(1500);
   check("γλώσσα που δεν μιλά κανείς: κανένα αποτέλεσμα, χωρίς σφάλμα", (await page2.locator("[data-spoken-match]").count()) === 0);
 });
+sql(`delete from user_languages where language_id = '${german}' and user_id = '${germanUser}'`);
 if (added.length) sql(`delete from user_languages where language_id = '${english}' and user_id in (${added.map((u) => `'${u}'`).join(",")})`);
 finish();

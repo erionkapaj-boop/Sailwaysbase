@@ -73,6 +73,7 @@
   },
   "LanguagePicker": {
     "more": "More languages",
+    "another": "+ Another language?",
     "search": "Type a language",
     "noMatch": "No language found",
     "fewer": "You may find fewer professionals",
@@ -85,6 +86,7 @@
     "skipper": "Skipper cabin",
     "unknown": "I don't know yet",
     "notSpecified": "Accommodation: not specified",
+    "unknownShort": "Not specified",
     "bunkHint": "Shared space with bunk beds.",
     "privateHint": "Large cabin, usually with a toilet.",
     "skipperHint": "Small cabin, one berth in the bow."

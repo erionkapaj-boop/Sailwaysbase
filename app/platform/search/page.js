@@ -90,8 +90,9 @@ function identityLine(s, t, L) {
 
 // Σημάδι δίπλα στον επαγγελματία: ποιες από τις γλώσσες που διάλεξε ο πελάτης μιλά (✓ Αγγλικά).
 function SpokenMatch({ s, t, L }) {
-  const codes = s.matched_languages;
-  if (!codes?.length) return null;
+  // English is assumed for everyone, so it is never marked: the mark is for the languages the client ADDED.
+  const codes = (s.matched_languages || []).filter((c) => c !== "en");
+  if (!codes.length) return null;
   const names = (s.languages || []).filter((n) => codes.includes(languageCodeOfDbName(n))).map((n) => L.text(n));
   if (!names.length) return null;
   const text = names.join(", ");

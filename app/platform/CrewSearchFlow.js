@@ -9,13 +9,17 @@ import { CREW_ROLES } from "../../lib/platform/roles";
 import RoleInfoSheet from "./components/RoleInfoSheet";
 import BackButton from "./components/BackButton";
 import ForwardButton from "./components/ForwardButton";
-import Icon, { ROLE_ICON, BOAT_ICON } from "./components/Icon";
+import Icon, { ROLE_ICON, BOAT_ICON, CABIN_ICON } from "./components/Icon";
 import Counter from "./components/Counter";
 import CabinChoice from "./components/CabinChoice";
 import { serializeCabins, serializePositions, isMultiDay, MAX_POSITIONS } from "../../lib/platform/cabin";
 import { BrandStep, ModelStep, FeetStep, YearStep } from "./components/BoatSteps";
 import { boatKind, boatName } from "../../lib/platform/boatCatalog";
-import { BOAT_UNKNOWN } from "../../lib/platform/boat";
+import { BOAT_UNKNOWN, boatParts } from "../../lib/platform/boat";
+import LanguagePicker from "./components/LanguagePicker";
+import { isLanguageCode } from "../../lib/platform/languages";
+import { useFormat } from "./useFormat";
+import { CABIN_UNKNOWN } from "../../lib/platform/cabin";
 import RouteStep from "./components/RouteStep";
 import { useLocalData } from "./useLocalData";
 import { COUNTRIES } from "../../lib/platform/places";
@@ -47,7 +51,7 @@ function stepsFor(roles, kind, boatUnknown = false, multiDay = true, counts = {}
   const cabins = multiDay
     ? CREW_ROLES.filter((r) => roles.includes(r.key)).flatMap((r) => Array.from({ length: counts[r.key] || 1 }, (_, i) => `cabin:${r.key}:${i}`))
     : [];
-  return ["country", "where", "dates", "party", ...boat, "role", ...cabins];
+  return ["country", "where", "dates", "party", ...boat, "role", ...cabins, "summary"];
 }
 
 const stepperBtn = {
@@ -129,6 +133,14 @@ export default function CrewSearchFlow() {
     setBoatInfo((cur) => ({ ...cur, lengthFt: "", year: "" }));
   };
   const [infoRole, setInfoRole] = useState(null);
+  const f = useFormat();
+  const tb = useTranslations("BoatType");
+  const tcab = useTranslations("Cabin");
+  // Languages ADDED on the summary (English is assumed and never offered): ISO codes.
+  const [extraLangsRaw, setExtraLangs] = useSessionState("sf_wizard:extraLangs", []);
+  const extraLangs = Array.isArray(extraLangsRaw) ? extraLangsRaw.filter((c) => isLanguageCode(c) && c !== "en") : [];
+  // Which group of screens is being edited from the summary: after its last screen the client returns to the summary.
+  const [editGroup, setEditGroup] = useState(null);
   // Accommodation per person: { role: [kind of person 1, kind of person 2, …] }; counts: how many people per role.
   const [cabins, setCabins] = useSessionState("sf_wizard:cabins", {});
   const [counts, setCounts] = useSessionState("sf_wizard:counts", {});
@@ -194,10 +206,41 @@ export default function CrewSearchFlow() {
   // (StrictMode, in dev) can invoke an updater function twice per call,
   // which would push two history entries for a single "Συνέχεια" click and
   // throw the step count out of sync with the real stack.
-  function next() {
-    const n = Math.min(step + 1, STEPS.length - 1);
+  function goTo(n) {
     window.history.pushState({ sfWizardOpen: true, sfStep: n }, "");
     setStep(n);
+  }
+  // The screens that belong to one summary row. "where" = country + port, "boat" = type … year, "role" = roles and
+  // every accommodation screen (the roles decide which exist), "cabin:<role>" = that role's accommodation screens.
+  const inGroup = (group, name) =>
+    !group || !name ? false
+    : group === "where" ? name === "country" || name === "where"
+    : group === "role" ? name === "role" || name.startsWith("cabin:")
+    : group === "boat" ? ["boat", "brand", "model", "feet", "year"].includes(name)
+    : group.startsWith("cabin:") ? name.startsWith(`${group}:`)
+    : name === group;
+  // After an edit: first accommodation screen still unanswered (e.g. a day trip became multi-day), else the summary.
+  const afterEditTarget = (justAnswered = "", steps = STEPS) => {
+    const missing = steps.findIndex((s) => s.startsWith("cabin:") && s.slice(6) !== justAnswered && !cabins[s.split(":")[1]]?.[Number(s.split(":")[2])]);
+    return missing >= 0 ? missing : steps.length - 1;
+  };
+  const cabinAnswered = (s, justAnswered = "") => s.slice(6) === justAnswered || Boolean(cabins[s.split(":")[1]]?.[Number(s.split(":")[2])]);
+  function next(justAnswered = "") {
+    let n = Math.min(step + 1, STEPS.length - 1);
+    // Editing the roles: accommodation screens already answered are not asked again, only the new ones.
+    if (editGroup === "role") while (STEPS[n]?.startsWith("cabin:") && cabinAnswered(STEPS[n], justAnswered)) n++;
+    n = Math.min(n, STEPS.length - 1);
+    if (editGroup && !inGroup(editGroup, STEPS[n])) {
+      setEditGroup(null);
+      return goTo(afterEditTarget(justAnswered));
+    }
+    goTo(n);
+  }
+  function editRow(group, firstStep) {
+    const idx = STEPS.indexOf(firstStep);
+    if (idx < 0) return;
+    setEditGroup(group);
+    goTo(idx);
   }
 
   // Always the same action regardless of step — history.back() either
@@ -221,7 +264,7 @@ export default function CrewSearchFlow() {
       point: departurePoint.trim(),
       arrival: arrivalPoint.trim() || departurePoint.trim(),
       boat: boatTypeId || "",
-      lang: "en", // English is assumed; the language choice comes later as an optional link on the summary
+      lang: ["en", ...extraLangs].join(","), // English is assumed; added languages come from the summary
       party: partySize || "",
       cabin: multiDay ? serializeCabins(cabins, roles, counts) : "",
       pos: serializePositions(counts, roles),
@@ -233,6 +276,12 @@ export default function CrewSearchFlow() {
   }
 
   const current = STEPS[step];
+
+  // Landing outside the edited group (browser back, forward) ends the edit.
+  useEffect(() => {
+    if (editGroup && !inGroup(editGroup, current)) setEditGroup(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current]);
 
   useEffect(() => {
     setFurthest((f) => (step > f ? step : f));
@@ -330,8 +379,8 @@ export default function CrewSearchFlow() {
           <RoleInfoSheet role={infoRole} label={infoRole ? t(`roleName_${infoRole}`) : ""} onClose={() => setInfoRole(null)} />
           {roles.length > 0 && (
             <div className="sf-step-footer">
-              <button type="button" onClick={step === STEPS.length - 1 ? finish : next} style={cta}>
-                {step === STEPS.length - 1 ? t("finish") : t("continue")}
+              <button type="button" onClick={next} style={cta}>
+                {t("continue")}
               </button>
             </div>
           )}
@@ -423,7 +472,9 @@ export default function CrewSearchFlow() {
                       setBoatInfo((cur) => ({ ...cur, lengthFt: "", year: "" }));
                     }
                     setBoatTypeId(b.id);
-                    next();
+                    // A boat type always has another boat screen after it (brand, or feet for a gulet), even when
+                    // the step list was shorter a moment ago ("I don't know yet").
+                    goTo(step + 1);
                   }}
                   style={{
                     position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10,
@@ -448,7 +499,12 @@ export default function CrewSearchFlow() {
                     setBoatInfo((cur) => ({ ...cur, lengthFt: "", year: "" }));
                   }
                   setBoatTypeId(BOAT_UNKNOWN);
-                  next();
+                  // Nothing more is asked about the boat: from the summary go straight back.
+                  if (editGroup === "boat") {
+                    // The step list is about to shrink ("I don't know yet" has no brand/model/feet/year): use the new one.
+                    setEditGroup(null);
+                    goTo(afterEditTarget("", stepsFor(roles, kind, true, multiDay, counts)));
+                  } else next();
                 }}
                 style={{
                   position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10,
@@ -535,17 +591,65 @@ export default function CrewSearchFlow() {
                   arr[idx] = k;
                   return { ...cur, [cRole]: arr };
                 });
-                // Στο τελευταίο βήμα η επιλογή δεν προχωρά μόνη της: ακολουθεί «Ολοκλήρωση».
-                if (step < STEPS.length - 1) next();
+                next(`${cRole}:${idx}`);
               }}
             />
-            {step === STEPS.length - 1 && (
-              <div className="sf-step-footer">
-                <button type="button" disabled={!chosen} onClick={finish} style={cta}>
-                  {t("finish")}
+          </div>
+        );
+      })()}
+
+      {current === "summary" && (() => {
+        const rows = [];
+        const country_ = COUNTRIES.find((c) => c.code === country);
+        const route = [departurePoint, !sameReturn && arrivalPoint.trim() ? arrivalPoint : ""].filter(Boolean).map((x) => L.text(x)).join(" → ");
+        rows.push({ key: "where", icon: "pin", text: [country_ ? L.text(country_.name) : "", route].filter(Boolean).join(" · "), group: "where", first: "country" });
+        rows.push({ key: "dates", icon: "cal", text: dates.start && dates.end ? f.dateRange(dates.start, dates.end) : "", group: "dates", first: "dates" });
+        rows.push({ key: "party", icon: "users", text: t("summaryParty", { count: Number(partySize || 2) }), group: "party", first: "party" });
+        const typeName = lookups.boatTypes.find((b) => b.id === boatTypeId)?.name;
+        const boatText = boatUnknown
+          ? t("summaryBoatUnknown")
+          : [typeName ? (boatKind(typeName) === "other" ? L.text(typeName) : t(`kind_${boatKind(typeName)}`)) : "", ...boatParts({ boat_model: boatName(boatBrand, boatModel), boat_length_ft: boatInfo.lengthFt, boat_year: boatInfo.year })].filter(Boolean).join(" · ");
+        rows.push({ key: "boat", icon: BOAT_ICON[kind] || "boat", text: boatText, group: "boat", first: "boat" });
+        const roleKeys = CREW_ROLES.filter((r) => roles.includes(r.key)).map((r) => r.key);
+        rows.push({ key: "roles", icon: "brief", text: roleKeys.map((k) => `${t(`roleName_${k}`)}${countOf(k) > 1 ? ` ×${countOf(k)}` : ""}`).join(", "), group: "role", first: "role" });
+        if (multiDay) {
+          for (const k of roleKeys) {
+            const kinds = Array.from({ length: countOf(k) }, (_, i) => cabins[k]?.[i]).filter(Boolean);
+            rows.push({
+              key: `cabin-${k}`, icon: CABIN_ICON[kinds[0]] || "bunk", text: `${t(`roleName_${k}`)}: ${kinds.map((x) => (x === CABIN_UNKNOWN ? tcab("unknownShort") : tcab(x))).join(" / ")}`,
+              group: `cabin:${k}`, first: `cabin:${k}:0`,
+            });
+          }
+        }
+        return (
+          <div key="summary" data-sf-step data-summary style={stepWrap}>
+            <StepHeading>{t("summaryTitle")}</StepHeading>
+            <div style={{ display: "grid", gap: 8 }}>
+              {rows.map((r) => (
+                <button
+                  key={r.key}
+                  type="button"
+                  data-summary-row={r.key}
+                  aria-label={`${t("summaryEdit")}: ${r.text}`}
+                  onClick={() => editRow(r.group, r.first)}
+                  style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", minHeight: 56, padding: "10px 16px", textAlign: "left", fontFamily: "inherit", fontSize: 16, color: colors.ink, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: radius.md, cursor: "pointer" }}
+                >
+                  <span style={{ width: 28, display: "inline-flex", justifyContent: "center", flexShrink: 0 }}><Icon name={r.icon} size={24} stroke={1.5} /></span>
+                  <span style={{ flex: 1 }}>{r.text}</span>
+                  <svg width="7" height="12" viewBox="0 0 7 12" fill="none" aria-hidden="true" style={{ color: "#A9B3BD", flexShrink: 0 }}>
+                    <path d="M1 1l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
-              </div>
-            )}
+              ))}
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <LanguagePicker extra value={extraLangs} onChange={(v) => setExtraLangs(v.filter((c) => c !== "en"))} />
+            </div>
+            <div className="sf-step-footer">
+              <button type="button" onClick={finish} style={cta}>
+                {t("finish")}
+              </button>
+            </div>
           </div>
         );
       })()}
