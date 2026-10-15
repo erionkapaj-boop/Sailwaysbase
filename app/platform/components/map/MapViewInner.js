@@ -43,6 +43,7 @@ const CSS = `
 .mv-pin:focus-visible { outline: 2px solid ${MAP_COLORS.point}; outline-offset: 2px; }
 .mv-pin[data-static="true"] { cursor: default; }
 .mv-drop { background: none; border: 0; padding: 0; margin: 0; line-height: 0; cursor: pointer; filter: drop-shadow(0 2px 3px rgba(22,40,60,.35)); transition: transform .15s ease; transform-origin: 50% 100%; }
+.mv-drop svg { display: block; }
 .mv-drop path { fill: #fff; stroke: ${MAP_COLORS.point}; stroke-width: 2; }
 .mv-drop text { fill: ${MAP_COLORS.point}; font: 700 12px/1 var(--font-platform-sans, -apple-system, sans-serif); }
 .mv-drop[data-active="true"] path { fill: ${MAP_COLORS.point}; }
@@ -195,6 +196,7 @@ export default function MapViewInner({ layers = [], onPick, onFeature, focus, pi
         if (onMarker) el.type = "button";
         else el.setAttribute("aria-hidden", "true");
         el.className = m.shape === "pin" ? "mv-drop" : "mv-pin";
+        if (m.shape === "pin") wrap.style.lineHeight = "0"; // η μύτη ακριβώς στο σημείο, χωρίς κενό από γραμμή κειμένου
         el.dataset.mapPin = m.id;
         el.addEventListener("click", (e) => {
           e.stopPropagation();
