@@ -30,6 +30,8 @@ export default function LanguagePicker({ value = [], onChange }) {
   const inputRef = useRef(null);
   const suggestions = useMemo(() => searchLanguages(q, { exclude: value }), [q, value]);
   const typed = q.trim().length >= 2;
+  // "No language found" only when nothing matches; if only already-chosen languages match, show nothing.
+  const anyMatch = useMemo(() => searchLanguages(q, { limit: 1 }).length > 0, [q]);
 
   const add = (code) => {
     onChange([...value, code]);
@@ -132,7 +134,7 @@ export default function LanguagePicker({ value = [], onChange }) {
               ))}
             </div>
           )}
-          {typed && suggestions.length === 0 && <p style={{ margin: "10px 2px 0", fontSize: 14, color: colors.inkSoft }}>{t("noMatch")}</p>}
+          {typed && !anyMatch && <p style={{ margin: "10px 2px 0", fontSize: 14, color: colors.inkSoft }}>{t("noMatch")}</p>}
         </div>
       )}
     </div>

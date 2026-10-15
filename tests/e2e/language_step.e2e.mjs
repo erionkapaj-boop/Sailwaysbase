@@ -41,7 +41,7 @@ check("«Thai» (αγγλικό όνομα) → Ταϊλανδικά, σπάνι
 await page.locator("[data-language-option=th]").click();
 check("προστίθενται όσες θέλει ο χρήστης", (await chips().count()) === 3);
 await input.fill("Ger");
-check("οι ήδη επιλεγμένες δεν προτείνονται ξανά", (await page.locator("[data-language-option=de]").count()) === 0);
+check("οι ήδη επιλεγμένες δεν προτείνονται ξανά, και δεν γράφει «Δεν βρέθηκε γλώσσα»", (await page.locator("[data-language-option=de]").count()) === 0 && !(await text(page)).includes("Δεν βρέθηκε γλώσσα"));
 
 // Αφαίρεση Αγγλικών.
 await page.locator("[data-language=en]").click();
@@ -81,6 +81,7 @@ await as("6900002002", async (page2) => {
   await page2.waitForTimeout(1500);
   const marks = page2.locator("[data-spoken-match]");
   check("στα αποτελέσματα κάθε επαγγελματίας δείχνει ✓ Αγγλικά", (await marks.count()) >= 1 && (await marks.first().innerText()).includes("Αγγλικά"), await text(page2).then((t) => t.slice(0, 200)));
+  await marks.first().scrollIntoViewIfNeeded();
   await shoot(page2, "language-result-mark");
   await go(page2, `/platform/search?${q("th")}`);
   await page2.waitForTimeout(1500);
