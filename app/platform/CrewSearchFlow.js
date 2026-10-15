@@ -7,7 +7,9 @@ import { listLookups } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
 import BackButton from "./components/BackButton";
-import Icon, { ROLE_ICON } from "./components/Icon";
+import Icon, { ROLE_ICON, BOAT_ICON } from "./components/Icon";
+import { BrandStep, ModelStep, FeetStep } from "./components/BoatSteps";
+import { boatKind, boatName } from "../../lib/platform/boatCatalog";
 import RouteStep from "./components/RouteStep";
 import { useLocalData } from "./useLocalData";
 import { COUNTRIES } from "../../lib/platform/places";
@@ -33,9 +35,11 @@ import { button, colors, input, label, muted, radius, select, h2 } from "../../l
 // the results page used to ask for AFTER the wizard handed off now gets
 // asked for here instead, so landing on results means there's nothing left
 // to fill in, just candidates to browse and pick.
-function stepsFor(roles) {
+function stepsFor(roles, kind) {
   const base = ["role", "country", "where", "dates"];
-  const withBoat = roles.includes("skipper") ? [...base, "boat"] : base;
+  // Γουλέτα: χωρίς μάρκα/μοντέλο (δεν υπάρχουν κατάλογοι)· μόνο πόδια.
+  const boat = kind === "gulet" ? ["boat", "feet"] : ["boat", "brand", "model", "feet"];
+  const withBoat = roles.includes("skipper") ? [...base, ...boat] : base;
   return [...withBoat, "extras"];
 }
 
@@ -90,6 +94,8 @@ export default function CrewSearchFlow() {
   const [departurePoint, setDeparturePoint] = useSessionState("sf_wizard:from", "");
   const [arrivalPoint, setArrivalPoint] = useSessionState("sf_wizard:to", "");
   const [boatTypeId, setBoatTypeId] = useSessionState("sf_wizard:boatType", "");
+  const [boatBrand, setBoatBrand] = useSessionState("sf_wizard:brand", "");
+  const [boatModel, setBoatModel] = useSessionState("sf_wizard:modelName", "");
   const [languageId, setLanguageId] = useSessionState("sf_wizard:lang", "");
   const [partySize, setPartySize] = useSessionState("sf_wizard:party", "");
   const [boatInfo, setBoatInfo] = useSessionState("sf_wizard:boat", { model: "", lengthFt: "", year: "" });
@@ -138,7 +144,8 @@ export default function CrewSearchFlow() {
     if (typeof n === "number") setStep(n);
   }, []);
 
-  const STEPS = stepsFor(roles);
+  const kind = boatKind(lookups.boatTypes.find((b) => b.id === boatTypeId)?.name || "");
+  const STEPS = stepsFor(roles, kind);
 
   // Picking "skipper" adds a "boat" step further on — recalculating the
   // total live off `roles` made the fraction in the header change the
@@ -148,7 +155,7 @@ export default function CrewSearchFlow() {
   // past it, where `roles` is fixed for the rest of the flow) means the
   // number only ever changes on the way to the next screen, not underneath
   // an answer they're still choosing.
-  const displaySteps = step === 0 ? stepsFor(roles.includes("skipper") ? roles : [...roles, "skipper"]) : STEPS;
+  const displaySteps = step === 0 ? stepsFor(roles.includes("skipper") ? roles : [...roles, "skipper"], kind) : STEPS;
 
   // Pushes history itself rather than inside a setStep updater — React
   // (StrictMode, in dev) can invoke an updater function twice per call,
@@ -184,7 +191,7 @@ export default function CrewSearchFlow() {
       lang: languageId || "",
       party: partySize || "",
       cabin: privateCabin === undefined ? "" : String(privateCabin),
-      bm: boatInfo.model.trim(),
+      bm: boatName(boatBrand, boatModel),
       bl: boatInfo.lengthFt || "",
       by: boatInfo.year || "",
     });
@@ -328,19 +335,35 @@ export default function CrewSearchFlow() {
       {current === "boat" && (
         <div key="boat" data-sf-step style={stepWrap}>
           <StepHeading>{t("boatTitle")}</StepHeading>
-          {lookups.boatTypes.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              style={option(boatTypeId === b.id)}
-              onClick={() => {
-                setBoatTypeId(b.id);
-                next();
-              }}
-            >
-              {L.text(b.name)}
-            </button>
-          ))}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {lookups.boatTypes.map((b) => {
+              const k = boatKind(b.name);
+              const on = boatTypeId === b.id;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => {
+                    if (boatTypeId !== b.id) {
+                      setBoatBrand("");
+                      setBoatModel("");
+                    }
+                    setBoatTypeId(b.id);
+                    next();
+                  }}
+                  style={{
+                    position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10,
+                    minHeight: 120, padding: "16px 8px", borderRadius: radius.md, fontFamily: "inherit", fontSize: 15.5, fontWeight: 500, cursor: "pointer",
+                    border: `${on ? 2 : 1}px solid ${on ? colors.ink : colors.border}`, background: on ? colors.seaGlass : colors.card, color: colors.ink,
+                  }}
+                >
+                  <Icon name={BOAT_ICON[k] || "sail"} size={44} stroke={1.4} />
+                  {k === "other" ? L.text(b.name) : t(`kind_${k}`)}
+                </button>
+              );
+            })}
+          </div>
           {lookups.boatTypes.length === 0 && lookupsError && (
             <div>
               <p style={{ ...muted, color: colors.danger }}>{t("boatTypesFailed")}</p>
@@ -350,6 +373,27 @@ export default function CrewSearchFlow() {
             </div>
           )}
           {lookups.boatTypes.length === 0 && !lookupsError && <p style={muted}>{t("boatTypesLoading")}</p>}
+        </div>
+      )}
+
+      {current === "brand" && (
+        <div key="brand" data-sf-step style={stepWrap}>
+          <StepHeading>{t("brandTitle")}</StepHeading>
+          <BrandStep kind={kind} brand={boatBrand} setBrand={setBoatBrand} onNext={next} />
+        </div>
+      )}
+
+      {current === "model" && (
+        <div key="model" data-sf-step style={stepWrap}>
+          <StepHeading>{t("modelTitle")}</StepHeading>
+          <ModelStep kind={kind} brand={boatBrand} model={boatModel} setModel={setBoatModel} onNext={next} />
+        </div>
+      )}
+
+      {current === "feet" && (
+        <div key="feet" data-sf-step style={stepWrap}>
+          <StepHeading>{t("feetTitle")}</StepHeading>
+          <FeetStep brand={boatBrand} model={boatModel} feet={boatInfo.lengthFt} setFeet={(v) => setBoatInfo((cur) => ({ ...cur, lengthFt: v }))} onNext={next} />
         </div>
       )}
 
@@ -399,7 +443,7 @@ export default function CrewSearchFlow() {
             </p>
           </div>
           <div style={{ marginBottom: 24 }}>
-            <BoatFields idPrefix="wz-boat" value={boatInfo} onChange={(p) => setBoatInfo((cur) => ({ ...cur, ...p }))} />
+            <BoatFields idPrefix="wz-boat" fields={["year"]} value={boatInfo} onChange={(p) => setBoatInfo((cur) => ({ ...cur, ...p }))} />
           </div>
           <div className="sf-step-footer">
             {(!partySize || privateCabin === undefined) && (

@@ -32,7 +32,21 @@
     "toTyping": "Destination",
     "mapNothing": "No known port here.",
     "mapHintFrom": "Tap the map to pick the start.",
-    "mapHintTo": "Tap the map to pick the destination."
+    "mapHintTo": "Tap the map to pick the destination.",
+    "brandTitle": "Which brand?",
+    "modelTitle": "Which model?",
+    "feetTitle": "How many feet?",
+    "brandPlaceholder": "Type a brand",
+    "modelPlaceholder": "Type a model",
+    "useText": "Use \"{text}\"",
+    "skip": "Skip",
+    "feetUnit": "ft",
+    "feetInvalid": "Between 10 and 300 feet.",
+    "feetGuess": "{n} ft",
+    "kind_sail": "Sailboat",
+    "kind_cat": "Catamaran",
+    "kind_motor": "Motor yacht",
+    "kind_gulet": "Gulet"
   },
   "HomeEntry": {
     "adminTitle": "Administration",

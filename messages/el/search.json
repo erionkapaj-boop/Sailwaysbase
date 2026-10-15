@@ -32,7 +32,21 @@
     "toTyping": "Προορισμός",
     "mapNothing": "Εδώ δεν υπάρχει γνωστό λιμάνι.",
     "mapHintFrom": "Πάτα στον χάρτη για να διαλέξεις αφετηρία.",
-    "mapHintTo": "Πάτα στον χάρτη για να διαλέξεις προορισμό."
+    "mapHintTo": "Πάτα στον χάρτη για να διαλέξεις προορισμό.",
+    "brandTitle": "Τι μάρκα;",
+    "modelTitle": "Ποιο μοντέλο;",
+    "feetTitle": "Πόσα πόδια;",
+    "brandPlaceholder": "Γράψε μάρκα",
+    "modelPlaceholder": "Γράψε μοντέλο",
+    "useText": "Χρήση «{text}»",
+    "skip": "Παράλειψη",
+    "feetUnit": "πόδια",
+    "feetInvalid": "Από 10 έως 300 πόδια.",
+    "feetGuess": "{n} πόδια",
+    "kind_sail": "Ιστιοπλοϊκό",
+    "kind_cat": "Καταμαράν",
+    "kind_motor": "Μηχανοκίνητο",
+    "kind_gulet": "Γουλέτα"
   },
   "HomeEntry": {
     "adminTitle": "Διαχείριση",

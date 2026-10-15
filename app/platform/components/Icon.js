@@ -44,6 +44,11 @@ const P = {
   shield: '<path d="M12 3.5 19 6v5.5c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6Z"/><path d="m9 12 2 2 4-4"/>',
   bed: '<path d="M3 18V7M3 14h18v4M21 14v-2.5A2.5 2.5 0 0 0 18.5 9H11v5"/><circle cx="7" cy="11" r="1.6"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  // τύποι σκάφους (σιλουέτες γραμμής)
+  sail: '<path d="M3 16.5h18l-2.6 4H5.6Z"/><path d="M12 3v13.5M12 4.5 18.5 14H12M10.5 7 6 14h4.5"/>',
+  cat: '<path d="M2.5 17h7l-1.3 3.2H3.8ZM14.5 17h7l-1.3 3.2h-4.4Z"/><path d="M9 17.2V15h6v2.2M12 3v12M12 4.5l5 8.5h-5"/>',
+  motor: '<path d="M2.5 15.5h19l-3 4.5H5.5Z"/><path d="M6 15.5l1.8-4.5h7.4l2.8 4.5M10.5 11V8h3.5v3M8.5 13.2h7"/>',
+  gulet: '<path d="M2.5 16h19l-2.2 4.2H5.2Z"/><path d="M9 3.5V16M9 5l-3.8 8H9M16 6.5V16M16 8l3.3 6H16"/>',
   // ρόλοι
   helm: '<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2.5v19M2.5 12h19M5.3 5.3l13.4 13.4M18.7 5.3 5.3 18.7"/>',
   tray: '<path d="M4 16.5h16M5.5 16.5a6.5 6.5 0 0 1 13 0"/><path d="M12 8.5v1.5M3 19.5h18"/>',
@@ -52,6 +57,8 @@ const P = {
 };
 
 // Το εικονίδιο κάθε ρόλου πληρώματος (κλειδιά του lib/platform/roles.js).
+export const BOAT_ICON = { sail: "sail", cat: "cat", motor: "motor", gulet: "gulet", other: "sail" };
+
 export const ROLE_ICON = { skipper: "helm", hostess: "tray", deckhand: "anchor", cook: "chef" };
 
 // Μία σειρά SVG· τα paths είναι σταθερά του κώδικα (όχι δεδομένα χρήστη).

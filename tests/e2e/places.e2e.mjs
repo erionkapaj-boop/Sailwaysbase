@@ -89,6 +89,22 @@ await as(MARIA, async (page) => {
   await page.waitForTimeout(300);
   await page.getByRole("button", { name: "Ιστιοπλοϊκό" }).click();
   await page.waitForTimeout(300);
+  // Σκάφος: μάρκα → μοντέλο → πόδια (chips, ένα πάτημα προχωρά· τα πόδια προτείνονται από το μοντέλο).
+  check("βήμα μάρκας: chips με τις συνηθισμένες του ιστιοπλοϊκού", (await text(page)).includes("Τι μάρκα;") && (await text(page)).includes("Bavaria") && (await text(page)).includes("Dehler") && !(await text(page)).includes("Lagoon"));
+  await shoot(page, "wizard-brand");
+  await page.getByRole("button", { name: "Bavaria", exact: true }).click();
+  await page.waitForTimeout(300);
+  check("βήμα μοντέλου: προτάσεις της μάρκας", (await text(page)).includes("Ποιο μοντέλο;") && (await text(page)).includes("Cruiser 46"));
+  await page.getByPlaceholder("Γράψε μοντέλο").fill("c45");
+  check("αναζήτηση μοντέλου με πρόταση από κάτω", await page.getByRole("option", { name: "C45" }).isVisible());
+  await page.getByPlaceholder("Γράψε μοντέλο").fill("");
+  await page.getByRole("button", { name: "Cruiser 46", exact: true }).click();
+  await page.waitForTimeout(300);
+  check("βήμα ποδιών: προτείνει 46 από το μοντέλο", (await text(page)).includes("Πόσα πόδια;") && (await page.getByRole("button", { name: "46 πόδια" }).isVisible()));
+  await page.getByRole("button", { name: "46 πόδια" }).click();
+  await page.getByRole("button", { name: "Συνέχεια" }).click();
+  await page.waitForTimeout(300);
+  check("στις τελευταίες λεπτομέρειες δεν υπάρχει πια μοντέλο ή μήκος", !(await page.locator("#wz-boat-model").count()) && !(await page.locator("#wz-boat-length").count()));
   await page.locator("input[type=number]").fill("4");
   await page.locator("select").nth(1).selectOption({ label: "Ναι" });
   await page.getByRole("button", { name: "Ολοκλήρωση" }).click();
@@ -97,6 +113,7 @@ await as(MARIA, async (page) => {
   check("η αναζήτηση πήρε την περιοχή από το μέρος", url.searchParams.get("region") === cyclades, url.search);
   check("σημείο αναχώρησης «Νάουσα (Πάρος)»", url.searchParams.get("point") === "Νάουσα (Πάρος)", url.searchParams.get("point"));
   check("τερματισμός «Μύκονος»", url.searchParams.get("arrival") === "Μύκονος");
+  check("σκάφος «Bavaria Cruiser 46», 46 πόδια", url.searchParams.get("bm") === "Bavaria Cruiser 46" && url.searchParams.get("bl") === "46", url.search);
   await page.waitForTimeout(1500);
   t = await text(page);
   check("σύνοψη: μέρος πρώτα, μετά περιοχή", t.includes("Νάουσα (Πάρος) → Μύκονος · Κυκλάδες"), t.slice(0, 400));
