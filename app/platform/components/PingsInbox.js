@@ -192,6 +192,7 @@ export default function PingsInbox({ skipperId }) {
 function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
   const t = useTranslations("PingsInbox");
   const tc = useTranslations("Cabin");
+  const tb = useTranslations("BoatType");
   const f = useFormat();
   const L = useLocalData();
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -222,7 +223,7 @@ function PingCard({ p, fee, busy, onClaim, onDecline, onWithdraw }) {
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
         <div>
           <div style={{ fontWeight: 500, fontSize: 15 }}>
-            {L.text(departureLabel(r))} · {L.text(r.boat_types?.name)}
+            {L.text(departureLabel(r))}{r.boat_types?.name ? ` · ${L.text(r.boat_types.name)}` : (r.crew_role || "skipper") === "skipper" ? ` · ${tb("notSet")}` : ""}
           </div>
           {boatLine(r) && (
             <div style={{ ...muted, fontSize: 13, margin: "6px 0 0", display: "flex", alignItems: "center", gap: 10 }}>

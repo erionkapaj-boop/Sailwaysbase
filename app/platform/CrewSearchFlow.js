@@ -14,6 +14,7 @@ import CabinChoice from "./components/CabinChoice";
 import { serializeCabins } from "../../lib/platform/cabin";
 import { BrandStep, ModelStep, FeetStep, YearStep } from "./components/BoatSteps";
 import { boatKind, boatName } from "../../lib/platform/boatCatalog";
+import { BOAT_UNKNOWN } from "../../lib/platform/boat";
 import RouteStep from "./components/RouteStep";
 import { useLocalData } from "./useLocalData";
 import { COUNTRIES } from "../../lib/platform/places";
@@ -28,19 +29,18 @@ import { button, colors, input, label, muted, radius, select, h2 } from "../../l
 // one of the base ports, and the region follows from the place (PlacePicker).
 // Anyone who doesn't know yet can browse the regions from the same step.
 //
-// The "boat" step only makes sense when the search includes skipper: a boat
-// type is what a skipper operates, and hostess (or any future non-skipper
-// role) doesn't have one. A hostess-only search skips straight from "where" to
-// the party-size question instead of asking something that has no right answer for it.
+// The boat is asked for every search, before the roles. "I don't know yet" on the boat-type screen
+// skips the brand/model/feet/year screens (many clients look for a skipper before booking a boat).
 //
 // The last step is always the last role's cabin question — everything
 // the results page used to ask for AFTER the wizard handed off now gets
 // asked for here instead, so landing on results means there's nothing left
 // to fill in, just candidates to browse and pick.
-function stepsFor(roles, kind) {
+function stepsFor(roles, kind, boatUnknown = false) {
   // Trip first (country, port, dates, party, boat), then the help the client wants (roles) and where it sleeps.
   // Gulet: no brand/model (no catalogues), feet only.
-  const boat = kind === "gulet" ? ["boat", "feet", "year"] : ["boat", "brand", "model", "feet", "year"];
+  // «Δεν ξέρω ακόμα»: μετά τον τύπο σκάφους δεν ρωτιέται τίποτα άλλο για το σκάφος.
+  const boat = boatUnknown ? ["boat"] : kind === "gulet" ? ["boat", "feet", "year"] : ["boat", "brand", "model", "feet", "year"];
   // One cabin screen for every professional the client asks for, in the fixed role order.
   const cabins = CREW_ROLES.filter((r) => roles.includes(r.key)).map((r) => `cabin:${r.key}`);
   return ["country", "where", "dates", "party", ...boat, "role", ...cabins];
@@ -167,12 +167,13 @@ export default function CrewSearchFlow() {
   }, []);
 
   const kind = boatKind(lookups.boatTypes.find((b) => b.id === boatTypeId)?.name || "");
-  const STEPS = stepsFor(roles, kind);
+  const boatUnknown = boatTypeId === BOAT_UNKNOWN;
+  const STEPS = stepsFor(roles, kind, boatUnknown);
 
   // The number of cabin screens depends on the roles picked ON the role step, so while standing on it
   // the total assumes one cabin screen (then switches to the real count once the client has moved past
   // it): the fraction in the header never changes underneath an answer still being chosen.
-  const displaySteps = STEPS[step] === "role" ? stepsFor(roles.slice(0, 1).length ? roles.slice(0, 1) : ["skipper"], kind) : STEPS;
+  const displaySteps = STEPS[step] === "role" ? stepsFor(roles.slice(0, 1).length ? roles.slice(0, 1) : ["skipper"], kind, boatUnknown) : STEPS;
 
   // Pushes history itself rather than inside a setStep updater — React
   // (StrictMode, in dev) can invoke an updater function twice per call,
@@ -400,6 +401,30 @@ export default function CrewSearchFlow() {
                 </button>
               );
             })}
+            {lookups.boatTypes.length > 0 && (
+              <button
+                type="button"
+                data-boat-unknown
+                aria-pressed={boatUnknown}
+                onClick={() => {
+                  if (!boatUnknown) {
+                    setBoatBrand("");
+                    setBoatModel("");
+                    setBoatInfo((cur) => ({ ...cur, lengthFt: "", year: "" }));
+                  }
+                  setBoatTypeId(BOAT_UNKNOWN);
+                  next();
+                }}
+                style={{
+                  position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10,
+                  minHeight: 120, padding: "16px 8px", borderRadius: radius.md, fontFamily: "inherit", fontSize: 15.5, fontWeight: 500, cursor: "pointer",
+                  border: `${boatUnknown ? 2 : 1}px solid ${boatUnknown ? colors.ink : colors.border}`, background: boatUnknown ? colors.seaGlass : colors.card, color: colors.ink,
+                }}
+              >
+                <Icon name="question" size={48} stroke={1.2} />
+                {t("boatUnknown")}
+              </button>
+            )}
           </div>
           {lookups.boatTypes.length === 0 && lookupsError && (
             <div>

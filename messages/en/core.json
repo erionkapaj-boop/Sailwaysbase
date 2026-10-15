@@ -87,6 +87,9 @@
     "privateHint": "Large cabin, usually with a toilet.",
     "skipperHint": "Small cabin, one berth in the bow."
   },
+  "BoatType": {
+    "notSet": "Boat: not set"
+  },
   "BoatPicture": {
     "caption": "Illustrative AI image",
     "tag": "AI",

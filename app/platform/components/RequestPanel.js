@@ -37,6 +37,7 @@ const PING_STATUS_LABEL = {
 // where it survives regardless of which list the request ends up in.
 export default function RequestPanel({ request, onChanged, onToastMessage }) {
   const t = useTranslations("RequestPanel");
+  const tb = useTranslations("BoatType");
   const f = useFormat();
   const L = useLocalData();
   const personName = (sp) => (sp ? L.person(sp) : "");
@@ -121,7 +122,7 @@ export default function RequestPanel({ request, onChanged, onToastMessage }) {
       >
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <span style={{ fontWeight: 500 }}>
-            {L.text(departureLabel(request))} · {L.text(request.boat_types?.name)}
+            {L.text(departureLabel(request))}{request.boat_types?.name ? ` · ${L.text(request.boat_types.name)}` : (request.crew_role || "skipper") === "skipper" ? ` · ${tb("notSet")}` : ""}
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <StatusPill tone={statusTone}>{statusLabel}</StatusPill>

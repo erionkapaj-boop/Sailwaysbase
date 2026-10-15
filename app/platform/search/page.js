@@ -58,7 +58,7 @@ import { cabinOf, isPrivateCabin, parseCabins } from "../../../lib/platform/cabi
 import LanguagePicker from "../components/LanguagePicker";
 import { parseLanguageCodes } from "../../../lib/platform/languageFilter";
 import { languageCodeOfDbName } from "../../../lib/platform/languages";
-import { boatLine, boatValid } from "../../../lib/platform/boat";
+import { BOAT_UNKNOWN, boatLine, boatValid } from "../../../lib/platform/boat";
 
 const BROADCAST_ERRORS = {
   insufficient_wallet: "errInsufficientWallet",
@@ -729,6 +729,7 @@ function RoleSection({
                     {L.text(b.name)}
                   </option>
                 ))}
+                <option value={BOAT_UNKNOWN}>{t("boatUnknown")}</option>
               </select>
               {boatTypeError && (
                 <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>{t("requiredField")}</p>
@@ -1557,6 +1558,7 @@ function SearchPageInner() {
 
   const regionName = lookups.regions.find((r) => r.id === filters.regionId)?.name;
   const boatTypeName = lookups.boatTypes.find((b) => b.id === filters.boatTypeId)?.name;
+  const boatTypeUnknown = filters.boatTypeId === BOAT_UNKNOWN;
 
   useEffect(() => {
     if (checkoutDone) window.scrollTo({ top: 0 });
@@ -1735,7 +1737,7 @@ function SearchPageInner() {
               {t("people", { count: Number(filters.partySize) })}
               {" · "}
               {supportedRoles.map((r) => (supportedRoles.length > 1 ? `${labelForRole(r)}: ` : "") + tCabin(cabinOf(filters, r))).join(", ")}
-              {boatTypeName ? ` · ${L.text(boatTypeName)}` : ""}
+              {boatTypeName ? ` · ${L.text(boatTypeName)}` : boatTypeUnknown ? ` · ${t("boatNotSet")}` : ""}
               {boatLine({ boat_model: filters.boatModel, boat_length_ft: filters.boatLengthFt, boat_year: filters.boatYear }) ? ` · ${boatLine({ boat_model: filters.boatModel, boat_length_ft: filters.boatLengthFt, boat_year: filters.boatYear })}` : ""}
             </span>
           </div>

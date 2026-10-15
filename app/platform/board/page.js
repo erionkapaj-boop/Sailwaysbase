@@ -105,6 +105,7 @@ export default function BoardPage() {
   const t = useTranslations("Board");
   const td = useTranslations("DeliveryRequests");
   const tc = useTranslations("Cabin");
+  const tb = useTranslations("BoatType");
   const f = useFormat();
   const L = useLocalData();
   const router = useRouter();
@@ -400,7 +401,7 @@ export default function BoardPage() {
         cabin={cabinFor(r)}
         meta={[
           regionName(r.region_id) && { icon: "pin", text: regionName(r.region_id) },
-          boatName(r.boat_type_id) && { icon: "boat", text: boatName(r.boat_type_id) },
+          (boatName(r.boat_type_id) || (r.crew_role === "skipper" ? tb("notSet") : "")) && { icon: "boat", text: boatName(r.boat_type_id) || tb("notSet") },
           r.party_size && { icon: "users", text: t("party", { count: r.party_size }) },
         ].filter(Boolean)}
         facts={[
