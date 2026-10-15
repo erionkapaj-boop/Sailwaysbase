@@ -53,6 +53,7 @@ import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
 import BoatFields from "../components/BoatFields";
 import CabinChoice from "../components/CabinChoice";
+import Icon from "../components/Icon";
 import { cabinOf, isPrivateCabin, parseCabins } from "../../../lib/platform/cabin";
 import LanguagePicker from "../components/LanguagePicker";
 import { boatLine, boatValid } from "../../../lib/platform/boat";
@@ -607,6 +608,33 @@ function RoleSection({
   return (
     <div style={{ marginTop: 24 }}>
       <h2 style={h2}>{roleLabel}</h2>
+      {results && results.length > 0 && (
+        <div data-result-mode style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, margin: "0 0 18px" }}>
+          {[
+            { open: false, icon: "list", label: t("pickRole", { role: roleLabel.toLowerCase() }) },
+            { open: true, icon: "inbox", label: t("leaveOpenCard"), leave: true },
+          ].map((m) => {
+            const on = Boolean(openMode) === m.open;
+            return (
+              <button
+                key={String(m.open)}
+                type="button"
+                aria-pressed={on}
+                data-leave-open={m.leave ? "" : undefined}
+                onClick={() => onOpenModeChange(m.open)}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, minHeight: 104, padding: "14px 10px",
+                  borderRadius: radius.md, fontFamily: "inherit", fontSize: 15, fontWeight: 500, textAlign: "center", cursor: "pointer",
+                  border: `${on ? 2 : 1}px solid ${on ? colors.ink : colors.border}`, background: on ? colors.seaGlass : colors.card, color: colors.ink,
+                }}
+              >
+                <Icon name={m.icon} size={32} stroke={1.4} />
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {restoredNotice && (
         <p style={{ ...muted, fontSize: 13, margin: "-6px 0 12px", color: colors.accent }}>
           {t("selectionsKept")}
@@ -718,42 +746,9 @@ function RoleSection({
             </div>
           )}
 
-          {results.length > 0 && (
-            <p style={{ ...muted, fontSize: 13.5, margin: "-4px 0 14px" }}>
-              {t("pickHint")}
-            </p>
-          )}
-
-          {results.map((s) => (
+          {!openMode && results.map((s) => (
             <ProfessionalCard key={s.id} s={s} selected={selected.has(s.id)} onToggle={onToggle} days={days} />
           ))}
-
-          {/* Nobody pleases, or not choosing now: the request stays open and
-              professionals claim it (0125). */}
-          {results.length > 0 && (
-            openMode ? (
-              <div style={{ ...card, borderLeft: `3px solid ${colors.accent}` }}>
-                <b style={{ fontWeight: 600, fontSize: 15 }}>{t("leaveOpenTitle")}</b>
-                <p style={{ ...muted, margin: "6px 0 12px", fontSize: 13.5, lineHeight: 1.55 }}>{t("leaveOpenBody")}</p>
-                <button type="button" style={button("secondary")} onClick={() => onOpenModeChange(false)}>
-                  {t("backToList")}
-                </button>
-              </div>
-            ) : (
-              <div style={{ textAlign: "center", margin: "6px 0 4px" }}>
-                <button
-                  type="button"
-                  data-leave-open
-                  onClick={() => onOpenModeChange(true)}
-                  style={{ ...button("secondary"), width: "100%" }}
-                >
-                  {t("leaveOpen")}
-                </button>
-              </div>
-            )
-          )}
-
-
         </div>
       )}
     </div>

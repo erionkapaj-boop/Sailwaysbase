@@ -49,14 +49,14 @@ await as(MARIA, async (page) => {
   await go(page, url("skipper", 12, 14, true));
   await page.waitForTimeout(2000);
   t = await text(page);
-  check("υπάρχουν διαθέσιμοι και η επιλογή «άφησε ανοιχτό»", /διαθέσιμοι? skipper/.test(t) && t.includes("Άφησε το αίτημα ανοιχτό"), t.slice(0, 400));
+  check("δύο ισότιμες επιλογές στην κορυφή: «Διάλεξε skipper» και «Άφησε ανοιχτό αίτημα»", /διαθέσιμοι? skipper/.test(t) && t.includes("Διάλεξε skipper") && t.includes("Άφησε ανοιχτό αίτημα") && !t.includes("Δεν σε ικανοποιεί"), t.slice(0, 400));
   check("δεν υπάρχει ολοκλήρωση πριν από οποιαδήποτε απόφαση", !t.includes("Ολοκλήρωση αιτήματος"));
   await page.locator("[data-leave-open]").click();
   await page.waitForTimeout(500);
   t = await text(page);
   await page.locator("[data-leave-open], [data-no-results]").first().scrollIntoViewIfNeeded().catch(() => {});
   await shoot(page, "open-leave");
-  check("εξηγεί ότι θα μείνει ανοιχτό", t.includes("Το αίτημά σου θα μείνει ανοιχτό") && t.includes("Ολοκλήρωση αιτήματος"));
+  check("στο ανοιχτό αίτημα η λίστα κρύβεται και υπάρχει η ολοκλήρωση", (await page.getByRole("button", { name: "Επιλογή", exact: true }).count()) === 0 && t.includes("Ολοκλήρωση αιτήματος"));
   await click(page, "Ολοκλήρωση αιτήματος");
   await page.waitForTimeout(2500);
   check("το αίτημα skipper είναι ανοιχτό, χωρίς αποστολή", (await text(page)).includes("Το αίτημά σου είναι ανοιχτό") &&

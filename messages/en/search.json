@@ -271,7 +271,6 @@
     "search": "Search",
     "availableCount": "{count, plural, one {# available {role}} other {# available {role}}}",
     "changeSearch": "Change search",
-    "pickHint": "Choose as many as you like. The first to accept takes the request.",
     "needPartyAndCabin": "Enter the number of people and the private cabin option before sending the request.",
     "partialSent": "{sent, plural, one {1 request already sent} other {# requests already sent}} of {total}. A new send only sends what remains, with no second charge.",
     "topUpTitle": "{count, plural, one {# credit needed} other {# credits needed}}",
@@ -323,15 +322,13 @@
     "selectedCount": "{count, plural, one {<m>#</m> selected} other {<m>#</m> selected}}",
     "readyTitle": "Your request is ready",
     "readyBody": "It will be shown to every professional that fits your dates. Whoever is interested will accept it and you choose. Complete it below.",
-    "leaveOpen": "Not happy with anyone? Leave the request open",
-    "leaveOpenTitle": "Your request will stay open",
-    "leaveOpenBody": "It will be shown to every matching professional. Those who are interested will accept it and you choose.",
-    "backToList": "Choose from the list",
     "openSlots": "{count, plural, one {Open request} other {# open requests}}",
     "doneOpenTitle": "{count, plural, one {Your request is open} other {Your # requests are open}}",
     "openDoneNote": "{count, plural, one {It is waiting for professionals to accept. Whoever is interested shows up under Requests and you choose. It stays open until the start date or until you close it.} other {They are waiting for professionals to accept. Those who are interested show up under Requests and you choose. They stay open until the start date or until you close them.}}",
     "reservedOpenOne": "{total} reserved, charged only when you choose a professional.",
     "reservedOpenMany": "{total} reserved, {fee} for each request. Each is charged only when you choose a professional.",
-    "cabinFor": "Where will they sleep: {role}"
+    "cabinFor": "Where will they sleep: {role}",
+    "pickRole": "Choose {role}",
+    "leaveOpenCard": "Leave an open request"
   }
 }
