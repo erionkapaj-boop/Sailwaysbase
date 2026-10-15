@@ -68,6 +68,14 @@ export default async function PlatformLayout({ children }) {
   return (
     // These .variable classes define the CSS custom properties theme.js reads.
     <div className={`${sans.variable} ${mono.variable} ${serif.variable}`} style={page}>
+      {/* Native controls (select, button, input) and anything portalled to
+          <body> do not inherit the page font by default and fell back to the
+          system face, so Greek omega changed shape mid-screen.
+          One rule gives them all the same family. */}
+      <style>{`
+        body { font-family: ${sans.style.fontFamily}; }
+        button, input, select, textarea, optgroup { font-family: inherit; font-feature-settings: normal; }
+      `}</style>
       <NextIntlClientProvider locale={locale} messages={messages}>
         <MessageBridge>
           <PlatformShell>{children}</PlatformShell>
