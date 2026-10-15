@@ -61,12 +61,39 @@ await browser.close();
 
 await as("6900002002", async (page) => {
   await go(page, "/platform");
-  check("συνδεδεμένη: ένα μενού μόνο (όχι και τελείες)", !(await page.getByRole("button", { name: "Περισσότερα", exact: true }).count()));
-  await page.getByRole("button", { name: "Μενού", exact: true }).click();
-  check("συνδεδεμένη: το μενού έχει μεταφορά σκάφους και ανοιχτά αιτήματα", (await text(page)).includes("Μεταφορά σκάφους") && (await text(page)).includes("Ανοιχτά αιτήματα"));
+  check("συνδεδεμένη: οι τελείες υπάρχουν πάνω αριστερά", await page.getByRole("button", { name: "Περισσότερα", exact: true }).isVisible());
+  await page.getByRole("button", { name: "Περισσότερα", exact: true }).click();
+  check("συνδεδεμένη: οι τελείες έχουν μεταφορά σκάφους και ανοιχτά αιτήματα", (await text(page)).includes("Μεταφορά σκάφους") && (await text(page)).includes("Ανοιχτά αιτήματα"));
   await page.keyboard.press("Escape");
   check("συνδεδεμένη: χωρίς δεύτερη εγγραφή", !(await text(page)).includes("Δημιούργησε προφίλ"));
   await shoot(page, "home-signed-in");
 });
+
+// «Πίσω» κρατά ό,τι είχε συμπληρωθεί: ρόλος διαλεγμένος, φεύγω από την οθόνη, γυρνώ.
+const b2 = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
+{
+  const page = await (await b2.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+  await page.goto(`${BASE}/platform`);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Αναζήτηση πληρώματος" }).click();
+  await page.getByRole("button", { name: /Skipper/ }).first().click();
+  await page.getByRole("button", { name: "Συνέχεια" }).click();
+  await page.goto(`${BASE}/platform/contact`);
+  await page.waitForLoadState("networkidle");
+  await page.goBack();
+  await page.waitForTimeout(1500);
+  check("πίσω από άλλη οθόνη: ο οδηγός ανοίγει στο ίδιο βήμα", (await text(page)).includes("Ποια χώρα"));
+  await page.getByRole("button", { name: "Πίσω" }).first().click();
+  await page.waitForTimeout(600);
+  check("πίσω στο προηγούμενο βήμα: ο ρόλος μένει διαλεγμένος", (await page.getByRole("button", { name: /Skipper/ }).first().getAttribute("aria-pressed")) === "true");
+  await page.goto(`${BASE}/platform/contact`);
+  await check_small_logo(page);
+}
+await b2.close();
+
+async function check_small_logo(page) {
+  const link = page.locator('a[aria-label^="SkipperFinder"]').first();
+  check("σελίδα χρήσης: μικρό τιμόνι που οδηγεί στην αρχική, χωρίς πλήρες λογότυπο", (await link.locator("svg").count()) > 0 && !(await link.innerText()).includes("SkipperFinder"));
+}
 
 finish();

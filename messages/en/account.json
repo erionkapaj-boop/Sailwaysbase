@@ -114,9 +114,7 @@
     "logout": "Log out",
     "pinTitle": "Set your own PIN",
     "pinBody": "You signed in with a temporary PIN. Set your own now.",
-    "pinSet": "Set PIN",
-    "menuDelivery": "Boat delivery",
-    "menuOpenRequests": "Open requests"
+    "pinSet": "Set PIN"
   },
   "AccountMenu": {
     "navigation": "Navigation menu",

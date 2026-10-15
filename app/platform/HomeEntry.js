@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { displayName } from "../../lib/platform/names";
+import { clearSessionState } from "./useSessionState";
 import { useAuth } from "./AuthContext";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
@@ -100,7 +101,13 @@ export default function HomeEntry() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
+  // «Πίσω» από άλλη οθόνη στο σημείο του οδηγού: ανοίγει ξανά εκεί που ήταν.
+  useEffect(() => {
+    if (window.history.state?.sfWizardOpen) setStarted(true);
+  }, []);
+
   function openWizard() {
+    clearSessionState("sf_wizard:");
     window.history.pushState({ sfWizardOpen: true, sfStep: 0 }, "");
     setStarted(true);
   }

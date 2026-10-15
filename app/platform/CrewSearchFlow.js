@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSessionState } from "./useSessionState";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { listLookups } from "../../lib/platform/db";
@@ -83,20 +84,20 @@ export default function CrewSearchFlow() {
   const L = useLocalData();
   const [step, setStep] = useState(0);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [], languages: [] });
-  const [roles, setRoles] = useState([]);
+  const [roles, setRoles] = useSessionState("sf_wizard:roles", []);
   const [roleQuery, setRoleQuery] = useState("");
-  const [dates, setDates] = useState({ start: "", end: "" });
-  const [country, setCountry] = useState("");
-  const [regionId, setRegionId] = useState("");
-  const [departurePoint, setDeparturePoint] = useState("");
-  const [arrivalPoint, setArrivalPoint] = useState("");
-  const [sameDestination, setSameDestination] = useState(true);
+  const [dates, setDates] = useSessionState("sf_wizard:dates", { start: "", end: "" });
+  const [country, setCountry] = useSessionState("sf_wizard:country", "");
+  const [regionId, setRegionId] = useSessionState("sf_wizard:region", "");
+  const [departurePoint, setDeparturePoint] = useSessionState("sf_wizard:from", "");
+  const [arrivalPoint, setArrivalPoint] = useSessionState("sf_wizard:to", "");
+  const [sameDestination, setSameDestination] = useSessionState("sf_wizard:same", true);
   const [pickingPlace, setPickingPlace] = useState(true);
-  const [boatTypeId, setBoatTypeId] = useState("");
-  const [languageId, setLanguageId] = useState("");
-  const [partySize, setPartySize] = useState("");
-  const [boatInfo, setBoatInfo] = useState({ model: "", lengthFt: "", year: "" });
-  const [privateCabin, setPrivateCabin] = useState(undefined);
+  const [boatTypeId, setBoatTypeId] = useSessionState("sf_wizard:boatType", "");
+  const [languageId, setLanguageId] = useSessionState("sf_wizard:lang", "");
+  const [partySize, setPartySize] = useSessionState("sf_wizard:party", "");
+  const [boatInfo, setBoatInfo] = useSessionState("sf_wizard:boat", { model: "", lengthFt: "", year: "" });
+  const [privateCabin, setPrivateCabin] = useSessionState("sf_wizard:cabin", undefined);
 
   const [lookupsError, setLookupsError] = useState(false);
   const [lookupsAttempt, setLookupsAttempt] = useState(0);
@@ -133,6 +134,12 @@ export default function CrewSearchFlow() {
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  // Επιστροφή με «πίσω» από άλλη οθόνη: το βήμα που ήταν ανοιχτό γράφτηκε στην εγγραφή ιστορικού.
+  useEffect(() => {
+    const n = window.history.state?.sfStep;
+    if (typeof n === "number") setStep(n);
   }, []);
 
   const STEPS = stepsFor(roles);

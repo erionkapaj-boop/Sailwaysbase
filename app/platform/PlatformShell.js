@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Footer, { AppFooter } from "./components/Footer";
-import Logo from "./components/Logo";
+import { Mark } from "./components/Logo";
 import NotificationPanel from "./components/NotificationPanel";
 import MessagesPanel from "./components/MessagesPanel";
 import LanguageSwitcher from "./components/LanguageSwitcher";
@@ -44,25 +44,32 @@ const navLink = {
 // header shape — the parts they do have should sit where they sit everywhere
 // else. Roles beyond skipper (hostess, cook, deckhand) come through here
 // unchanged, since nothing in it is specific to what someone does on a boat.
-function AccountNavBar({ isHome, homeLabel, name, photoUrl, items, activeHref, onSignOut, notifications, refreshNotifications, hideMenuOnWide }) {
+function AccountNavBar({ isAdmin, isHome, homeLabel, name, photoUrl, items, activeHref, onSignOut, notifications, refreshNotifications, hideMenuOnWide }) {
   const unreadNotifications = notifications?.pendingRequests ?? 0;
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
   return (
     <div data-sf-header style={{ ...nav, display: "grid", gridTemplateColumns: "auto 1fr auto", alignItems: "center", columnGap: 10 }}>
+      {/* Top left: the apps dots (boat delivery, open requests) and Back; the admin keeps the
+          account menu here (it also has the permanent side menu). */}
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-        <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} hideOnWide={hideMenuOnWide} />
+        {isAdmin ? (
+          <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} hideOnWide={hideMenuOnWide} />
+        ) : (
+          <HomeAppsMenu />
+        )}
         <HeaderBackSlot />
       </div>
 
-      {/* Το λογότυπο οδηγεί πάντα στην αρχική· ο λογαριασμός ζει στο μενού και στο Προφίλ. */}
+      {/* Working pages: only the small helm mark, always links home. The full
+          logo lives on the home page alone. */}
       {isHome ? <span /> : (
         <Link
           href="/platform"
           aria-label={homeLabel}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", minWidth: 0 }}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", minWidth: 44, minHeight: 44, margin: "0 auto" }}
         >
-          <Logo />
+          <Mark size={28} />
         </Link>
       )}
 
@@ -75,6 +82,7 @@ function AccountNavBar({ isHome, homeLabel, name, photoUrl, items, activeHref, o
         <LanguageSwitcher />
         <NotificationPanel count={unreadNotifications} onRead={refreshNotifications} />
         <MessagesPanel count={unreadBookingIds.length} />
+        {!isAdmin && <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} side="right" />}
       </div>
     </div>
   );
@@ -96,8 +104,6 @@ function AccountNavBar({ isHome, homeLabel, name, photoUrl, items, activeHref, o
 // σελίδα είναι «ενεργή»), οπότε εισάγεται αντί να ξαναγραφτεί.
 function buildMenuItems({ role, isAdmin, isOwner, adminCounts, t }) {
   const items = [{ href: "/platform", label: t("menuHome") }];
-  // Οι δύο είσοδοι που είχαν οι τελείες της αρχικής ζουν πλέον στο ίδιο μενού.
-  if (!isAdmin) items.push({ href: "/platform/delivery", label: t("menuDelivery") }, { href: "/platform/board", label: t("menuOpenRequests") });
   const own = [];
   own.push({ href: "/platform/requests", label: t("menuRequests") });
   own.push({ href: "/platform/bookings", label: isAdmin ? t("menuMyBookings") : t("menuBookings") });
@@ -150,6 +156,7 @@ function NavBar() {
     return (
       <>
         <AccountNavBar
+          isAdmin={isAdmin}
           isHome={pathname === "/platform" || pathname === "/"}
           homeLabel={t("homeAriaLabel")}
           name={displayName(profile, headerLocale) || displayName(userRow, headerLocale) || (isAdmin ? ts("adminName") : undefined)}
@@ -193,8 +200,8 @@ function NavBar() {
     <div style={{ ...nav, flexWrap: "wrap", rowGap: 8, columnGap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <HeaderBackSlot />
-        <Link href="/platform" style={{ textDecoration: "none" }} aria-label={t("homeAriaLabel")}>
-          <Logo />
+        <Link href="/platform" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, textDecoration: "none" }} aria-label={t("homeAriaLabel")}>
+          <Mark size={28} />
         </Link>
       </div>
       {/* Header carries Login only — no search link (the home page is the
@@ -232,6 +239,7 @@ ${NAV_CSS}
 ${SIDENAV_CSS}
 ${BOTTOM_NAV_CSS}
 @keyframes sf-drawer-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sf-drawer-slide-r { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes sf-drawer-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 @keyframes sf-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 /* Όποιος έχει ζητήσει «λιγότερη κίνηση» από το σύστημά του δεν βλέπει κινήσεις. */

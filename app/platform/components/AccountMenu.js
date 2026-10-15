@@ -24,7 +24,7 @@ const itemStyle = {
 //
 // `hideOnWide`: on wide screens the permanent side menu shows the same list, so
 // the button goes quiet (it keeps its place so the header does not shift).
-export default function AccountMenu({ items = [], onSignOut, activeHref, hideOnWide = false }) {
+export default function AccountMenu({ items = [], onSignOut, activeHref, hideOnWide = false, side = "left" }) {
   const t = useTranslations("AccountMenu");
   const [open, setOpen] = useState(false);
 
@@ -72,7 +72,7 @@ export default function AccountMenu({ items = [], onSignOut, activeHref, hideOnW
             style={{
               position: "fixed",
               top: 0,
-              left: 0,
+              [side]: 0,
               bottom: 0,
               width: `min(${DRAWER_WIDTH}px, 82vw)`,
               background: colors.card,
@@ -80,7 +80,7 @@ export default function AccountMenu({ items = [], onSignOut, activeHref, hideOnW
               zIndex: 60,
               display: "flex",
               flexDirection: "column",
-              animation: "sf-drawer-slide 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
+              animation: `${side === "right" ? "sf-drawer-slide-r" : "sf-drawer-slide"} 0.22s cubic-bezier(0.22, 1, 0.36, 1)`,
             }}
           >
             <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 10px", borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
