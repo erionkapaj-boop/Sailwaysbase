@@ -22,6 +22,7 @@
   },
   "Home": {
     "searchCrew": "Αναζήτηση πληρώματος",
+    "resumeRequest": "Συνέχισε το αίτημά σου",
     "boatDelivery": "Μεταφορά σκάφους",
     "welcomeTitle": "Καλώς ήρθες, {name}!",
     "welcomeSubtitle": "Ξεκίνα βρίσκοντας πλήρωμα για το ταξίδι σου.",

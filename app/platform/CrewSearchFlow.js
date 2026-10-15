@@ -12,6 +12,7 @@ import ForwardButton from "./components/ForwardButton";
 import Icon, { ROLE_ICON, BOAT_ICON, CABIN_ICON } from "./components/Icon";
 import Counter from "./components/Counter";
 import CabinChoice from "./components/CabinChoice";
+import { flowSearch, flowStepFromUrl } from "../../lib/platform/flowUrl";
 import { serializeCabins, serializePositions, isMultiDay, MAX_POSITIONS } from "../../lib/platform/cabin";
 import { BrandStep, ModelStep, FeetStep, YearStep } from "./components/BoatSteps";
 import { boatKind, boatName } from "../../lib/platform/boatCatalog";
@@ -180,7 +181,8 @@ export default function CrewSearchFlow() {
   // once a popstate carries no step number.
   useEffect(() => {
     function onPopState(e) {
-      if (typeof e.state?.sfStep === "number") setStep(e.state.sfStep);
+      const n = flowStepFromUrl();
+      if (n !== null) setStep(n);
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -188,7 +190,7 @@ export default function CrewSearchFlow() {
 
   // Επιστροφή με «πίσω» από άλλη οθόνη: το βήμα που ήταν ανοιχτό γράφτηκε στην εγγραφή ιστορικού.
   useEffect(() => {
-    const n = window.history.state?.sfStep;
+    const n = flowStepFromUrl();
     if (typeof n === "number") setStep(n);
   }, []);
 
@@ -207,7 +209,7 @@ export default function CrewSearchFlow() {
   // which would push two history entries for a single "Συνέχεια" click and
   // throw the step count out of sync with the real stack.
   function goTo(n) {
-    window.history.pushState({ sfWizardOpen: true, sfStep: n }, "");
+    window.history.pushState({ sfWizardOpen: true, sfStep: n }, "", flowSearch(n));
     setStep(n);
   }
   // The screens that belong to one summary row. "where" = country + port, "boat" = type … year, "role" = roles and
@@ -256,6 +258,8 @@ export default function CrewSearchFlow() {
   }
 
   function finish() {
+    // Finished: nothing half-done to offer on the home page.
+    try { sessionStorage.setItem("sf_wizard:done", "1"); } catch {}
     const params = new URLSearchParams({
       roles: roles.join(","),
       start: dates.start,
@@ -282,6 +286,11 @@ export default function CrewSearchFlow() {
     if (editGroup && !inGroup(editGroup, current)) setEditGroup(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
+
+  // The step the client is on, so the home page can offer to continue exactly there (HomeEntry).
+  useEffect(() => {
+    try { sessionStorage.setItem("sf_wizard:step", JSON.stringify(step)); } catch {}
+  }, [step]);
 
   useEffect(() => {
     setFurthest((f) => (step > f ? step : f));

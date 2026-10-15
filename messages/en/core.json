@@ -22,6 +22,7 @@
   },
   "Home": {
     "searchCrew": "Find crew",
+    "resumeRequest": "Continue your request",
     "boatDelivery": "Boat delivery",
     "welcomeTitle": "Welcome, {name}!",
     "welcomeSubtitle": "Start by finding crew for your trip.",

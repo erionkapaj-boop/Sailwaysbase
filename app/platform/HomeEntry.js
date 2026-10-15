@@ -8,6 +8,8 @@ import { clearSessionState } from "./useSessionState";
 import { useAuth } from "./AuthContext";
 import CrewSearchFlow from "./CrewSearchFlow";
 import Logo from "./components/Logo";
+import Icon from "./components/Icon";
+import { flowSearch, inFlowUrl, isRestoredNavigation } from "../../lib/platform/flowUrl";
 import PendingReadyBanner from "./components/PendingReadyBanner";
 import RequestDraftLine from "./components/RequestDraftLine";
 import { adminOverview } from "../../lib/platform/db";
@@ -93,22 +95,42 @@ export default function HomeEntry() {
   // the first press instead of just closing it. Pushing a history entry
   // here gives the wizard (and its own per-step entries, see
   // CrewSearchFlow) something real to step back through.
+  //
+  // The wizard lives at its own URL (`?flow=1`): a REFRESH inside the flow keeps that URL and the history state, so
+  // it stays on the same step with its data; a NEW visit to the root URL (typed link, bookmark) is a different URL,
+  // so it always opens the home page. (Typing the very same URL again would be treated by browsers as a refresh and
+  // keep the state — which is exactly what used to open the wizard at a later step.)
   useEffect(() => {
     function onPopState(e) {
-      setStarted(Boolean(e.state?.sfWizardOpen));
+      setStarted(inFlowUrl());
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-  // «Πίσω» από άλλη οθόνη στο σημείο του οδηγού: ανοίγει ξανά εκεί που ήταν.
+  // «Πίσω» από άλλη οθόνη ή ανανέωση μέσα στη ροή: ανοίγει ξανά εκεί που ήταν. Αλλιώς (νέα είσοδος, ξεχασμένο ίχνος
+  // στο URL ή στο ιστορικό) η αρχική, και καθαρίζεται το ίχνος.
   useEffect(() => {
-    if (window.history.state?.sfWizardOpen) setStarted(true);
+    if (inFlowUrl() && (window.history.state?.sfWizardOpen || isRestoredNavigation())) setStarted(true);
+    else if (inFlowUrl() || window.history.state?.sfWizardOpen) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  // A half-finished request in this tab (went past the first screen, not finished): a small quiet link on the home.
+  const [resumeStep, setResumeStep] = useState(null);
+  useEffect(() => {
+    try {
+      const furthest = Number(JSON.parse(sessionStorage.getItem("sf_wizard:furthest") || "0"));
+      if (furthest > 0 && !sessionStorage.getItem("sf_wizard:done")) setResumeStep(Number(JSON.parse(sessionStorage.getItem("sf_wizard:step") || "0")) || 0);
+    } catch {}
   }, []);
 
   function openWizard() {
     clearSessionState("sf_wizard:");
-    window.history.pushState({ sfWizardOpen: true, sfStep: 0 }, "");
+    window.history.pushState({ sfWizardOpen: true, sfStep: 0 }, "", flowSearch(0));
+    setStarted(true);
+  }
+  function resumeWizard() {
+    window.history.pushState({ sfWizardOpen: true, sfStep: resumeStep || 0 }, "", flowSearch(resumeStep || 0));
     setStarted(true);
   }
 
@@ -133,6 +155,19 @@ export default function HomeEntry() {
       <AdminHomeBanner />
       <PendingReadyBanner />
       <RequestDraftLine />
+      {resumeStep !== null && (
+        <div style={{ marginBottom: 18 }}>
+        <button
+          type="button"
+          data-resume-request
+          onClick={resumeWizard}
+          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44, padding: "8px 18px", borderRadius: 999, border: `1px solid ${colors.border}`, background: colors.seaGlass, color: colors.ink, fontFamily: "inherit", fontSize: 14.5, fontWeight: 500, cursor: "pointer" }}
+        >
+          {t("resumeRequest")}
+          <Icon name="forward" size={16} stroke={1.8} />
+        </button>
+        </div>
+      )}
 
       <button type="button" className="sf-cta" onClick={openWizard} style={{ ...button("primary"), ...pill, width: "100%", maxWidth: 380 }}>
         {t("searchCrew")}
