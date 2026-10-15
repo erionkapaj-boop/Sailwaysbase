@@ -36,6 +36,8 @@
     "clearTo": "Remove destination",
     "toTyping": "Destination",
     "mapNothing": "No known port here.",
+    "routeChange": "Change return",
+    "routeChangeAria": "Change return port",
     "sameReturn": "Return to the same port",
     "mapHintFrom": "Tap the map to pick the start.",
     "mapHintTo": "Tap the map to pick the destination.",

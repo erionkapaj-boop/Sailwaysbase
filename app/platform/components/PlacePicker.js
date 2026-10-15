@@ -192,7 +192,8 @@ export default function PlacePicker({
   useEffect(() => {
     if (editing && focusNext.current && inputRef.current) {
       focusNext.current = false;
-      inputRef.current.focus();
+      // preventScroll: focusing the field must never throw the page somewhere else; scrolling is ours (motion.js).
+      inputRef.current.focus({ preventScroll: true });
     }
   }, [editing, browsing]);
 

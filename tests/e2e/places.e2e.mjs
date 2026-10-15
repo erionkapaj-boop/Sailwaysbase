@@ -22,9 +22,9 @@ await as(MARIA, async (page) => {
   await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
   await page.waitForTimeout(400);
   t = await text(page);
-  check("μετά το μέρος (όχι περιοχή / λιμάνι ξεχωριστά)", t.includes("Από ποιο λιμάνι;") && t.includes("Από") && t.includes("Επιστροφή στο ίδιο λιμάνι") && !t.includes("Προς") && !t.includes("Ποια περιοχή;"));
+  check("μετά το μέρος (όχι περιοχή / λιμάνι ξεχωριστά)", t.includes("Από ποιο λιμάνι;") && t.includes("Από") && t.includes("Αλλαγή επιστροφής") && !t.includes("Επιστροφή στο ίδιο λιμάνι") && !t.includes("Προς") && !t.includes("Ποια περιοχή;"));
   check("ο χάρτης φαίνεται αμέσως, με προεπιλογή Άλιμο και ενεργό «Συνέχεια»",
-    (await page.locator("[data-choice-map]").count()) === 1 && (await page.locator("[data-route-field=from] [data-place-title]").innerText()) === "Άλιμος" && !(await page.getByRole("button", { name: "Συνέχεια" }).isDisabled()));
+    (await page.locator("[data-choice-map]").count()) === 1 && (await page.locator("[data-route-field=from] [data-place-title]").innerText()) === "Άλιμος" && (await page.locator("[data-route-text]").innerText()).trim() === "Άλιμος → Άλιμος" && !(await page.getByRole("button", { name: "Συνέχεια" }).isDisabled()));
   await shoot(page, "wizard-where-empty");
   const bases = (await page.locator("[data-base-ports] .sf-pp-name").allInnerTexts()).map((x) => x.trim());
   check("βασικά λιμάνια: η λίστα του ιδιοκτήτη, με τη σειρά της",
@@ -65,13 +65,15 @@ await as(MARIA, async (page) => {
       (await page.getByRole("button", { name: "Νάουσα", exact: true }).getAttribute("aria-pressed")) === "true");
 
   // Τέλος σε άλλο σημείο: ελεύθερο, με προτάσεις.
-  await page.locator("[data-same-return]").click();
-  check("κλειστός διακόπτης: εμφανίζεται το «Προς»", (await page.locator("[data-route-field=to]").count()) === 1);
-  await page.locator("[data-route-field=to] button").first().click();
-  await page.getByRole("combobox").fill("mikonos");
+  check("η γραμμή διαδρομής ακολουθεί το «Από»: Πάρος → Πάρος", (await page.locator("[data-route-text]").innerText()).trim() === "Πάρος → Πάρος", await page.locator("[data-route-text]").innerText());
+  await page.locator("[data-route-row]").click();
+  await page.waitForTimeout(500);
+  check("πάτημα στη γραμμή διαδρομής: ανοίγει το πεδίο επιστροφής", (await page.locator("[data-route-panel] [role=combobox]").count()) === 1);
+  await page.locator("[data-route-panel] [role=combobox]").fill("mikonos");
   await page.getByRole("option", { name: /^Μύκονος/ }).click();
-  check("πεδίο «Προς»: Μύκονος, με καρφίτσες Α και Β στον ίδιο χάρτη",
-    (await page.locator("[data-route-field=to] [data-place-title]").innerText()) === "Μύκονος" && (await page.locator("[data-choice-map]").count()) === 1);
+  await page.waitForTimeout(500);
+  check("διαδρομή «Πάρος → Μύκονος», με καρφίτσες Α και Β στον ίδιο χάρτη",
+    (await page.locator("[data-route-text]").innerText()).trim() === "Πάρος → Μύκονος" && (await page.locator("[data-choice-map]").count()) === 1, await page.locator("[data-route-text]").innerText());
   await page.getByRole("button", { name: "Συνέχεια" }).click();
   await page.waitForTimeout(400);
 

@@ -3,7 +3,7 @@
 // εμπειρίες, και κάτω η πόρτα για τους επαγγελματίες. Ελληνικά και αγγλικά.
 import { chromium } from "playwright";
 import http from "node:http";
-import { BASE, as, go, text, check, finish, shoot, hydrationDiag } from "./lib.mjs";
+import { BASE, as, go, text, check, finish, shoot, hydrationDiag, HYDRATION_SNAP } from "./lib.mjs";
 
 // Στο skipperfinder.gr η αρχική είναι η ρίζα «/» (middleware.js): ίδια κεφαλίδα με το /platform.
 const html = await new Promise((resolve, reject) => {
@@ -19,6 +19,7 @@ check("skipperfinder.gr/: η νέα αρχική (τελείες, χωρίς λ�
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 for (const locale of ["el", "en"]) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript(HYDRATION_SNAP);
   if (locale === "en") await ctx.addCookies([{ name: "sf_locale", value: "en", url: BASE }]);
   const page = await ctx.newPage();
   const errors = [];

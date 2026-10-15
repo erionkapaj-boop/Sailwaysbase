@@ -21,6 +21,8 @@ const P = {
   bell: '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>',
   back: '<path d="M15 5 8 12l7 7"/>',
   forward: '<path d="m9 5 7 7-7 7"/>',
+  swap: '<path d="M4 8h14M14.5 4.5 18 8l-3.5 3.5"/><path d="M20 16H6M9.5 12.5 6 16l3.5 3.5"/>',
+  chevDown: '<path d="m6 9.5 6 6 6-6"/>',
   chev: '<path d="m9.5 6 6 6-6 6"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',

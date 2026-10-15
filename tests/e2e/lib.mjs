@@ -54,21 +54,46 @@ export async function pickDay(page, date) {
 }
 
 // ---- browser -----------------------------------------------------------------
-// Στο production το React δεν λέει ποιο στοιχείο διαφέρει στην υδάτωση. Εδώ συγκρίνεται το HTML που
-// έστειλε ο διακομιστής με το DOM μετά την ανάκαμψη· ό,τι υπάρχει μόνο στο ένα τυπώνεται, ώστε το
-// στοιχείο που αλλάζει στο πρώτο render να φανεί στο log (και στο CI).
+// Στο production το React δεν λέει ποιο στοιχείο διαφέρει στην υδάτωση. Σε κάθε σελίδα κρατιέται, μόλις φορτώσει το
+// HTML του διακομιστή (πριν την υδάτωση), μια δομική εικόνα του (ετικέτες και κείμενα, χωρίς μορφοποίηση). Όταν
+// βγει #418, συγκρίνεται με το DOM εκείνη τη στιγμή και τυπώνεται το ΠΡΩΤΟ σημείο που διαφέρει, με τα γειτονικά του.
+export const HYDRATION_SNAP = () => {
+  const tok = (root) => {
+    const out = [];
+    const walk = (n) => {
+      if (n.nodeType === 3) {
+        const t = n.textContent.replace(/\s+/g, " ").trim();
+        if (t) out.push("#" + t.slice(0, 80));
+      } else if (n.nodeType === 1) {
+        if (["SCRIPT", "STYLE", "NOSCRIPT", "LINK", "META", "TEMPLATE"].includes(n.tagName)) return;
+        const id = n.getAttribute("data-sf-step") !== null ? "[step]" : n.id ? `#${n.id}` : "";
+        out.push("<" + n.tagName.toLowerCase() + id + ">");
+        n.childNodes.forEach(walk);
+      }
+    };
+    walk(root);
+    return out;
+  };
+  window.__sfTok = tok;
+  document.addEventListener("DOMContentLoaded", () => { window.__sfSsr = tok(document.body); });
+};
+
 export async function hydrationDiag(page, phone) {
-  await page.waitForTimeout(400);
-  const url = page.url();
-  const ssr = await (await page.request.get(url)).text();
-  const dom = await page.evaluate(() => document.documentElement.outerHTML);
-  const tok = (h) => h.replace(/<script[\s\S]*?<\/script>/g, "").split(/(?=<)/).map((x) => x.trim()).filter(Boolean);
-  const a = tok(ssr);
-  const b = tok(dom);
-  const sa = new Set(a);
-  const sb = new Set(b);
-  const cut = (xs) => xs.slice(0, 12).map((x) => x.slice(0, 160));
-  console.log(`   [418-diag ${phone}] ${url}\n     μόνο στον διακομιστή: ${JSON.stringify(cut(a.filter((x) => !sb.has(x))))}\n     μόνο στον browser: ${JSON.stringify(cut(b.filter((x) => !sa.has(x))))}`);
+  try {
+    const r = await page.evaluate(() => {
+      const a = window.__sfSsr;
+      if (!a || !window.__sfTok) return null;
+      const b = window.__sfTok(document.body);
+      let i = 0;
+      while (i < a.length && i < b.length && a[i] === b[i]) i++;
+      return { i, la: a.length, lb: b.length, server: a.slice(Math.max(0, i - 3), i + 6), browser: b.slice(Math.max(0, i - 3), i + 6) };
+    });
+    const url = page.url();
+    if (!r) return console.log(`   [418-diag ${phone}] ${url}\n     (χωρίς εικόνα του διακομιστή)`);
+    console.log(`   [418-diag ${phone}] ${url}\n     πρώτη διαφορά στη θέση ${r.i} (διακομιστής ${r.la} κόμβοι, browser ${r.lb})\n     διακομιστής: ${JSON.stringify(r.server)}\n     browser:     ${JSON.stringify(r.browser)}`);
+  } catch (e) {
+    console.log(`   [418-diag ${phone}] δεν έγινε: ${String(e.message).slice(0, 80)}`);
+  }
 }
 
 export async function as(phone, fn) {
@@ -76,6 +101,7 @@ export async function as(phone, fn) {
     process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}
   );
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await ctx.addInitScript(HYDRATION_SNAP);
   const page = await ctx.newPage();
   const errors = [];
   // Any uncaught error fails the step — including React hydration errors,

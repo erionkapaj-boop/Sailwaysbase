@@ -10,7 +10,7 @@
 //   Ε. πελάτης 0 credits → αποστολή → αγορά → επιβεβαίωση → οι επιλογές του
 //      έμειναν, τα αιτήματα φεύγουν
 import { chromium } from "playwright";
-import { BASE, text, check, finish, sql, num, pickDay, daysFromToday, pickPlace, hydrationDiag } from "./lib.mjs";
+import { BASE, text, check, finish, sql, num, pickDay, daysFromToday, pickPlace, hydrationDiag, HYDRATION_SNAP } from "./lib.mjs";
 import { TEST_PIN } from "./gateway.mjs";
 
 const U = {
@@ -49,6 +49,7 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 const errors = [];
 async function login(who, viewport = { width: 390, height: 844 }) {
   const ctx = await browser.newContext({ viewport });
+  await ctx.addInitScript(HYDRATION_SNAP);
   const page = await ctx.newPage();
   page.on("pageerror", (e) => {
     errors.push(`${who}: ${e.message}`);

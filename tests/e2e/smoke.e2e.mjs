@@ -4,7 +4,7 @@
 // Runs after replacement.e2e.mjs, so the database already holds bookings,
 // cancellations, offers, notifications and wallet movements to render.
 import { chromium } from "playwright";
-import { BASE, check, finish, sql, hydrationDiag } from "./lib.mjs";
+import { BASE, check, finish, sql, hydrationDiag, HYDRATION_SNAP } from "./lib.mjs";
 import { TEST_PIN } from "./gateway.mjs";
 import { PUBLIC, EVERYONE, PRO_ONLY, adminPages } from "./pages.mjs";
 
@@ -15,7 +15,9 @@ const ERROR_TEXT = /Κάτι πήγε στραβά|Something went wrong|Applicat
 
 async function crawl(label, phone, paths) {
   const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
-  const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await ctx.addInitScript(HYDRATION_SNAP);
+  const page = await ctx.newPage();
   let current = "";
   const problems = [];
   page.on("pageerror", (e) => {
