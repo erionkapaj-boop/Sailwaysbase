@@ -5,6 +5,8 @@ import { BASE, as, go, check, finish, sql, shoot } from "./lib.mjs";
 const CLIENT = "a0000000-0000-0000-0000-000000000002";
 const SP_KOSTAS = "b0000000-0000-0000-0000-000000000005";
 const t0 = sql(`select now()`);
+// Η εναλλαγή γλώσσας αποθηκεύεται στο προφίλ: η αρχική γλώσσα του επαγγελματία επανέρχεται στο τέλος.
+const locale0 = sql(`select coalesce(locale, '') from users where id = 'a0000000-0000-0000-0000-000000000005'`);
 const kinds = ["bunk", "private", "skipper"];
 for (const [i, kind] of kinds.entries()) {
   sql(`select set_config('platform.trusted', 'true', false);
@@ -44,4 +46,6 @@ await as("6900002005", async (page) => {
 sql(`select set_config('platform.trusted', 'true', false);
      delete from notifications where data ->> 'request_id' in (select id::text from booking_requests where client_id = '${CLIENT}' and created_at >= '${t0}');
      delete from booking_requests where client_id = '${CLIENT}' and created_at >= '${t0}';`);
+sql(`update users set locale = ${locale0 ? `'${locale0}'` : "null"} where id = 'a0000000-0000-0000-0000-000000000005'`);
+check("επανήλθε η γλώσσα του επαγγελματία", sql(`select coalesce(locale, '') from users where id = 'a0000000-0000-0000-0000-000000000005'`) === locale0);
 finish();
