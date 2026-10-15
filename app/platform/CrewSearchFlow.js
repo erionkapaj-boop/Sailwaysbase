@@ -8,6 +8,7 @@ import { listLookups, getClientLanguages } from "../../lib/platform/db";
 import DateRangeCalendar from "./components/DateRangeCalendar";
 import { CREW_ROLES } from "../../lib/platform/roles";
 import BackButton from "./components/BackButton";
+import ForwardButton from "./components/ForwardButton";
 import Icon, { ROLE_ICON, BOAT_ICON } from "./components/Icon";
 import Counter from "./components/Counter";
 import CabinChoice from "./components/CabinChoice";
@@ -118,6 +119,8 @@ export default function CrewSearchFlow() {
   const [partySize, setPartySize] = useSessionState("sf_wizard:party", "");
   const [boatInfo, setBoatInfo] = useSessionState("sf_wizard:boat", { model: "", lengthFt: "", year: "" });
   const [cabins, setCabins] = useSessionState("sf_wizard:cabins", {});
+  // Το πιο μακρινό βήμα που έχει ανοίξει ο χρήστης: το «μπροστά» φτάνει μέχρι εκεί.
+  const [furthest, setFurthest] = useSessionState("sf_wizard:furthest", 0);
 
   const [lookupsError, setLookupsError] = useState(false);
   const [lookupsAttempt, setLookupsAttempt] = useState(0);
@@ -224,6 +227,22 @@ export default function CrewSearchFlow() {
 
   const current = STEPS[step];
 
+  useEffect(() => {
+    setFurthest((f) => (step > f ? step : f));
+  }, [step, setFurthest]);
+
+  // Το «μπροστά» ισχύει όπου θα ίσχυε και το «Συνέχεια»: το τρέχον βήμα να
+  // είναι πλήρες και το επόμενο να έχει ήδη επισκεφθεί.
+  const stepDone =
+    current === "role" ? roles.length > 0
+    : current === "dates" ? Boolean(dates.start && dates.end && dates.end >= dates.start)
+    : current === "country" ? Boolean(country)
+    : current === "where" ? Boolean(departurePoint.trim())
+    : current === "boat" ? Boolean(boatTypeId)
+    : current?.startsWith("cabin:") ? Boolean(cabins[current.slice(6)])
+    : true;
+  const canForward = step < Math.min(furthest, STEPS.length - 1);
+
   return (
     <div data-sf-wizard style={{ maxWidth: 460, width: "100%", margin: "0 auto" }}>
       <style dangerouslySetInnerHTML={{ __html: `
@@ -246,6 +265,7 @@ export default function CrewSearchFlow() {
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
         <BackButton onClick={back} />
+        {canForward && <ForwardButton onClick={next} disabled={!stepDone} />}
         <span style={{ ...muted, fontSize: 13, marginLeft: "auto" }}>
           {step + 1} / {displaySteps.length}
         </span>

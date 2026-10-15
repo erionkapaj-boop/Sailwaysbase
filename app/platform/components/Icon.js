@@ -20,6 +20,7 @@ const P = {
   users: '<circle cx="9" cy="8.5" r="3.3"/><path d="M3 19.5c.6-3.1 3-4.8 6-4.8s5.4 1.7 6 4.8"/><path d="M16 5.5a3.2 3.2 0 0 1 0 6.2M17.5 14.9c1.9.6 3.2 2.1 3.5 4.6"/>',
   bell: '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>',
   back: '<path d="M15 5 8 12l7 7"/>',
+  forward: '<path d="m9 5 7 7-7 7"/>',
   chev: '<path d="m9.5 6 6 6-6 6"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
