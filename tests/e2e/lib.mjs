@@ -74,8 +74,33 @@ export const HYDRATION_SNAP = () => {
     walk(root);
     return out;
   };
+  // Πού βρίσκεται ένας κόμβος (για να φαίνεται ποιος άλλαξε το DOM πριν την υδάτωση).
+  const where = (n) => {
+    const parts = [];
+    for (let x = n; x && x.nodeType === 1 && parts.length < 6; x = x.parentElement) {
+      const cls = typeof x.className === "string" && x.className ? "." + x.className.split(" ")[0] : "";
+      const data = [...x.attributes].find((a) => a.name.startsWith("data-"))?.name || "";
+      parts.unshift(x.tagName.toLowerCase() + cls + (data ? `[${data}]` : ""));
+    }
+    return parts.join(">");
+  };
+  const desc = (n) => (n.nodeType === 3 ? `#${n.textContent.trim().slice(0, 30)}` : n.nodeType === 8 ? `<!--${n.data.slice(0, 10)}-->` : `<${(n.tagName || "?").toLowerCase()}${n.id ? "#" + n.id : ""}>`);
   window.__sfTok = tok;
-  document.addEventListener("DOMContentLoaded", () => { window.__sfSsr = tok(document.body); });
+  window.__sfMut = [];
+  window.addEventListener("error", (e) => {
+    if (/#418|#423|#425/.test(String(e.message || e.error?.message || ""))) window.__sfErrAt ??= Math.round(performance.now());
+  });
+  document.addEventListener("DOMContentLoaded", () => {
+    window.__sfSsr = tok(document.body);
+    new MutationObserver((list) => {
+      for (const m of list) {
+        if (window.__sfMut.length >= 60 || m.type !== "childList") continue;
+        const added = [...m.addedNodes].map(desc).slice(0, 3);
+        const removed = [...m.removedNodes].map(desc).slice(0, 3);
+        window.__sfMut.push({ t: Math.round(performance.now()), at: where(m.target), added, removed });
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
 };
 
 export async function hydrationDiag(page, phone) {
@@ -86,11 +111,13 @@ export async function hydrationDiag(page, phone) {
       const b = window.__sfTok(document.body);
       let i = 0;
       while (i < a.length && i < b.length && a[i] === b[i]) i++;
-      return { i, la: a.length, lb: b.length, server: a.slice(Math.max(0, i - 3), i + 6), browser: b.slice(Math.max(0, i - 3), i + 6) };
+      const errAt = window.__sfErrAt ?? Infinity;
+      const before = (window.__sfMut || []).filter((m) => m.t <= errAt).slice(-12);
+      return { i, la: a.length, lb: b.length, server: a.slice(Math.max(0, i - 3), i + 6), browser: b.slice(Math.max(0, i - 3), i + 6), errAt, before };
     });
     const url = page.url();
     if (!r) return console.log(`   [418-diag ${phone}] ${url}\n     (χωρίς εικόνα του διακομιστή)`);
-    console.log(`   [418-diag ${phone}] ${url}\n     πρώτη διαφορά στη θέση ${r.i} (διακομιστής ${r.la} κόμβοι, browser ${r.lb})\n     διακομιστής: ${JSON.stringify(r.server)}\n     browser:     ${JSON.stringify(r.browser)}`);
+    console.log(`   [418-diag ${phone}] ${url}\n     πρώτη διαφορά στη θέση ${r.i} (διακομιστής ${r.la} κόμβοι, browser ${r.lb})\n     διακομιστής: ${JSON.stringify(r.server)}\n     browser:     ${JSON.stringify(r.browser)}\n     αλλαγές DOM πριν το σφάλμα (${r.errAt}ms): ${JSON.stringify(r.before)}`);
   } catch (e) {
     console.log(`   [418-diag ${phone}] δεν έγινε: ${String(e.message).slice(0, 80)}`);
   }
