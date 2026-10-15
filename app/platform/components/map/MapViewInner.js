@@ -35,7 +35,7 @@ const CSS = `
 .maplibregl-ctrl-group button { width: 44px !important; height: 44px !important; }
 .maplibregl-ctrl-attrib { font-size: 11px !important; }
 .maplibregl-canvas { outline: none; }
-.mv-pin { font: 600 13px/1 var(--font-platform-sans, -apple-system, sans-serif); color: ${MAP_COLORS.point}; background: #fff; border: 0; border-radius: 999px;
+.mv-pin { font: 600 13px/1 var(--sf-font-sans, system-ui, -apple-system, sans-serif); color: ${MAP_COLORS.point}; background: #fff; border: 0; border-radius: 999px;
   padding: 7px 11px; white-space: nowrap; cursor: pointer; box-shadow: 0 0 0 1px rgba(22,40,60,.10), 0 2px 6px rgba(22,40,60,.18);
   transition: transform .15s ease, background .15s ease, color .15s ease; }
 .mv-pin:hover { transform: scale(1.06); }
@@ -45,7 +45,7 @@ const CSS = `
 .mv-drop { background: none; border: 0; padding: 0; margin: 0; line-height: 0; cursor: pointer; filter: drop-shadow(0 2px 3px rgba(22,40,60,.35)); transition: transform .15s ease; transform-origin: 50% 100%; }
 .mv-drop svg { display: block; }
 .mv-drop path { fill: #fff; stroke: ${MAP_COLORS.point}; stroke-width: 2; }
-.mv-drop text { fill: ${MAP_COLORS.point}; font: 700 12px/1 var(--font-platform-sans, -apple-system, sans-serif); }
+.mv-drop text { fill: ${MAP_COLORS.point}; font: 700 12px/1 var(--sf-font-sans, system-ui, -apple-system, sans-serif); }
 .mv-drop[data-active="true"] path { fill: ${MAP_COLORS.point}; }
 .mv-drop[data-active="true"] text { fill: #fff; }
 .mv-drop[data-static="true"] { cursor: default; }
