@@ -9,9 +9,6 @@
     "retry": "Try again",
     "boatTypesLoading": "Loading boat types…",
     "extrasTitle": "A few final details",
-    "languageLabel": "Language (optional)",
-    "languageAny": "No preference",
-    "languageHint": "You will only see professionals who speak this language.",
     "cabinLabel": "Private cabin for the professional",
     "cabinChoose": "Select...",
     "yes": "Yes",
@@ -43,7 +40,8 @@
     "kind_cat": "Catamaran",
     "kind_motor": "Motor yacht",
     "kind_gulet": "Gulet",
-    "partyTitle": "How many passengers will you be?"
+    "partyTitle": "How many passengers will you be?",
+    "languageTitle": "Which languages?"
   },
   "HomeEntry": {
     "adminTitle": "Administration",

@@ -9,6 +9,8 @@ import { CREW_ROLES } from "../../lib/platform/roles";
 import BackButton from "./components/BackButton";
 import Icon, { ROLE_ICON, BOAT_ICON } from "./components/Icon";
 import Counter from "./components/Counter";
+import LanguagePicker from "./components/LanguagePicker";
+import { LANGUAGES } from "../../lib/platform/localData/en.js";
 import { BrandStep, ModelStep, FeetStep } from "./components/BoatSteps";
 import { boatKind, boatName } from "../../lib/platform/boatCatalog";
 import RouteStep from "./components/RouteStep";
@@ -41,7 +43,7 @@ function stepsFor(roles, kind) {
   // Γουλέτα: χωρίς μάρκα/μοντέλο (δεν υπάρχουν κατάλογοι)· μόνο πόδια.
   const boat = kind === "gulet" ? ["boat", "feet"] : ["boat", "brand", "model", "feet"];
   const withBoat = roles.includes("skipper") ? [...base, ...boat] : base;
-  return [...withBoat, "party", "extras"];
+  return [...withBoat, "party", "language", "extras"];
 }
 
 const KIND_ORDER = ["sail", "cat", "motor", "gulet", "other"];
@@ -99,7 +101,8 @@ export default function CrewSearchFlow() {
   const [boatTypeId, setBoatTypeId] = useSessionState("sf_wizard:boatType", "");
   const [boatBrand, setBoatBrand] = useSessionState("sf_wizard:brand", "");
   const [boatModel, setBoatModel] = useSessionState("sf_wizard:modelName", "");
-  const [languageId, setLanguageId] = useSessionState("sf_wizard:lang", "");
+  // null = δεν έχει πειράξει τις γλώσσες· τότε ισχύει η προεπιλογή (Αγγλικά).
+  const [languageIds, setLanguageIds] = useSessionState("sf_wizard:langs", null);
   const [partySize, setPartySize] = useSessionState("sf_wizard:party", "");
   const [boatInfo, setBoatInfo] = useSessionState("sf_wizard:boat", { model: "", lengthFt: "", year: "" });
   const [privateCabin, setPrivateCabin] = useSessionState("sf_wizard:cabin", undefined);
@@ -147,6 +150,7 @@ export default function CrewSearchFlow() {
     if (typeof n === "number") setStep(n);
   }, []);
 
+  const defaultLanguageIds = lookups.languages.filter((l) => LANGUAGES[l.name] === "English").map((l) => l.id);
   const kind = boatKind(lookups.boatTypes.find((b) => b.id === boatTypeId)?.name || "");
   const STEPS = stepsFor(roles, kind);
 
@@ -191,7 +195,7 @@ export default function CrewSearchFlow() {
       point: departurePoint.trim(),
       arrival: arrivalPoint.trim() || departurePoint.trim(),
       boat: boatTypeId || "",
-      lang: languageId || "",
+      lang: (languageIds ?? defaultLanguageIds).join(","),
       party: partySize || "",
       cabin: privateCabin === undefined ? "" : String(privateCabin),
       bm: boatName(boatBrand, boatModel),
@@ -415,23 +419,21 @@ export default function CrewSearchFlow() {
         </div>
       )}
 
+      {current === "language" && (
+        <div key="language" data-sf-step style={stepWrap}>
+          <StepHeading>{t("languageTitle")}</StepHeading>
+          <LanguagePicker languages={lookups.languages} value={languageIds ?? defaultLanguageIds} onChange={setLanguageIds} />
+          <div className="sf-step-footer">
+            <button type="button" onClick={next} style={cta}>
+              {t("continue")}
+            </button>
+          </div>
+        </div>
+      )}
+
       {current === "extras" && (
         <div key="extras" data-sf-step style={stepWrap}>
           <StepHeading>{t("extrasTitle")}</StepHeading>
-          <div style={{ marginBottom: 16 }}>
-            <label style={label}>{t("languageLabel")}</label>
-            <select style={select} value={languageId} onChange={(e) => setLanguageId(e.target.value)}>
-              <option value="">{t("languageAny")}</option>
-              {lookups.languages.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {L.text(l.name)}
-                </option>
-              ))}
-            </select>
-            <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              {t("languageHint")}
-            </p>
-          </div>
           <div style={{ marginBottom: 24 }}>
             <label style={label}>{t("cabinLabel")}</label>
             <select

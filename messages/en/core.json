@@ -70,5 +70,8 @@
   "Counter": {
     "less": "Decrease",
     "more": "Increase"
+  },
+  "LanguagePicker": {
+    "more": "More languages"
   }
 }

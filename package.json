@@ -14,7 +14,7 @@
     "test:e2e": "bash tests/e2e/run.sh",
     "test": "npm run test:unit && bash tests/db/run.sh && bash tests/e2e/run.sh",
     "test:perf": "E2E_EXTRA_SQL=tests/perf/scale.sql E2E_SPECS=timing.perf.mjs bash tests/e2e/run.sh",
-    "test:unit": "node tests/unit/placeSearch.test.mjs && node tests/unit/phone.test.mjs && node tests/unit/format.test.mjs && node tests/unit/translit.test.mjs && node tests/unit/notifications.test.mjs && node tests/unit/localData.test.mjs && node tests/unit/geo.test.mjs && node tests/unit/geocode.test.mjs && node tests/unit/push.test.mjs && node scripts/check-i18n.mjs"
+    "test:unit": "node tests/unit/placeSearch.test.mjs && node tests/unit/phone.test.mjs && node tests/unit/format.test.mjs && node tests/unit/translit.test.mjs && node tests/unit/notifications.test.mjs && node tests/unit/localData.test.mjs && node tests/unit/geo.test.mjs && node tests/unit/geocode.test.mjs && node tests/unit/push.test.mjs && node tests/unit/languageFilter.test.mjs && node scripts/check-i18n.mjs"
   },
   "dependencies": {
     "@protomaps/basemaps": "5.7.2",

@@ -52,6 +52,7 @@ import {
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
 import BoatFields from "../components/BoatFields";
+import LanguagePicker from "../components/LanguagePicker";
 import { boatLine, boatValid } from "../../../lib/platform/boat";
 
 const BROADCAST_ERRORS = {
@@ -1634,21 +1635,11 @@ function SearchPageInner() {
           </div>
           <div>
             <label style={label}>{t("languageLabel")}</label>
-            <select
-              style={select}
-              value={filters.languageId || ""}
-              onChange={(e) => setFilters((f) => ({ ...f, languageId: e.target.value }))}
-            >
-              <option value="">{t("languageAny")}</option>
-              {lookups.languages.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {L.text(l.name)}
-                </option>
-              ))}
-            </select>
-            <p style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>
-              {t("languageHint")}
-            </p>
+            <LanguagePicker
+              languages={lookups.languages}
+              value={(filters.languageId || "").split(",").filter(Boolean)}
+              onChange={(ids) => setFilters((f) => ({ ...f, languageId: ids.join(",") }))}
+            />
           </div>
           <div>
             <label style={label}>{t("partyLabel")}</label>
