@@ -47,6 +47,7 @@ const P = {
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   // καμπίνες
   bunk: '<path d="M4 3v18M20 3v18M4 8.5h16M4 16.5h16"/><path d="M7.5 8.5V6.5h5v2M7.5 16.5v-2h5v2"/>',
+  berth: '<path d="M4 8v10M20 18v-2.5"/><rect x="4" y="13" width="16" height="3.5" rx="1"/><rect x="6.2" y="10" width="4.6" height="3" rx="1.3"/>',
   door: '<path d="M6 21V4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21M4 21h16M14.5 12.5v.1"/>',
   // τύποι σκάφους (σιλουέτες γραμμής)
   sail: '<path d="M2.4 15.6h19.2l-3.3 4.6H5.9Z"/><path d="M10.6 2.8v12.8"/><path d="M10.6 3.6 19.4 15.6h-8.8"/><path d="M8.8 6.4 4 15.6h4.8"/>',
@@ -61,7 +62,7 @@ const P = {
 };
 
 // Το εικονίδιο κάθε ρόλου πληρώματος (κλειδιά του lib/platform/roles.js).
-export const CABIN_ICON = { bunk: "bunk", private: "door", skipper: "helm" };
+export const CABIN_ICON = { bunk: "bunk", private: "door", skipper: "berth" };
 
 export const BOAT_ICON = { sail: "sail", cat: "cat", motor: "motor", gulet: "gulet", other: "sail" };
 
