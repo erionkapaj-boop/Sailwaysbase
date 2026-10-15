@@ -12,7 +12,7 @@ import ForwardButton from "./components/ForwardButton";
 import Icon, { ROLE_ICON, BOAT_ICON } from "./components/Icon";
 import Counter from "./components/Counter";
 import CabinChoice from "./components/CabinChoice";
-import { serializeCabins, isMultiDay } from "../../lib/platform/cabin";
+import { serializeCabins, serializePositions, isMultiDay, MAX_POSITIONS } from "../../lib/platform/cabin";
 import { BrandStep, ModelStep, FeetStep, YearStep } from "./components/BoatSteps";
 import { boatKind, boatName } from "../../lib/platform/boatCatalog";
 import { BOAT_UNKNOWN } from "../../lib/platform/boat";
@@ -37,16 +37,23 @@ import { button, colors, input, label, muted, radius, select, h2 } from "../../l
 // the results page used to ask for AFTER the wizard handed off now gets
 // asked for here instead, so landing on results means there's nothing left
 // to fill in, just candidates to browse and pick.
-function stepsFor(roles, kind, boatUnknown = false, multiDay = true) {
+function stepsFor(roles, kind, boatUnknown = false, multiDay = true, counts = {}) {
   // Trip first (country, port, dates, party, boat), then the help the client wants (roles) and where it sleeps.
   // Gulet: no brand/model (no catalogues), feet only.
   // «Δεν ξέρω ακόμα»: μετά τον τύπο σκάφους δεν ρωτιέται τίποτα άλλο για το σκάφος.
   const boat = boatUnknown ? ["boat"] : kind === "gulet" ? ["boat", "feet", "year"] : ["boat", "brand", "model", "feet", "year"];
-  // One cabin screen for every professional the client asks for, in the fixed role order.
+  // One accommodation screen for EVERY person the client asks for (two hostesses = two screens), in the fixed role order.
   // Only for a multi-day trip: a day trip has nowhere to stay.
-  const cabins = multiDay ? CREW_ROLES.filter((r) => roles.includes(r.key)).map((r) => `cabin:${r.key}`) : [];
+  const cabins = multiDay
+    ? CREW_ROLES.filter((r) => roles.includes(r.key)).flatMap((r) => Array.from({ length: counts[r.key] || 1 }, (_, i) => `cabin:${r.key}:${i}`))
+    : [];
   return ["country", "where", "dates", "party", ...boat, "role", ...cabins];
 }
+
+const stepperBtn = {
+  width: 36, height: 36, borderRadius: "50%", border: `1px solid ${colors.border}`, background: colors.card, color: colors.ink,
+  fontFamily: "inherit", fontSize: 18, lineHeight: 1, cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center",
+};
 
 const KIND_ORDER = ["sail", "cat", "motor", "gulet", "other"];
 
@@ -122,7 +129,11 @@ export default function CrewSearchFlow() {
     setBoatInfo((cur) => ({ ...cur, lengthFt: "", year: "" }));
   };
   const [infoRole, setInfoRole] = useState(null);
+  // Accommodation per person: { role: [kind of person 1, kind of person 2, …] }; counts: how many people per role.
   const [cabins, setCabins] = useSessionState("sf_wizard:cabins", {});
+  const [counts, setCounts] = useSessionState("sf_wizard:counts", {});
+  const countOf = (role) => counts[role] || 1;
+  const setCount = (role, n) => setCounts((cur) => ({ ...cur, [role]: Math.min(MAX_POSITIONS, Math.max(1, n)) }));
   // Το πιο μακρινό βήμα που έχει ανοίξει ο χρήστης: το «μπροστά» φτάνει μέχρι εκεί.
   const [furthest, setFurthest] = useSessionState("sf_wizard:furthest", 0);
 
@@ -172,12 +183,12 @@ export default function CrewSearchFlow() {
   const kind = boatKind(lookups.boatTypes.find((b) => b.id === boatTypeId)?.name || "");
   const boatUnknown = boatTypeId === BOAT_UNKNOWN;
   const multiDay = isMultiDay(dates.start, dates.end);
-  const STEPS = stepsFor(roles, kind, boatUnknown, multiDay);
+  const STEPS = stepsFor(roles, kind, boatUnknown, multiDay, counts);
 
   // The number of cabin screens depends on the roles picked ON the role step, so while standing on it
   // the total assumes one cabin screen (then switches to the real count once the client has moved past
   // it): the fraction in the header never changes underneath an answer still being chosen.
-  const displaySteps = STEPS[step] === "role" ? stepsFor(roles.slice(0, 1).length ? roles.slice(0, 1) : ["skipper"], kind, boatUnknown, multiDay) : STEPS;
+  const displaySteps = STEPS[step] === "role" ? stepsFor(roles.slice(0, 1).length ? roles.slice(0, 1) : ["skipper"], kind, boatUnknown, multiDay, {}) : STEPS;
 
   // Pushes history itself rather than inside a setStep updater — React
   // (StrictMode, in dev) can invoke an updater function twice per call,
@@ -212,7 +223,8 @@ export default function CrewSearchFlow() {
       boat: boatTypeId || "",
       lang: "en", // English is assumed; the language choice comes later as an optional link on the summary
       party: partySize || "",
-      cabin: multiDay ? serializeCabins(cabins, roles) : "",
+      cabin: multiDay ? serializeCabins(cabins, roles, counts) : "",
+      pos: serializePositions(counts, roles),
       bm: boatName(boatBrand, boatModel),
       bl: boatInfo.lengthFt || "",
       by: boatInfo.year || "",
@@ -234,7 +246,7 @@ export default function CrewSearchFlow() {
     : current === "country" ? Boolean(country)
     : current === "where" ? Boolean(departurePoint.trim())
     : current === "boat" ? Boolean(boatTypeId)
-    : current?.startsWith("cabin:") ? Boolean(cabins[current.slice(6)])
+    : current?.startsWith("cabin:") ? Boolean(cabins[current.split(":")[1]]?.[Number(current.split(":")[2])])
     : true;
   const canForward = step < Math.min(furthest, STEPS.length - 1);
 
@@ -281,7 +293,7 @@ export default function CrewSearchFlow() {
                   onClick={() => toggleRole(r.key)}
                   style={{
                     position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
-                    width: "100%", minHeight: 132, padding: "18px 10px", borderRadius: radius.md, fontFamily: "inherit", fontSize: 16, fontWeight: 500, cursor: "pointer",
+                    width: "100%", minHeight: 132, padding: "18px 10px 40px", borderRadius: radius.md, fontFamily: "inherit", fontSize: 16, fontWeight: 500, cursor: "pointer",
                     transition: "background 0.18s ease, border-color 0.18s ease",
                     border: `${on ? 2 : 1}px solid ${on ? colors.ink : colors.border}`,
                     background: on ? colors.seaGlass : colors.card, color: colors.ink,
@@ -304,6 +316,13 @@ export default function CrewSearchFlow() {
                 >
                   <Icon name="info" size={20} stroke={1.6} />
                 </button>
+                {on && (
+                  <div data-role-count={r.key} style={{ position: "absolute", left: 0, right: 0, bottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>
+                    <button type="button" aria-label={t("countLess", { role: t(`roleName_${r.key}`) })} disabled={countOf(r.key) <= 1} onClick={() => setCount(r.key, countOf(r.key) - 1)} style={stepperBtn}>−</button>
+                    <output aria-live="polite" style={{ minWidth: 22, textAlign: "center", fontSize: 15, fontWeight: 600, color: colors.ink }}>{countOf(r.key)}</output>
+                    <button type="button" aria-label={t("countMore", { role: t(`roleName_${r.key}`) })} disabled={countOf(r.key) >= MAX_POSITIONS} onClick={() => setCount(r.key, countOf(r.key) + 1)} style={stepperBtn}>+</button>
+                  </div>
+                )}
                 </div>
               );
             })}
@@ -497,26 +516,39 @@ export default function CrewSearchFlow() {
         </div>
       )}
 
-      {current?.startsWith("cabin:") && (
-        <div key={current} data-sf-step style={stepWrap}>
-          <StepHeading>{t(`cabinTitle_${current.slice(6)}`)}</StepHeading>
-          <CabinChoice
-            value={cabins[current.slice(6)] || ""}
-            onChange={(k) => {
-              setCabins((cur) => ({ ...cur, [current.slice(6)]: k }));
-              // Στο τελευταίο βήμα η επιλογή δεν προχωρά μόνη της: ακολουθεί «Ολοκλήρωση».
-              if (step < STEPS.length - 1) next();
-            }}
-          />
-          {step === STEPS.length - 1 && (
-            <div className="sf-step-footer">
-              <button type="button" disabled={!cabins[current.slice(6)]} onClick={finish} style={cta}>
-                {t("finish")}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      {current?.startsWith("cabin:") && (() => {
+        const [, cRole, cIdx] = current.split(":");
+        const idx = Number(cIdx);
+        const total = countOf(cRole);
+        const chosen = cabins[cRole]?.[idx] || "";
+        return (
+          <div key={current} data-sf-step style={stepWrap}>
+            <StepHeading>
+              {t(`cabinTitle_${cRole}`)}
+              {total > 1 && <span data-cabin-ordinal style={{ display: "block", ...muted, fontSize: 15, fontWeight: 400, marginTop: 6 }}>{t("cabinOrdinal", { n: idx + 1, total })}</span>}
+            </StepHeading>
+            <CabinChoice
+              value={chosen}
+              onChange={(k) => {
+                setCabins((cur) => {
+                  const arr = Array.isArray(cur[cRole]) ? [...cur[cRole]] : [];
+                  arr[idx] = k;
+                  return { ...cur, [cRole]: arr };
+                });
+                // Στο τελευταίο βήμα η επιλογή δεν προχωρά μόνη της: ακολουθεί «Ολοκλήρωση».
+                if (step < STEPS.length - 1) next();
+              }}
+            />
+            {step === STEPS.length - 1 && (
+              <div className="sf-step-footer">
+                <button type="button" disabled={!chosen} onClick={finish} style={cta}>
+                  {t("finish")}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

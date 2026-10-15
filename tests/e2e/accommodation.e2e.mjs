@@ -43,31 +43,47 @@ await as("6900002002", async (page) => {
   // 2. Πολυήμερο με και τους τέσσερις ρόλους.
   await toRoles(page, 12, 15);
   for (const k of ["skipper", "hostess", "cook", "deckhand"]) await page.locator(`[data-role-card="${k}"]`).click();
+  // Μεγάλο σκάφος: δύο hostess. Ο μετρητής φαίνεται μόνο στις επιλεγμένες κάρτες.
+  check("μετρητής θέσεων μόνο στις επιλεγμένες κάρτες, ξεκινά από 1", (await page.locator("[data-role-count]").count()) === 4 && (await page.locator('[data-role-count="hostess"] output').innerText()).trim() === "1");
+  await shoot(page, "role-counts");
+  await page.locator('[data-role-count="hostess"] button').last().click();
+  check("δύο hostess: ο μετρητής δείχνει 2", (await page.locator('[data-role-count="hostess"] output').innerText()).trim() === "2");
   await cont().click();
   await page.waitForTimeout(500);
   const asks = [
     ["Πού θα μένει ο skipper;", "Κουκέτα"],
-    ["Πού θα μένει η hostess;", "Ιδιωτική καμπίνα"],
+    ["Πού θα μένει η hostess;", "Ιδιωτική καμπίνα", "1 από 2"],
+    ["Πού θα μένει η hostess;", "Κουκέτα", "2 από 2"],
     ["Πού θα μένει ο μάγειρας;", "Skipper cabin"],
     ["Πού θα μένει ο deckhand;", "Δεν ξέρω ακόμα"],
   ];
-  for (const [i, [title, pick]] of asks.entries()) {
+  for (const [i, [title, pick, ordinal]] of asks.entries()) {
     const t = await text(page);
+    if (ordinal) check(`ερώτηση ${i + 1}: δείχνει «${ordinal}»`, t.includes(ordinal));
     check(`ερώτηση ${i + 1}: «${title}» με τέσσερις επιλογές και εικονίδια`,
       t.includes(title) && (await page.locator("[data-cabin-choice] button").count()) === 4 && (await page.locator("[data-cabin-choice] button svg").count()) >= 4, t.slice(0, 250));
     if (i === 0) await shoot(page, "accommodation");
     await page.locator("[data-cabin-choice]").getByRole("button", { name: pick, exact: true }).click();
     await page.waitForTimeout(500);
-    if (i === 3) {
+    if (i === asks.length - 1) {
       check("τελευταία ερώτηση: «Ολοκλήρωση»", (await cont().count()) === 1 && (await cont().innerText()).trim() === "Ολοκλήρωση");
       await cont().click();
     }
   }
   await page.waitForURL(/\/platform\/search\?/);
   const multi = new URL(page.url());
-  check("σύνδεσμος: κάθε ρόλος με τη δική του διαμονή", multi.searchParams.get("cabin") === "skipper:bunk,hostess:private,cook:skipper,deckhand:unknown", multi.search);
+  check("σύνδεσμος: κάθε ρόλος με τη δική του διαμονή", multi.searchParams.get("cabin") === "skipper:bunk,hostess:private,hostess:bunk,cook:skipper,deckhand:unknown" && multi.searchParams.get("pos") === "hostess:2", multi.search);
   await page.waitForTimeout(1500);
-  check("αποτελέσματα: «Δεν ξέρω ακόμα» εμφανίζεται ως «Διαμονή: αδιευκρίνιστη»", (await text(page)).includes("Διαμονή: αδιευκρίνιστη"), (await text(page)).slice(0, 400));
+  const rt = await text(page);
+  check("αποτελέσματα: «Δεν ξέρω ακόμα» εμφανίζεται ως «Διαμονή: αδιευκρίνιστη»", rt.includes("Διαμονή: αδιευκρίνιστη"), rt.slice(0, 400));
+  check("αποτελέσματα: οι δύο hostess έχουν δική τους διαμονή (Ιδιωτική καμπίνα / Κουκέτα)", rt.includes("Ιδιωτική καμπίνα / Κουκέτα"), rt.slice(0, 500));
+  // Αλλάζει η διαμονή της δεύτερης θέσης από τα φίλτρα· η πρώτη μένει.
+  await page.getByRole("button", { name: /^Αλλαγή$/ }).first().click();
+  await page.waitForTimeout(500);
+  const second = page.locator('[data-cabin-position="hostess:1"]');
+  check("φίλτρα: μία επιλογή διαμονής ανά θέση", (await page.locator('[data-cabin-position^="hostess:"]').count()) === 2 && (await second.count()) === 1);
+  await second.getByRole("button", { name: "Skipper cabin" }).click();
+  check("φίλτρα: αλλάζει μόνο η δεύτερη θέση", (await page.locator('[data-cabin-position="hostess:0"] button[aria-pressed=true]').innerText()).includes("Ιδιωτική καμπίνα") && (await second.locator("button[aria-pressed=true]").innerText()).includes("Skipper cabin"));
 });
 
 // 3. Ο επαγγελματίας: αίτημα πολυήμερο χωρίς καμπίνα, αίτημα με καμπίνα, και ημερήσιο.

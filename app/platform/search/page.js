@@ -54,7 +54,7 @@ import { trackFlow, noteFailure } from "../../../lib/platform/health";
 import BoatFields from "../components/BoatFields";
 import CabinChoice from "../components/CabinChoice";
 import Icon from "../components/Icon";
-import { cabinOf, isMultiDay, isPrivateCabin, parseCabins, CABIN_UNKNOWN } from "../../../lib/platform/cabin";
+import { cabinAt, cabinOf, cabinsFilled, isMultiDay, isPrivateCabin, parseCabins, parsePositions, CABIN_UNKNOWN } from "../../../lib/platform/cabin";
 import LanguagePicker from "../components/LanguagePicker";
 import { parseLanguageCodes } from "../../../lib/platform/languageFilter";
 import { languageCodeOfDbName } from "../../../lib/platform/languages";
@@ -968,7 +968,7 @@ function Checkout({
     }
     if (awaitingVerification) return;
     trackFlow("request", "send");
-    if (!filters.partySize || (isMultiDay(filters.startDate, filters.endDate) && !supportedRoles.every((r) => cabinOf(filters, r)))) {
+    if (!filters.partySize || (isMultiDay(filters.startDate, filters.endDate) && !supportedRoles.every((r) => cabinsFilled(filters, r, positionsByRole[r] || 1)))) {
       setError(t("needPartyAndCabin"));
       return;
     }
@@ -1020,8 +1020,8 @@ function Checkout({
               boatTypeId: role === "skipper" ? boatTypesByRole[role] || null : null,
               role,
               partySize: Number(filters.partySize),
-              privateCabin: isPrivateCabin(cabinOf(filters, role)),
-              cabinKind: cabinOf(filters, role) || null,
+              privateCabin: isPrivateCabin(cabinAt(filters, role, i)),
+              cabinKind: cabinAt(filters, role, i) || null,
               boatModel: filters.boatModel,
               boatLengthFt: filters.boatLengthFt,
               boatYear: filters.boatYear,
@@ -1040,8 +1040,8 @@ function Checkout({
             maxPriceFilter: null,
             crewRole: role,
             partySize: Number(filters.partySize),
-            privateCabin: isPrivateCabin(cabinOf(filters, role)),
-              cabinKind: cabinOf(filters, role) || null,
+            privateCabin: isPrivateCabin(cabinAt(filters, role, i)),
+            cabinKind: cabinAt(filters, role, i) || null,
             boatModel: filters.boatModel,
             boatLengthFt: filters.boatLengthFt,
             boatYear: filters.boatYear,
@@ -1329,7 +1329,7 @@ function SearchPageInner() {
     boatTypeId: params.get("boat") || "",
     languageId: params.get("lang") || "",
     partySize: params.get("party") || "",
-    cabins: parseCabins(params.get("cabin")).map,
+    cabins: parseCabins(params.get("cabin")).list,
     cabinKind: parseCabins(params.get("cabin")).all,
     privateCabin: isPrivateCabin(parseCabins(params.get("cabin")).all),
     boatModel: params.get("bm") || "",
@@ -1368,7 +1368,7 @@ function SearchPageInner() {
   // How many separate positions each role needs (a big boat wanting two
   // skippers, say) — defaults to one, also lifted up here so the checkout
   // can turn it into that many independent requests per role.
-  const [positionsByRole, setPositionsByRole] = useState({});
+  const [positionsByRole, setPositionsByRole] = useState(() => parsePositions(params.get("pos")));
   // Roles the client left open (0125), and roles whose search found nobody.
   const [openByRole, setOpenByRole] = useState({});
   const [emptyByRole, setEmptyByRole] = useState({});
@@ -1444,7 +1444,7 @@ function SearchPageInner() {
     if (!filters.departurePoint || !filters.departurePoint.trim()) errors.departurePoint = true;
     if (!filters.arrivalPoint || !filters.arrivalPoint.trim()) errors.arrivalPoint = true;
     if (!filters.partySize) errors.partySize = true;
-    if (isMultiDay(filters.startDate, filters.endDate) && !supportedRoles.every((r) => cabinOf(filters, r))) errors.privateCabin = true;
+    if (isMultiDay(filters.startDate, filters.endDate) && !supportedRoles.every((r) => cabinsFilled(filters, r, getRolePositions(r)))) errors.privateCabin = true;
     if (!boatValid({ model: filters.boatModel, lengthFt: filters.boatLengthFt, year: filters.boatYear })) errors.boat = true;
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1455,10 +1455,11 @@ function SearchPageInner() {
   // literally just made a step earlier. Collapsed to a one-line summary
   // whenever the incoming state is already complete; "Αλλαγή" reopens it in
   // place for anyone who does want to change something.
+  const earlyPositions = parsePositions(params.get("pos"));
   const earlyRoles = (params.get("roles") || "skipper").split(",").filter((r) => SUPPORTED_ROLES.includes(r));
   function isComplete(f) {
     return Boolean(
-      f.startDate && f.endDate && f.regionId && f.departurePoint && f.arrivalPoint && f.partySize && (!isMultiDay(f.startDate, f.endDate) || earlyRoles.every((r) => cabinOf(f, r)))
+      f.startDate && f.endDate && f.regionId && f.departurePoint && f.arrivalPoint && f.partySize && (!isMultiDay(f.startDate, f.endDate) || earlyRoles.every((r) => cabinsFilled(f, r, earlyPositions[r] || 1)))
     );
   }
   const [showFullFilters, setShowFullFilters] = useState(!isComplete(incoming));
@@ -1694,20 +1695,31 @@ function SearchPageInner() {
           </div>
           {isMultiDay(filters.startDate, filters.endDate) && (
           <div style={{ gridColumn: "1 / -1" }}>
-            {supportedRoles.map((r) => (
-              <div key={r} style={{ marginBottom: 12 }}>
-                <label style={label}>{t("cabinFor", { role: labelForRole(r) })}</label>
-                <CabinChoice
-                  compact
-                  invalid={Boolean(fieldErrors.privateCabin) && !cabinOf(filters, r)}
-                  value={cabinOf(filters, r)}
-                  onChange={(k) => {
-                    setFilters((f) => ({ ...f, cabins: { ...(f.cabins || {}), [r]: k } }));
-                    clearFieldError("privateCabin");
-                  }}
-                />
-              </div>
-            ))}
+            {supportedRoles.flatMap((r) =>
+              Array.from({ length: getRolePositions(r) }, (_, i) => (
+                <div key={`${r}-${i}`} style={{ marginBottom: 12 }} data-cabin-position={`${r}:${i}`}>
+                  <label style={label}>
+                    {t("cabinFor", { role: labelForRole(r) })}
+                    {getRolePositions(r) > 1 ? ` · ${i + 1}/${getRolePositions(r)}` : ""}
+                  </label>
+                  <CabinChoice
+                    compact
+                    invalid={Boolean(fieldErrors.privateCabin) && !cabinAt(filters, r, i)}
+                    value={cabinAt(filters, r, i)}
+                    onChange={(k) => {
+                      setFilters((f) => {
+                        const cur = f.cabins?.[r];
+                        // Ένα σκέτο κείμενο (παλιά μορφή) ισχύει για όλες τις θέσεις: γίνεται λίστα πριν αλλάξει μία.
+                        const arr = Array.isArray(cur) ? [...cur] : Array.from({ length: getRolePositions(r) }, () => cabinAt(f, r, 0));
+                        arr[i] = k;
+                        return { ...f, cabins: { ...(f.cabins || {}), [r]: arr } };
+                      });
+                      clearFieldError("privateCabin");
+                    }}
+                  />
+                </div>
+              ))
+            )}
             {fieldErrors.privateCabin && (
               <p style={{ ...muted, color: colors.danger, fontSize: 12, margin: "4px 0 0" }}>{t("requiredField")}</p>
             )}
@@ -1740,7 +1752,7 @@ function SearchPageInner() {
               {isMultiDay(filters.startDate, filters.endDate) && (
                 <>
                   {" · "}
-                  {supportedRoles.map((r) => (supportedRoles.length > 1 ? `${labelForRole(r)}: ` : "") + tCabin(cabinOf(filters, r))).join(", ")}
+                  {supportedRoles.map((r) => (supportedRoles.length > 1 ? `${labelForRole(r)}: ` : "") + Array.from({ length: getRolePositions(r) }, (_, i) => tCabin(cabinAt(filters, r, i))).join(" / ")).join(", ")}
                 </>
               )}
               {boatTypeName ? ` · ${L.text(boatTypeName)}` : boatTypeUnknown ? ` · ${t("boatNotSet")}` : ""}

@@ -1,4 +1,4 @@
-import { CABIN_UNKNOWN, CABIN_CHOICES, isMultiDay, cabinKindForDb, CABIN_KINDS, isPrivateCabin, cabinKindFrom, parseCabins, serializeCabins, cabinOf } from "../../lib/platform/cabin.js";
+import { cabinAt, cabinsFilled, parsePositions, serializePositions, CABIN_UNKNOWN, CABIN_CHOICES, isMultiDay, cabinKindForDb, CABIN_KINDS, isPrivateCabin, cabinKindFrom, parseCabins, serializeCabins, cabinOf } from "../../lib/platform/cabin.js";
 
 let passed = 0;
 const ok = (label, cond, detail) => {
@@ -19,4 +19,11 @@ ok("cabinOf: ανά ρόλο, αλλιώς κοινή, αλλιώς παλιό b
 ok("«Δεν ξέρω ακόμα»: μόνο στην οθόνη και στο URL, όχι στη βάση", CABIN_CHOICES.join() === "bunk,private,skipper,unknown" && cabinKindForDb(CABIN_UNKNOWN) === null && cabinKindForDb("skipper") === "skipper" && isPrivateCabin(CABIN_UNKNOWN) === undefined);
 ok("γύρος URL με «δεν ξέρω»", parseCabins(serializeCabins({ skipper: "bunk", hostess: "unknown" }, ["skipper", "hostess"])).map.hostess === "unknown");
 ok("πολυήμερο: μόνο όταν η λήξη είναι μετά την έναρξη", isMultiDay("2026-10-27", "2026-10-28") && !isMultiDay("2026-10-27", "2026-10-27") && !isMultiDay("", "2026-10-27") && !isMultiDay("2026-10-27", ""));
+const pos = parseCabins("hostess:private,hostess:bunk,skipper:skipper");
+ok("μία διαμονή ανά θέση στο URL", JSON.stringify(pos.list) === JSON.stringify({ hostess: ["private", "bunk"], skipper: ["skipper"] }) && pos.map.hostess === "private");
+ok("σειριοποίηση ανά θέση", serializeCabins({ hostess: ["private", "bunk"], skipper: ["skipper"] }, ["skipper", "hostess"], { hostess: 2 }) === "skipper:skipper,hostess:private,hostess:bunk");
+ok("περισσότερες καταχωρίσεις από θέσεις κόβονται", serializeCabins({ hostess: ["private", "bunk"] }, ["hostess"], { hostess: 1 }) === "hostess:private");
+ok("θέσεις στο URL", JSON.stringify(parsePositions("hostess:2,cook:3,x:0,deckhand:99")) === JSON.stringify({ hostess: 2, cook: 3, deckhand: 8 }) && serializePositions({ hostess: 2, cook: 1 }, ["hostess", "cook"]) === "hostess:2");
+ok("cabinAt: ανά θέση· σκέτη τιμή ισχύει για όλες", cabinAt({ cabins: { hostess: ["private", "bunk"] } }, "hostess", 1) === "bunk" && cabinAt({ cabins: { hostess: ["private"] } }, "hostess", 1) === "" && cabinAt({ cabins: { hostess: "bunk" } }, "hostess", 1) === "bunk");
+ok("cabinsFilled: όλες οι θέσεις απαντημένες", cabinsFilled({ cabins: { hostess: ["private", "bunk"] } }, "hostess", 2) && !cabinsFilled({ cabins: { hostess: ["private"] } }, "hostess", 2));
 console.log(`${passed} έλεγχοι`);
