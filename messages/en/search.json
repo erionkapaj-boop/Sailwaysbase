@@ -1,7 +1,6 @@
 {
   "CrewSearchFlow": {
-    "whoTitle": "Who are you looking for?",
-    "whoHint": "You can select more than one.",
+    "whoTitle": "What do you need?",
     "continue": "Continue",
     "whenTitle": "When?",
     "countryTitle": "Which country?",
@@ -26,9 +25,7 @@
     "missingBoth": "Enter the number of people and the cabin option.",
     "missingParty": "Enter the number of people.",
     "missingCabin": "Answer the cabin question.",
-    "finish": "Finish",
-    "roleSearch": "Search role",
-    "rolesLabel": "Roles"
+    "finish": "Finish"
   },
   "HomeEntry": {
     "adminTitle": "Administration",

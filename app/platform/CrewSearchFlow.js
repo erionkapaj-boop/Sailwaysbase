@@ -85,7 +85,6 @@ export default function CrewSearchFlow() {
   const [step, setStep] = useState(0);
   const [lookups, setLookups] = useState({ ports: [], boatTypes: [], regions: [], languages: [] });
   const [roles, setRoles] = useSessionState("sf_wizard:roles", []);
-  const [roleQuery, setRoleQuery] = useState("");
   const [dates, setDates] = useSessionState("sf_wizard:dates", { start: "", end: "" });
   const [country, setCountry] = useSessionState("sf_wizard:country", "");
   const [regionId, setRegionId] = useSessionState("sf_wizard:region", "");
@@ -227,59 +226,41 @@ export default function CrewSearchFlow() {
       {current === "role" && (
         <div key="role" data-sf-step style={stepWrap}>
           <StepHeading>{t("whoTitle")}</StepHeading>
-          <label style={{ position: "relative", display: "block", marginBottom: 14 }}>
-            <span style={{ position: "absolute", left: 14, top: 0, bottom: 0, display: "flex", alignItems: "center", color: colors.inkSoft }}>
-              <Icon name="search" size={18} />
-            </span>
-            <input
-              type="search"
-              value={roleQuery}
-              onChange={(e) => setRoleQuery(e.target.value)}
-              placeholder={t("roleSearch")}
-              aria-label={t("roleSearch")}
-              style={{ ...input, paddingLeft: 42, borderRadius: radius.pill, height: 46 }}
-            />
-          </label>
-          <div style={{ ...muted, fontSize: 12, letterSpacing: 0.4, textTransform: "uppercase", margin: "0 0 8px 4px" }}>{t("rolesLabel")}</div>
-          {CREW_ROLES.filter((r) => r.label.toLowerCase().includes(roleQuery.trim().toLowerCase())).map((r) => {
-            const on = roles.includes(r.key);
-            return (
-              <button
-                key={r.key}
-                type="button"
-                aria-pressed={on}
-                style={{ ...option(on), display: "flex", alignItems: "center", gap: 14 }}
-                onClick={() => toggleRole(r.key)}
-              >
-                <span
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {CREW_ROLES.map((r) => {
+              const on = roles.includes(r.key);
+              return (
+                <button
+                  key={r.key}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => toggleRole(r.key)}
                   style={{
-                    width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: on ? colors.ink : colors.seaGlass, color: on ? "#fff" : colors.ink,
+                    position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
+                    minHeight: 132, padding: "18px 10px", borderRadius: radius.md, fontFamily: "inherit", fontSize: 16, fontWeight: 500, cursor: "pointer",
+                    transition: "background 0.18s ease, border-color 0.18s ease",
+                    border: `${on ? 2 : 1}px solid ${on ? colors.ink : colors.border}`,
+                    background: on ? colors.seaGlass : colors.card, color: colors.ink,
                   }}
                 >
-                  <Icon name={ROLE_ICON[r.key]} size={22} />
-                </span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: "block", fontWeight: 500 }}>{r.label}</span>
-                  {r.blurb && (
-                    <span style={{ ...muted, display: "block", fontSize: 12.5, fontWeight: 400, marginTop: 2 }}>{r.blurb}</span>
+                  {on && (
+                    <span style={{ position: "absolute", top: 10, right: 10, width: 24, height: 24, borderRadius: "50%", background: colors.ink, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Icon name="check" size={15} stroke={2.4} />
+                    </span>
                   )}
-                </span>
-                <span style={{ color: on ? colors.ink : "#A9B3BD" }}>
-                  <Icon name={on ? "check" : "chev"} size={18} />
-                </span>
-              </button>
-            );
-          })}
-          <p style={{ ...muted, fontSize: 13, margin: "12px 0 0" }}>
-            {t("whoHint")}
-          </p>
-          <div className="sf-step-footer">
-            <button type="button" disabled={roles.length === 0} onClick={next} style={cta}>
-              {t("continue")}
-            </button>
+                  <Icon name={ROLE_ICON[r.key]} size={40} stroke={1.5} />
+                  {r.label}
+                </button>
+              );
+            })}
           </div>
+          {roles.length > 0 && (
+            <div className="sf-step-footer">
+              <button type="button" onClick={next} style={cta}>
+                {t("continue")}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

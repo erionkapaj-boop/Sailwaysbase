@@ -1,7 +1,6 @@
 {
   "CrewSearchFlow": {
-    "whoTitle": "Ποιον ψάχνεις;",
-    "whoHint": "Μπορείς να επιλέξεις περισσότερους από έναν.",
+    "whoTitle": "Τι χρειάζεσαι;",
     "continue": "Συνέχεια",
     "whenTitle": "Πότε;",
     "countryTitle": "Ποια χώρα;",
@@ -26,9 +25,7 @@
     "missingBoth": "Συμπλήρωσε τον αριθμό ατόμων και την καμπίνα.",
     "missingParty": "Συμπλήρωσε τον αριθμό ατόμων.",
     "missingCabin": "Απάντησε για την καμπίνα.",
-    "finish": "Ολοκλήρωση",
-    "roleSearch": "Αναζήτηση ρόλου",
-    "rolesLabel": "Ρόλοι"
+    "finish": "Ολοκλήρωση"
   },
   "HomeEntry": {
     "adminTitle": "Διαχείριση",
