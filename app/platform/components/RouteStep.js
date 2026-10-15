@@ -94,6 +94,8 @@ export default function RouteStep({ regions, country, from, setFrom, to, setTo, 
   const locTo = useMemo(() => (toTitle ? locatePoint(to.trim(), { positioned }) : null), [toTitle, to, positioned]);
 
   function open(field) {
+    // Στη μέση αλλαγής το «Συνέχεια» κλειδώνει αμέσως (όχι μετά την επανασύνδεση του πεδίου).
+    if (field === "from") setEditingFrom(true);
     setActive(field);
     setMissed(false);
     setPanel((p) => ({ n: p.n + 1, edit: true }));
