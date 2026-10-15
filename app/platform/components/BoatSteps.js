@@ -97,7 +97,7 @@ function BoatPicture({ kind, brand, model, title }) {
         </div>
       ) : (
         <div style={{ height: 112, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Icon name={BOAT_ICON[kind] || "sail"} size={52} stroke={1.3} />
+          <Icon name={BOAT_ICON[kind] || "sail"} size={56} stroke={1.2} />
         </div>
       )}
       {title && <div style={{ padding: "8px 12px 12px", textAlign: "center", fontSize: 14, fontWeight: 600 }}>{title}</div>}

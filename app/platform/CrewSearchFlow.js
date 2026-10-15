@@ -407,7 +407,7 @@ export default function CrewSearchFlow() {
                     border: `${on ? 2 : 1}px solid ${on ? colors.ink : colors.border}`, background: on ? colors.seaGlass : colors.card, color: colors.ink,
                   }}
                 >
-                  <Icon name={BOAT_ICON[k] || "sail"} size={44} stroke={1.4} />
+                  <Icon name={BOAT_ICON[k] || "sail"} size={48} stroke={1.2} />
                   {k === "other" ? L.text(b.name) : t(`kind_${k}`)}
                 </button>
               );
