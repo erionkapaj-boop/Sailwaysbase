@@ -54,6 +54,23 @@ export async function pickDay(page, date) {
 }
 
 // ---- browser -----------------------------------------------------------------
+// Στο production το React δεν λέει ποιο στοιχείο διαφέρει στην υδάτωση. Εδώ συγκρίνεται το HTML που
+// έστειλε ο διακομιστής με το DOM μετά την ανάκαμψη· ό,τι υπάρχει μόνο στο ένα τυπώνεται, ώστε το
+// στοιχείο που αλλάζει στο πρώτο render να φανεί στο log (και στο CI).
+async function hydrationDiag(page, phone) {
+  await page.waitForTimeout(400);
+  const url = page.url();
+  const ssr = await (await page.request.get(url)).text();
+  const dom = await page.evaluate(() => document.documentElement.outerHTML);
+  const tok = (h) => h.replace(/<script[\s\S]*?<\/script>/g, "").split(/(?=<)/).map((x) => x.trim()).filter(Boolean);
+  const a = tok(ssr);
+  const b = tok(dom);
+  const sa = new Set(a);
+  const sb = new Set(b);
+  const cut = (xs) => xs.slice(0, 12).map((x) => x.slice(0, 160));
+  console.log(`   [418-diag ${phone}] ${url}\n     μόνο στον διακομιστή: ${JSON.stringify(cut(a.filter((x) => !sb.has(x))))}\n     μόνο στον browser: ${JSON.stringify(cut(b.filter((x) => !sa.has(x))))}`);
+}
+
 export async function as(phone, fn) {
   const browser = await chromium.launch(
     process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}
@@ -64,7 +81,10 @@ export async function as(phone, fn) {
   // Any uncaught error fails the step — including React hydration errors,
   // which is how the <style> escaping bug on the search page was found.
   // Σφάλματα που ένα σενάριο ρίχνει επίτηδες ξεκινούν με "e2e:" και δεν μετράνε.
-  page.on("pageerror", (e) => { if (!e.message.startsWith("e2e:")) errors.push(`${e.message} @ ${page.url()}`); });
+  page.on("pageerror", (e) => {
+    if (!e.message.startsWith("e2e:")) errors.push(`${e.message} @ ${page.url()}`);
+    if (/#418|#423|#425/.test(e.message)) hydrationDiag(page, phone).catch(() => {});
+  });
   // Στον dev server το React γράφει στο console την ακριβή διαφορά server/client.
   page.on("console", (m) => { if (/hydrat/i.test(m.text())) console.log(`   [${phone}] ${m.text().slice(0, 900)}`); });
   try {
