@@ -8,7 +8,7 @@ for (const locale of ["el", "en"]) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await ctx.addCookies([{ name: "sf_locale", value: locale, url: BASE }]);
   const page = await ctx.newPage();
-  const start = locale === "el" ? /Αναζήτηση πληρώματος/ : /Find crew/;
+  const start = locale === "el" ? /Πού θα ταξιδέψεις;/ : /Where are you travelling\?/;
   const country = locale === "el" ? /Ελλάδα/ : /Greece/;
   const fwd = page.locator("[data-forward]");
   const cont = () => page.locator(".sf-step-footer button").first().click();

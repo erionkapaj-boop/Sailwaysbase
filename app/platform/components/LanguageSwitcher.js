@@ -18,7 +18,8 @@ import { colors, radius, shadow, fontSans } from "../../../lib/platform/theme";
 // Η γλώσσα δεν μπαίνει στη διεύθυνση· γράφεται σε cookie που διαβάζει ο
 // διακομιστής (i18n/request.js), και, αν ο χρήστης είναι συνδεδεμένος, και στον
 // λογαριασμό του, ώστε τα emails και οι άλλες συσκευές του να τη βρίσκουν.
-// compact: μικρότερη σημαία, χωρίς κωδικό (κεφαλίδα της αρχικής).
+// Στην κεφαλίδα: μόνο ο κωδικός της γλώσσας με γράμματα («ΕΛ», «EN»), χωρίς σημαία (απόφαση ιδιοκτήτη 16/10/2026).
+// compact: λίγο μεγαλύτερα γράμματα (κεφαλίδα της αρχικής).
 export default function LanguageSwitcher({ compact = false }) {
   const locale = useLocale();
   const t = useTranslations("LanguageSwitcher");
@@ -61,8 +62,7 @@ export default function LanguageSwitcher({ compact = false }) {
       <style
         dangerouslySetInnerHTML={{
           __html:
-            "@media(max-width:480px){.sf-lang-code{display:none}}" +
-            ".sf-lang-item:hover,.sf-lang-item:focus-visible{background:" + colors.seaGlass + "}",
+                        ".sf-lang-item:hover,.sf-lang-item:focus-visible{background:" + colors.seaGlass + "}",
         }}
       />
       <button
@@ -90,8 +90,7 @@ export default function LanguageSwitcher({ compact = false }) {
           color: colors.ink,
         }}
       >
-        <Flag name={current.flag} width={compact ? 18 : 22} />
-        {!compact && <span className="sf-lang-code">{current.short}</span>}
+        <span data-language-code style={{ fontSize: compact ? 14 : 13, fontWeight: 400, color: colors.inkSoft }}>{t("short")}</span>
         <svg width="10" height="6" viewBox="0 0 10 6" aria-hidden="true" style={{ opacity: 0.55 }}>
           <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
         </svg>

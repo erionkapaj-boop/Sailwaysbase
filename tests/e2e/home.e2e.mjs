@@ -1,6 +1,6 @@
-// Αρχική (διάταξη ιδιοκτήτη 13/10/2026): τελείες πάνω αριστερά με «Μεταφορά
-// σκάφους», γλώσσα και Σύνδεση δεξιά, λογότυπο, σλόγκαν, κουμπί αναζήτησης,
-// εμπειρίες, και κάτω η πόρτα για τους επαγγελματίες. Ελληνικά και αγγλικά.
+// Αρχική (διάταξη ιδιοκτήτη 16/10/2026, από εικόνα αναφοράς): τελείες πάνω αριστερά με «Μεταφορά σκάφους»,
+// «Για επαγγελματίες», γλώσσα με γράμματα (ΕΛ/EN) και Σύνδεση δεξιά, τιμόνι, όνομα, σλόγκαν, πεδίο «Πού θα
+// ταξιδέψεις;» που ανοίγει τον οδηγό, εμπειρίες. Ελληνικά και αγγλικά.
 import { chromium } from "playwright";
 import http from "node:http";
 import { BASE, as, go, text, check, finish, shoot, hydrationDiag, HYDRATION_SNAP } from "./lib.mjs";
@@ -14,7 +14,7 @@ const html = await new Promise((resolve, reject) => {
     res.on("end", () => resolve(b));
   }).on("error", reject);
 });
-check("skipperfinder.gr/: η νέα αρχική (τελείες, χωρίς λογότυπο στην κεφαλίδα)", html.includes('aria-label="Περισσότερα"') && html.includes("Δημιούργησε προφίλ"));
+check("skipperfinder.gr/: η νέα αρχική (τελείες, χωρίς λογότυπο στην κεφαλίδα)", html.includes('aria-label="Περισσότερα"') && html.includes("Για επαγγελματίες") && html.includes("data-home-search"));
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 for (const locale of ["el", "en"]) {
@@ -30,10 +30,13 @@ for (const locale of ["el", "en"]) {
   });
   await go(page, "/platform");
   const L = locale === "el"
-    ? { tag: "Οι άνθρωποι πίσω από κάθε ταξίδι.", cta: "Αναζήτηση πληρώματος", other: "Έχεις κάτι άλλο στο μυαλό σου;", exp: "Ανακάλυψε εμπειρίες στη θάλασσα", pro: "Είσαι επαγγελματίας;", create: "Δημιούργησε προφίλ", board: "Ανοιχτά αιτήματα", login: "Σύνδεση", menu: "Περισσότερα", delivery: "Μεταφορά σκάφους", terms: "Όροι χρήσης" }
-    : { tag: "The people behind every voyage.", cta: "Find crew", other: "Something else in mind?", exp: "Discover experiences at sea", pro: "Are you a professional?", create: "Create a profile", board: "Open requests", login: "Login", menu: "More", delivery: "Boat delivery", terms: "Terms of use" };
+    ? { tag: "Οι άνθρωποι πίσω από κάθε ταξίδι.", cta: "Πού θα ταξιδέψεις;", exp: "Ανακάλυψε εμπειρίες στη θάλασσα", pros: "Για επαγγελματίες", code: "ΕΛ", board: "Ανοιχτά αιτήματα", login: "Σύνδεση", menu: "Περισσότερα", delivery: "Μεταφορά σκάφους", terms: "Όροι χρήσης" }
+    : { tag: "The people behind every voyage.", cta: "Where are you travelling?", exp: "Discover experiences at sea", pros: "For professionals", code: "EN", board: "Open requests", login: "Login", menu: "More", delivery: "Boat delivery", terms: "Terms of use" };
   const body = await text(page);
-  check(`${locale}: όλα τα στοιχεία της αρχικής`, [L.tag, L.cta, L.other, L.exp, L.pro, L.create, L.login, L.terms].every((s) => body.includes(s)), body.slice(0, 300));
+  check(`${locale}: όλα τα στοιχεία της αρχικής`, [L.tag, L.cta, L.exp, L.pros, L.login, L.terms].every((s) => body.includes(s)), body.slice(0, 300));
+  check(`${locale}: γλώσσα με γράμματα, χωρίς σημαία`, (await page.locator("[data-language-code]").innerText()) === L.code && (await page.locator("[data-language-button] svg, [data-language-button] img").count()) === 1);
+  const bar = await page.locator("[data-home-search]").boundingBox();
+  check(`${locale}: το πεδίο απλώνεται σε όλο το πλάτος του κινητού`, bar && bar.width >= 320 && bar.height >= 60, JSON.stringify(bar));
   check(`${locale}: χωρίς λογότυπο στην κεφαλίδα (μόνο ένα SkipperFinder)`, (body.match(/SkipperFinder/g) || []).length <= 2);
   const dots = page.getByRole("button", { name: L.menu, exact: true });
   const box = await dots.boundingBox();
@@ -52,11 +55,11 @@ for (const locale of ["el", "en"]) {
   await page.waitForURL(/experiences/, { timeout: 10000 }).catch(() => {});
   check(`${locale}: οι εμπειρίες ανοίγουν`, page.url().includes("/platform/experiences"));
   await go(page, "/platform");
-  await page.getByRole("link", { name: L.create, exact: true }).click();
+  await page.getByRole("link", { name: L.pros, exact: true }).click();
   await page.waitForURL(/register/, { timeout: 10000 }).catch(() => {});
-  check(`${locale}: το «Δημιούργησε προφίλ» ανοίγει κατευθείαν τη φόρμα, με το πρώτο πεδίο έτοιμο`, page.url().includes("/platform/register?as=professional") && (await page.locator("#reg-name").isVisible()) && (await page.evaluate(() => document.activeElement?.id)) === "reg-name");
+  check(`${locale}: το «Για επαγγελματίες» ανοίγει κατευθείαν τη φόρμα, με το πρώτο πεδίο έτοιμο`, page.url().includes("/platform/register?as=professional") && (await page.locator("#reg-name").isVisible()) && (await page.evaluate(() => document.activeElement?.id)) === "reg-name");
   await go(page, "/platform");
-  await page.getByRole("button", { name: L.cta, exact: true }).click();
+  await page.locator("[data-home-search]").click();
   await page.waitForTimeout(800);
   check(`${locale}: η αναζήτηση ξεκινά`, (await page.locator("[data-sf-wizard]").count()) > 0);
   check(`${locale}: χωρίς σφάλματα σελίδας`, errors.length === 0, errors.join(" | "));
@@ -70,7 +73,7 @@ await as("6900002002", async (page) => {
   await page.getByRole("button", { name: "Περισσότερα", exact: true }).click();
   check("συνδεδεμένη: οι τελείες έχουν μεταφορά σκάφους και ανοιχτά αιτήματα", (await text(page)).includes("Μεταφορά σκάφους") && (await text(page)).includes("Ανοιχτά αιτήματα"));
   await page.keyboard.press("Escape");
-  check("συνδεδεμένη: χωρίς δεύτερη εγγραφή", !(await text(page)).includes("Δημιούργησε προφίλ"));
+  check("συνδεδεμένη: χωρίς δεύτερη εγγραφή", !(await text(page)).includes("Για επαγγελματίες"));
   await shoot(page, "home-signed-in");
 });
 
@@ -80,7 +83,7 @@ const b2 = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: p
   const page = await (await b2.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   await page.goto(`${BASE}/platform`);
   await page.waitForLoadState("networkidle");
-  await page.getByRole("button", { name: "Αναζήτηση πληρώματος" }).click();
+  await page.locator("[data-home-search]").click();
   await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
   await page.waitForTimeout(1500);
   await page.goto(`${BASE}/platform/contact`);

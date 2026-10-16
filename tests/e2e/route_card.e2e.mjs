@@ -11,7 +11,7 @@ for (const [label, w, h] of [["κινητό", 390, 844], ["desktop", 1280, 900]]
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`${BASE}/platform`);
   await page.waitForTimeout(1500);
-  await page.getByRole("button", { name: "Αναζήτηση πληρώματος", exact: true }).click();
+  await page.locator("[data-home-search]").click();
   await page.waitForTimeout(400);
   await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
   await page.waitForTimeout(2200);

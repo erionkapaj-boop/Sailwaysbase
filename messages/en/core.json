@@ -18,7 +18,8 @@
     "tabProfile": "Profile",
     "tabBoard": "Listings",
     "tabContact": "Contact",
-    "bottomNav": "Main navigation"
+    "bottomNav": "Main navigation",
+    "forPros": "For professionals"
   },
   "Home": {
     "searchCrew": "Find crew",
@@ -33,10 +34,12 @@
     "createProfile": "Create a profile",
     "appsMenu": "More",
     "openRequests": "Open requests",
-    "openRequestsHint": "Client requests waiting for a professional"
+    "openRequestsHint": "Client requests waiting for a professional",
+    "whereTo": "Where are you travelling?"
   },
   "LanguageSwitcher": {
-    "change": "Change language"
+    "change": "Change language",
+    "short": "EN"
   },
   "Email": {
     "greetingNamed": "Hello {name},",

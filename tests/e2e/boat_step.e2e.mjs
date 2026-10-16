@@ -7,15 +7,15 @@ import { BASE, check, finish, pickDay, daysFromToday } from "./lib.mjs";
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 for (const locale of ["el", "en"]) {
   const L = locale === "el"
-    ? { start: /Αναζήτηση πληρώματος/, country: /Ελλάδα/, back: "Πίσω", feet: "Πόσα πόδια;", year: "Έτος κατασκευής", brandTitle: "Τι μάρκα;", modelTitle: "Ποιο μοντέλο;", skip: "Παράλειψη", modelPh: "Γράψε μοντέλο" }
-    : { start: /Find crew/, country: /Greece/, back: "Back", feet: "How many feet?", year: "Year built", brandTitle: "Which brand?", modelTitle: "Which model?", skip: "Skip", modelPh: "Type a model" };
+    ? { start: /Πού θα ταξιδέψεις;/, country: /Ελλάδα/, back: "Πίσω", feet: "Πόσα πόδια;", year: "Έτος κατασκευής", brandTitle: "Τι μάρκα;", modelTitle: "Ποιο μοντέλο;", skip: "Παράλειψη", modelPh: "Γράψε μοντέλο" }
+    : { start: /Where are you travelling\?/, country: /Greece/, back: "Back", feet: "How many feet?", year: "Year built", brandTitle: "Which brand?", modelTitle: "Which model?", skip: "Skip", modelPh: "Type a model" };
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   // Τα κουμπιά ημερολογίου του pickDay είναι ελληνικά: η διαδρομή γίνεται στα ελληνικά και η γλώσσα αλλάζει μετά.
   await ctx.addCookies([{ name: "sf_locale", value: "el", url: BASE }]);
   const page = await ctx.newPage();
   const cont = () => page.locator(".sf-step-footer button").first().click();
   await page.goto(BASE + "/platform"); await page.waitForTimeout(1200);
-  await page.locator("button, a").filter({ hasText: /Αναζήτηση πληρώματος/ }).first().click(); await page.waitForTimeout(500);
+  await page.locator("button, a").filter({ hasText: /Πού θα ταξιδέψεις;/ }).first().click(); await page.waitForTimeout(500);
   await page.locator("button").filter({ hasText: /Ελλάδα/ }).first().click(); await page.waitForTimeout(2500);
   await cont(); await page.waitForTimeout(700);
   await pickDay(page, daysFromToday(40)); await pickDay(page, daysFromToday(43)); await cont(); await page.waitForTimeout(900);

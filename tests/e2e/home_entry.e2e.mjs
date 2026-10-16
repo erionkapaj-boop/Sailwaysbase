@@ -10,7 +10,7 @@ for (const [label, w, h] of [["κινητό", 390, 844], ["desktop", 1280, 900]]
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  const onHome = async () => (await page.getByRole("button", { name: "Αναζήτηση πληρώματος", exact: true }).count()) === 1 && (await page.locator("[data-sf-wizard]").count()) === 0;
+  const onHome = async () => (await page.locator("[data-home-search]").count()) === 1 && (await page.locator("[data-sf-wizard]").count()) === 0;
   const inWizard = async () => (await page.locator("[data-sf-wizard]").count()) === 1;
   const counter = async () => (await page.locator("[data-sf-wizard] span").filter({ hasText: /^\d+ \/ \d+$/ }).first().innerText()).trim();
 
@@ -19,7 +19,7 @@ for (const [label, w, h] of [["κινητό", 390, 844], ["desktop", 1280, 900]]
   check(`${label}: καθαρός browser → αρχική, χωρίς ταμπέλα συνέχειας`, (await onHome()) && (await page.locator("[data-resume-request]").count()) === 0);
 
   // Μέσα στη ροή: χώρα (βήμα 2), λιμάνι (βήμα 3).
-  await page.getByRole("button", { name: "Αναζήτηση πληρώματος", exact: true }).click();
+  await page.locator("[data-home-search]").click();
   await page.waitForTimeout(500);
   await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
   await page.waitForTimeout(1500);
@@ -71,7 +71,7 @@ for (const [label, w, h] of [["κινητό", 390, 844], ["desktop", 1280, 900]]
   const page = await ctx.newPage();
   await page.goto(`${BASE}/platform`);
   await page.waitForTimeout(1500);
-  await page.getByRole("button", { name: "Find crew", exact: true }).click();
+  await page.locator("[data-home-search]").click();
   await page.waitForTimeout(500);
   await page.getByRole("button", { name: "Greece", exact: true }).click();
   await page.waitForTimeout(1500);

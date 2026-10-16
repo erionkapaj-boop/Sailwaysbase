@@ -155,9 +155,9 @@ export default function HomeEntry() {
 
   return (
     <div style={{ textAlign: "center" }}>
-      <div style={{ marginBottom: 40 }}>
-        <Logo variant="stacked" />
-        <p style={{ fontSize: 17, color: colors.ink, margin: "14px auto 0", maxWidth: 340, lineHeight: 1.5 }}>{t("tagline")}</p>
+      <div style={{ marginBottom: 47 }}>
+        <Logo variant="home" />
+        <p style={{ fontSize: 16, color: colors.inkSoft, margin: "16px auto 0", maxWidth: 340, lineHeight: 1.5 }}>{t("tagline")}</p>
       </div>
 
       {welcome && firstName && (
@@ -184,27 +184,25 @@ export default function HomeEntry() {
         </div>
       )}
 
-      <button type="button" className="sf-cta" onClick={openWizard} style={{ ...button("primary"), ...pill, width: "100%", maxWidth: 380 }}>
-        {t("searchCrew")}
+      {/* Search-style entry (owner, 16/10/2026): reads like a search field, opens the wizard at its first question. */}
+      <button
+        type="button"
+        data-home-search
+        onClick={openWizard}
+        className="sf-home-search"
+        style={{ width: "100%", maxWidth: 884, minHeight: 66, margin: "0 auto", display: "flex", alignItems: "center", gap: 16, padding: "0 30px 0 22px", borderRadius: 999, border: `1px solid ${colors.border}`, background: colors.card, color: colors.inkSoft, fontFamily: "inherit", fontSize: 16, textAlign: "left", cursor: "text" }}
+      >
+        <Icon name="search" size={20} stroke={1.7} />
+        <span style={{ flex: 1, minWidth: 0 }}>{t("whereTo")}</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
       </button>
 
-      <div style={{ marginTop: 44 }}>
-        <p style={{ ...muted, fontSize: 14, margin: "0 0 4px" }}>{t("otherInMind")}</p>
-        <Link href="/platform/experiences" style={{ ...tapTarget, fontSize: 17, fontWeight: 500, color: colors.ink, textDecoration: "none" }}>
+      <div style={{ marginTop: 17 }}>
+        <Link href="/platform/experiences" style={{ ...tapTarget, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 16, fontWeight: 400, color: colors.ink, textDecoration: "none" }}>
           {t("discoverExperiences")}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9" /></svg>
         </Link>
       </div>
-
-      {/* The one quiet door for the other side. Signed in, a client goes pro
-          from their own profile, never through a second sign-up. */}
-      {!session && (
-        <div style={{ marginTop: 96 }}>
-          <p style={{ ...muted, fontSize: 14, margin: "0 0 12px" }}>{t("areYouPro")}</p>
-          <Link href="/platform/register?as=professional" style={{ ...button("secondary"), ...pill, fontSize: 16, minHeight: 48, padding: "12px 28px", borderColor: colors.ink }}>
-            {t("createProfile")}
-          </Link>
-        </div>
-      )}
     </div>
   );
 }

@@ -7,7 +7,20 @@ import { colors, fontSans, fontSerif } from "../../../lib/platform/theme";
 //
 // "inline" is the small horizontal lockup for the header; "stacked" is the
 // large centred one that anchors the home screen.
-export function Mark({ size }) {
+export function Mark({ size, bold = false }) {
+  if (bold) {
+    // Home page (owner's reference, 16/10/2026): a heavier wheel in one colour, open hub.
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="7" stroke={colors.ink} strokeWidth="2.1" />
+        {[0, 45, 90, 135].map((deg) => (
+          <line key={deg} x1="12" y1="2" x2="12" y2="22" stroke={colors.ink} strokeWidth="2.1" strokeLinecap="round" transform={`rotate(${deg} 12 12)`} />
+        ))}
+        <circle cx="12" cy="12" r="2.7" fill={colors.ink} />
+        <circle cx="12" cy="12" r="1.15" fill={colors.bg} />
+      </svg>
+    );
+  }
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="12" r="7.25" stroke={colors.ink} strokeWidth="1.15" />
@@ -30,6 +43,16 @@ export function Mark({ size }) {
 }
 
 export default function Logo({ variant = "inline" }) {
+  if (variant === "home") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <Mark size={42} bold />
+        <span data-home-wordmark style={{ fontFamily: fontSans, fontSize: 43, fontWeight: 400, letterSpacing: "-0.01em", color: colors.ink, lineHeight: 1.2, marginTop: 18 }}>
+          SkipperFinder
+        </span>
+      </div>
+    );
+  }
   if (variant === "stacked") {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>

@@ -18,7 +18,8 @@
     "tabProfile": "Προφίλ",
     "tabBoard": "Αγγελίες",
     "tabContact": "Επικοινωνία",
-    "bottomNav": "Κύρια πλοήγηση"
+    "bottomNav": "Κύρια πλοήγηση",
+    "forPros": "Για επαγγελματίες"
   },
   "Home": {
     "searchCrew": "Αναζήτηση πληρώματος",
@@ -33,10 +34,12 @@
     "createProfile": "Δημιούργησε προφίλ",
     "appsMenu": "Περισσότερα",
     "openRequests": "Ανοιχτά αιτήματα",
-    "openRequestsHint": "Αιτήματα πελατών που περιμένουν επαγγελματία"
+    "openRequestsHint": "Αιτήματα πελατών που περιμένουν επαγγελματία",
+    "whereTo": "Πού θα ταξιδέψεις;"
   },
   "LanguageSwitcher": {
-    "change": "Αλλαγή γλώσσας"
+    "change": "Αλλαγή γλώσσας",
+    "short": "ΕΛ"
   },
   "Email": {
     "greetingNamed": "Γεια σου {name},",

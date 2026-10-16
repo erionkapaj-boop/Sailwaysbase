@@ -114,7 +114,7 @@ for (const [label, w, h] of SIZES) {
     await page.goto(`${BASE}/platform`);
     await page.waitForTimeout(1500);
     check(`${who}, ${label}: στην αρχική δεν υπάρχει το κέντρο του header (μεγάλο λογότυπο)`, (await page.locator("[data-home-link]").count()) === 0);
-    await page.getByRole("button", { name: "Αναζήτηση πληρώματος", exact: true }).click();
+    await page.locator("[data-home-search]").click();
     await page.waitForTimeout(600);
     await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
     await page.waitForTimeout(1800);
@@ -129,7 +129,7 @@ for (const [label, w, h] of SIZES) {
     await shoot(page, `header-flow-${who === "πελάτης" ? "in" : "out"}-${label}`);
     await page.locator("[data-home-link]").click();
     await page.waitForTimeout(1200);
-    const onHome = (await page.locator("[data-sf-wizard]").count()) === 0 && (await page.getByRole("button", { name: "Αναζήτηση πληρώματος", exact: true }).count()) === 1;
+    const onHome = (await page.locator("[data-sf-wizard]").count()) === 0 && (await page.locator("[data-home-search]").count()) === 1;
     check(`${who}, ${label}: το τιμόνι πάει στην αρχική από μέσα από τον οδηγό`, onHome && !page.url().includes("flow="), page.url());
     check(`${who}, ${label}: στην αρχική φαίνεται «Συνέχισε το αίτημά σου» και το μεγάλο λογότυπο`, (await page.locator("[data-resume-request]").count()) === 1 && (await page.locator("[data-home-link]").count()) === 0);
     await ctx.close();

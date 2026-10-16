@@ -29,7 +29,7 @@ check("η σελίδα ξεκινά στα ελληνικά", (await lang(page))
 check("το κουμπί γλώσσας φαίνεται στην κεφαλίδα", await button(page).isVisible());
 const box = await button(page).boundingBox();
 check("πάνω δεξιά: δίπλα στο κέντρο δεξιού άκρου, και αρκετά μεγάλο για δάχτυλο", box && box.x > 390 / 2 && box.y < 80 && box.width >= 44 && box.height >= 44, JSON.stringify(box));
-check("δείχνει σημαία (εικόνα), όχι γράμματα emoji", (await button(page).locator("svg").count()) >= 1);
+check("δείχνει τον κωδικό με γράμματα (ΕΛ), όχι σημαία", (await button(page).innerText()).trim() === "ΕΛ");
 
 await button(page).click();
 const names = (await page.locator(".sf-lang-item").allInnerTexts()).map((s) => s.trim());
@@ -43,7 +43,7 @@ await openMenuAndPick(page, "English");
 const en = await text(page);
 check("γλώσσα σελίδας: en", (await lang(page)) === "en");
 check("cookie γλώσσας", (await cookie(page)) === "en");
-check("τα κείμενα που έχουν περάσει στην υποδομή γύρισαν", en.includes("The people behind every voyage.") && en.includes("Find crew") && en.includes("Login"));
+check("τα κείμενα που έχουν περάσει στην υποδομή γύρισαν", en.includes("The people behind every voyage.") && en.includes("Where are you travelling?") && en.includes("Login"));
 check("υποσέλιδο στα αγγλικά", en.includes("Terms of use") && en.includes("Privacy"));
 check("το κουμπί δείχνει τη νέα γλώσσα", (await button(page).getAttribute("aria-label")).includes("English"));
 const remaining = await page.locator("div.platform-scope").first().evaluate((el) => {
@@ -58,11 +58,11 @@ await shoot(page, "language-english-home");
 // Η επιλογή μένει σε νέα φόρτωση και σε νέα καρτέλα του ίδιου browser.
 await page.reload();
 await page.waitForTimeout(1200);
-check("μετά από ανανέωση μένει στα αγγλικά", (await lang(page)) === "en" && (await text(page)).includes("Find crew"));
+check("μετά από ανανέωση μένει στα αγγλικά", (await lang(page)) === "en" && (await text(page)).includes("Where are you travelling?"));
 const other = await ctx.newPage();
 await other.goto(`${BASE}/platform`);
 await other.waitForTimeout(1200);
-check("νέα καρτέλα: αγγλικά", (await lang(other)) === "en" && (await text(other)).includes("Find crew"));
+check("νέα καρτέλα: αγγλικά", (await lang(other)) === "en" && (await text(other)).includes("Where are you travelling?"));
 await other.close();
 
 await openMenuAndPick(page, "Ελληνικά");

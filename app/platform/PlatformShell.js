@@ -170,18 +170,21 @@ function NavBar() {
     );
   }
 
-  // Αρχική, χωρίς σύνδεση: μόνο οι τελείες αριστερά, γλώσσα και Σύνδεση δεξιά.
+  // Αρχική, χωρίς σύνδεση: οι τελείες αριστερά· «Για επαγγελματίες», γλώσσα και Σύνδεση δεξιά.
   // Το λογότυπο είναι ήδη στο κέντρο της σελίδας. Στο skipperfinder.gr η αρχική
   // είναι η ρίζα «/» (το middleware.js την ξαναγράφει σε /platform, αλλά η
   // διεύθυνση στον browser μένει «/»), οπότε μετρά κι αυτή ως αρχική.
   if (onHomePage) {
     return (
-      <div style={{ ...nav, borderBottom: "none", background: "transparent", backdropFilter: "none", position: "static", padding: "10px 14px" }}>
+      <div style={{ ...nav, borderBottom: "none", background: "transparent", backdropFilter: "none", position: "static", padding: "15px 14px 10px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
           <HomeAppsMenu />
           <HeaderBackSlot />
         </div>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <Link href="/platform/register?as=professional" data-for-pros style={{ ...navLink, ...tapTarget, padding: "0 8px", color: colors.inkSoft, fontSize: 14 }}>
+            {t("forPros")}
+          </Link>
           <LanguageSwitcher compact />
           <Link href="/platform/login" style={{ ...navLink, ...tapTarget, padding: "0 8px", color: colors.ink, fontSize: 15 }}>
             {t("login")}
@@ -243,6 +246,7 @@ const globalStyles = `
 .platform-scope a:hover { color: ${colors.ink}; }
 .platform-scope input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.65; }
 .platform-scope input[type=date]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+.platform-scope .sf-home-search:hover { box-shadow: 0 1px 6px rgba(32,33,36,0.18); border-color: transparent; }
 .platform-scope .sf-cta:hover { background: ${colors.ink}; color: #fff; }
 .platform-scope .sf-cta:active { background: ${colors.brandDark}; color: #fff; }
 ${NAV_CSS}
