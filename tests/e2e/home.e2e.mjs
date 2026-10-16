@@ -3,7 +3,7 @@
 // ταξιδέψεις;» που ανοίγει τον οδηγό, εμπειρίες. Ελληνικά και αγγλικά.
 import { chromium } from "playwright";
 import http from "node:http";
-import { BASE, as, go, text, check, finish, shoot, hydrationDiag, HYDRATION_SNAP } from "./lib.mjs";
+import { BASE, as, go, text, check, finish, shoot, hydrationDiag, HYDRATION_SNAP, hydrationOnly } from "./lib.mjs";
 
 // Στο skipperfinder.gr η αρχική είναι η ρίζα «/» (middleware.js): ίδια κεφαλίδα με το /platform.
 const html = await new Promise((resolve, reject) => {
@@ -24,9 +24,8 @@ for (const locale of ["el", "en"]) {
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => {
+    if (hydrationOnly(e, page, `home ${locale}`)) return;
     errors.push(e.message);
-    // React #418 intermittent (docs/PENDING.md): print what differs between server HTML and DOM.
-    if (/#418|#423|#425/.test(e.message)) hydrationDiag(page, `home ${locale} ${page.url()}`).catch(() => {});
   });
   await go(page, "/platform");
   const L = locale === "el"

@@ -1,7 +1,7 @@
 // Νέα είσοδος στο root (link ή bookmark) → ΠΑΝΤΑ η αρχική. Ανανέωση ΜΕΣΑ στη ροή → ίδιο βήμα με τα δεδομένα του.
 // Μισοτελειωμένο αίτημα → μικρή ταμπέλα «Συνέχισε το αίτημά σου» στην αρχική. Κινητό και desktop, καθαρός browser.
 import { chromium } from "playwright";
-import { BASE, check, finish, shoot } from "./lib.mjs";
+import { BASE, check, finish, shoot, hydrationOnly } from "./lib.mjs";
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 for (const [label, w, h] of [["κινητό", 390, 844], ["desktop", 1280, 900]]) {
@@ -9,7 +9,7 @@ for (const [label, w, h] of [["κινητό", 390, 844], ["desktop", 1280, 900]]
   const ctx = await browser.newContext({ viewport: { width: w, height: h } });
   const page = await ctx.newPage();
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (e) => hydrationOnly(e, page) || errors.push(e.message));
   const onHome = async () => (await page.locator("[data-home-search]").count()) === 1 && (await page.locator("[data-sf-wizard]").count()) === 0;
   const inWizard = async () => (await page.locator("[data-sf-wizard]").count()) === 1;
   const counter = async () => (await page.locator("[data-sf-wizard] span").filter({ hasText: /^\d+ \/ \d+$/ }).first().innerText()).trim();

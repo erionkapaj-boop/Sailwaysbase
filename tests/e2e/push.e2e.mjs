@@ -5,7 +5,7 @@
 import http from "node:http";
 import crypto from "node:crypto";
 import { chromium } from "playwright";
-import { BASE, go, text, check, finish, sql, num } from "./lib.mjs";
+import { BASE, go, text, check, finish, sql, num, hydrationOnly } from "./lib.mjs";
 import { TEST_PIN } from "./gateway.mjs";
 
 const NIKOS = "a0000000-0000-0000-0000-000000000003";
@@ -82,7 +82,7 @@ const errors = [];
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ["notifications"] });
   const page = await ctx.newPage();
-  page.on("pageerror", (e) => errors.push(`${e.message} @ ${page.url()}`));
+  page.on("pageerror", (e) => hydrationOnly(e, page) || errors.push(`${e.message} @ ${page.url()}`));
   await page.goto(`${BASE}/platform/login`);
   await page.waitForLoadState("networkidle");
   const inputs = page.locator("input");
@@ -134,7 +134,7 @@ const errors = [];
     userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
   });
   const page = await ctx.newPage();
-  page.on("pageerror", (e) => errors.push(`${e.message} @ ${page.url()}`));
+  page.on("pageerror", (e) => hydrationOnly(e, page) || errors.push(`${e.message} @ ${page.url()}`));
   await page.goto(`${BASE}/platform/login`);
   await page.waitForLoadState("networkidle");
   const inputs = page.locator("input");
@@ -151,7 +151,7 @@ const errors = [];
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await ctx.addCookies([{ name: "sf_locale", value: "en", url: BASE }]);
   const page = await ctx.newPage();
-  page.on("pageerror", (e) => errors.push(`${e.message} @ ${page.url()}`));
+  page.on("pageerror", (e) => hydrationOnly(e, page) || errors.push(`${e.message} @ ${page.url()}`));
   await page.goto(`${BASE}/platform/login`);
   await page.waitForLoadState("networkidle");
   const inputs = page.locator("input");

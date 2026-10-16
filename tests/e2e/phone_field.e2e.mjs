@@ -1,12 +1,12 @@
 // Πεδίο τηλεφώνου: χώρα + αριθμός, με έλεγχο ανά χώρα καθώς γράφεται. Στόχος: ένας λάθος
 // αριθμός να μην περνά ποτέ ως σωστός, ώστε να μη μένει προφίλ χωρίς επικοινωνία.
 import { chromium } from "playwright";
-import { BASE, check, finish, text, shoot } from "./lib.mjs";
+import { BASE, check, finish, text, shoot, hydrationOnly } from "./lib.mjs";
 
 const b = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const page = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
 const errors = [];
-page.on("pageerror", (e) => errors.push(e.message));
+page.on("pageerror", (e) => hydrationOnly(e, page) || errors.push(e.message));
 
 try {
   await page.goto(`${BASE}/platform/register`);

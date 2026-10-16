@@ -111,6 +111,16 @@ export const HYDRATION_SNAP = () => {
   });
 };
 
+// React #418/#423/#425 (υδάτωση): ΔΕΝ μετρά ως αποτυχία (απόφαση ιδιοκτήτη 16/10/2026: το CI δεν σταματά για
+// αυτό όσο ερευνάται, docs/PENDING.md). Τυπώνεται προειδοποίηση και το διαγνωστικό, ώστε κάθε εμφάνιση να φαίνεται.
+export const HYDRATION_ERROR = /Minified React error #(418|423|425)/;
+export function hydrationOnly(e, page, tag = "") {
+  if (!HYDRATION_ERROR.test(String(e?.message || e))) return false;
+  console.log(`   [418-warn ${tag}] ${page.url()} (καταγράφεται, δεν μετρά ως αποτυχία)`);
+  hydrationDiag(page, tag).catch(() => {});
+  return true;
+}
+
 export async function hydrationDiag(page, phone) {
   try {
     const r = await page.evaluate(() => {
@@ -143,12 +153,11 @@ export async function as(phone, fn) {
   await ctx.addInitScript(HYDRATION_SNAP);
   const page = await ctx.newPage();
   const errors = [];
-  // Any uncaught error fails the step — including React hydration errors,
-  // which is how the <style> escaping bug on the search page was found.
+  // Any uncaught error fails the step (React hydration errors: see hydrationOnly).
   // Σφάλματα που ένα σενάριο ρίχνει επίτηδες ξεκινούν με "e2e:" και δεν μετράνε.
   page.on("pageerror", (e) => {
+    if (hydrationOnly(e, page, phone)) return;
     if (!e.message.startsWith("e2e:")) errors.push(`${e.message} @ ${page.url()}`);
-    if (/#418|#423|#425/.test(e.message)) hydrationDiag(page, phone).catch(() => {});
   });
   // Στον dev server το React γράφει στο console την ακριβή διαφορά server/client.
   page.on("console", (m) => { if (/hydrat/i.test(m.text())) console.log(`   [${phone}] ${m.text().slice(0, 900)}`); });

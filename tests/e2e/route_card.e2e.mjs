@@ -1,14 +1,14 @@
 // Οθόνη «Από ποιο λιμάνι;»: μία κάρτα με το «Από» και τη γραμμή διαδρομής (⇆ Άλιμος → Άλιμος ⌄), που ανοίγει ομαλά
 // για άλλο λιμάνι επιστροφής· και η σελίδα ΔΕΝ πετάγεται απότομα όταν επιλέγεται λιμάνι από τη λίστα (κινητό ΚΑΙ desktop).
 import { chromium } from "playwright";
-import { BASE, check, finish, shoot } from "./lib.mjs";
+import { BASE, check, finish, shoot, hydrationOnly } from "./lib.mjs";
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 for (const [label, w, h] of [["κινητό", 390, 844], ["desktop", 1280, 900]]) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h } });
   const page = await ctx.newPage();
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (e) => hydrationOnly(e, page) || errors.push(e.message));
   await page.goto(`${BASE}/platform`);
   await page.waitForTimeout(1500);
   await page.locator("[data-home-search]").click();

@@ -4,7 +4,7 @@
 // Runs after replacement.e2e.mjs, so the database already holds bookings,
 // cancellations, offers, notifications and wallet movements to render.
 import { chromium } from "playwright";
-import { BASE, check, finish, sql, hydrationDiag, HYDRATION_SNAP } from "./lib.mjs";
+import { BASE, check, finish, sql, hydrationDiag, HYDRATION_SNAP, hydrationOnly } from "./lib.mjs";
 import { TEST_PIN } from "./gateway.mjs";
 import { PUBLIC, EVERYONE, PRO_ONLY, adminPages } from "./pages.mjs";
 
@@ -21,9 +21,8 @@ async function crawl(label, phone, paths) {
   let current = "";
   const problems = [];
   page.on("pageerror", (e) => {
+    if (hydrationOnly(e, page, label)) return;
     problems.push(`${current}: page error: ${e.message}`);
-    // React #418 intermittent (docs/PENDING.md): print what differs between server HTML and DOM.
-    if (/#418|#423|#425/.test(e.message)) hydrationDiag(page, `${label} ${current}`).catch(() => {});
   });
   page.on("response", async (r) => {
     const u = r.url();

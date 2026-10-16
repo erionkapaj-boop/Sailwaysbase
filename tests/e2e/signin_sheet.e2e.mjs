@@ -2,7 +2,7 @@
 // ζητείται μόνο στο «Ολοκλήρωση αιτήματος»: ταμπέλα «Ένα βήμα ακόμα» με ΕΝΑ κουμπί «Συνέχεια με Google», χωρίς
 // φόρμες και κωδικούς. Μετά τη σύνδεση επιστρέφει στο ίδιο σημείο με το αίτημα ανέπαφο. Ελληνικά και αγγλικά.
 import { chromium } from "playwright";
-import { BASE, check, finish, sql, shoot, text, daysFromToday, iso } from "./lib.mjs";
+import { BASE, check, finish, sql, shoot, text, daysFromToday, iso, hydrationOnly } from "./lib.mjs";
 
 const GATEWAY = process.env.NEXT_PUBLIC_PLATFORM_SUPABASE_URL;
 const EMAIL = "sheet.client@gmail.com";
@@ -30,7 +30,7 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const page = await ctx.newPage();
 const errors = [];
-page.on("pageerror", (e) => { if (!e.message.startsWith("e2e:")) errors.push(e.message); });
+page.on("pageerror", (e) => { if (hydrationOnly(e, page)) return; if (!e.message.startsWith("e2e:")) errors.push(e.message); });
 try {
   // Χωρίς σύνδεση: αποτελέσματα και επιλογή.
   await page.goto(`${BASE}/platform/search?${url}`);

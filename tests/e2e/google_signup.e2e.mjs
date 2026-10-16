@@ -2,7 +2,7 @@
 // ορίζουμε ποιος θα επιστρέψει και η εφαρμογή περνά από την πραγματική ροή
 // (κουμπί → authorize → επιστροφή με code → σύνδεση).
 import { chromium } from "playwright";
-import { BASE, check, finish, sql, shoot, text, as } from "./lib.mjs";
+import { BASE, check, finish, sql, shoot, text, as, hydrationOnly } from "./lib.mjs";
 import { TEST_PIN } from "./gateway.mjs";
 
 const GATEWAY = process.env.NEXT_PUBLIC_PLATFORM_SUPABASE_URL;
@@ -17,7 +17,7 @@ async function browser(fn) {
   const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await ctx.newPage();
   const errors = [];
-  page.on("pageerror", (e) => { if (!e.message.startsWith("e2e:")) errors.push(e.message); });
+  page.on("pageerror", (e) => { if (hydrationOnly(e, page)) return; if (!e.message.startsWith("e2e:")) errors.push(e.message); });
   try {
     await fn(page);
     check("χωρίς σφάλματα σελίδας", errors.length === 0, errors.join(" | "));

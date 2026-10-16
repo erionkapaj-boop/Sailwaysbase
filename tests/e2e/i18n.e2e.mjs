@@ -2,7 +2,7 @@
 // (cookie και λογαριασμός), και ό,τι έχει περάσει στην υποδομή να γυρίζει
 // ολόκληρο, χωρίς ανάμεικτα. Εδώ τα αγγλικά είναι ανοιχτά μόνο για τα τεστ.
 import { chromium } from "playwright";
-import { BASE, as, go, text, check, finish, sql, num, shoot } from "./lib.mjs";
+import { BASE, as, go, text, check, finish, sql, num, shoot, hydrationOnly } from "./lib.mjs";
 
 const MARIA = "6900002002";
 const GREEK = /[Ͱ-Ͽἀ-῿]/;
@@ -22,7 +22,7 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 const errors = [];
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const page = await ctx.newPage();
-page.on("pageerror", (e) => errors.push(e.message));
+page.on("pageerror", (e) => hydrationOnly(e, page) || errors.push(e.message));
 await go(page, "/platform");
 
 check("η σελίδα ξεκινά στα ελληνικά", (await lang(page)) === "el" && (await text(page)).includes("Οι άνθρωποι πίσω από κάθε ταξίδι."));

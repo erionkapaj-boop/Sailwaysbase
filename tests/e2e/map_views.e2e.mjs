@@ -3,7 +3,7 @@
 // περιοχή», διαδρομές μεταφορών, ο χάρτης «Πού» στη φόρμα μεταφοράς και η
 // επιλογή λιμανιού με πάτημα στον χάρτη της αναζήτησης. Απλό υπόβαθρο (χωρίς δίκτυο).
 import { chromium } from "playwright";
-import { BASE, as, go, text, check, finish, sql, num, pickPlace, shoot } from "./lib.mjs";
+import { BASE, as, go, text, check, finish, sql, num, pickPlace, shoot, hydrationOnly } from "./lib.mjs";
 
 const CLIENT = "a0000000-0000-0000-0000-000000000002";
 const trusted = (q) => sql(`select set_config('platform.trusted','true',false); ${q}`);
@@ -26,7 +26,7 @@ check("δεδομένα δοκιμής: 3 αιτήματα πληρώματος"
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const errors = [];
-const watch = (page) => page.on("pageerror", (e) => errors.push(`${e.message} @ ${page.url()}`));
+const watch = (page) => page.on("pageerror", (e) => hydrationOnly(e, page) || errors.push(`${e.message} @ ${page.url()}`));
 
 console.log("\n== 1. Μεγάλη οθόνη: λίστα και χάρτης δίπλα-δίπλα");
 {
