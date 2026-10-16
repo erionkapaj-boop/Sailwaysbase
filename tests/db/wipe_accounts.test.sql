@@ -17,6 +17,12 @@ select pg_temp.check('τίποτα δεν σβήστηκε', (select count(*) fr
 select set_config('platform.trusted', 'true', false);
 update users set is_owner = true, phone_number = '+306983427643', wallet_balance = 7 where id = :'ADMIN';
 insert into wallet_transactions (user_id, amount, type, note, unit) values (:'ADMIN', 7, 'deposit', 'δοκιμή', 'credit');
+\echo '== διαγραμμένοι λογαριασμοί και αριθμοί που άλλαξαν: πριν το format οι αριθμοί τους είναι δεσμευμένοι'
+select set_config('platform.trusted', 'true', false);
+update users set status = 'deleted' where id = :'NIKOS';
+update user_phones set retired_at = now() where user_id = :'KOSTAS';
+select phone as retired_phone from user_phones where user_id = :'KOSTAS' limit 1 \gset
+select pg_temp.check('πριν: ο αριθμός που άλλαξε μένει δεσμευμένος', phone_registration_status(:'retired_phone') = 'previously_used');
 select count(*) as regions0 from regions \gset
 select count(*) as ports0 from ports \gset
 select count(*) as settings0 from platform_settings \gset
@@ -31,6 +37,8 @@ select pg_temp.check('πριν: πολλοί λογαριασμοί και δε�
 \echo '== το format'
 \i scripts/sql/wipe_all_accounts.sql
 
+select pg_temp.check('μετά: κανένας διαγραμμένος λογαριασμός', (select count(*) from users where status = 'deleted') = 0);
+select pg_temp.check('μετά: ο αριθμός που άλλαξε ελευθερώθηκε', phone_registration_status(:'retired_phone') = 'free');
 select pg_temp.check('μένει ένας λογαριασμός (public.users)', (select count(*) from users) = 1);
 select pg_temp.check('μένει ένας λογαριασμός (auth.users)', (select count(*) from auth.users) = 1);
 select pg_temp.check('είναι ο ιδιοκτήτης', (select id from users) = :'ADMIN' and (select is_owner from users));

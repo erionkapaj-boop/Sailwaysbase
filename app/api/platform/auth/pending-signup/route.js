@@ -12,8 +12,6 @@ import { isValidPhone } from "../../../../../lib/platform/phone";
 // phoneVerified: false into complete_registration) — an admin has to
 // confirm it's real before the app treats it as a live account.
 //
-// Δεν δίνονται ταυτότητες στη σειρά δοκιμαστικών τηλεφώνων (+3069800000NN): δοκιμαστικοί λογαριασμοί δεν υπάρχουν πια.
-const TEST_PHONE_RE = /^\+3069800000\d{2}$/;
 
 export async function POST(req) {
   const db = serviceClient();
@@ -22,7 +20,6 @@ export async function POST(req) {
   const { phone } = await req.json().catch(() => ({}));
   if (!phone) return Response.json({ error: "bad_request" }, { status: 400 });
   if (!isValidPhone(phone)) return Response.json({ error: "invalid_phone" }, { status: 400 });
-  if (TEST_PHONE_RE.test(phone)) return Response.json({ error: "phone_unavailable" }, { status: 409 });
 
   // 0094: a number that ever belonged to an account stays that account's —
   // including numbers it has since changed away from.

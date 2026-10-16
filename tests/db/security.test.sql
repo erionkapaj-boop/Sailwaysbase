@@ -38,7 +38,11 @@ where f not in (
   -- back); text cleaned and capped, per-session and global hourly limits
   'log_place_miss(p_query text, p_region_id uuid, p_session text)',
   -- 0128: θέσεις μερών που διόρθωσε ο ιδιοκτήτης (δημόσια γεωγραφία, μόνο ανάγνωση, χωρίς προσωπικά δεδομένα)
-  'place_positions_public()'
+  'place_positions_public()',
+  -- 0135: η δημόσια αναζήτηση (ο επισκέπτης βλέπει εγκεκριμένους, ορατούς επαγγελματίες πριν συνδεθεί)· μόνο ανάγνωση.
+  -- Μέχρι το 0134 η αναφορά στο auth.uid() ήταν για τον διαχωρισμό των δύο κόσμων, που δεν υπάρχει πια.
+  'search_available_skippers(p_start date, p_end date, p_region_id uuid, p_boat_type_id uuid, p_max_price numeric, p_gender text, p_crew_role crew_role, p_language_id uuid)',
+  'search_delivery_candidates(p_crew_role crew_role, p_start date, p_end date)'
 );
 select pg_temp.check('κάθε πίνακας έχει row-level security: ' || coalesce(string_agg(relname, ', '), '—'), count(*) = 0)
 from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and not relrowsecurity;

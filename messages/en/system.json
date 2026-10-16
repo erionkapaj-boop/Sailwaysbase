@@ -1,8 +1,6 @@
 {
   "Errors": {
     "account_not_active": "Your account is not active at the moment. For any questions, contact us.",
-    "test_account_mismatch": "Test accounts only work with other test accounts.",
-    "test_phone_cannot_be_admin": "A test account cannot be made an administrator.",
     "booking_not_found": "The booking was not found. Refresh the page.",
     "request_not_found": "The request was not found.",
     "delivery_request_not_found": "The delivery request was not found. Refresh the page.",

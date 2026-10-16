@@ -11,7 +11,6 @@ import { reportServerIssue } from "../../../../../lib/platform/serverHealth";
 // Ισχύουν οι ίδιοι κανόνες με την εγγραφή με τηλέφωνο: αριθμός που ανήκε ποτέ σε
 // λογαριασμό δεν ξαναδίνεται, και η απάντηση είναι η ίδια για κάθε «μη
 // διαθέσιμο» αριθμό (0107).
-const TEST_PHONE_RE = /^\+3069800000\d{2}$/;
 
 async function requireGoogleCaller(req, db) {
   const token = (req.headers.get("authorization") || "").replace(/^Bearer /, "");
@@ -35,7 +34,6 @@ export async function POST(req) {
     const { phone } = await req.json().catch(() => ({}));
     const normalized = normalizePhone(phone);
     if (!isValidPhone(normalized)) return Response.json({ error: "invalid_phone" }, { status: 400 });
-    if (TEST_PHONE_RE.test(normalized)) return Response.json({ error: "phone_unavailable" }, { status: 409 });
 
     // Όποιος έχει ήδη λογαριασμό αλλάζει τηλέφωνο από τον λογαριασμό του (με κωδικό).
     const { data: mine } = await db.from("users").select("id").eq("id", caller.id).maybeSingle();
