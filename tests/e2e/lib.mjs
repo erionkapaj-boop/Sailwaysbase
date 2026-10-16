@@ -90,8 +90,16 @@ export const HYDRATION_SNAP = () => {
   window.addEventListener("error", (e) => {
     if (/#418|#423|#425/.test(String(e.message || e.error?.message || ""))) window.__sfErrAt ??= Math.round(performance.now());
   });
+  // Κεφαλίδα και υποσέλιδο αλλάζουν θεμιτά μόλις φορτώσει η σύνδεση· συγκρίνεται και χωριστά το περιεχόμενο χωρίς αυτά.
+  const body = () => {
+    const c = document.body.cloneNode(true);
+    c.querySelectorAll("[data-sf-header], footer, nav").forEach((n) => n.remove());
+    return tok(c);
+  };
+  window.__sfBody = body;
   document.addEventListener("DOMContentLoaded", () => {
     window.__sfSsr = tok(document.body);
+    window.__sfSsrBody = body();
     new MutationObserver((list) => {
       for (const m of list) {
         if (window.__sfMut.length >= 60 || m.type !== "childList") continue;
@@ -113,11 +121,15 @@ export async function hydrationDiag(page, phone) {
       while (i < a.length && i < b.length && a[i] === b[i]) i++;
       const errAt = window.__sfErrAt ?? Infinity;
       const before = (window.__sfMut || []).filter((m) => m.t <= errAt).slice(-12);
-      return { i, la: a.length, lb: b.length, server: a.slice(Math.max(0, i - 3), i + 6), browser: b.slice(Math.max(0, i - 3), i + 6), errAt, before };
+      const ca = window.__sfSsrBody || [], cb = window.__sfBody ? window.__sfBody() : [];
+      let j = 0;
+      while (j < ca.length && j < cb.length && ca[j] === cb[j]) j++;
+      const content = j === ca.length && j === cb.length ? null : { j, la: ca.length, lb: cb.length, server: ca.slice(Math.max(0, j - 4), j + 8), browser: cb.slice(Math.max(0, j - 4), j + 8) };
+      return { i, la: a.length, lb: b.length, server: a.slice(Math.max(0, i - 3), i + 6), browser: b.slice(Math.max(0, i - 3), i + 6), errAt, before, content };
     });
     const url = page.url();
     if (!r) return console.log(`   [418-diag ${phone}] ${url}\n     (χωρίς εικόνα του διακομιστή)`);
-    console.log(`   [418-diag ${phone}] ${url}\n     πρώτη διαφορά στη θέση ${r.i} (διακομιστής ${r.la} κόμβοι, browser ${r.lb})\n     διακομιστής: ${JSON.stringify(r.server)}\n     browser:     ${JSON.stringify(r.browser)}\n     αλλαγές DOM πριν το σφάλμα (${r.errAt}ms): ${JSON.stringify(r.before)}`);
+    console.log(`   [418-diag ${phone}] ${url}\n     πρώτη διαφορά στη θέση ${r.i} (διακομιστής ${r.la} κόμβοι, browser ${r.lb})\n     διακομιστής: ${JSON.stringify(r.server)}\n     browser:     ${JSON.stringify(r.browser)}\n     αλλαγές DOM πριν το σφάλμα (${r.errAt}ms): ${JSON.stringify(r.before)}\n     περιεχόμενο χωρίς κεφαλίδα/υποσέλιδο: ${r.content ? `διαφορά στη θέση ${r.content.j} (διακομιστής ${r.content.la}, browser ${r.content.lb})\n       διακομιστής: ${JSON.stringify(r.content.server)}\n       browser:     ${JSON.stringify(r.content.browser)}` : "ίδιο"}`);
   } catch (e) {
     console.log(`   [418-diag ${phone}] δεν έγινε: ${String(e.message).slice(0, 80)}`);
   }
