@@ -1,12 +1,12 @@
 // Μενού εφαρμογών (τελείες πάνω αριστερά, 16/10/2026): πλέγμα 3×2 με σειρά Jobs, Delivery, WindNow / Community, Nearby,
 // Explore. Jobs και Delivery ανοίγουν τις υπάρχουσες σελίδες, Nearby τον υπάρχοντα χάρτη (ίδιο σύστημα), τα άλλα τρία
-// δείχνουν το όνομα και «Σύντομα». Χωρίς διπλά τετράγωνα για τις ίδιες λειτουργίες. Κινητό και υπολογιστής, EL και EN.
+// δείχνουν το όνομα και «Σύντομα» (το Community έχει δική του οθόνη, tests/e2e/community.e2e.mjs). Χωρίς διπλά τετράγωνα για τις ίδιες λειτουργίες. Κινητό και υπολογιστής, EL και EN.
 import { chromium } from "playwright";
 import { BASE, as, go, text, check, finish, shoot, hydrationOnly } from "./lib.mjs";
 
 const ORDER = ["jobs", "delivery", "windnow", "community", "nearby", "explore"];
 const NAMES = ["Jobs", "Delivery", "WindNow", "Community", "Nearby", "Explore"];
-const PAGES = { windnow: "WindNow", community: "Community", explore: "Explore" };
+const PAGES = { windnow: "WindNow", explore: "Explore" };
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 for (const locale of ["el", "en"]) {
@@ -61,7 +61,7 @@ for (const locale of ["el", "en"]) {
       await page.waitForTimeout(500);
       const t = await text(page);
       check(`${label}: ${name} → όνομα και «${soon}»`, new URL(page.url()).pathname === `/platform/${key}` && (await page.locator("h1").innerText()).trim() === name && t.includes(soon), page.url());
-      if (tag === "κινητό" && locale === "el" && key === "community") await shoot(page, "apps-soon");
+      if (tag === "κινητό" && locale === "el" && key === "windnow") await shoot(page, "apps-soon");
     }
     check(`${label}: χωρίς σφάλματα σελίδας`, errors.length === 0, errors.join(" | "));
     await ctx.close();
@@ -77,6 +77,6 @@ await as("6900002002", async (page) => {
   check("συνδεδεμένη: ίδιο μενού με έξι εφαρμογές", (await page.getByRole("menuitem").count()) === 6);
   await page.locator('[data-app="community"]').click();
   await page.waitForURL(/\/platform\/community/, { timeout: 10000 }).catch(() => {});
-  check("συνδεδεμένη: το Community ανοίγει με «Σύντομα»", (await text(page)).includes("Σύντομα"));
+  check("συνδεδεμένη: το Community ανοίγει (δείχνει τίτλο, όχι σφάλμα)", (await page.locator("h1").first().innerText()).trim() === "Community");
 });
 finish();

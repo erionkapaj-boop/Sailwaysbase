@@ -6,6 +6,11 @@
 
 ## Ανοιχτά αυτή τη στιγμή (13/10/2026)
 
+### Ενέργεια ιδιοκτήτη: Community, βήμα 1 (0136)
+Η βάση της Community (`0136_community.sql`, `docs/COMMUNITY.md`) μπαίνει στην παραγωγή με SQL στον SQL Editor, **πριν** το Promote
+του κώδικα. Έλεγχος μετά: 5 κατηγορίες, 4 ομάδες, ιδιωτικό bucket `community-photos`. Οι προσωρινές τιμές εμφάνισης/αρχειοθέτησης
+ανά κατηγορία και οι επιλογές της υλοποίησης είναι στο `docs/COMMUNITY.md` (να επιβεβαιωθούν).
+
 ### Ενέργεια ιδιοκτήτη: χάρτης (0128 και ρύθμιση Vercel)
 1. **SQL** `0128_place_positions.sql` (δίνεται στη συνομιλία, ένα κομμάτι + έλεγχος).
 2. **Vercel → Settings → Environment Variables:** πρόσθεσε `NEXT_PUBLIC_MAP_URL` = `https://skipperfinder-maps.erionkapaj.workers.dev` (Production και Preview). Η τιμή διαβάζεται στο build.

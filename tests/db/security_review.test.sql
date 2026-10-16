@@ -33,7 +33,9 @@ from pg_proc where pronamespace = 'public'::regnamespace and proname like 'admin
     'admin_reset_place_position',       -- το ίδιο: επαναφορά θέσης μέρους
     'admin_cancel_offer',               -- κλείνει πρόταση αντικατάστασης, όχι λογαριασμό
     'admin_set_contact_message_status', -- μήνυμα φόρμας επικοινωνίας
-    'admin_suspend_account'             -- αρνείται μόνη της διαχειριστές και υπαλλήλους
+    'admin_suspend_account',            -- αρνείται μόνη της διαχειριστές και υπαλλήλους
+    'admin_community_set_group_status',  -- κλείνει/ανοίγει ομάδα της Community (0136), όχι λογαριασμό
+    'admin_community_resolve_report'    -- κλείνει αναφορά περιεχομένου της Community (0136), όχι λογαριασμό
   );
 select pg_temp.check('οι βοηθητικές του ελέγχου δεν καλούνται από τον browser', not exists (
   select 1 from pg_proc where pronamespace = 'public'::regnamespace
