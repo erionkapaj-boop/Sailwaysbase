@@ -1,8 +1,10 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
+import HowItWorksSheet from "./HowItWorksSheet";
 import { useTranslations } from "next-intl";
-import { colors, muted, money, tapTarget } from "../../../lib/platform/theme";
-import { company, field } from "../../../lib/platform/company";
+import { colors, money, tapTarget } from "../../../lib/platform/theme";
+import { company } from "../../../lib/platform/company";
 
 const footerLink = {
   ...tapTarget,
@@ -11,63 +13,47 @@ const footerLink = {
   textDecoration: "none",
 };
 
+// Signed out (owner, 16/10/2026, after Google's footer): one thin full-width strip at the very bottom, no rule, a
+// slightly darker tint. Left: how it works + contact. Right: terms, privacy, © and city. The legal details of the
+// provider (name, VAT, registry) live on the Terms page, one tap away.
 export default function Footer() {
   const t = useTranslations("Footer");
+  const [howOpen, setHowOpen] = useState(false);
+  const link = { ...footerLink, fontSize: 13.5, color: colors.inkSoft, background: "none", border: 0, padding: 0, fontFamily: "inherit", cursor: "pointer" };
   return (
-    <footer
-      style={{
-        borderTop: `1px solid ${colors.border}`,
-        marginTop: 64,
-        padding: "28px 20px 40px",
-      }}
-    >
-      <div style={{ maxWidth: 960, margin: "0 auto" }}>
-        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 14 }}>
-          <Link href="/platform/about" style={footerLink}>
-            {t("about")}
-          </Link>
-          <Link href="/platform/contact" style={footerLink}>
+    <footer data-site-footer style={{ background: colors.footerBand, padding: "0 24px" }}>
+      <style
+        dangerouslySetInnerHTML={{
+          __html:
+            ".sf-foot{display:flex;align-items:center;justify-content:space-between;gap:8px 24px;flex-wrap:wrap;min-height:56px;padding:4px 0}" +
+            ".sf-foot-group{display:flex;align-items:center;gap:0 22px;flex-wrap:wrap}" +
+            ".sf-foot a:hover,.sf-foot button:hover{color:" + colors.ink + "}" +
+            "@media(max-width:640px){.sf-foot{justify-content:center;padding:6px 0;gap:0 18px}.sf-foot-group{display:contents}}",
+        }}
+      />
+      <div className="sf-foot">
+        <div className="sf-foot-group">
+          <button type="button" data-how-link onClick={() => setHowOpen(true)} style={link}>
+            {t("how")}
+          </button>
+          <Link href="/platform/contact" style={link}>
             {t("contact")}
           </Link>
-          <Link href="/platform/terms" style={footerLink}>
-            {t("terms")}
+        </div>
+        <div className="sf-foot-group">
+          <Link href="/platform/terms" style={link}>
+            {t("termsShort")}
           </Link>
-          <Link href="/platform/privacy" style={footerLink}>
+          <Link href="/platform/privacy" style={link}>
             {t("privacy")}
           </Link>
+          <span style={{ ...footerLink, fontSize: 13.5, color: colors.inkSoft, display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}>
+            ©&nbsp;<span style={money}>{new Date().getFullYear()}</span>&nbsp;{company.brandName}
+            {` · ${t("city")}`}
+          </span>
         </div>
-
-        {/*
-         * Ο νόμος (ΠΔ 131/2003) θέλει τα στοιχεία του παρόχου ορατά και
-         * ακριβή. Όσο κάποιο λείπει, δεν τυπώνεται τίποτα στη θέση του —
-         * ένα εφευρημένο ΑΦΜ θα ήταν χειρότερο από ένα κενό. */}
-        <p style={{ ...muted, fontSize: 12, margin: "0 0 4px" }}>
-          {[
-            field(company.legalName),
-            [field(company.address), company.city, company.country].filter(Boolean).join(", "),
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {(field(company.vat) || field(company.gemi)) && (
-          <p style={{ ...muted, fontSize: 12, margin: "0 0 4px" }}>
-            {field(company.vat) && (
-              <>
-                {t("vat")} <span style={money}>{field(company.vat)}</span>
-              </>
-            )}
-            {field(company.vat) && field(company.gemi) ? " · " : ""}
-            {field(company.gemi) && (
-              <>
-                {t("gemi")} <span style={money}>{field(company.gemi)}</span>
-              </>
-            )}
-          </p>
-        )}
-        <p style={{ ...muted, fontSize: 12, margin: 0 }}>
-          © <span style={money}>{new Date().getFullYear()}</span> {company.brandName}
-        </p>
       </div>
+      <HowItWorksSheet open={howOpen} onClose={() => setHowOpen(false)} />
     </footer>
   );
 }

@@ -44,7 +44,7 @@ const en = await text(page);
 check("γλώσσα σελίδας: en", (await lang(page)) === "en");
 check("cookie γλώσσας", (await cookie(page)) === "en");
 check("τα κείμενα που έχουν περάσει στην υποδομή γύρισαν", en.includes("The people behind every voyage.") && en.includes("Where are you travelling?") && en.includes("Login"));
-check("υποσέλιδο στα αγγλικά", en.includes("Terms of use") && en.includes("Privacy"));
+check("υποσέλιδο στα αγγλικά", en.includes("Terms") && en.includes("Privacy") && en.includes("How it works"));
 check("το κουμπί δείχνει τη νέα γλώσσα", (await button(page).getAttribute("aria-label")).includes("English"));
 const remaining = await page.locator("div.platform-scope").first().evaluate((el) => {
   // Χωρίς το υποσέλιδο (έχει την ελληνική επωνυμία της εταιρείας).

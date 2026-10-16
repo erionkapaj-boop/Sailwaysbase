@@ -30,8 +30,8 @@ for (const locale of ["el", "en"]) {
   });
   await go(page, "/platform");
   const L = locale === "el"
-    ? { tag: "Οι άνθρωποι πίσω από κάθε ταξίδι.", cta: "Πού θα ταξιδέψεις;", exp: "Ανακάλυψε εμπειρίες στη θάλασσα", pros: "Για επαγγελματίες", code: "ΕΛ", board: "Ανοιχτά αιτήματα", login: "Σύνδεση", menu: "Περισσότερα", delivery: "Μεταφορά σκάφους", terms: "Όροι χρήσης" }
-    : { tag: "The people behind every voyage.", cta: "Where are you travelling?", exp: "Discover experiences at sea", pros: "For professionals", code: "EN", board: "Open requests", login: "Login", menu: "More", delivery: "Boat delivery", terms: "Terms of use" };
+    ? { tag: "Οι άνθρωποι πίσω από κάθε ταξίδι.", cta: "Πού θα ταξιδέψεις;", exp: "Ανακάλυψε εμπειρίες στη θάλασσα", pros: "Για επαγγελματίες", code: "ΕΛ", board: "Ανοιχτά αιτήματα", login: "Σύνδεση", menu: "Περισσότερα", delivery: "Μεταφορά σκάφους", terms: "Όροι", how: "Πώς λειτουργεί", lead: "φέρνει σε επαφή όσους χρειάζονται πλήρωμα", detail: "Αναλυτικά" }
+    : { tag: "The people behind every voyage.", cta: "Where are you travelling?", exp: "Discover experiences at sea", pros: "For professionals", code: "EN", board: "Open requests", login: "Login", menu: "More", delivery: "Boat delivery", terms: "Terms", how: "How it works", lead: "connects people who need crew", detail: "In detail" };
   const body = await text(page);
   check(`${locale}: όλα τα στοιχεία της αρχικής`, [L.tag, L.cta, L.exp, L.pros, L.login, L.terms].every((s) => body.includes(s)), body.slice(0, 300));
   check(`${locale}: γλώσσα με γράμματα, χωρίς σημαία`, (await page.locator("[data-language-code]").innerText()) === L.code && (await page.locator("[data-language-button] svg, [data-language-button] img").count()) === 1);
@@ -42,6 +42,22 @@ for (const locale of ["el", "en"]) {
   const box = await dots.boundingBox();
   check(`${locale}: τελείες πάνω αριστερά, 44px`, box && box.x < 60 && box.y < 70 && box.width >= 44 && box.height >= 44, JSON.stringify(box));
   await shoot(page, `home-${locale}`);
+  // Υποσέλιδο (16/10/2026): μία λεπτή λωρίδα στο κάτω άκρο· «Πώς λειτουργεί» ανοίγει τη σύντομη καρτέλα.
+  const foot = await page.locator("[data-site-footer]").boundingBox();
+  check(`${locale}: λεπτό υποσέλιδο στο κάτω άκρο`, foot && foot.height <= 110 && Math.abs(foot.y + foot.height - 844) <= 2, JSON.stringify(foot));
+  await page.locator("[data-how-link]").click();
+  await page.waitForTimeout(400);
+  const sheet = page.locator("[data-how-sheet]");
+  check(`${locale}: «${L.how}» ανοίγει την καρτέλα`, (await sheet.count()) === 1 && (await sheet.innerText()).includes(L.lead));
+  await shoot(page, `home-how-${locale}`);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  check(`${locale}: το Escape την κλείνει`, (await sheet.count()) === 0);
+  await page.locator("[data-how-link]").click();
+  await page.getByRole("link", { name: L.detail, exact: true }).click();
+  await page.waitForURL(/\/platform\/about/, { timeout: 10000 }).catch(() => {});
+  check(`${locale}: «${L.detail}» οδηγεί στη σελίδα με τις λεπτομέρειες`, page.url().includes("/platform/about"));
+  await go(page, "/platform");
   await dots.click();
   await page.waitForTimeout(300);
   const items = await page.getByRole("menuitem").allInnerTexts();

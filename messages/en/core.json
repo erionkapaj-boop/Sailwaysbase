@@ -7,7 +7,9 @@
     "termsShort": "Terms",
     "privacy": "Privacy",
     "vat": "VAT",
-    "gemi": "Reg. no."
+    "gemi": "Reg. no.",
+    "how": "How it works",
+    "city": "Athens"
   },
   "Nav": {
     "login": "Login",
@@ -102,5 +104,20 @@
     "caption": "Illustrative AI image",
     "tag": "AI",
     "alt": "Illustrative image: a typical boat of this kind"
+  },
+  "HowItWorks": {
+    "title": "How it works",
+    "lead": "SkipperFinder connects people who need crew for a boat with professionals of the sea.",
+    "clientTitle": "If you need crew",
+    "client1": "A skipper, hostess, cook or deckhand, for a day or a whole cruise.",
+    "client2": "Only those available on your dates.",
+    "client3": "Approved professionals, with reviews from past trips.",
+    "client4": "Crew for moving a boat from port to port, too.",
+    "proTitle": "If you work at sea",
+    "pro1": "Work from private clients, boat owners and charter companies.",
+    "pro2": "Found for the days you are free.",
+    "pro3": "A profile that gains weight with every review.",
+    "detail": "In detail",
+    "close": "Close"
   }
 }
