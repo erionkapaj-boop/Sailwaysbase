@@ -37,7 +37,16 @@
     "appsMenu": "Περισσότερα",
     "openRequests": "Ανοιχτά αιτήματα",
     "openRequestsHint": "Αιτήματα πελατών που περιμένουν επαγγελματία",
-    "whereTo": "Πού θα ταξιδέψεις;"
+    "whereTo": "Πού θα ταξιδέψεις;",
+    "apps": {
+      "jobs": "Jobs",
+      "delivery": "Delivery",
+      "windnow": "WindNow",
+      "community": "Community",
+      "nearby": "Nearby",
+      "explore": "Explore"
+    },
+    "comingSoon": "Σύντομα"
   },
   "LanguageSwitcher": {
     "change": "Αλλαγή γλώσσας",

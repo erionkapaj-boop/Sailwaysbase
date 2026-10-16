@@ -29,8 +29,8 @@ for (const locale of ["el", "en"]) {
   });
   await go(page, "/platform");
   const L = locale === "el"
-    ? { tag: "Οι άνθρωποι πίσω από κάθε ταξίδι.", cta: "Πού θα ταξιδέψεις;", exp: "Ανακάλυψε εμπειρίες στη θάλασσα", pros: "Για επαγγελματίες", code: "ΕΛ", board: "Ανοιχτά αιτήματα", login: "Σύνδεση", menu: "Περισσότερα", delivery: "Μεταφορά σκάφους", terms: "Όροι", how: "Πώς λειτουργεί", lead: "φέρνει σε επαφή όσους χρειάζονται πλήρωμα", detail: "Αναλυτικά" }
-    : { tag: "The people behind every voyage.", cta: "Where are you travelling?", exp: "Discover experiences at sea", pros: "For professionals", code: "EN", board: "Open requests", login: "Login", menu: "More", delivery: "Boat delivery", terms: "Terms", how: "How it works", lead: "connects people who need crew", detail: "In detail" };
+    ? { tag: "Οι άνθρωποι πίσω από κάθε ταξίδι.", cta: "Πού θα ταξιδέψεις;", exp: "Ανακάλυψε εμπειρίες στη θάλασσα", pros: "Για επαγγελματίες", code: "ΕΛ", login: "Σύνδεση", menu: "Περισσότερα", delivery: "Μεταφορά σκάφους", terms: "Όροι", how: "Πώς λειτουργεί", lead: "φέρνει σε επαφή όσους χρειάζονται πλήρωμα", detail: "Αναλυτικά" }
+    : { tag: "The people behind every voyage.", cta: "Where are you travelling?", exp: "Discover experiences at sea", pros: "For professionals", code: "EN", login: "Login", menu: "More", delivery: "Boat delivery", terms: "Terms", how: "How it works", lead: "connects people who need crew", detail: "In detail" };
   const body = await text(page);
   check(`${locale}: όλα τα στοιχεία της αρχικής`, [L.tag, L.cta, L.exp, L.pros, L.login, L.terms].every((s) => body.includes(s)), body.slice(0, 300));
   check(`${locale}: γλώσσα με γράμματα, χωρίς σημαία`, (await page.locator("[data-language-code]").innerText()) === L.code && (await page.locator("[data-language-button] svg, [data-language-button] img").count()) === 1);
@@ -59,10 +59,10 @@ for (const locale of ["el", "en"]) {
   await go(page, "/platform");
   await dots.click();
   await page.waitForTimeout(300);
-  const items = await page.getByRole("menuitem").allInnerTexts();
-  check(`${locale}: το μενού έχει τη μεταφορά σκάφους και τα ανοιχτά αιτήματα`, items.length === 2 && items[0].trim().startsWith(L.delivery) && items[1].trim().startsWith(L.board), items.join("|"));
+  const items = (await page.getByRole("menuitem").allInnerTexts()).map((x) => x.trim());
+  check(`${locale}: το μενού έχει έξι εφαρμογές με τη σειρά Jobs, Delivery, WindNow, Community, Nearby, Explore`, items.join("|") === "Jobs|Delivery|WindNow|Community|Nearby|Explore", items.join("|"));
   await shoot(page, `home-menu-${locale}`);
-  await page.getByRole("menuitem").first().click();
+  await page.locator('[data-app="delivery"]').click();
   await page.waitForURL(/\/platform\/delivery/, { timeout: 10000 }).catch(() => {});
   check(`${locale}: η μεταφορά σκάφους ανοίγει`, page.url().includes("/platform/delivery"));
   await go(page, "/platform");

@@ -365,6 +365,10 @@ export default function BoardPage() {
   useEffect(() => {
     if (wide) setMapOpen(false);
   }, [wide]);
+  // «Nearby» στο μενού εφαρμογών: ο ίδιος χάρτης, ανοιχτός από την αρχή (στην πλατιά οθόνη φαίνεται πάντα).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("map") === "1") setMapOpen(true);
+  }, []);
 
   function onMarker(id) {
     if (wide) {

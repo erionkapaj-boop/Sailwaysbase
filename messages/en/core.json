@@ -37,7 +37,16 @@
     "appsMenu": "More",
     "openRequests": "Open requests",
     "openRequestsHint": "Client requests waiting for a professional",
-    "whereTo": "Where are you travelling?"
+    "whereTo": "Where are you travelling?",
+    "apps": {
+      "jobs": "Jobs",
+      "delivery": "Delivery",
+      "windnow": "WindNow",
+      "community": "Community",
+      "nearby": "Nearby",
+      "explore": "Explore"
+    },
+    "comingSoon": "Coming soon"
   },
   "LanguageSwitcher": {
     "change": "Change language",

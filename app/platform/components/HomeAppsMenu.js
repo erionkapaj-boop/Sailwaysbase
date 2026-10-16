@@ -2,13 +2,20 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import Icon from "./Icon";
 import { card, colors, shadow, tapTarget } from "../../../lib/platform/theme";
 
-// Το μενού με τις εννέα τελείες της αρχικής (όπως των Google). Εδώ μπαίνουν οι
-// είσοδοι που δεν είναι η κύρια ροή· η πρώτη είναι η μεταφορά σκάφους.
+// Το μενού με τις εννέα τελείες (όπως των Google): πλέγμα 3×2 εφαρμογών (απόφαση ιδιοκτήτη 16/10/2026).
+// Οι ονομασίες είναι σταθερές και ίδιες σε κάθε γλώσσα. Μία λειτουργία = ένα τετράγωνο, χωρίς διπλά.
+//   Jobs → ανοιχτά αιτήματα · Delivery → μεταφορά σκάφους · Nearby → ο υπάρχων χάρτης (ανοιχτών αιτημάτων)
+//   WindNow, Community, Explore → προσωρινές οθόνες «Σύντομα».
 const ITEMS = [
-  { href: "/platform/delivery", key: "boatDelivery" },
-  { href: "/platform/board", key: "openRequests" },
+  { href: "/platform/board", key: "jobs", icon: "brief" },
+  { href: "/platform/delivery", key: "delivery", icon: "route" },
+  { href: "/platform/windnow", key: "windnow", icon: "wind" },
+  { href: "/platform/community", key: "community", icon: "users" },
+  { href: "/platform/board?map=1", key: "nearby", icon: "map" },
+  { href: "/platform/explore", key: "explore", icon: "compass" },
 ];
 
 export default function HomeAppsMenu() {
@@ -45,16 +52,26 @@ export default function HomeAppsMenu() {
         </svg>
       </button>
       {open && (
-        <div role="menu" style={{ ...card, position: "absolute", top: 50, left: 0, zIndex: 60, minWidth: 240, padding: 6, marginBottom: 0, boxShadow: shadow.raised }}>
+        <div
+          role="menu"
+          data-apps-grid
+          style={{ ...card, position: "absolute", top: 50, left: 0, zIndex: 60, width: 292, boxSizing: "border-box", padding: "14px 10px 8px", marginBottom: 0, boxShadow: shadow.raised, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px 4px" }}
+        >
+          <style dangerouslySetInnerHTML={{ __html: ".sf-app-tile:hover .sf-app-ico,.sf-app-tile:focus-visible .sf-app-ico{background:#E6ECEA}.sf-app-tile:focus-visible{outline:2px solid " + colors.ink + ";outline-offset:2px}" }} />
           {ITEMS.map((it) => (
             <Link
-              key={it.href}
+              key={it.key}
               role="menuitem"
               href={it.href}
+              className="sf-app-tile"
+              data-app={it.key}
               onClick={() => setOpen(false)}
-              style={{ display: "flex", alignItems: "center", minHeight: 48, padding: "0 14px", textDecoration: "none", color: colors.ink, fontSize: 16, borderRadius: 10 }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "4px 2px 8px", textDecoration: "none", color: colors.ink, fontSize: 13, fontWeight: 500, borderRadius: 14, minWidth: 0 }}
             >
-              {t(it.key)}
+              <span className="sf-app-ico" style={{ width: 64, height: 64, borderRadius: 18, background: colors.seaGlass, display: "flex", alignItems: "center", justifyContent: "center", color: colors.ink, transition: "background-color 140ms" }}>
+                <Icon name={it.icon} size={28} stroke={1.5} />
+              </span>
+              <span style={{ maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(`apps.${it.key}`)}</span>
             </Link>
           ))}
         </div>
