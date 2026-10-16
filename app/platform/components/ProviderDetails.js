@@ -23,7 +23,7 @@ export default function ProviderDetails() {
         data-provider-toggle
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: colors.accent, fontSize: 14, fontFamily: "inherit" }}
+        style={{ background: "none", border: 0, padding: "7px 0", minHeight: 32, cursor: "pointer", color: colors.accent, fontSize: 14, fontFamily: "inherit" }}
       >
         {open ? t("providerHide") : t("provider")}
       </button>
