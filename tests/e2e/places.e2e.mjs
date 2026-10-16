@@ -13,7 +13,7 @@ const options = async (page) => (await page.getByRole("option").allInnerTexts())
 await as(MARIA, async (page) => {
   // ---- Οδηγός: ρόλος → χώρα → «από πού» → ημερομηνίες ----
   await go(page, "/platform");
-  await page.locator("button.sf-cta").click();
+  await page.locator("[data-home-search]").click();
   await page.waitForTimeout(400);
 
   let t = await text(page);

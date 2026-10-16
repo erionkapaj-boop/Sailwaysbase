@@ -14,7 +14,7 @@ const kostasLocale0 = sql(`select coalesce(locale, '') from users where id = '${
 // Ο οδηγός ως τη βοήθεια: χώρα, λιμάνι, ημερομηνίες (from..to), επιβάτες, σκάφος «Δεν ξέρω ακόμα».
 async function toRoles(page, from, to) {
   await go(page, "/platform");
-  await page.locator("button.sf-cta").click();
+  await page.locator("[data-home-search]").click();
   await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
   await page.waitForTimeout(1500);
   const cont = () => page.locator(".sf-step-footer button").first().click();

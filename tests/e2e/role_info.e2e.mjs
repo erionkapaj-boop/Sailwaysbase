@@ -26,7 +26,7 @@ const NAMES = { el: ["Skipper", "Hostess", "Μάγειρας", "Deckhand"], en: 
 await as("6900002002", async (page) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await go(page, "/platform");
-  await page.locator("button.sf-cta").click();
+  await page.locator("[data-home-search]").click();
   await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
   await page.waitForTimeout(1500);
   const cont = () => page.locator(".sf-step-footer button").first();

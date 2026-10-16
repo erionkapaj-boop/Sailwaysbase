@@ -12,7 +12,7 @@ await as("6900002002", async (page) => {
   const row = (k) => page.locator(`[data-summary-row="${k}"]`);
   const rowText = async (k) => (await row(k).innerText()).replace(/\s+/g, " ").trim();
   await go(page, "/platform");
-  await page.locator("button.sf-cta").click();
+  await page.locator("[data-home-search]").click();
   await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
   await page.waitForTimeout(1500);
   await cont().click(); await page.waitForTimeout(600);
@@ -113,7 +113,7 @@ await as("6900002002", async (page) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const cont = () => page.locator(".sf-step-footer button").first();
   await go(page, "/platform");
-  await page.locator("button.sf-cta").click();
+  await page.locator("[data-home-search]").click();
   await page.getByRole("button", { name: "Ελλάδα", exact: true }).click();
   await page.waitForTimeout(1500);
   await cont().click(); await page.waitForTimeout(600);
