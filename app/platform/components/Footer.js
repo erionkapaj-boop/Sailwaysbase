@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import HowItWorksSheet from "./HowItWorksSheet";
 import { useTranslations } from "next-intl";
-import { colors, money, tapTarget } from "../../../lib/platform/theme";
+import { colors, muted, money, tapTarget } from "../../../lib/platform/theme";
 import { company } from "../../../lib/platform/company";
 
 const footerLink = {
