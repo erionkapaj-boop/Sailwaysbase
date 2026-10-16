@@ -86,7 +86,7 @@ await as("6900002002", async (page) => {
   await go(page, "/platform");
   check("συνδεδεμένη: οι τελείες υπάρχουν πάνω αριστερά", await page.getByRole("button", { name: "Περισσότερα", exact: true }).isVisible());
   await page.getByRole("button", { name: "Περισσότερα", exact: true }).click();
-  check("συνδεδεμένη: οι τελείες έχουν μεταφορά σκάφους και ανοιχτά αιτήματα", (await text(page)).includes("Μεταφορά σκάφους") && (await text(page)).includes("Ανοιχτά αιτήματα"));
+  check("συνδεδεμένη: οι τελείες έχουν τις έξι εφαρμογές (Jobs … Explore)", (await page.getByRole("menuitem").allInnerTexts()).map((x) => x.trim()).join("|") === "Jobs|Delivery|WindNow|Community|Nearby|Explore");
   await page.keyboard.press("Escape");
   check("συνδεδεμένη: χωρίς δεύτερη εγγραφή", !(await text(page)).includes("Για επαγγελματίες"));
   await shoot(page, "home-signed-in");
