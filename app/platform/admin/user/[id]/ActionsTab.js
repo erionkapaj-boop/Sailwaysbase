@@ -17,6 +17,7 @@ import {
   adminRestoreAccount,
   adminSetTestAccount,
   adminSetStaffAdmin,
+  adminSetRequestLimit,
 } from "../../../../../lib/platform/db";
 import { Hint, fieldInput, useErrorLabel } from "./shared";
 
@@ -41,6 +42,9 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
   const [showSuspendForm, setShowSuspendForm] = useState(false);
   const [suspendReason, setSuspendReason] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
+  const curLimit = u.request_limit ?? null;
+  const [limitMode, setLimitMode] = useState(curLimit === null ? "default" : curLimit === -1 ? "unlimited" : "custom");
+  const [limitValue, setLimitValue] = useState(curLimit !== null && curLimit > 0 ? String(curLimit) : "10");
 
   const name = personName(u) || u.phone_number;
 
@@ -145,6 +149,16 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
     )
       return;
     await run(() => adminSetTestAccount(id, !u.is_test_account));
+  }
+
+  async function handleSaveLimit() {
+    const n = Number(limitValue);
+    if (limitMode === "custom" && !(Number.isInteger(n) && n >= 1)) {
+      setError(t("actions.limitInvalid"));
+      return;
+    }
+    const value = limitMode === "default" ? null : limitMode === "unlimited" ? -1 : n;
+    await run(() => adminSetRequestLimit(id, value), t("actions.limitSaved"));
   }
 
   async function handleToggleStaffAdmin() {
@@ -295,6 +309,22 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
             </Panel>
           )}
         </>
+      )}
+
+      {u.status !== "deleted" && u.role !== "admin" && !u.is_owner && !u.is_staff_admin && (
+        <Panel title={t("actions.limitTitle")} subtitle={t("actions.limitSubtitle")}>
+          <div data-request-limit style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <select aria-label={t("actions.limitTitle")} style={{ ...fieldInput, width: "auto" }} value={limitMode} disabled={busy} onChange={(e) => setLimitMode(e.target.value)}>
+              <option value="default">{t("actions.limitDefault")}</option>
+              <option value="unlimited">{t("actions.limitUnlimited")}</option>
+              <option value="custom">{t("actions.limitCustom")}</option>
+            </select>
+            {limitMode === "custom" && (
+              <input type="number" min="1" aria-label={t("actions.limitCustom")} style={{ ...fieldInput, width: 90 }} value={limitValue} disabled={busy} onChange={(e) => setLimitValue(e.target.value)} />
+            )}
+            <button style={button("primary")} disabled={busy} onClick={handleSaveLimit}>{busy ? "…" : t("actions.limitSave")}</button>
+          </div>
+        </Panel>
       )}
 
       {isOwner && u.status !== "deleted" && !u.is_owner && (

@@ -298,7 +298,15 @@
       "testAccount": "Test account",
       "testHint": "Only for fake accounts.",
       "staffAdmin": "Admin rights",
-      "staffHint": "Can also access this console with the same phone number and password. Only for a trusted person."
+      "staffHint": "Can also access this console with the same phone number and password. Only for a trusted person.",
+      "limitTitle": "Request limit",
+      "limitSubtitle": "How many requests this account can send in 24 hours.",
+      "limitDefault": "Platform default",
+      "limitUnlimited": "No limit",
+      "limitCustom": "Specific limit",
+      "limitSave": "Save",
+      "limitSaved": "The limit was saved.",
+      "limitInvalid": "Enter a whole number, 1 or more."
     }
   }
 }

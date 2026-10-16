@@ -76,7 +76,7 @@
   },
   "BoardNew": {
     "title": "Leave a request",
-    "intro": "Your request is shown anonymously to all professionals. You choose among those who claim it. 1 credit is reserved and charged only when you choose.",
+    "intro": "Your request is shown anonymously to all professionals. You choose among those who claim it. 1 credit per position is reserved and charged only when you choose.",
     "role": "Role",
     "start": "From",
     "end": "To",
@@ -96,7 +96,7 @@
     "login": "Log in",
     "register": "Sign up",
     "posted": "Your request was posted.",
-    "creditNote": "1 credit is reserved.",
+    "creditNote": "Credits stay reserved until the request is accepted. If it is cancelled or expires, they are released.",
     "buy": "Buy credits",
     "err": {
       "insufficient_wallet": "You do not have enough credits. Buy credits and try again.",
@@ -109,7 +109,13 @@
       "party_too_large": "Up to 50 people.",
       "note_too_long": "The note is too long.",
       "not_a_client": "Your account has no client profile."
-    }
+    },
+    "countSkippers": "How many skippers?",
+    "countPros": "How many professionals?",
+    "countLess": "Fewer",
+    "countMore": "More",
+    "cost": "Cost: {n, plural, one {# credit} other {# credits}}",
+    "creditShort": "{need} credits needed; you have {have} available."
   },
   "BoardClaims": {
     "title": "Open request",

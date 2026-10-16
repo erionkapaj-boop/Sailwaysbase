@@ -30,6 +30,7 @@ const SETTING_META = {
   signup_credits_professional: { group: "credits", unit: "credits", help: true },
   signup_credits_client: { group: "credits", unit: "credits", help: true },
   client_request_fee: { group: "fees", unit: "credits", help: true },
+  client_request_limit: { group: "fees", unit: "requests", help: true },
   skipper_claim_fee: { group: "fees", unit: "credits", help: true },
   unclaimed_expiry_hours: { group: "expiry", unit: "hours", help: true },
   board_max_days: { group: "board", unit: "days", help: true },

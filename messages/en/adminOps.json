@@ -465,7 +465,10 @@
     "s_board_after_start_days_label": "Days after the charter starts",
     "s_board_after_start_days_help": "The request stays open at most until this many days after the trip starts, whichever comes first.",
     "s_board_max_claims_label": "Claim limit per request",
-    "s_board_max_claims_help": "How many professionals can claim the same request at once."
+    "s_board_max_claims_help": "How many professionals can claim the same request at once.",
+    "s_client_request_limit_label": "Request limit per account",
+    "s_client_request_limit_help": "How many requests a client can send in 24 hours. Per account it is changed from the user page; admins and the owner have no limit.",
+    "unit_requests": "requests"
   },
   "AdminMap": {
     "title": "Map",

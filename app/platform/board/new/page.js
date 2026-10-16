@@ -8,36 +8,54 @@ import { useLocalData } from "../../useLocalData";
 import SignedOutNotice from "../../components/SignedOutNotice";
 import BoatFields from "../../components/BoatFields";
 import { boatValid } from "../../../../lib/platform/boat";
-import { listLookups, postOpenRequest } from "../../../../lib/platform/db";
+import { listLookups, postOpenRequests, getPlatformSetting, getMyReservedCredits } from "../../../../lib/platform/db";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { CREW_ROLES } from "../../../../lib/platform/roles";
 import { container, card, h1, muted, button, input, select, label, colors } from "../../../../lib/platform/theme";
 
 const field = { marginBottom: 16 };
+const MAX_SKIPPERS = 10;
+const stepBtn = {
+  width: 44, height: 44, borderRadius: "50%", border: `1px solid ${colors.border}`, background: colors.card, color: colors.ink,
+  fontFamily: "inherit", fontSize: 20, lineHeight: 1, cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center",
+};
 
 // Ο πελάτης αφήνει αίτημα χωρίς να διαλέξει επαγγελματίες (0124).
 export default function NewBoardRequest() {
   const t = useTranslations("BoardNew");
   const L = useLocalData();
   const router = useRouter();
-  const { session, loading } = useAuth();
+  const { session, loading, userRow } = useAuth();
   const [lookups, setLookups] = useState({ regions: [], boatTypes: [] });
   const [f, setF] = useState({ role: "skipper", start: "", end: "", regionId: "", departure: "", arrival: "", boatTypeId: "", partySize: "", privateCabin: false, note: "", boatModel: "", boatLengthFt: "", boatYear: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [needCredit, setNeedCredit] = useState(false);
+  const [count, setCount] = useState(1);
+  const [fee, setFee] = useState(1);
+  const [reserved, setReserved] = useState(0);
+  const balance = Number(userRow?.wallet_balance ?? 0);
+  const available = Math.max(0, balance - reserved);
 
   useEffect(() => {
     listLookups()
       .then((l) => setLookups({ regions: l.regions || [], boatTypes: l.boatTypes || [] }))
       .catch(() => {});
+    getPlatformSetting("client_request_fee").then((v) => setFee(Number(v) || 0)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    getMyReservedCredits().then(setReserved).catch(() => {});
+  }, [session, balance]);
 
   if (loading) return <div style={container} />;
   if (!session) return <SignedOutNotice />;
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
-  const ready = f.start && f.end && f.regionId && f.departure.trim() && f.arrival.trim() && f.boatTypeId && boatValid({ model: f.boatModel, lengthFt: f.boatLengthFt, year: f.boatYear });
+  const cost = fee * count;
+  const short = cost > available;
+  const ready = !short && f.start && f.end && f.regionId && f.departure.trim() && f.arrival.trim() && f.boatTypeId && boatValid({ model: f.boatModel, lengthFt: f.boatLengthFt, year: f.boatYear });
 
   async function submit(e) {
     e.preventDefault();
@@ -45,12 +63,12 @@ export default function NewBoardRequest() {
     setError("");
     setNeedCredit(false);
     try {
-      await postOpenRequest({
+      await postOpenRequests({
         start: f.start, end: f.end, regionId: f.regionId, departure: f.departure, arrival: f.arrival,
         boatTypeId: f.boatTypeId, role: f.role, partySize: f.partySize ? Number(f.partySize) : null,
         privateCabin: f.privateCabin, cabinKind: f.privateCabin ? "private" : "bunk", note: f.note,
         boatModel: f.boatModel, boatLengthFt: f.boatLengthFt, boatYear: f.boatYear,
-      });
+      }, count);
       router.push("/platform/requests?board=1");
     } catch (err) {
       const code = err?.message;
@@ -131,13 +149,29 @@ export default function NewBoardRequest() {
           <textarea id="bn-note" data-user-text style={{ ...input, minHeight: 80, resize: "vertical" }} maxLength={500} value={f.note} onChange={set("note")} />
           <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>{t("noteHint")}</p>
         </div>
+        <div style={field} data-skipper-count>
+          <span style={label} id="bn-count-label">{t(f.role === "skipper" ? "countSkippers" : "countPros")}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div role="group" aria-labelledby="bn-count-label" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <button type="button" aria-label={t("countLess")} disabled={count <= 1} onClick={() => setCount(count - 1)} style={stepBtn}>−</button>
+              <output aria-live="polite" style={{ minWidth: 32, textAlign: "center", fontSize: 18, fontWeight: 600, color: colors.ink }}>{count}</output>
+              <button type="button" aria-label={t("countMore")} disabled={count >= MAX_SKIPPERS} onClick={() => setCount(count + 1)} style={stepBtn}>+</button>
+            </div>
+            <span data-request-cost style={{ ...muted, fontSize: 14 }}>{t("cost", { n: cost })}</span>
+          </div>
+          {short && (
+            <p role="alert" data-credit-short style={{ color: colors.danger, fontSize: 13, margin: "8px 0 0" }}>
+              {t("creditShort", { need: cost, have: available })}
+            </p>
+          )}
+        </div>
         <p style={{ ...muted, fontSize: 13, margin: "0 0 12px" }}>{t("creditNote")}</p>
         {error && <p role="alert" style={{ color: colors.danger, margin: "0 0 12px" }}>{error}</p>}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button type="submit" style={button("primary")} disabled={!ready || busy}>
             {busy ? t("submitting") : t("submit")}
           </button>
-          {needCredit && (
+          {(needCredit || short) && (
             <Link href="/platform/wallet" style={{ ...button("secondary"), textDecoration: "none" }}>
               {t("buy")}
             </Link>
