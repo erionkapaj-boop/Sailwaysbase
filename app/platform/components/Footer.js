@@ -21,7 +21,7 @@ export default function Footer() {
   const [howOpen, setHowOpen] = useState(false);
   const link = { ...footerLink, fontSize: 13.5, color: colors.inkSoft, background: "none", border: 0, padding: 0, fontFamily: "inherit", cursor: "pointer" };
   return (
-    <footer data-site-footer style={{ background: colors.footerBand, padding: "0 24px" }}>
+    <footer data-site-footer style={{ background: colors.footerBand, padding: "0 24px var(--sf-bnav, 0px)" }}>
       <style
         dangerouslySetInnerHTML={{
           __html:
