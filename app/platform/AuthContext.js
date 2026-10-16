@@ -2,6 +2,7 @@
 import { friendlyError } from "../../lib/platform/friendlyError";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/platform/supabaseClient";
+import { useHydrated } from "./useHydrated";
 import {
   getMyUserRow,
   getMyClientProfile,
@@ -204,6 +205,12 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider
       value={{
+        // What the server rendered: nobody signed in, still loading (see useAuth).
+        initial: {
+          session: null, userRow: null, profile: null, loading: true, loadError: "", refresh, signOut,
+          notifications: EMPTY_NOTIFICATIONS, refreshNotifications, viewingAs: null, startViewAs, stopViewAs,
+          isAdmin: false, isOwner: false, readOnly: false, needsRoleSelection: false, role: null,
+        },
         session,
         userRow,
         profile,
@@ -229,8 +236,12 @@ export function AuthProvider({ children }) {
   );
 }
 
+// During hydration every consumer sees the same values the server rendered with (nobody signed in, loading), whatever
+// the auth state already is: the session can resolve before a deferred part of the page has hydrated, and rendering that
+// part with the signed-in values would not match the server HTML (React #418). Right after hydration the real values apply.
 export function useAuth() {
   const ctx = useContext(AuthContext);
+  const hydrated = useHydrated();
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
+  return hydrated ? ctx : ctx.initial;
 }
