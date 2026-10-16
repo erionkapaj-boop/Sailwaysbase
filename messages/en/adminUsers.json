@@ -105,7 +105,6 @@
     "badges": {
       "unverified": "Not verified",
       "tempPin": "Temporary password — the user has not set their own",
-      "test": "Test account",
       "owner": "Owner",
       "staff": "Staff"
     },
@@ -263,7 +262,6 @@
       "restoreHint": "You can restore it below.",
       "confirmRestore": "{name}: restore account? The user will be able to log in again and will be notified.",
       "restored": "Account restored and user notified.",
-      "confirmTest": "{name}: mark as a test account? Only for fake test accounts, never for a real client.",
       "confirmStaffRemove": "{name}: remove admin rights?",
       "confirmStaffGrant": "{name}: grant admin rights? They will be able to see and change everything here: users, money, settings. Grant only to someone you trust completely.",
       "verifyTitle": "Account verification",
@@ -295,8 +293,6 @@
       "deleteReason": "Reason (optional)",
       "advanced": "Advanced settings",
       "advancedSubtitle": "Rarely needed and require confirmation.",
-      "testAccount": "Test account",
-      "testHint": "Only for fake accounts.",
       "staffAdmin": "Admin rights",
       "staffHint": "Can also access this console with the same phone number and password. Only for a trusted person.",
       "limitTitle": "Request limit",

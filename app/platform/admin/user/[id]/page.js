@@ -210,7 +210,6 @@ function AdminUserInner() {
             {target.status !== "active" && <Status value={target.status} />}
             {!target.phone_verified_at && target.role !== "admin" && <span style={badge("warn")}>{t("badges.unverified")}</span>}
             {target.pin_change_required && <span style={badge("warn")}>{t("badges.tempPin")}</span>}
-            {target.is_test_account && <span style={badge("neutral")}>{t("badges.test")}</span>}
             {target.role === "admin" || target.is_owner ? (
               <span style={badge("brand")}>{t("badges.owner")}</span>
             ) : (

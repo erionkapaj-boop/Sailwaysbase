@@ -15,7 +15,6 @@ import {
   adminReactivateAccount,
   adminDeleteAccount,
   adminRestoreAccount,
-  adminSetTestAccount,
   adminSetStaffAdmin,
   adminSetRequestLimit,
 } from "../../../../../lib/platform/db";
@@ -140,15 +139,6 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
   async function handleRestore() {
     if (!(await confirm(t("actions.confirmRestore", { name }), { tone: "primary" }))) return;
     await run(() => adminRestoreAccount(id), t("actions.restored"));
-  }
-
-  async function handleToggleTestAccount() {
-    if (
-      !u.is_test_account &&
-      !(await confirm(t("actions.confirmTest", { name })))
-    )
-      return;
-    await run(() => adminSetTestAccount(id, !u.is_test_account));
   }
 
   async function handleSaveLimit() {
@@ -330,19 +320,6 @@ export default function ActionsTab({ data, id, reload, confirm, viewerId }) {
       {isOwner && u.status !== "deleted" && !u.is_owner && (
         <Panel title={t("actions.advanced")} subtitle={t("actions.advancedSubtitle")}>
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={Boolean(u.is_test_account)}
-              disabled={busy || u.role === "admin"}
-              onChange={handleToggleTestAccount}
-              style={{ marginTop: 3 }}
-            />
-            <span>
-              {t("actions.testAccount")}
-              <span style={{ ...muted, display: "block", fontSize: 12.5 }}>{t("actions.testHint")}</span>
-            </span>
-          </label>
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, cursor: "pointer", marginTop: 12 }}>
             <input
               type="checkbox"
               checked={Boolean(u.is_staff_admin)}

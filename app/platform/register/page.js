@@ -8,8 +8,6 @@ import {
   sendOtp,
   verifyOtp,
   createUserDraft,
-  isReservedTestPhone,
-  testPhoneSignIn,
   pendingSignIn,
   getOtpEnabled,
   signInWithGoogle,
@@ -24,9 +22,6 @@ import { container, card, h1, muted, button, input, label, colors, radius } from
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { trackFlow, noteFailure } from "../../../lib/platform/health";
 
-// "not_a_test_phone"/"use_test_signin_instead" never reach a real user (the
-// UI itself picks the right path by isTestPhone) — only listed here in case
-// a stale tab races the two.
 // One answer for every "this number can't be used" (0107): the page must not
 // reveal whether a number belongs to a live, an old or a deleted account.
 // Τιμές: κλειδιά μηνυμάτων (Register.*), μεταφράζονται στο render.
@@ -35,7 +30,6 @@ const REGISTER_ERRORS = {
   phone_already_registered: "phoneUnavailable",
   phone_previously_used: "phoneUnavailable",
   phone_taken: "phoneUnavailable",
-  test_phone_registered: "testPhoneRegistered",
   invalid_phone: "invalidPhone",
 };
 
@@ -66,10 +60,6 @@ function RegisterInner() {
   const [crewRole, setCrewRole] = useState(isProfessional ? "skipper" : null);
   // Το τηλέφωνο έρχεται έτοιμο σε διεθνή μορφή (+30…) από το PhoneField, για όλους.
   const fullPhone = form.phone;
-  // Ghost Mode (βλ. db.js): μια δεσμευμένη σειρά τηλεφώνων δοκιμής
-  // (+306980000001-099) παρακάμπτει το πραγματικό SMS — ΟΡΑΤΑ, όχι κρυφά,
-  // βλ. το βήμα "otp" παρακάτω.
-  const isTestPhone = isReservedTestPhone(fullPhone);
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState("details"); // details | otp
   const [busy, setBusy] = useState(false);
@@ -115,10 +105,7 @@ function RegisterInner() {
     try {
       // Whether a number is taken is checked only on the server (0107): the
       // browser no longer gets to ask "does this phone have an account?".
-      if (isTestPhone) {
-        await testPhoneSignIn(fullPhone);
-        setStep("otp");
-      } else if (otpEnabled) {
+      if (otpEnabled) {
         await sendOtp(fullPhone);
         setStep("otp");
       } else {
@@ -151,23 +138,12 @@ function RegisterInner() {
     setError("");
     setBusy(true);
     try {
-      // A test phone already has a real, signed-in session from
-      // testPhoneSignIn() above — no SMS code to check.
-      if (!isTestPhone) await verifyOtp(fullPhone, otp);
-      // Ghost Mode only bypasses the SMS *send* — it must not also skip
-      // ahead of what a real client experiences right now. A real OTP
-      // verify (the branch above) always proves identity on the spot, so
-      // that path is verified true either way. A test phone is a stand-in
-      // for a real client, so it should land exactly where a real one
-      // would today: verified instantly only if otpEnabled is actually on;
-      // otherwise pending, same as every other registration, so testing
-      // this as admin means walking the real Χρήστες → «Αναμονή
-      // επαλήθευσης» flow, not a shortcut around it.
+      await verifyOtp(fullPhone, otp);
       await createUserDraft({
         ...form,
         phone: fullPhone,
         crewRole: isProfessional ? crewRole : null,
-        phoneVerified: isTestPhone ? otpEnabled : true,
+        phoneVerified: true,
       });
       trackFlow("register", "done");
       await refresh();
@@ -265,11 +241,7 @@ function RegisterInner() {
             {busy ? t("sending") : t("continue")}
           </button>
           <p style={{ ...muted, fontSize: 13, marginTop: 12, marginBottom: 0 }}>
-            {isReservedTestPhone(fullPhone)
-              ? t("noteTestPhone")
-              : otpEnabled
-              ? t("noteOtp")
-              : t("noteReview")}
+            {otpEnabled ? t("noteOtp") : t("noteReview")}
           </p>
           <p style={{ ...muted, fontSize: 13, margin: "16px 0 0", textAlign: "center" }}>
             {t("haveAccount")}{" "}
@@ -282,40 +254,20 @@ function RegisterInner() {
 
       {step === "otp" && (
         <form onSubmit={submitOtp} style={{ ...card, marginTop: 20 }}>
-          {isTestPhone ? (
-            <div
-              style={{
-                background: "#F7F0E2",
-                border: `1px solid ${colors.warn}`,
-                borderRadius: radius.md,
-                padding: 14,
-                marginBottom: 20,
-              }}
-            >
-              <b style={{ display: "block", marginBottom: 4 }}>{t("testBannerTitle")}</b>
-              <span style={{ fontSize: 13.5 }}>
-                {t("testBannerBody", { phone: fullPhone })}{" "}
-                {otpEnabled ? t("testBannerVerified") : t("testBannerPending")}
-              </span>
-            </div>
-          ) : (
-            <>
-              <label style={label} htmlFor="reg-otp">
-                {t("smsCode")}
-              </label>
-              <input
-                id="reg-otp"
-                required
-                inputMode="numeric"
-                placeholder="123456"
-                style={{ ...input, marginBottom: 20 }}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-              />
-            </>
-          )}
+          <label style={label} htmlFor="reg-otp">
+            {t("smsCode")}
+          </label>
+          <input
+            id="reg-otp"
+            required
+            inputMode="numeric"
+            placeholder="123456"
+            style={{ ...input, marginBottom: 20 }}
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+          />
           <button type="submit" disabled={busy} style={{ ...button("primary"), width: "100%" }}>
-            {busy ? t("busy") : isTestPhone ? t("continueSimulated") : t("verify")}
+            {busy ? t("busy") : t("verify")}
           </button>
         </form>
       )}

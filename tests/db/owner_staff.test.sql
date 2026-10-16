@@ -20,9 +20,7 @@ select admin_adjust_wallet(:'NIKOS', -1, 'Επαναφορά') = :n0 + 5;
 select admin_update_setting('client_request_fee', 1);
 select admin_set_staff_admin(:'PETROS', true);
 select admin_set_staff_admin(:'PETROS', false);
-select admin_set_test_account(:'KOSTAS', true);
-select admin_set_test_account(:'KOSTAS', false);
-select pg_temp.check('ρυθμίσεις, υπάλληλοι, λογαριασμοί δοκιμών: επιτρέπονται', true);
+select pg_temp.check('ρυθμίσεις, υπάλληλοι: επιτρέπονται', true);
 select pg_temp.expect(format('select admin_set_staff_admin(%L, false)', :'NIKOS'), 'cannot_edit_admin');
 
 \echo '== υπάλληλος: τα καθημερινά ναι'
@@ -40,7 +38,6 @@ select pg_temp.expect(format('select admin_credit_wallet(%L, 5, %L)', :'CLIENT',
 select pg_temp.expect(format('select admin_adjust_wallet(%L, -1, %L)', :'CLIENT', 'x'), 'owner_only');
 select pg_temp.expect($$select admin_update_setting('client_request_fee', 0)$$, 'owner_only');
 select pg_temp.expect(format('select admin_delete_account(%L, %L)', :'CLIENT', 'x'), 'owner_only');
-select pg_temp.expect(format('select admin_set_test_account(%L, true)', :'CLIENT'), 'owner_only');
 select pg_temp.expect(format('select admin_set_staff_admin(%L, true)', :'CLIENT'), 'owner_only');
 select pg_temp.expect(format('select admin_suspend_account(%L, %L)', :'NIKOS', 'x'), 'cannot_suspend_admin');
 select pg_temp.expect(format($$select admin_update_profile(%L, 'Άλλο', null)$$, :'NIKOS'), 'cannot_edit_admin');

@@ -22,18 +22,6 @@ const ai = await fetch(`${BASE}/api/ai`, {
 });
 check("#16 το /api/ai αρνείται άλλο site", ai.status === 403, `πήρε ${ai.status}`);
 
-// A finished test-phone account keeps its own PIN.
-const testPhone = "+306980000077";
-sql(`insert into auth.users (id, phone) values ('e7000000-0000-0000-0000-000000000077', '306980000077')`);
-sql(`insert into users (id, role, full_name, phone_number, status) values
-     ('e7000000-0000-0000-0000-000000000077', 'client', 'Δοκιμαστικός Έτοιμος', '${testPhone}', 'active')`);
-const ghost = await fetch(`${BASE}/api/platform/auth/test-signin`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ phone: testPhone }),
-});
-check("#30 Ghost Mode δεν ξαναβάζει τον κοινό κωδικό σε έτοιμο λογαριασμό", ghost.status === 409, `πήρε ${ghost.status}`);
-
 // Deleting your own account needs the PIN.
 const signin = await fetch(`${process.env.NEXT_PUBLIC_PLATFORM_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
   method: "POST",

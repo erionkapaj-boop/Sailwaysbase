@@ -26,9 +26,7 @@
       "approvePhoto": "Photo approved",
       "resolveFlag": "Flag reviewed",
       "staffAdminGrant": "Admin rights granted",
-      "staffAdminRevoke": "Admin rights revoked",
-      "testAccountOn": "Marked as test account",
-      "testAccountOff": "Test account mark removed"
+      "staffAdminRevoke": "Admin rights revoked"
     },
     "ban": {
       "suspend": "Account suspended",

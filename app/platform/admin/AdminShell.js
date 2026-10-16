@@ -62,7 +62,6 @@ export const SECTIONS = [
   section("finance", { href: "/platform/admin/finance", ownerOnly: true, badge: "credit_purchases_pending" }),
   section("health", { href: "/platform/admin/health", ownerOnly: true, badge: "health_open" }, "headingSystem"),
   section("settings", { href: "/platform/admin/settings", ownerOnly: true }),
-  section("ghost", { href: "/platform/admin/ghost", ownerOnly: true }),
 ];
 
 // Sum of one or several overview counts — a section can stand for more than
