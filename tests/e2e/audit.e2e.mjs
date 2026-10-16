@@ -23,6 +23,10 @@ const ai = await fetch(`${BASE}/api/ai`, {
 check("#16 το /api/ai αρνείται άλλο site", ai.status === 403, `πήρε ${ai.status}`);
 
 // Deleting your own account needs the PIN.
+const testPhone = "+306900002077";
+sql(`insert into auth.users (id, phone) values ('e7000000-0000-0000-0000-000000000077', '306900002077')`);
+sql(`insert into users (id, role, full_name, phone_number, status) values
+     ('e7000000-0000-0000-0000-000000000077', 'client', 'Έτοιμος Λογαριασμός', '${testPhone}', 'active')`);
 const signin = await fetch(`${process.env.NEXT_PUBLIC_PLATFORM_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
