@@ -1,8 +1,10 @@
 "use client";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import ProviderDetails from "../components/ProviderDetails";
 import LegalPage, { Section, P, UL, LI, Note } from "../components/LegalPage";
 import { colors } from "../../../lib/platform/theme";
-import { company, field } from "../../../lib/platform/company";
+import { company } from "../../../lib/platform/company";
 
 const link = { color: colors.accent };
 
@@ -14,10 +16,7 @@ const link = { color: colors.accent };
 // έτοιμη προδιαγραφή. Ο Καν. (ΕΕ) 2019/1150 άρ. 5§6 και η Οδηγία (ΕΕ)
 // 2016/943 αναγνωρίζουν ρητά αυτό το όριο.
 export default function TermsBody() {
-  const legalName = field(company.legalName);
-  const address = field(company.address);
-  const vat = field(company.vat);
-  const gemi = field(company.gemi);
+  const t = useTranslations("Legal");
 
   return (
     <LegalPage
@@ -25,13 +24,8 @@ export default function TermsBody() {
       intro={`Οι όροι αυτοί διέπουν τη χρήση του ${company.brandName} και συνιστούν δεσμευτική συμφωνία. Δημιουργώντας λογαριασμό ή χρησιμοποιώντας την πλατφόρμα, δηλώνεις ότι τους αποδέχεσαι στο σύνολό τους.`}
     >
       <Section id="who" n="1" title="Ποιοι είμαστε">
-        <P>
-          Η πλατφόρμα {company.brandName} ({company.domain}) λειτουργεί από{" "}
-          {legalName ? <strong>{legalName}</strong> : "την εταιρεία μας"}
-          {address ? `, με έδρα ${address}, ${company.city}, ${company.country}` : `, με έδρα στην ${company.city}`}
-          {vat ? `, ΑΦΜ ${vat}` : ""}
-          {gemi ? `, ΓΕΜΗ ${gemi}` : ""}.
-        </P>
+        <P>{t("operator", { brand: company.brandName, domain: company.domain })}</P>
+        <ProviderDetails />
         <P>
           Κάθε επικοινωνία, αίτημα, καταγγελία ή όχληση γίνεται μέσω της{" "}
           <Link href="/platform/contact" style={link}>

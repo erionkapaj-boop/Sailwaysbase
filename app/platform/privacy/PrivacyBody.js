@@ -1,5 +1,7 @@
 "use client";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import ProviderDetails from "../components/ProviderDetails";
 import LegalPage, { Section, P, UL, LI, Note } from "../components/LegalPage";
 import { colors } from "../../../lib/platform/theme";
 import { company, field } from "../../../lib/platform/company";
@@ -52,8 +54,7 @@ function Table({ head, rows }) {
 // δυνατότητα να ζητήσει κανείς τον αναλυτικό κατάλογο εκτελούντων την
 // επεξεργασία — που είναι και ό,τι συνιστούν οι κατευθυντήριες για διαφάνεια.
 export default function PrivacyBody() {
-  const legalName = field(company.legalName);
-  const address = field(company.address);
+  const t = useTranslations("Legal");
   const privacyEmail = field(company.privacyEmail);
 
   return (
@@ -62,11 +63,8 @@ export default function PrivacyBody() {
       intro="Ποια δεδομένα επεξεργαζόμαστε, με ποια νομική βάση, για πόσο και ποια δικαιώματα έχεις. Καμία διαφήμιση, καμία πώληση δεδομένων, κανένα cookie παρακολούθησης."
     >
       <Section id="controller" n="1" title="Υπεύθυνος επεξεργασίας">
-        <P>
-          {legalName ? <strong>{legalName}</strong> : "Η εταιρεία που λειτουργεί την πλατφόρμα"}
-          {address ? `, ${address}, ${company.city}, ${company.country}` : `, ${company.city}, ${company.country}`}, ως
-          διαχειριστής του {company.brandName} ({company.domain}).
-        </P>
+        <P>{t("controller", { brand: company.brandName, domain: company.domain })}</P>
+        <ProviderDetails />
         <P>
           Για κάθε ζήτημα προσωπικών δεδομένων, χρησιμοποίησε τη{" "}
           <Link href="/platform/contact" style={link}>

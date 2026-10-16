@@ -36,7 +36,16 @@
     "description": "Find crew for your boat in Greece."
   },
   "Legal": {
-    "updated": "Last updated: {date}"
+    "updated": "Last updated: {date}",
+    "provider": "Provider details",
+    "providerHide": "Hide provider details",
+    "providerName": "Name",
+    "providerAddress": "Registered address",
+    "providerVat": "VAT no.",
+    "providerTaxOffice": "Tax office",
+    "providerGemi": "Commercial registry no.",
+    "operator": "The {brand} platform ({domain}) is operated by a sole proprietorship.",
+    "controller": "The data controller is the sole proprietorship that operates {brand} ({domain})."
   },
   "TrustLine": {
     "reliability": "reliability",

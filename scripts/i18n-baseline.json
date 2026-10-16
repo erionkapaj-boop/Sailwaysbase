@@ -1,9 +1,9 @@
 {
   "greek": {
     "app/platform/admin/user/[id]/ProfileTab.js": 1,
-    "app/platform/privacy/PrivacyBody.js": 110,
+    "app/platform/privacy/PrivacyBody.js": 107,
     "app/platform/privacy/page.js": 2,
-    "app/platform/terms/TermsBody.js": 259,
+    "app/platform/terms/TermsBody.js": 254,
     "app/platform/terms/page.js": 2,
     "lib/platform/countryCodes.js": 17
   },

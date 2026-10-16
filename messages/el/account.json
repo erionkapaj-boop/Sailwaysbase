@@ -36,7 +36,16 @@
     "description": "Βρες πλήρωμα για το σκάφος σου στην Ελλάδα."
   },
   "Legal": {
-    "updated": "Τελευταία ενημέρωση: {date}"
+    "updated": "Τελευταία ενημέρωση: {date}",
+    "provider": "Στοιχεία παρόχου",
+    "providerHide": "Απόκρυψη στοιχείων παρόχου",
+    "providerName": "Επωνυμία",
+    "providerAddress": "Έδρα",
+    "providerVat": "ΑΦΜ",
+    "providerTaxOffice": "ΔΟΥ",
+    "providerGemi": "ΓΕΜΗ",
+    "operator": "Η πλατφόρμα {brand} ({domain}) λειτουργεί από ατομική επιχείρηση.",
+    "controller": "Υπεύθυνος επεξεργασίας είναι η ατομική επιχείρηση που λειτουργεί το {brand} ({domain})."
   },
   "TrustLine": {
     "reliability": "αξιοπιστία",
