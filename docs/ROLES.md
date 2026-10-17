@@ -23,6 +23,7 @@
   Η απόφαση καταγράφεται στο `admin_actions` (`role_active`, `role_rejected`) και περνά από `assert_admin_can_act_on`.
 - **Συναρτήσεις εφαρμογής**: `get_my_roles()`, `set_active_role()`, `request_role()`, `admin_decide_role()`, `admin_get_user_roles()`.
   Wrappers στο `lib/platform/db.js` (`getMyRoles`, `setActiveRole`, `requestRole`, `adminDecideRole`, `adminGetUserRoles`).
+- **Αυτό που βλέπει ο χρήστης (βήμα 2)**: avatar με δαχτυλίδι στο χρώμα του τρέχοντος ρόλου και μενού προφίλ (`app/platform/components/ProfileMenu.js`, docs/DESIGN.md). Η αλλαγή ρόλου από το μενού έρχεται στο βήμα 3.
 - **Χρώματα ρόλων: ένα σημείο**, `lib/platform/userRoles.js` (`ROLE_COLORS`): Πελάτης απαλό μπλε, Επαγγελματίας άμμος, Εταιρεία απαλό
   πράσινο, Δημιουργός απαλό μωβ, Ομάδα γκρι-μπλε, Administrator απαλό κόκκινο.
 - **Μετάπτωση υπαρχόντων**: το `0139` καλεί `backfill_user_roles()` (ασφαλές να ξανατρέξει): Πελάτης σε όλους, Επαγγελματίας από τα
