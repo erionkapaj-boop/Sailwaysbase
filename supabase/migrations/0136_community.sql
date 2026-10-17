@@ -689,6 +689,8 @@ grant execute on function community_nearby_members(double precision, double prec
 -- ---------------------------------------------------------------------------
 -- 9. Διαχείριση: εποπτεία
 -- ---------------------------------------------------------------------------
+-- (0138 ξαναορίζει τη συνάρτηση με περισσότερες στήλες· το drop επιτρέπει την επανάληψη του 0136 μετά από αυτό)
+drop function if exists admin_community_list_reports(text);
 create or replace function admin_community_list_reports(p_status text default 'open')
 returns table (id uuid, target_type text, point_id uuid, message_id uuid, reporter_id uuid, reporter_name text, reason text, note text,
                status text, created_at timestamptz, target_author_id uuid, target_author_name text, target_text text)

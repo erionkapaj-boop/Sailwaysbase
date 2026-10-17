@@ -12,7 +12,7 @@ export function adminPages() {
   const client = sql("select id from users where full_name = 'Μαρία Πελάτη'");
   const pro = sql("select id from users where full_name = 'Κώστας Υποψήφιος'");
   return ["/platform/admin", "/platform/admin/approvals", "/platform/admin/messages", "/platform/admin/disputes",
-    "/platform/admin/replacements", "/platform/admin/offers", "/platform/admin/bookings", "/platform/admin/deliveries",
+    "/platform/admin/replacements", "/platform/admin/offers", "/platform/admin/community", "/platform/admin/bookings", "/platform/admin/deliveries",
     "/platform/admin/users", "/platform/admin/finance", "/platform/admin/settings", "/platform/admin/health",
     `/platform/admin/user/${client}`, `/platform/admin/user/${pro}`];
 }

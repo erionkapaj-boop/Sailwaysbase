@@ -22,7 +22,8 @@
       "headingSystem": "Σύστημα",
       "settings": "Ρυθμίσεις",
       "board": "Ανοιχτά αιτήματα",
-      "map": "Χάρτης"
+      "map": "Χάρτης",
+      "community": "Community"
     }
   },
   "AdminUi": {

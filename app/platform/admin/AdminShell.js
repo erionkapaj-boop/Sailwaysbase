@@ -54,6 +54,7 @@ export const SECTIONS = [
   ),
   section("offers", { href: "/platform/admin/offers", ownerOnly: true }),
   section("board", { href: "/platform/admin/board" }),
+  section("community", { href: "/platform/admin/community", badge: "community_reports_open" }),
   section("map", { href: "/platform/admin/map" }),
   section("bookings", { href: "/platform/admin/bookings" }),
   section("deliveries", { href: "/platform/admin/deliveries" }),
