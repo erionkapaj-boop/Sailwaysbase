@@ -198,9 +198,8 @@ export default function HomeEntry() {
       </button>
 
       <div style={{ marginTop: 17 }}>
-        <Link href="/platform/experiences" style={{ ...tapTarget, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 16, fontWeight: 400, color: colors.ink, textDecoration: "none" }}>
+        <Link href="/platform/experiences" style={{ ...tapTarget, display: "inline-flex", alignItems: "center", fontSize: 16, fontWeight: 400, color: colors.ink, textDecoration: "none" }}>
           {t("discoverExperiences")}
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9" /></svg>
         </Link>
       </div>
     </div>
