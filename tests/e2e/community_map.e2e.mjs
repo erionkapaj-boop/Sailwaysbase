@@ -1,7 +1,7 @@
 // Community, βήμα 2: ο κοινός χάρτης. Σημεία με εικονίδιο ανά κατηγορία, φίλτρα, κάρτα σημείου («Ισχύει ακόμη»,
 // «Αναφορά προβλήματος», διόρθωση/διαγραφή από τον συντάκτη), προσθήκη χωρίς έλεγχο θέσης του μέλους, ηλικία αναφοράς.
 // Ελληνικά και αγγλικά, κινητό και υπολογιστής.
-import { as, go, text, check, finish, shoot, sql, BASE } from "./lib.mjs";
+import { as, go, text, check, finish, shoot, sql, eventually, BASE } from "./lib.mjs";
 
 const NIKOS = "a0000000-0000-0000-0000-000000000003"; // 6900002003
 const GIORGOS = "a0000000-0000-0000-0000-000000000004"; // 6900002004
@@ -76,13 +76,12 @@ async function run(phone, locale, w, h, tag) {
       const before = sql(`select last_confirmed_at from community_points where id = '${idHazard}'`);
       await page.locator("[data-point-confirm]").click();
       await page.waitForTimeout(900);
-      const after = sql(`select last_confirmed_at from community_points where id = '${idHazard}'`);
-      check(`${label}: «${L.valid}» ανανεώνει την τελευταία επιβεβαίωση (όχι την παρατήρηση)`, after > before && sql(`select observed_at < now() - interval '1 day' from community_points where id = '${idHazard}'`) === "t");
+      check(`${label}: «${L.valid}» ανανεώνει την τελευταία επιβεβαίωση (όχι την παρατήρηση)`, await eventually(() => sql(`select last_confirmed_at from community_points where id = '${idHazard}'`) > before && sql(`select observed_at < now() - interval '1 day' from community_points where id = '${idHazard}'`) === "t"));
       await page.locator("[data-point-report]").click();
       await page.locator('[data-report-reason="outdated"]').click();
       await page.locator("[data-report-send]").click();
       await page.waitForTimeout(900);
-      check(`${label}: αναφορά προβλήματος καταγράφεται`, sql(`select count(*) from community_reports where point_id = '${idHazard}' and reason = 'outdated' and status = 'open'`) === "1");
+      check(`${label}: αναφορά προβλήματος καταγράφεται`, await eventually(() => sql(`select count(*) from community_reports where point_id = '${idHazard}' and reason = 'outdated' and status = 'open'`) === "1"));
 
       // Παλιά αναφορά: φαίνεται καθαρά
       await pin(page, idWeather).click();
@@ -103,8 +102,7 @@ async function run(phone, locale, w, h, tag) {
       await page.waitForSelector("[data-form-save]");
       await page.locator("[data-form-save]").click();
       await page.waitForTimeout(1200);
-      const row = sql(`select title, (observed_at < now() - interval '4 days') , (last_confirmed_at < now() - interval '4 days') from community_points where id = '${idAnchor}'`);
-      check(`${label}: διόρθωση: νέος τίτλος, οι ημερομηνίες μένουν`, row === "e2e Όρμος, διορθωμένος|t|t", row);
+      check(`${label}: διόρθωση: νέος τίτλος, οι ημερομηνίες μένουν`, await eventually(() => sql(`select title, (observed_at < now() - interval '4 days') , (last_confirmed_at < now() - interval '4 days') from community_points where id = '${idAnchor}'`) === "e2e Όρμος, διορθωμένος|t|t"));
     }
 
     // 2/3. Προσθήκη: θέση από τον χάρτη, κατηγορία, τίτλος, έλεγχος θέσης πριν την αποθήκευση
@@ -137,8 +135,7 @@ async function run(phone, locale, w, h, tag) {
     await page.locator("[data-form-next]").click();
     await page.locator("[data-form-save]").click();
     await page.waitForSelector("[data-point-title]", { timeout: 10000 });
-    const added = sql(`select category || '|' || author_id || '|' || (abs(extract(epoch from (observed_at - now()))) < 120) || '|' || (photo_path is null) from community_points where title = 'e2e Καύσιμα στο λιμάνι' and status = 'active'`);
-    check(`${label}: το σημείο αποθηκεύτηκε με συντάκτη και ημερομηνία παρατήρησης`, added.startsWith("useful_place|") && added.includes("|true|true"), added);
+    check(`${label}: το σημείο αποθηκεύτηκε με συντάκτη και ημερομηνία παρατήρησης`, await eventually(() => { const a = sql(`select category || '|' || author_id || '|' || (abs(extract(epoch from (observed_at - now()))) < 120) || '|' || (photo_path is null) from community_points where title = 'e2e Καύσιμα στο λιμάνι' and status = 'active'`); return a.startsWith("useful_place|") && a.includes("|true|true"); }));
     check(`${label}: μετά την αποθήκευση ανοίγει η κάρτα του`, (await page.locator("[data-point-title]").innerText()).includes("Καύσιμα"));
     check(`${label}: δεν ζητήθηκε ποτέ η τοποθεσία του μέλους`, (await page.evaluate(() => window.__geoCalls)) === 0);
     if (tag === "d" && locale === "en") await shoot(page, "community-en");
@@ -147,7 +144,7 @@ async function run(phone, locale, w, h, tag) {
       await page.locator("[data-point-delete]").click();
       await page.getByRole("button", { name: "Διαγραφή", exact: true }).last().click();
       await page.waitForTimeout(1000);
-      check(`${label}: ο συντάκτης διαγράφει τη δική του καταχώριση`, sql(`select count(*) from community_points where title = 'e2e Καύσιμα στο λιμάνι' and status = 'removed'`) === "1");
+      check(`${label}: ο συντάκτης διαγράφει τη δική του καταχώριση`, await eventually(() => sql(`select count(*) from community_points where title = 'e2e Καύσιμα στο λιμάνι' and status = 'removed'`) === "1"));
     }
   });
 }

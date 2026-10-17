@@ -2,7 +2,7 @@
 // αναφέρει πρόβλημα, μπαίνει σε ομάδα και γράφει μήνυμα· η διαχείριση βλέπει τις αναφορές και παρεμβαίνει (απόρριψη,
 // διαγραφή περιεχομένου, περιορισμός μέλους, κλείσιμο ομάδας, διάρκειες ανά κατηγορία)· ο περιορισμένος διαβάζει αλλά δεν γράφει.
 // Δεν υπάρχει αυτόματη απόκρυψη μετά από αριθμό αναφορών.
-import { as, go, text, check, finish, shoot, sql } from "./lib.mjs";
+import { as, go, text, check, finish, shoot, sql, eventually } from "./lib.mjs";
 
 const NIKOS = "a0000000-0000-0000-0000-000000000003"; // 6900002003, επιλέξιμο μέλος
 const GIORGOS = "a0000000-0000-0000-0000-000000000004"; // 6900002004, επιλέξιμο μέλος
@@ -52,7 +52,7 @@ await as("6900002003", async (page) => {
   await page.locator("[data-form-next]").click();
   await page.locator("[data-form-save]").click();
   await page.waitForSelector("[data-point-title]", { timeout: 10000 });
-  check("μέλος: η παρατήρηση προστέθηκε (καιρός) με τον συντάκτη", sql(`select count(*) from community_points where title = 'e2e Μελτέμι 7 μποφόρ στον Κάβο' and category = 'weather' and author_id = '${NIKOS}'`) === "1");
+  check("μέλος: η παρατήρηση προστέθηκε (καιρός) με τον συντάκτη", await eventually(() => sql(`select count(*) from community_points where title = 'e2e Μελτέμι 7 μποφόρ στον Κάβο' and category = 'weather' and author_id = '${NIKOS}'`) === "1"));
   await page.keyboard.press("Escape");
   await page.waitForTimeout(300);
 
@@ -61,7 +61,7 @@ await as("6900002003", async (page) => {
   await page.locator('[data-report-reason="wrong"]').click();
   await page.locator("[data-report-send]").click();
   await page.waitForTimeout(900);
-  check("μέλος: αναφέρει πρόβλημα σε σημείο άλλου μέλους", sql(`select count(*) from community_reports where point_id = '${seeded}' and reporter_id = '${NIKOS}' and reason = 'wrong' and status = 'open'`) === "1");
+  check("μέλος: αναφέρει πρόβλημα σε σημείο άλλου μέλους", await eventually(() => sql(`select count(*) from community_reports where point_id = '${seeded}' and reporter_id = '${NIKOS}' and reason = 'wrong' and status = 'open'`) === "1"));
 
   await page.locator('[data-community-tab="groups"]').click();
   await page.waitForSelector("[data-community-groups]");
@@ -72,7 +72,7 @@ await as("6900002003", async (page) => {
   await page.locator("[data-compose]").fill("e2e Ψάχνω πλήρωμα για Σεπτέμβριο, στείλτε τηλέφωνο");
   await page.locator("[data-compose-send]").click();
   await page.waitForSelector("[data-msg]");
-  check("μέλος: μπήκε στην ομάδα και έγραψε μήνυμα", sql(`select count(*) from community_group_members m join community_groups g on g.id = m.group_id where g.slug = 'aegean' and m.user_id = '${NIKOS}'`) === "1" && sql(`select count(*) from community_messages where author_id = '${NIKOS}' and body like 'e2e Ψάχνω πλήρωμα%'`) === "1");
+  check("μέλος: μπήκε στην ομάδα και έγραψε μήνυμα", await eventually(() => sql(`select count(*) from community_group_members m join community_groups g on g.id = m.group_id where g.slug = 'aegean' and m.user_id = '${NIKOS}'`) === "1" && sql(`select count(*) from community_messages where author_id = '${NIKOS}' and body like 'e2e Ψάχνω πλήρωμα%'`) === "1"));
 });
 
 // Άλλο μέλος αναφέρει το μήνυμα (αγγελία πληρώματος)
@@ -88,7 +88,7 @@ await as("6900002004", async (page) => {
   await page.locator('[data-report-reason="offer"]').click();
   await page.locator("[data-report-send]").click();
   await page.waitForTimeout(900);
-  check("δεύτερο μέλος: αναφέρει το μήνυμα ως αγγελία πληρώματος", sql(`select count(*) from community_reports where message_id = '${msgId}' and reason = 'offer' and status = 'open'`) === "1");
+  check("δεύτερο μέλος: αναφέρει το μήνυμα ως αγγελία πληρώματος", await eventually(() => sql(`select count(*) from community_reports where message_id = '${msgId}' and reason = 'offer' and status = 'open'`) === "1"));
 });
 
 // 2. Η διαχείριση ελέγχει και παρεμβαίνει
@@ -111,7 +111,7 @@ await as("6900002001", async (page) => {
   await msgCard.locator('[data-act="remove"]').click();
   await page.getByRole("button", { name: "Διαγραφή περιεχομένου", exact: true }).last().click();
   await page.waitForTimeout(1000);
-  check("διαχείριση: διαγραφή περιεχομένου, η αναφορά κλείνει", sql(`select deleted_at is not null from community_messages where id = '${msgId}'`) === "t");
+  check("διαχείριση: διαγραφή περιεχομένου, η αναφορά κλείνει", await eventually(() => sql(`select deleted_at is not null from community_messages where id = '${msgId}'`) === "t"));
   await page.locator('[data-admin-community-tab="reports"]').click();
   await page.locator("[data-report-filter]").selectOption("closed");
   await page.waitForSelector("[data-report]");
@@ -129,11 +129,11 @@ await as("6900002001", async (page) => {
   await again.locator("[data-restrict-reason]").selectOption("offers");
   await again.locator("[data-restrict-apply]").click();
   await page.waitForTimeout(1000);
-  check("διαχείριση: προσωρινός περιορισμός μέλους (7 ημέρες, αγγελίες)", sql(`select reason || (until > now() + interval '6 days' and until < now() + interval '8 days')::text from community_restrictions where user_id = '${NIKOS}'`) === "offerstrue");
+  check("διαχείριση: προσωρινός περιορισμός μέλους (7 ημέρες, αγγελίες)", await eventually(() => sql(`select reason || (until > now() + interval '6 days' and until < now() + interval '8 days')::text from community_restrictions where user_id = '${NIKOS}'`) === "offerstrue"));
   await page.locator('[data-report-type="message"] [data-act="group"]').click();
   await page.getByRole("button", { name: "Κλείσιμο ομάδας", exact: true }).last().click();
   await page.waitForTimeout(1000);
-  check("διαχείριση: κλείσιμο ομάδας", sql("select status from community_groups where slug = 'aegean'") === "closed");
+  check("διαχείριση: κλείσιμο ομάδας", await eventually(() => sql("select status from community_groups where slug = 'aegean'") === "closed"));
   await page.locator('[data-report-type="message"] [data-act="dismiss"]').click();
   await page.waitForTimeout(800);
 
@@ -150,8 +150,8 @@ await as("6900002001", async (page) => {
   await row.locator("[data-setting-show]").fill("45");
   await row.locator("[data-setting-save]").click();
   await page.waitForTimeout(900);
-  check("διαχείριση: αλλαγή διάρκειας εμφάνισης ανά κατηγορία", sql("select show_days from community_category_settings where category = 'hazard'") === "45");
-  check("διαχείριση: οι αλλαγές ισχύουν αμέσως στα ενεργά σημεία", sql(`select expires_at < now() + interval '45 days' from community_points where id = '${seeded}'`) === "t");
+  check("διαχείριση: αλλαγή διάρκειας εμφάνισης ανά κατηγορία", await eventually(() => sql("select show_days from community_category_settings where category = 'hazard'") === "45"));
+  check("διαχείριση: οι αλλαγές ισχύουν αμέσως στα ενεργά σημεία", await eventually(() => sql(`select expires_at < now() + interval '45 days' from community_points where id = '${seeded}'`) === "t"));
 });
 
 // 3. Ο περιορισμένος: διαβάζει, δεν γράφει· η ομάδα είναι κλειστή
@@ -175,7 +175,7 @@ await as("6900002001", async (page) => {
   await page.waitForSelector("[data-lift]");
   await page.locator("[data-lift]").click();
   await page.waitForTimeout(900);
-  check("διαχείριση: άρση περιορισμού", sql(`select count(*) from community_restrictions where user_id = '${NIKOS}' and until > now()`) === "0");
+  check("διαχείριση: άρση περιορισμού", await eventually(() => sql(`select count(*) from community_restrictions where user_id = '${NIKOS}' and until > now()`) === "0"));
 });
 await as("6900002003", async (page) => {
   await go(page, "/platform/community");

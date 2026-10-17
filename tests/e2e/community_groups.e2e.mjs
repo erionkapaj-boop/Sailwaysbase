@@ -1,7 +1,7 @@
 // Community, βήμα 3: ομάδες περιοχών. Λίστα με εικονίδιο και αριθμό μελών, συμμετοχή/αποχώρηση με ένα πάτημα (σε πολλές
 // ομάδες), ροή συζήτησης με μηνύματα και απαντήσεις (αποστολέας, χρόνος), «Αναφορά» σε κάθε μήνυμα, ο κανονισμός και η
 // ενημέρωση ότι η διαχείριση έχει πρόσβαση. Ελληνικά και αγγλικά, κινητό και υπολογιστής.
-import { as, go, text, check, finish, shoot, sql, BASE } from "./lib.mjs";
+import { as, go, text, check, finish, shoot, sql, eventually, BASE } from "./lib.mjs";
 
 const NIKOS = "a0000000-0000-0000-0000-000000000003"; // 6900002003
 const GIORGOS = "a0000000-0000-0000-0000-000000000004"; // 6900002004
@@ -62,12 +62,12 @@ async function run(phone, locale, w, h, tag) {
     await page.locator("[data-compose]").fill("e2e Ευχαριστώ, το είδα");
     await page.locator("[data-compose-send]").click();
     await page.waitForFunction(() => document.querySelectorAll("[data-msg]").length >= 2);
-    check(`${label}: νέο μήνυμα με το όνομά μου`, sql(`select count(*) from community_messages where author_id = '${NIKOS}' and body = 'e2e Ευχαριστώ, το είδα' and parent_id is null`) === "1" && (await text(page)).includes("Νίκος"));
+    check(`${label}: νέο μήνυμα με το όνομά μου`, await eventually(() => sql(`select count(*) from community_messages where author_id = '${NIKOS}' and body = 'e2e Ευχαριστώ, το είδα' and parent_id is null`) === "1") && (await text(page)).includes("Νίκος"));
     await page.locator(`[data-msg="${seeded}"] [data-msg-reply-btn]`).click();
     await page.locator("[data-reply-input]").fill("e2e Ναι, θα μείνουμε στο λιμάνι");
     await page.locator("[data-reply-send]").click();
     await page.waitForSelector('[data-msg-reply="true"]');
-    check(`${label}: απάντηση κάτω από το μήνυμα`, sql(`select count(*) from community_messages where author_id = '${NIKOS}' and parent_id = '${seeded}'`) === "1" && (await page.locator(`[data-msg-reply="true"] [data-msg-author]`).innerText()).includes("Νίκος"));
+    check(`${label}: απάντηση κάτω από το μήνυμα`, await eventually(() => sql(`select count(*) from community_messages where author_id = '${NIKOS}' and parent_id = '${seeded}'`) === "1") && (await page.locator(`[data-msg-reply="true"] [data-msg-author]`).innerText()).includes("Νίκος"));
     if (locale === "el" && tag === "m") await shoot(page, "community-thread");
 
     // 3. Αναφορά σε μήνυμα
@@ -76,14 +76,14 @@ async function run(phone, locale, w, h, tag) {
     await page.locator('[data-report-reason="offer"]').click();
     await page.locator("[data-report-send]").click();
     await page.waitForTimeout(900);
-    check(`${label}: η αναφορά μηνύματος καταγράφεται`, sql(`select count(*) from community_reports where message_id = '${seeded}' and reason = 'offer' and status = 'open' and reporter_id = '${NIKOS}'`) === "1");
+    check(`${label}: η αναφορά μηνύματος καταγράφεται`, await eventually(() => sql(`select count(*) from community_reports where message_id = '${seeded}' and reason = 'offer' and status = 'open' and reporter_id = '${NIKOS}'`) === "1"));
 
     // Διαγραφή δικού μου μηνύματος
     const mine = sql(`select id from community_messages where author_id = '${NIKOS}' and parent_id is null`).split("\n")[0];
     await page.locator(`[data-msg="${mine}"] [data-msg-delete]`).click();
     await page.getByRole("button", { name: locale === "el" ? "Διαγραφή" : "Delete", exact: true }).last().click();
     await page.waitForTimeout(1000);
-    check(`${label}: ο συντάκτης διαγράφει το δικό του μήνυμα`, sql(`select deleted_at is not null from community_messages where id = '${mine}'`) === "t" && (await page.locator(`[data-msg="${mine}"]`).count()) === 0);
+    check(`${label}: ο συντάκτης διαγράφει το δικό του μήνυμα`, await eventually(() => sql(`select deleted_at is not null from community_messages where id = '${mine}'`) === "t") && (await page.locator(`[data-msg="${mine}"]`).count()) === 0);
 
     // Ομάδα που δεν είμαι μέλος: διαβάζω, για να γράψω μπαίνω με ένα πάτημα
     await page.locator("[data-group-back]").click();

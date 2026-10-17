@@ -32,6 +32,15 @@ export function sql(query) {
     .toString()
     .trim();
 }
+// Η αλλαγή στη βάση φαίνεται λίγο μετά το πάτημα (στο CI πιο αργά): ξαναδοκιμάζει μέχρι 12 δευτερόλεπτα.
+export async function eventually(fn, ms = 12000) {
+  const end = Date.now() + ms;
+  for (;;) {
+    try { if (await fn()) return true; } catch {}
+    if (Date.now() > end) return false;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
 export const num = (query) => Number(sql(query));
 
 // ---- dates -------------------------------------------------------------------
