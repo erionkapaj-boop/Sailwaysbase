@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useLocalData } from "../../useLocalData";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
-import { Panel, RowMain, Empty, colors, muted, money, button, ProCredentials, VERIFY_HINT, STATUS_LABEL, waitingFor, safeImageUrl } from "../ui";
+import { Panel, Chip, IconDisc, colors, muted, money, button, ProCredentials, waitingFor, safeImageUrl } from "../ui";
+import Avatar from "../../components/Avatar";
 import {
   adminListAccounts,
   adminVerifyUser,
@@ -36,6 +37,23 @@ const noteInput = {
 };
 
 const item = { borderBottom: `1px solid ${colors.border}`, padding: "14px 16px" };
+
+// Ποιος περιμένει: φωτογραφία, όνομα, σήμα ιδιότητας και πόση ώρα περιμένει.
+function Who({ name, photo, phone, role, since }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <Avatar src={safeImageUrl(photo)} name={name} size={44} />
+      <span style={{ minWidth: 0, flex: 1 }}>
+        <span data-user-text style={{ display: "block", fontSize: 14.5, fontWeight: 600, color: colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+          {role && <Chip tone="brand" icon="anchor">{role}</Chip>}
+          {since && <Chip tone="warn" icon="clock">{waitingFor(since)}</Chip>}
+          {phone && <span style={{ ...muted, fontSize: 12.5 }}><span style={money}>{phone}</span></span>}
+        </span>
+      </span>
+    </div>
+  );
+}
 
 function DetailsLink({ userId }) {
   const t = useTranslations("AdminApprovals");
@@ -144,9 +162,7 @@ export default function PendingPage() {
   return (
     <AdminShell
       title={t("title")}
-      subtitle={
-        !loaded ? t("loading") : total === 0 ? t("nothingWaiting") : t("waitingCount", { count: total })
-      }
+      subtitle={!loaded ? t("loading") : total > 0 ? t("waitingCount", { count: total }) : undefined}
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
       {notice && (
@@ -170,27 +186,13 @@ export default function PendingPage() {
         </div>
       )}
 
-      <Panel
+      {signups.length > 0 && <Panel
         title={t("signupsTitle", { count: signups.length })}
-        subtitle={signups.length > 0 ? VERIFY_HINT : undefined}
         padded={false}
       >
-        {loaded && signups.length === 0 && <Empty>{t("signupsEmpty")}</Empty>}
         {signups.map((u) => (
           <div key={u.id} style={item}>
-            <RowMain
-              title={nm(u) || t("noName")}
-              meta={
-                <>
-                  <span style={money}>{u.phone_number}</span>
-                  {u.email ? ` · ${u.email}` : ""}
-                  <br />
-                  {u.role === "skipper" ? u.crew_role ? t("professionalWithRole", { role: labelForRole(u.crew_role) }) : t("professional") : STATUS_LABEL[u.role] || u.role}
-                  {" · "}
-                  <span style={{ color: colors.warn }}>{waitingFor(u.created_at)}</span>
-                </>
-              }
-            />
+            <Who name={nm(u) || t("noName")} photo={u.photo_url} phone={u.phone_number} role={u.role === "skipper" ? (u.crew_role ? labelForRole(u.crew_role) : t("professional")) : null} since={u.created_at} />
             <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
               <button style={button("primary")} disabled={busyId === u.id} onClick={() => verify(u)}>
                 {busyId === u.id ? "…" : t("verify")}
@@ -199,30 +201,15 @@ export default function PendingPage() {
             </div>
           </div>
         ))}
-      </Panel>
+      </Panel>}
 
-      <Panel
+      {pros.length > 0 && <Panel
         title={t("prosTitle", { count: pros.length })}
-        subtitle={
-          pros.length > 0
-            ? t("prosHint")
-            : undefined
-        }
         padded={false}
       >
-        {loaded && pros.length === 0 && <Empty>{t("prosEmpty")}</Empty>}
         {pros.map((s) => (
           <div key={s.id} style={item}>
-            <RowMain
-              title={nm(s) || t("noName")}
-              meta={
-                <>
-                  <span style={money}>{s.users?.phone_number}</span>
-                  {" · "}
-                  <span style={{ color: colors.warn }}>{waitingFor(s.created_at)}</span>
-                </>
-              }
-            />
+            <Who name={nm(s) || t("noName")} photo={s.photo_url} phone={s.users?.phone_number} role={labelForRole(s.role)} since={s.created_at} />
             <div style={{ margin: "10px 0 0" }}>
               <ProCredentials profile={s} roleLabel={labelForRole(s.role)} />
             </div>
@@ -243,30 +230,15 @@ export default function PendingPage() {
             />
           </div>
         ))}
-      </Panel>
+      </Panel>}
 
-      <Panel
+      {roles.length > 0 && <Panel
         title={t("rolesTitle", { count: roles.length })}
-        subtitle={
-          roles.length > 0
-            ? t("rolesHint")
-            : undefined
-        }
         padded={false}
       >
-        {loaded && roles.length === 0 && <Empty>{t("rolesEmpty")}</Empty>}
         {roles.map((r) => (
           <div key={r.id} style={item}>
-            <RowMain
-              title={t("roleRequest", { name: nm(r) || t("noNameShort"), role: labelForRole(r.role) })}
-              meta={
-                <>
-                  <span style={money}>{r.phone_number}</span>
-                  {" · "}
-                  <span style={{ color: colors.warn }}>{waitingFor(r.created_at)}</span>
-                </>
-              }
-            />
+            <Who name={nm(r) || t("noNameShort")} photo={r.photo_url} phone={r.phone_number} role={labelForRole(r.role)} since={r.created_at} />
             <div style={{ margin: "10px 0 0" }}>
               <ProCredentials profile={r} roleLabel={labelForRole(r.role)} omit={["age", "gender"]} />
             </div>
@@ -286,16 +258,10 @@ export default function PendingPage() {
             />
           </div>
         ))}
-      </Panel>
-      <Panel
+      </Panel>}
+      {photos.length > 0 && <Panel
         title={t("photosTitle", { count: photos.length })}
-        subtitle={
-          photos.length > 0
-            ? t("photosHint")
-            : undefined
-        }
       >
-        {loaded && photos.length === 0 && <Empty>{t("photosEmpty")}</Empty>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 14 }}>
           {photos.map((p) => {
             const src = safeImageUrl(p.photo_url);
@@ -334,7 +300,13 @@ export default function PendingPage() {
             );
           })}
         </div>
-      </Panel>
+      </Panel>}
+      {loaded && total === 0 && (
+        <div data-approvals-clear style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "48px 16px" }}>
+          <IconDisc icon="check" tone="success" size={64} />
+          <span style={{ ...muted, fontSize: 14 }}>{t("nothingWaiting")}</span>
+        </div>
+      )}
       {confirmDialog}
     </AdminShell>
   );

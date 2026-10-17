@@ -2,30 +2,40 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Icon from "../../components/Icon";
 import { useTranslations } from "next-intl";
 import AdminShell from "../AdminShell";
 import { labelForRole } from "../../../../lib/platform/roles";
-import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
+import { Panel, Row, Empty, Chip, Segments, IconDisc, STATUS_LABEL, colors, muted, money } from "../ui";
 import { adminListBookings, departureLabel } from "../../../../lib/platform/db";
 import LoadError from "../../components/LoadError";
 import { useFormat } from "../../useFormat";
 import { useLocalData } from "../../useLocalData";
 
 const FILTERS = [
-  ["upcoming", "filterUpcoming"],
-  ["confirmed", "filterConfirmed"],
-  ["completed", "filterCompleted"],
-  ["cancelled", "filterCancelled"],
-  ["", "filterAll"],
+  ["upcoming", "filterUpcoming", "cal"],
+  ["confirmed", "filterConfirmed", "calCheck"],
+  ["completed", "filterCompleted", "check"],
+  ["cancelled", "filterCancelled", "x"],
+  ["", "filterAll", "list"],
 ];
 
-function PersonLink({ label, p }) {
+const STATUS_CHIP = {
+  confirmed: ["success", "calCheck"],
+  completed: ["neutral", "check"],
+  cancelled_by_client: ["danger", "x"],
+  cancelled_by_skipper: ["danger", "x"],
+  pending_payment: ["warn", "clock"],
+};
+
+function PersonLink({ icon, label, p }) {
   const t = useTranslations("AdminBookings");
   const L = useLocalData();
   if (!p) return null;
   return (
-    <Link href={`/platform/admin/user/${p.id}`} style={{ color: colors.ink }}>
-      {label}: {L.person({ full_name: p.name, full_name_latin: p.name_latin }) || t("noName")}
+    <Link href={`/platform/admin/user/${p.id}`} title={label} data-user-text style={{ color: colors.ink, display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}>
+      <Icon name={icon} size={13} />
+      {L.person({ full_name: p.name, full_name_latin: p.name_latin }) || t("noName")}
     </Link>
   );
 }
@@ -75,46 +85,42 @@ function BookingsInner() {
   }, [all, filter]);
 
   return (
-    <AdminShell title={t("title")} subtitle={t("subtitle")}>
-      <Panel title={`${t(FILTERS.find((x) => x[0] === filter)?.[1])} (${list.length})`} padded={false}>
-        <Toolbar>
-          {FILTERS.map(([key, labelKey]) => (
-            <button
-              key={key || "all"}
-              onClick={() => setFilter(key)}
-              style={{
-                ...button(filter === key ? "primary" : "secondary"),
-                padding: "5px 12px",
-                fontSize: 13,
-              }}
-            >
-              {t(labelKey)}
-            </button>
-          ))}
-        </Toolbar>
+    <AdminShell title={t("title")}>
+      <Panel padded={false}>
+        <Segments
+          value={filter}
+          items={FILTERS.map(([key, labelKey, icon]) => ({ key, label: t(labelKey), icon, count: key === filter && !busy ? list.length : null }))}
+          onChange={setFilter}
+        />
 
         {busy && <Empty>{t("loading")}</Empty>}
         {!busy && failed && <div style={{ padding: 12 }}><LoadError what={t("whatBookings")} onRetry={load} /></div>}
         {!busy && !failed && list.length === 0 && <Empty>{t("empty")}</Empty>}
 
-        {list.map((b) => (
-          <Row key={b.id}>
-            <RowMain
-              title={L.text(`${departureLabel(b)}${b.boat_types?.name ? " · " + b.boat_types.name : ""}`)}
-              meta={
-                <>
-                  <span style={money}>{f.date(b.start_date)}</span> → <span style={money}>{f.date(b.end_date)}</span>
-                  {b.crew_role ? ` · ${labelForRole(b.crew_role)}` : ""}
-                  <br />
-                  <PersonLink label={t("client")} p={b.people?.client} />
-                  {b.people?.client && b.people?.pro ? " · " : ""}
-                  <PersonLink label={t("professional")} p={b.people?.pro} />
-                </>
-              }
-            />
-            <Status value={b.status} />
-          </Row>
-        ))}
+        {list.map((b) => {
+          const [tone, icon] = STATUS_CHIP[b.status] || ["neutral", "info"];
+          return (
+            <Row key={b.id}>
+              <span style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 220px" }}>
+                <IconDisc icon={icon} tone={tone} size={42} />
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span data-user-text style={{ display: "block", fontSize: 14.5, fontWeight: 600, color: colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {L.text(`${departureLabel(b)}${b.boat_types?.name ? " · " + b.boat_types.name : ""}`)}
+                  </span>
+                  <span style={{ ...muted, fontSize: 12.5, display: "block", marginTop: 3 }}>
+                    <span style={money}>{f.date(b.start_date)}</span> → <span style={money}>{f.date(b.end_date)}</span>
+                    {b.crew_role ? ` · ${labelForRole(b.crew_role)}` : ""}
+                  </span>
+                  <span style={{ fontSize: 12.5, display: "flex", gap: 12, flexWrap: "wrap", marginTop: 3 }}>
+                    <PersonLink icon="user" label={t("client")} p={b.people?.client} />
+                    <PersonLink icon="anchor" label={t("professional")} p={b.people?.pro} />
+                  </span>
+                </span>
+              </span>
+              <Chip tone={tone} icon={icon}>{STATUS_LABEL[b.status] || b.status}</Chip>
+            </Row>
+          );
+        })}
       </Panel>
     </AdminShell>
   );
