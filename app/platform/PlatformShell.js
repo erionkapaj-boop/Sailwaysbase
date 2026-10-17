@@ -11,6 +11,7 @@ import MessagesPanel from "./components/MessagesPanel";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import HomeAppsMenu from "./components/HomeAppsMenu";
 import AccountMenu from "./components/AccountMenu";
+import ProfileMenu from "./components/ProfileMenu";
 import FeedbackProvider from "./components/FeedbackProvider";
 import SideNav, { SIDENAV_CSS } from "./components/SideNav";
 import { NAV_CSS } from "./components/NavGroups";
@@ -65,15 +66,11 @@ function AccountNavBar({ isAdmin, isHome, homeLabel, name, photoUrl, items, acti
       {isHome ? <span /> : <HomeBrandLink label={homeLabel} />}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4, justifySelf: "end" }}>
-        {/* Πλατιά οθόνη: ο λογαριασμός φαίνεται και οδηγεί στο προφίλ· στο κινητό μένει στο μενού. */}
-        <Link href="/platform/profile" className="sf-hide-narrow" style={{ alignItems: "center", gap: 8, textDecoration: "none", marginRight: 6, color: colors.ink, fontSize: 14 }}>
-          <Avatar src={photoUrl} name={name || ""} size={30} />
-          <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name || ""}</span>
-        </Link>
         <LanguageSwitcher />
         <NotificationPanel count={unreadNotifications} onRead={refreshNotifications} />
         <MessagesPanel count={unreadBookingIds.length} />
-        {!isAdmin && <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} side="right" />}
+        {/* Η φωτογραφία του χρήστη με δαχτυλίδι στο χρώμα του ρόλου και μενού προφίλ (αντί για «Σύνδεση»). */}
+        <ProfileMenu name={name} photoUrl={photoUrl} />
       </div>
     </div>
   );
@@ -206,7 +203,7 @@ function NavBar() {
         <LanguageSwitcher compact />
         {session ? (
           // Συνδεδεμένος λογαριασμός που δεν έχει ακόμα ρόλο (π.χ. στη μέση της εγγραφής): η ίδια κεφαλίδα, με έξοδο.
-          <AccountMenu items={[{ href: "/platform", label: ts("menuHome") }]} activeHref={pathname} onSignOut={signOut} side="right" />
+          <ProfileMenu name={session.user?.user_metadata?.full_name || session.user?.email || ""} photoUrl={session.user?.user_metadata?.avatar_url} limited />
         ) : (
           <Link href="/platform/login" style={{ ...navLink, ...tapTarget, padding: "0 8px", color: colors.ink, fontSize: 15 }}>
             {t("login")}

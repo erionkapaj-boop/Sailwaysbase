@@ -41,7 +41,7 @@ async function bar(page, { who, home }) {
     const back = document.querySelector("[data-header-back], [data-header-slot] > *");
     const out = { dots: visible(dots), lang: visible(lang), brandText: brand ? brand.innerText.trim().length > 0 && visible(brand) : false };
     out.brand = home ? true : visible(brand);
-    out.account = who === "guest" ? visible(login) : who === "admin" && window.innerWidth >= 1100 ? true : visible(menu);
+    out.account = who === "guest" ? visible(login) : visible(document.querySelector("[data-profile-menu]"));
     out.hasBack = Boolean(back);
     out.vw = window.innerWidth;
     out.overflow = document.documentElement.scrollWidth - document.documentElement.clientWidth;

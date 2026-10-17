@@ -467,5 +467,31 @@
     "asProfessionalLabel": "As a professional",
     "asClientLabel": "As a client",
     "loading": "Loading..."
+  },
+  "ProfileMenu": {
+    "open": "Profile menu",
+    "currentRole": "Current role",
+    "changeRole": "Change role",
+    "profile": "My profile",
+    "settings": "Settings",
+    "packages": "Packages & benefits",
+    "help": "Help",
+    "requests": "Requests",
+    "bookings": "Bookings",
+    "availability": "My availability",
+    "logout": "Sign out"
+  },
+  "UserRoles": {
+    "client": "Client",
+    "professional": "Crew professional",
+    "company": "Company / Boat owner",
+    "creator": "Experience creator",
+    "team": "Skipper Finder team",
+    "admin": "Administrator"
+  },
+  "Soon": {
+    "settingsTitle": "Settings",
+    "helpTitle": "Help",
+    "note": "Coming soon"
   }
 }

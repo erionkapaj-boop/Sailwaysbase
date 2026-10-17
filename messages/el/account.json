@@ -467,5 +467,31 @@
     "asProfessionalLabel": "Ως επαγγελματίας",
     "asClientLabel": "Ως πελάτης",
     "loading": "Φόρτωση..."
+  },
+  "ProfileMenu": {
+    "open": "Μενού προφίλ",
+    "currentRole": "Τρέχων ρόλος",
+    "changeRole": "Αλλαγή ρόλου",
+    "profile": "Το προφίλ μου",
+    "settings": "Ρυθμίσεις",
+    "packages": "Πακέτα & προνόμια",
+    "help": "Βοήθεια",
+    "requests": "Αιτήματα",
+    "bookings": "Κρατήσεις",
+    "availability": "Η διαθεσιμότητά μου",
+    "logout": "Αποσύνδεση"
+  },
+  "UserRoles": {
+    "client": "Πελάτης",
+    "professional": "Επαγγελματίας πληρώματος",
+    "company": "Εταιρεία / Ιδιοκτήτης σκαφών",
+    "creator": "Δημιουργός εμπειριών",
+    "team": "Ομάδα Skipper Finder",
+    "admin": "Administrator"
+  },
+  "Soon": {
+    "settingsTitle": "Ρυθμίσεις",
+    "helpTitle": "Βοήθεια",
+    "note": "Σύντομα"
   }
 }
