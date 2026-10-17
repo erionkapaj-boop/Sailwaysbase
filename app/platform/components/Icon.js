@@ -63,6 +63,12 @@ const P = {
   helm: '<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2.5v19M2.5 12h19M5.3 5.3l13.4 13.4M18.7 5.3 5.3 18.7"/>',
   tray: '<path d="M4 16.5h16M5.5 16.5a6.5 6.5 0 0 1 13 0"/><path d="M12 8.5v1.5M3 19.5h18"/>',
   anchor: '<circle cx="12" cy="5" r="2"/><path d="M12 7v13.5M8 10.5h8M4.5 13.5c.5 4 3.6 7 7.5 7s7-3 7.5-7"/>',
+  triangle: '<path d="M12 4 21 19.5H3Z"/><path d="M12 10v4.5M12 17.2v.1"/>',
+  flag: '<path d="M6 21V4"/><path d="M6 5h11l-2.5 4 2.5 4H6"/>',
+  dots: '<path d="M6 12h.01M12 12h.01M18 12h.01" stroke-width="2.6"/>',
+  camera: '<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.2-2h5.6L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5Z"/><circle cx="12" cy="13" r="3.4"/>',
+  edit: '<path d="M4.5 19.5 5 15.5 15.8 4.7a1.8 1.8 0 0 1 2.5 0l1 1a1.8 1.8 0 0 1 0 2.5L8.5 19Z"/><path d="m13.5 7 3.5 3.5"/>',
+  trash: '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l.8 12.5h9.4L17.5 7M10 11v5M14 11v5"/>',
   chef: '<path d="M7 14.5v5h10v-5"/><path d="M7 14.5A4 4 0 0 1 7.5 6.6a4.5 4.5 0 0 1 9 0A4 4 0 0 1 17 14.5Z"/>',
 };
 
@@ -72,6 +78,9 @@ export const CABIN_ICON = { bunk: "bunk", private: "bedDouble", skipper: "bedSin
 export const BOAT_ICON = { sail: "sail", cat: "cat", motor: "motor", gulet: "gulet", other: "sail" };
 
 export const ROLE_ICON = { skipper: "helm", hostess: "tray", deckhand: "anchor", cook: "chef" };
+
+// Το περιεχόμενο SVG ενός εικονιδίου (για σημάδια του χάρτη που φτιάχνονται έξω από το React).
+export const iconMarkup = (name) => P[name] || "";
 
 // Μία σειρά SVG· τα paths είναι σταθερά του κώδικα (όχι δεδομένα χρήστη).
 export default function Icon({ name, size = 22, stroke = 1.7, style, className }) {

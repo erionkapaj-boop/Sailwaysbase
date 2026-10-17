@@ -13,7 +13,7 @@ const MAX_EDGE = 1200;
 const JPEG_QUALITY = 0.85;
 const HARD_LIMIT = 5 * 1024 * 1024;
 
-function resizeImage(file) {
+export function resizeImage(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();

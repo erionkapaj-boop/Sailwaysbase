@@ -70,7 +70,21 @@
     "name_required": "The full name is required.",
     "image_too_large": "The image is too large.",
     "generic": "The action did not complete. Try again.",
-    "textTooLong": "The text is too long."
+    "textTooLong": "The text is too long.",
+    "community_not_allowed": "Community is for approved professionals.",
+    "community_restricted": "Your participation is temporarily restricted.",
+    "invalid_title": "The title needs 3 to 80 characters.",
+    "invalid_description": "The description can have up to 1000 characters.",
+    "invalid_position": "The position is not valid.",
+    "invalid_observed_at": "The observation date is not valid.",
+    "invalid_photo": "The photo is not valid.",
+    "invalid_details": "The details are not valid.",
+    "invalid_category": "The category is not valid.",
+    "point_not_found": "The point no longer exists.",
+    "point_archived": "The point has been archived.",
+    "invalid_reason": "The reason is not valid.",
+    "invalid_note": "The comment can have up to 500 characters.",
+    "target_not_found": "The item no longer exists."
   },
   "Feedback": {
     "users_PATCH": "Saved",

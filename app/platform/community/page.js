@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
 import SignedOutNotice from "../components/SignedOutNotice";
 import LoadError from "../components/LoadError";
+import CommunityMap from "../components/community/CommunityMap";
 import { communityMyAccess } from "../../../lib/platform/db";
 import { colors, container, card, h1, muted, radius } from "../../../lib/platform/theme";
 
@@ -35,7 +36,7 @@ export default function Page() {
   if (!session) return <SignedOutNotice />;
 
   return (
-    <div style={{ ...container, maxWidth: 980 }}>
+    <div style={{ ...container, maxWidth: 1100 }}>
       <div style={{ padding: "24px 0 0" }}>
         <h1 style={h1}>{t("title")}</h1>
         {failed ? (
@@ -54,9 +55,15 @@ export default function Page() {
                 </button>
               ))}
             </div>
-            <div data-community-pane={tab} style={{ ...card, minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ ...muted, fontSize: 15 }}>{t("soon")}</span>
-            </div>
+            {tab === "map" ? (
+              <div data-community-pane="map">
+                <CommunityMap access={access} />
+              </div>
+            ) : (
+              <div data-community-pane="groups" style={{ ...card, minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ ...muted, fontSize: 15 }}>{t("soon")}</span>
+              </div>
+            )}
           </>
         )}
       </div>

@@ -545,6 +545,7 @@
 553bb7d	στήλη	health_issues.reopened_count	d27d76
 553f077	στήλη	bookings.boat_length_ft	157db7
 5546ab2	στήλη	skipper_secondary_roles.license_number	1cb251
+555209e	συνάρτηση	community_update_point(uuid,text,text,double precision,double precision,text,boolean)	b7ba79
 5552b72	συνάρτηση	admin_list_delivery_requests()	900df2
 5557fdd	στήλη	admin_flags.id	70d339
 55596dc	συνάρτηση	notify_wallet_movement()	a3f54e
@@ -1195,6 +1196,7 @@ c5af5f5	στήλη	community_points.last_confirmed_by	ef7c87
 c5b1251	συνάρτηση	admin_update_profile(uuid,text,text,numeric,text,text,integer)	cefe4b
 c5d4ed4	στήλη	community_category_settings.updated_at	e99486
 c603061	περιορισμός	availability_window_regions.availability_window_regions_pkey	4fea5c
+c644309	συνάρτηση	community_category_info()	e0b835
 c647798	κανόνας RLS	booking_requests.client reads own requests	88b1b2
 c647d71	περιορισμός	community_restrictions.community_restrictions_reason_check	847c89
 c6b579f	περιορισμός	skipper_availability.skipper_availability_skipper_id_fkey	802e21

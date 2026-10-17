@@ -19,6 +19,7 @@ import { whatIsHere, positionedPlaces } from "../../../../lib/platform/geo";
 //   positioned  οι θέσεις των μερών που χρησιμοποιεί το «τι είναι εδώ» (προεπιλογή: οι γνωστές)
 //   markers     [{ id, lng, lat, label, active?, ariaLabel?, shape? }] → ετικέτες-κουμπιά (π.χ. ημερομηνία)
 //               shape: "pin" → κλασική καρφίτσα (στρογγυλή πάνω, μυτερή κάτω) με το γράμμα μέσα· η μύτη είναι στο σημείο
+//               shape: "badge" → στρογγυλό σημάδι με εικονίδιο (icon: περιεχόμενο SVG 24×24, color, age: fresh | aging | old)
 //               onMarker(id) πάτημα, onMarkerHover(id | null) πέρασμα του δείκτη
 //   onMove      (bounds) όταν ο χρήστης μετακινήσει/μεγεθύνει τον χάρτη: [[w, s], [e, n]]
 //   controls    θέση των κουμπιών μεγέθυνσης (προεπιλογή "bottom-right")
@@ -51,7 +52,16 @@ const CSS = `
 .mv-drop[data-static="true"] { cursor: default; }
 .mv-drop:hover { transform: scale(1.08); }
 .mv-drop:focus-visible { outline: 2px solid ${MAP_COLORS.point}; outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .mv-pin { transition: none; } }
+.mv-badge { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border-radius: 999px; background: #fff;
+  border: 2px solid currentColor; cursor: pointer; box-shadow: 0 2px 7px rgba(22,40,60,.22); transition: transform .15s ease, opacity .2s ease, background .15s ease, color .15s ease; }
+.mv-badge svg { display: block; }
+.mv-badge:hover { transform: scale(1.08); }
+.mv-badge[data-age="aging"] { opacity: .78; }
+.mv-badge[data-age="old"] { opacity: .55; border-style: dashed; }
+.mv-badge[data-active="true"] { opacity: 1; transform: scale(1.14); background: currentColor; }
+.mv-badge[data-active="true"] svg { color: #fff; }
+.mv-badge:focus-visible { outline: 2px solid ${MAP_COLORS.point}; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .mv-pin, .mv-badge { transition: none; } }
 `;
 
 export default function MapViewInner({ layers = [], onPick, onFeature, focus, pick, draggable, onDrag, positioned, interactive = true, markers, onMarker, onMarkerHover, onMove, gestures = "full", controls = "bottom-right" }) {
@@ -195,7 +205,7 @@ export default function MapViewInner({ layers = [], onPick, onFeature, focus, pi
         wrap.appendChild(el);
         if (onMarker) el.type = "button";
         else el.setAttribute("aria-hidden", "true");
-        el.className = m.shape === "pin" ? "mv-drop" : "mv-pin";
+        el.className = m.shape === "pin" ? "mv-drop" : m.shape === "badge" ? "mv-badge" : "mv-pin";
         if (m.shape === "pin") wrap.style.lineHeight = "0"; // η μύτη ακριβώς στο σημείο, χωρίς κενό από γραμμή κειμένου
         el.dataset.mapPin = m.id;
         el.addEventListener("click", (e) => {
@@ -204,6 +214,7 @@ export default function MapViewInner({ layers = [], onPick, onFeature, focus, pi
         });
         el.addEventListener("mouseenter", () => handlers.current.onMarkerHover?.(m.id));
         el.addEventListener("mouseleave", () => handlers.current.onMarkerHover?.(null));
+        if (m.shape === "badge") wrap.style.lineHeight = "0";
         const marker = new maplibregl.Marker({ element: wrap, anchor: m.shape === "pin" ? "bottom" : "center" }).setLngLat([m.lng, m.lat]).addTo(map);
         pin = { marker, el };
         pins.set(m.id, pin);
@@ -214,6 +225,11 @@ export default function MapViewInner({ layers = [], onPick, onFeature, focus, pi
           pin.el.innerHTML = '<svg width="24" height="31" viewBox="0 0 28 36" aria-hidden="true"><path d="M14 34.5S2.5 22.5 2.5 13.5a11.5 11.5 0 0 1 23 0C25.5 22.5 14 34.5 14 34.5Z"/><text x="14" y="18" text-anchor="middle"></text></svg>';
         }
         pin.el.querySelector("text").textContent = m.label;
+      } else if (m.shape === "badge") {
+        pin.el.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${m.icon || ""}</svg>`;
+        pin.el.style.color = m.color || MAP_COLORS.point;
+        pin.el.dataset.age = m.age || "fresh";
+        if (m.category) pin.el.dataset.mapCategory = m.category;
       } else pin.el.textContent = m.label;
       if (onMarker) pin.el.setAttribute("aria-label", m.ariaLabel || m.label);
       pin.el.dataset.active = m.active ? "true" : "false";
