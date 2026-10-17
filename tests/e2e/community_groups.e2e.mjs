@@ -90,6 +90,7 @@ async function run(phone, locale, w, h, tag) {
     await page.waitForSelector("[data-community-groups]");
     await page.locator('[data-group-open="aegean"]').click();
     await page.waitForSelector("[data-community-group]");
+    await page.waitForSelector("[data-group-empty]");
     check(`${label}: μη μέλος → διαβάζει, και ζητά «${L.joinWrite}»`, (await page.locator("[data-compose]").count()) === 0 && (await page.locator("[data-join-to-write]").innerText()) === L.joinWrite && (await text(page)).includes(L.noMsg));
     await page.locator("[data-join-to-write]").click();
     await page.waitForSelector("[data-compose]");
