@@ -8,15 +8,15 @@ const trusted = (q) => sql(`select set_config('platform.trusted', 'true', false)
 trusted(`update users set is_staff_admin = true where phone_number = '+${"30" + SOFIA}';
          update users set is_owner = true, is_staff_admin = true where phone_number = '+${"30" + NIKOS}';`);
 
-// Η Σοφία δουλεύει ως Ομάδα (τρέχων ρόλος team): το περιβάλλον της είναι η διαχείριση, οργανωμένη στο προφίλ της.
+// Η Σοφία δουλεύει ως Ομάδα (τρέχων ρόλος team): το δωμάτιό της είναι η διαχείριση (καρτέλες και «Περισσότερα»).
 sql(`update users set active_role = 'team' where phone_number = '+${"30" + SOFIA}'`);
 await as(SOFIA, async (page) => {
-  await go(page, "/platform/profile");
+  await go(page, "/platform/admin/more");
   await page.locator("[data-admin-groups]").waitFor();
   await page.waitForTimeout(600);
   const t = await text(page);
   check("υπάλληλος: βλέπει τη διαχείριση", t.includes("Εκκρεμότητες"));
-  check("υπάλληλος: όχι Οικονομικά, Ρυθμίσεις, Δοκιμές στο προφίλ",
+  check("υπάλληλος: όχι Οικονομικά, Ρυθμίσεις, Δοκιμές στο «Περισσότερα»",
     !t.includes("Οικονομικά") && !t.includes("Ρυθμίσεις") && !t.includes("Credits και πακέτα") && !t.includes("Ghost Mode"), t.slice(0, 600));
   check("υπάλληλος: όχι πωλήσεις", !t.includes("Πωλήσεις"));
   await go(page, "/platform/admin/finance");

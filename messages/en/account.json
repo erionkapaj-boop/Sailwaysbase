@@ -515,9 +515,11 @@
     }
   },
   "AdminProfile": {
-    "title": "Administration",
-    "adminName": "Administrator",
-    "group_people": "Users & roles",
+    "title": "My profile",
+    "adminName": "Administrator"
+  },
+  "AdminMore": {
+    "title": "More",
     "group_requests": "Requests & bookings",
     "group_credits": "Credits & packages",
     "group_community": "Community & moderation",

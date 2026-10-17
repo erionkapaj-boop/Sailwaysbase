@@ -6,11 +6,12 @@ import { useTranslations } from "next-intl";
 import Icon from "./Icon";
 import { useAuth } from "../AuthContext";
 import useActiveRole from "../useActiveRole";
+import useTabCounts from "../useTabCounts";
 import { navTabsFor, isTabActive } from "../../../lib/platform/navTabs";
 import { colors, fontSans } from "../../../lib/platform/theme";
 
-// Κάτω μπάρα πλοήγησης (κινητό, ≤860px): τα ΔΙΚΑ ΜΟΥ πράγματα στον τρέχοντα ρόλο (lib/platform/navTabs.js, βήμα 4). Οι τελείες της
-// κεφαλίδας έχουν τις κοινές εφαρμογές· δεν ανακατεύονται. Αλλάζει αμέσως όταν αλλάζει ο ρόλος. Στον υπολογιστή οι ίδιες καρτέλες
+// Κάτω μπάρα πλοήγησης (κινητό, ≤860px): τα ΔΙΚΑ ΜΟΥ πράγματα στον τρέχοντα ρόλο (lib/platform/roleEnv.js). Στο δωμάτιο του Administrator
+// είναι το μενού της διαχείρισης. Οι τελείες της κεφαλίδας έχουν τις κοινές εφαρμογές· δεν ανακατεύονται. Αλλάζει αμέσως όταν αλλάζει ο ρόλος. Στον υπολογιστή οι ίδιες καρτέλες
 // μπαίνουν στην πάνω μπάρα (TopTabs). Επισκέπτης: Αρχική, Σύνδεση, μόνο στις εσωτερικές σελίδες — η αρχική του επισκέπτη μένει όπως είναι.
 // Στις οθόνες εστίασης (οδηγός αίτησης, πληρωμή, είσοδος) δεν εμφανίζεται, ώστε
 // να μη συναγωνίζεται την κύρια ενέργεια. Η μπάρα ορίζει το --sf-bnav (ύψος), που οι σταθερές μπάρες των σελίδων προσθέτουν στο bottom τους.
@@ -27,7 +28,7 @@ const FOCUS_PREFIXES = [
 export function useBottomNavVisible() {
   const { session, userRow } = useAuth();
   const pathname = usePathname() || "/";
-  // Η κονσόλα διαχείρισης δεν έχει πια δικό της μενού: ο Administrator κινείται με τις καρτέλες του (Αρχική, Προφίλ), όπως κάθε ρόλος.
+  // Στην κονσόλα διαχείρισης η μπάρα ΕΙΝΑΙ το μενού της (καρτέλες Administrator), όπως σε κάθε δωμάτιο.
   if (pathname === "/platform/admin/login") return false;
   if (FOCUS_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return false;
   if (session) return true;
@@ -37,8 +38,8 @@ export function useBottomNavVisible() {
 
 export default function BottomNav() {
   const t = useTranslations("Nav");
-  const { notifications } = useAuth();
   const role = useActiveRole();
+  const countFor = useTabCounts(role);
   const pathname = usePathname() || "/";
   const visible = useBottomNavVisible();
 
@@ -56,7 +57,7 @@ export default function BottomNav() {
     <nav aria-label={t("bottomNav")} className="sf-bnav" data-bnav-role={role}>
       {tabs.map((x) => {
         const on = isTabActive(pathname, x);
-        const count = x.badge === "requests" ? notifications?.pendingRequests ?? 0 : 0;
+        const count = countFor(x);
         return (
           <Link key={x.key} href={x.href} data-bnav-tab={x.key} aria-current={on ? "page" : undefined} className="sf-bnav-tab" style={{ color: on ? colors.ink : colors.inkSoft, fontFamily: fontSans }}>
             <span style={{ position: "relative", display: "inline-flex" }}>

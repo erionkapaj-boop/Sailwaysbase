@@ -31,10 +31,10 @@ async function menuState(page) {
 }
 
 const L = {
-  el: { role: { client: "Πελάτης", professional: "Επαγγελματίας πληρώματος", admin: "Administrator" }, cur: "Τρέχων ρόλος", change: "Αλλαγή ρόλου", item: { bookings: "Κρατήσεις", settings: "Ρυθμίσεις", packages: "Πακέτα & προνόμια", help: "Βοήθεια" }, logout: "Αποσύνδεση", gone: ["Το προφίλ μου", "Αιτήματα", "Η διαθεσιμότητά μου"] },
-  en: { role: { client: "Client", professional: "Crew professional", admin: "Administrator" }, cur: "Current role", change: "Change role", item: { bookings: "Bookings", settings: "Settings", packages: "Packages & benefits", help: "Help" }, logout: "Sign out", gone: ["My profile", "Requests", "My availability"] },
+  el: { role: { client: "Πελάτης", professional: "Επαγγελματίας πληρώματος", admin: "Administrator" }, cur: "Τρέχων ρόλος", change: "Αλλαγή ρόλου", item: { profile: "Το προφίλ μου", bookings: "Κρατήσεις", settings: "Ρυθμίσεις", packages: "Πακέτα & προνόμια", help: "Βοήθεια" }, logout: "Αποσύνδεση", gone: ["Το προφίλ μου", "Αιτήματα", "Η διαθεσιμότητά μου"] },
+  en: { role: { client: "Client", professional: "Crew professional", admin: "Administrator" }, cur: "Current role", change: "Change role", item: { profile: "My profile", bookings: "Bookings", settings: "Settings", packages: "Packages & benefits", help: "Help" }, logout: "Sign out", gone: ["My profile", "Requests", "My availability"] },
 };
-const MENU = { client: ["bookings", "settings", "packages", "help"], professional: ["bookings", "settings", "packages", "help"], admin: ["help"] };
+const MENU = { client: ["bookings", "settings", "packages", "help"], professional: ["bookings", "settings", "packages", "help"], admin: ["profile", "help"] };
 
 for (const locale of ["el", "en"]) {
   for (const [who, phone, role] of [["client", CLIENT, "client"], ["skipper", SKIPPER, "professional"], ["admin", ADMIN, "admin"]]) {
@@ -58,7 +58,8 @@ for (const locale of ["el", "en"]) {
         check(`${tag}: όνομα, ρόλος, τρέχων ρόλος, «${L[locale].change}»`,
           t.includes(L[locale].role[role]) && t.includes(L[locale].cur) && t.includes(L[locale].change) && (await page.locator("[data-pm-name]").innerText()).length > 2, t);
         check(`${tag}: μόνο οι γραμμές του ρόλου (${MENU[role].join(", ")})`, s.items.join() === MENU[role].join() && MENU[role].every((k) => t.includes(L[locale].item[k])), `${s.items.join()} / ${t}`);
-        check(`${tag}: τίποτα διπλό από τις καρτέλες (Προφίλ, Αιτήματα, Διαθεσιμότητα)`, L[locale].gone.every((x) => !t.includes(x)), t);
+        // Ό,τι είναι καρτέλα του ρόλου δεν επαναλαμβάνεται στο μενού (ο Administrator δεν έχει καρτέλα Προφίλ, άρα το «Το προφίλ μου» είναι εδώ).
+        check(`${tag}: τίποτα διπλό από τις καρτέλες`, L[locale].gone.filter((x) => role !== "admin" || x !== L[locale].item.profile).every((x) => !t.includes(x)), t);
         if (MENU[role].includes("packages")) check(`${tag}: υπόλοιπο credits δίπλα στα πακέτα`, /\d+ credits?/.test(await page.locator("[data-pm-balance]").innerText()));
         else check(`${tag}: χωρίς πακέτα/ρυθμίσεις/κρατήσεις στον ρόλο`, !t.includes(L[locale].item.packages) && !t.includes(L[locale].item.settings) && !t.includes(L[locale].item.bookings), t);
         check(`${tag}: το μενού μένει μέσα στην οθόνη`, s.pop.x >= 0 && s.pop.right <= vw + 0.5 && s.pop.y >= 0 && s.pop.bottom <= s.vh, JSON.stringify(s.pop));

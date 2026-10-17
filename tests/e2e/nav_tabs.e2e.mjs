@@ -36,8 +36,9 @@ const CASES = [
   { who: "επαγγελματίας", phone: SKIPPER, role: "professional", tabs: "home,requests,calendar,profile", labels: "Αρχική,Αιτήματα,Ημερολόγιο,Προφίλ" },
   { who: "εταιρεία (χωρίς σελίδα σκαφών: κρύβεται)", phone: CLIENT, role: "company", tabs: "home,profile", labels: "Αρχική,Προφίλ", prep: () => sql(`insert into user_roles (user_id, role, status) values ('${uid(CLIENT)}', 'company', 'active')`) },
   { who: "δημιουργός", phone: CLIENT, role: "creator", tabs: "home,experiences,profile", labels: "Αρχική,Εμπειρίες,Προφίλ", prep: () => sql(`insert into user_roles (user_id, role, status) values ('${uid(CLIENT)}', 'creator', 'active')`) },
-  { who: "Ομάδα", phone: STAFF, role: "team", tabs: "home,profile", labels: "Αρχική,Προφίλ", prep: () => sql(`update users set is_staff_admin = true where phone_number = '+30${STAFF}'`) },
-  { who: "Administrator", phone: ADMIN, role: "admin", tabs: "home,profile", labels: "Αρχική,Προφίλ" },
+  // Δωμάτιο Administrator / Ομάδας: οι καρτέλες είναι το μενού της διαχείρισης (καμία καρτέλα «Προφίλ» — το «Το προφίλ μου» είναι στο avatar).
+  { who: "Ομάδα", phone: STAFF, role: "team", path: "/platform/admin/users", active: "users", tabs: "overview,approvals,users,adminBookings,more", labels: "Επισκόπηση,Εκκρεμότητες,Χρήστες,Κρατήσεις,Περισσότερα", prep: () => sql(`update users set is_staff_admin = true where phone_number = '+30${STAFF}'`) },
+  { who: "Administrator", phone: ADMIN, role: "admin", path: "/platform/admin/users", active: "users", tabs: "overview,approvals,users,adminBookings,more", labels: "Επισκόπηση,Εκκρεμότητες,Χρήστες,Κρατήσεις,Περισσότερα" },
 ];
 
 try {
@@ -47,22 +48,24 @@ try {
         await page.setViewportSize({ width: vw, height: vw === 390 ? 844 : 900 });
         c.prep?.();
         setActive(c.phone, c.role);
-        await go(page, "/platform/profile");
+        await go(page, c.path || "/platform/profile");
         const tag = `${c.who}, ${vw}`;
+        const act = c.active || "profile";
         if (vw === 390) {
           await eventually(async () => (await bar(page)).role === c.role);
           const b = await bar(page);
           check(`${tag}: κάτω μπάρα ${c.labels}`, b.shown && b.tabs.join() === c.tabs && b.labels.join() === c.labels, JSON.stringify(b));
-          check(`${tag}: η ενεργή καρτέλα (Προφίλ) τονίζεται`, b.active.join() === "profile", JSON.stringify(b.active));
-          check(`${tag}: καρτέλες ≥ 44px, χωρίς οριζόντια κύλιση, χωρίς «Κρατήσεις»`, b.minH >= 44 && b.overflow === 0 && !b.labels.includes("Κρατήσεις"), JSON.stringify(b));
+          check(`${tag}: η ενεργή καρτέλα (${act}) τονίζεται`, b.active.join() === act, JSON.stringify(b.active));
+          check(`${tag}: καρτέλες ≥ 44px, χωρίς οριζόντια κύλιση`, b.minH >= 44 && b.overflow === 0, JSON.stringify(b));
+          if (!c.path) check(`${tag}: χωρίς καρτέλα «Κρατήσεις» (δεν υπάρχουν ακόμη πληρωμές)`, !b.labels.includes("Κρατήσεις"));
           check(`${tag}: δεν υπάρχουν πάνω καρτέλες στο κινητό`, !(await top(page)).shown);
           await shoot(page, `nav-${c.role}-390`);
         } else {
           await eventually(async () => (await top(page)).tabs.length > 0);
           const t = await top(page);
-          check(`${tag}: οι ίδιες καρτέλες στην πάνω μπάρα`, t.shown && t.tabs.join() === c.tabs && t.active.join() === "profile", JSON.stringify(t));
+          check(`${tag}: οι ίδιες καρτέλες στην πάνω μπάρα`, t.shown && t.tabs.join() === c.tabs && t.active.join() === act, JSON.stringify(t));
           check(`${tag}: χωρίς κάτω μπάρα στον υπολογιστή, χωρίς κύλιση`, !(await bar(page)).shown && t.overflow === 0);
-          if (["client", "professional"].includes(c.role)) await shoot(page, `nav-${c.role}-1280`);
+          if (["client", "professional", "admin"].includes(c.role)) await shoot(page, `nav-${c.role}-1280`);
         }
         if (c.role === "client" && vw === 390) {
           await go(page, "/platform/requests");
@@ -73,12 +76,14 @@ try {
     }
   }
 
-  // Ο Administrator στην Επισκόπηση: η Αρχική τονισμένη (η διαχείριση δεν έχει δικό της μενού).
+  // Ο Administrator: κάθε ενότητα τονίζει τη δική της καρτέλα· ό,τι ανοίγει από το «Περισσότερα» τονίζει το «Περισσότερα».
   await as(ADMIN, async (page) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await go(page, "/platform/admin");
-    const b = await bar(page);
-    check("Επισκόπηση διαχείρισης: κάτω μπάρα με τονισμένη την Αρχική", b.shown && b.active.join() === "home" && b.tabs.join() === "home,profile", JSON.stringify(b));
+    for (const [path, act] of [["/platform/admin", "overview"], ["/platform/admin/approvals", "approvals"], ["/platform/admin/bookings", "adminBookings"], ["/platform/admin/more", "more"], ["/platform/admin/health", "more"]]) {
+      await go(page, path);
+      const b = await bar(page);
+      check(`Administrator ${path}: τονισμένη η καρτέλα ${act}`, b.shown && b.active.join() === act, JSON.stringify(b));
+    }
   });
 
   // Αλλαγή ρόλου: η μπάρα αλλάζει αμέσως, χωρίς ανανέωση.

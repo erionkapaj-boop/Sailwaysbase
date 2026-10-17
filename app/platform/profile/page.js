@@ -1069,7 +1069,14 @@ export default function ProfilePage() {
   if (!session) return <SignedOutNotice />;
 
   // Το προφίλ ακολουθεί τον τρέχοντα ρόλο (lib/platform/roleEnv.js): κάθε ρόλος βλέπει μόνο το δικό του.
-  if (env.profile === "admin") return <AdminProfile />;
+  if (env.profile === "admin")
+    return (
+      <AdminProfile>
+        <AccountAccess />
+        <PushSettings />
+        <EmailSettings />
+      </AdminProfile>
+    );
   if (env.profile === "stub") return <PlaceholderPage title={tr(active)} note={ts("note")} />;
   if (env.profile !== "professional") return <ClientIdentityProfile role={role} />;
   if (!profile) return <MissingProfile userRow={userRow} isAdmin={isAdmin} refresh={refresh} loadError={loadError} />;

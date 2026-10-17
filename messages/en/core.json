@@ -26,7 +26,11 @@
     "tabExperiences": "Experiences",
     "tabAdmin": "Admin",
     "tabBoats": "Boats",
-    "topNav": "My sections"
+    "topNav": "My sections",
+    "tabOverview": "Overview",
+    "tabApprovals": "Pending",
+    "tabUsers": "Users",
+    "tabMore": "More"
   },
   "Home": {
     "searchCrew": "Find crew",

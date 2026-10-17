@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
+import useActiveRole from "../useActiveRole";
 import { listMyBookingsAsClient, listMyBookingsAsSkipper, listMyDeliveryBookings } from "../../../lib/platform/db";
 import BookingPanel from "../components/BookingPanel";
 import DeliveryBookingCard from "../components/DeliveryBookingCard";
@@ -25,7 +26,8 @@ export default function BookingsPage() {
 // χρειάζεται Suspense boundary γύρω του στο app router.
 function BookingsInner() {
   const t = useTranslations("Bookings");
-  const { session, userRow, profile, isAdmin, loading, notifications } = useAuth();
+  const { session, userRow, profile, loading, notifications } = useAuth();
+  const activeRole = useActiveRole();
   const searchParams = useSearchParams();
   const focusBookingId = searchParams.get("focus");
   const [clientBookings, setClientBookings] = useState([]);
@@ -34,14 +36,15 @@ function BookingsInner() {
   const [busy, setBusy] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  const isProfessional = userRow?.role === "skipper" || isAdmin;
+  // Κάθε δωμάτιο βλέπει μόνο τα δικά του: ο Επαγγελματίας τις κρατήσεις του ως επαγγελματίας, ο Πελάτης όσες έκλεισε ως πελάτης.
+  const isProfessional = activeRole === "professional";
 
   async function load() {
     setBusy(true);
     setLoadFailed(false);
     try {
       const [cb, pb, db] = await Promise.all([
-        listMyBookingsAsClient(),
+        isProfessional ? Promise.resolve([]) : listMyBookingsAsClient(),
         isProfessional && profile?.id ? listMyBookingsAsSkipper(profile.id) : Promise.resolve([]),
         listMyDeliveryBookings().catch(() => []),
       ]);
@@ -58,12 +61,14 @@ function BookingsInner() {
 
   useEffect(() => {
     if (session) load();
-  }, [session, profile?.id]);
+  }, [session, profile?.id, isProfessional]);
 
   if (loading) return <div style={container}>{t("loading")}</div>;
   if (!session) return <SignedOutNotice />;
 
   const unreadIds = notifications?.unreadBookingIds ?? [];
+  // Οι μεταφορές σκάφους: του δωματίου μόνο (ως επαγγελματίας όσες ανέλαβε, ως πελάτης όσες ζήτησε).
+  const deliveries = deliveryBookings.filter((b) => (isProfessional ? profile?.id && b.skipper_id === profile.id : b.client_id === userRow?.id));
 
   return (
     <div style={container}>
@@ -71,10 +76,10 @@ function BookingsInner() {
       <PendingReviewBanner bookingsHref="/platform/bookings" />
       {!busy && loadFailed && <LoadError what={t("loadWhat")} onRetry={load} />}
 
-      {deliveryBookings.length > 0 && (
+      {deliveries.length > 0 && (
         <div style={{ marginTop: 8 }}>
-          <h2 style={sectionLabel}>{t("deliveries")}<span style={{ marginLeft: 8, opacity: 0.55 }}>{deliveryBookings.length}</span></h2>
-          {deliveryBookings.map((b) => (
+          <h2 style={sectionLabel}>{t("deliveries")}<span style={{ marginLeft: 8, opacity: 0.55 }}>{deliveries.length}</span></h2>
+          {deliveries.map((b) => (
             <DeliveryBookingCard key={b.id} booking={b} />
           ))}
         </div>
@@ -99,6 +104,7 @@ function BookingsInner() {
         </div>
       )}
 
+      {!isProfessional && (
       <div>
         <h2 style={sectionLabel}>{t("asClient")}<span style={{ marginLeft: 8, opacity: 0.55 }}>{clientBookings.length}</span></h2>
         {busy && <p style={muted}>{t("loading")}</p>}
@@ -126,6 +132,7 @@ function BookingsInner() {
           />
         ))}
       </div>
+      )}
     </div>
   );
 }

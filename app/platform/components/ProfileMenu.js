@@ -13,6 +13,7 @@ import { formatCredits } from "../../../lib/platform/credits";
 import { colors, fontSans, radius, shadow } from "../../../lib/platform/theme";
 
 const MENU_ITEMS = {
+  profile: { href: "/platform/profile", icon: "user", label: "profile" },
   bookings: { href: "/platform/bookings", icon: "calCheck", label: "bookings" },
   settings: { href: "/platform/settings", icon: "sliders", label: "settings" },
   packages: { href: "/platform/wallet", icon: "wallet", label: "packages" },

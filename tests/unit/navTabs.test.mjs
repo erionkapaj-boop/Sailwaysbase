@@ -11,11 +11,13 @@ ok("πελάτης: Αρχική, Αιτήματα, Προφίλ", keys("client"
 ok("επαγγελματίας: Αρχική, Αιτήματα, Ημερολόγιο, Προφίλ", keys("professional") === "home,requests,calendar,profile");
 ok("εταιρεία: η καρτέλα «Σκάφη» κρύβεται (δεν έχει σελίδα)", keys("company") === "home,profile");
 ok("δημιουργός: Αρχική, Εμπειρίες, Προφίλ", keys("creator") === "home,experiences,profile");
-ok("ομάδα και Administrator: Αρχική (Επισκόπηση), Προφίλ (η οργανωμένη διαχείριση)", keys("team") === "home,profile" && keys("admin") === "home,profile");
-ok("Administrator: η Αρχική είναι η Επισκόπηση της διαχείρισης", navTabsFor("admin")[0].href === "/platform/admin" && navTabsFor("client")[0].href === "/platform");
-ok("Administrator: το Προφίλ είναι τονισμένο και μέσα στις σελίδες διαχείρισης, η Αρχική μόνο στην Επισκόπηση", isTabActive("/platform/admin/users", navTabsFor("admin")[1]) && isTabActive("/platform/profile", navTabsFor("admin")[1]) && !isTabActive("/platform/admin/users", navTabsFor("admin")[0]) && isTabActive("/platform/admin", navTabsFor("admin")[0]));
+ok("ομάδα και Administrator: το μενού της διαχείρισης", keys("team") === "overview,approvals,users,adminBookings,more" && keys("admin") === keys("team"));
+const A = navTabsFor("admin");
+const on = (p) => A.filter((t) => isTabActive(p, t)).map((t) => t.key).join();
+ok("Administrator: τονίζεται μία καρτέλα κάθε φορά", on("/platform/admin") === "overview" && on("/platform/admin/approvals") === "approvals" && on("/platform/admin/users") === "users" && on("/platform/admin/user/abc") === "users" && on("/platform/admin/bookings") === "adminBookings");
+ok("Administrator: οι ενότητες του «Περισσότερα» τονίζουν το «Περισσότερα»", on("/platform/admin/more") === "more" && on("/platform/admin/health") === "more" && on("/platform/admin/community") === "more" && on("/platform/admin/finance") === "more");
 ok("άγνωστος ρόλος → του πελάτη", keys("x") === keys("client"));
-ok("«Κρατήσεις» δεν υπάρχει σε κανέναν ρόλο", !Object.values(NAV_BY_ROLE).flat().includes("bookings"));
+ok("«Κρατήσεις» (πελάτη / επαγγελματία) δεν είναι καρτέλα κανενός ρόλου", !Object.values(NAV_BY_ROLE).flat().includes("bookings"));
 ok("κάθε ορατή καρτέλα έχει σελίδα", Object.keys(NAV_BY_ROLE).every((r) => navTabsFor(r).every((t) => t.href.startsWith("/platform"))));
 ok("κρυμμένες καρτέλες: μόνο τα Σκάφη της Εταιρείας", JSON.stringify(hiddenNavTabs()) === JSON.stringify([{ role: "company", tab: "boats" }]), JSON.stringify(hiddenNavTabs()));
 

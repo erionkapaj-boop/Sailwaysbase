@@ -515,9 +515,11 @@
     }
   },
   "AdminProfile": {
-    "title": "Διαχείριση",
-    "adminName": "Διαχειριστής",
-    "group_people": "Χρήστες και ρόλοι",
+    "title": "Το προφίλ μου",
+    "adminName": "Διαχειριστής"
+  },
+  "AdminMore": {
+    "title": "Περισσότερα",
     "group_requests": "Αιτήματα και κρατήσεις",
     "group_credits": "Credits και πακέτα",
     "group_community": "Community και moderation",

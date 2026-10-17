@@ -40,8 +40,8 @@ await as(ADMIN, async (page) => {
   const statuses = [];
   page.on("response", (r) => { if (/rpc\/admin_health_issues/.test(r.url())) statuses.push(r.status()); });
   // Μέσα από την εφαρμογή (όπως στο κινητό: η σελίδα ήταν ήδη ανοιχτή).
-  // Το «Υγεία εφαρμογής» είναι στην ομάδα «Περιεχόμενο και ρυθμίσεις» του προφίλ του Administrator (καρτέλα Προφίλ).
-  await page.locator('[data-toptab="profile"]').click();
+  // Το «Υγεία εφαρμογής» είναι στην ομάδα «Περιεχόμενο και ρυθμίσεις» της καρτέλας «Περισσότερα» του Administrator.
+  await page.locator('[data-toptab="more"]').click();
   await page.locator('[data-admin-section="health"]').click();
   const started = Date.now();
   while (anonCalls === 0 && Date.now() - started < 60000) await page.waitForTimeout(500);

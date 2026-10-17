@@ -26,7 +26,11 @@
     "tabExperiences": "Εμπειρίες",
     "tabAdmin": "Διαχείριση",
     "tabBoats": "Σκάφη",
-    "topNav": "Οι ενότητές μου"
+    "topNav": "Οι ενότητές μου",
+    "tabOverview": "Επισκόπηση",
+    "tabApprovals": "Εκκρεμότητες",
+    "tabUsers": "Χρήστες",
+    "tabMore": "Περισσότερα"
   },
   "Home": {
     "searchCrew": "Αναζήτηση πληρώματος",
