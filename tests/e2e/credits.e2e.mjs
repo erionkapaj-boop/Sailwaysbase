@@ -331,7 +331,7 @@ await as(ADMIN, async (page) => {
   check("πωλήσεις 30 ημερών: οι αγορές του σεναρίου (90 + 350) μετράνε", sales >= 440 && t.includes(`${sales}€`));
   check("credits που πουλήθηκαν: 12", t.includes("12 credits"));
   await go(page, "/platform/admin");
-  check("η αρχική δείχνει Πωλήσεις", (await text(page)).includes("Πωλήσεις"));
+  check("η αρχική δεν δείχνει πωλήσεις (ζουν στα Credits)", !(await text(page)).includes("Πωλήσεις"));
   await go(page, "/platform/admin/user/a0000000-0000-0000-0000-000000000002");
   const u = await text(page);
   check("καρτέλα χρήστη: υπόλοιπο σε credits", u.includes(`${wallet("Μαρία Πελάτη")} credits`));
