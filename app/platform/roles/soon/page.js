@@ -8,10 +8,10 @@ import { ROLE_KEYS } from "../../../../lib/platform/userRoles";
 export default function Page() {
   const tr = useTranslations("UserRoles");
   const t = useTranslations("Soon");
-  const [role, setRole] = useState("company");
+  const [role, setRole] = useState(null);
   useEffect(() => {
     const r = new URLSearchParams(window.location.search).get("role");
-    if (ROLE_KEYS.includes(r)) setRole(r);
+    setRole(ROLE_KEYS.includes(r) ? r : "company");
   }, []);
-  return <PlaceholderPage title={tr(role)} note={t("note")} />;
+  return <PlaceholderPage title={role ? tr(role) : ""} note={t("note")} />;
 }

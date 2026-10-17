@@ -91,6 +91,7 @@ try {
     await page.locator('[data-role-row="creator"]').click();
     await page.waitForURL(/\/platform\/roles\/soon\?role=creator/);
     await page.waitForLoadState("networkidle");
+    await page.getByRole("heading", { name: "Δημιουργός εμπειριών" }).waitFor();
     const soon = await page.innerText("body");
     check("Δημιουργός: οθόνη «Σύντομα» με το όνομα του ρόλου", soon.includes("Δημιουργός εμπειριών") && soon.includes("Σύντομα"), soon.slice(0, 200));
     sql("delete from user_roles where role in ('company', 'creator')");
