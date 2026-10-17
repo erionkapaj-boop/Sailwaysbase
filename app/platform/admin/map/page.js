@@ -166,7 +166,7 @@ export default function AdminMapPage() {
         : t("hereNone");
 
   return (
-    <AdminShell title={t("title")} subtitle={t("intro")}>
+    <AdminShell title={t("title")}>
       {error && <p role="alert" style={{ color: colors.danger }}>{error}</p>}
       {notice && <p role="status" style={{ color: colors.success }}>{notice}</p>}
       {!coordsFile.generated && <p style={{ ...muted, fontSize: 13 }}>{t("noCoords")}</p>}
@@ -192,7 +192,6 @@ export default function AdminMapPage() {
 
       {current && (
         <Panel title={`${t("selected")}: ${L.text(current.place.parent ? `${current.place.parent} – ${current.place.name}` : current.place.name)}`}>
-          <p style={{ ...muted, margin: "0 0 10px", fontSize: 13 }}>{t("moveHint")}</p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <button type="button" style={{ ...button("primary"), minHeight: 44 }} disabled={saving || !moved} onClick={save}>
               {saving ? t("saving") : t("save")}

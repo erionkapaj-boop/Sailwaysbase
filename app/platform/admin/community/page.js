@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "../../AuthContext";
 import { useFormat } from "../../useFormat";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
-import { Panel, Empty, colors, muted, button } from "../ui";
+import { EmptyState, Panel, Empty, colors, muted, button } from "../ui";
 import { badge, input, label, select, radius } from "../../../../lib/platform/theme";
 import { useConfirm } from "../../components/ConfirmDialog";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
@@ -21,9 +21,9 @@ import {
 
 const RESTRICT_REASONS = ["rules", "offers", "abuse", "other"];
 const RESTRICT_DAYS = [1, 7, 30];
-const segWrap = { display: "inline-flex", padding: 3, background: colors.seaGlass, borderRadius: radius.lg, gap: 2, marginBottom: 16, flexWrap: "wrap" };
+const segWrap = { display: "flex", padding: 3, background: colors.seaGlass, borderRadius: radius.lg, gap: 2, marginBottom: 16, overflowX: "auto", scrollbarWidth: "none" };
 const seg = (on) => ({
-  minHeight: 40, padding: "0 16px", border: "none", borderRadius: radius.md, fontSize: 14, fontFamily: "inherit", cursor: "pointer",
+  minHeight: 40, padding: "0 16px", flexShrink: 0, whiteSpace: "nowrap", border: "none", borderRadius: radius.md, fontSize: 14, fontFamily: "inherit", cursor: "pointer",
   fontWeight: on ? 600 : 400, color: colors.ink, background: on ? colors.card : "transparent", boxShadow: on ? "0 1px 3px rgba(22,40,60,0.10)" : "none",
 });
 const small = { ...button("secondary"), padding: "6px 12px", fontSize: 13 };
@@ -142,7 +142,7 @@ function Settings({ rows, owner, onSaved, onError }) {
     }
   }
   return (
-    <Panel title={t("settingsTitle")} subtitle={owner ? t("settingsIntro") : t("settingsOwnerOnly")}>
+    <Panel title={t("settingsTitle")} subtitle={owner ? undefined : t("settingsOwnerOnly")}>
       <div data-community-settings style={{ display: "grid", gap: 12 }}>
         {sorted.map((r) => {
           const v = valuesOf(r);
@@ -219,7 +219,7 @@ export default function AdminCommunityPage() {
   }
 
   return (
-    <AdminShell title={t("title")} subtitle={t("subtitle")}>
+    <AdminShell title={t("title")}>
       {error && <p role="alert" style={{ color: colors.danger }}>{error}</p>}
       {notice && <p role="status" style={{ color: colors.success }}>{notice}</p>}
       <div role="tablist" style={segWrap}>
@@ -236,12 +236,12 @@ export default function AdminCommunityPage() {
               <option value="closed">{t("filterClosed")}</option>
             </select>
           </div>
-          {!reports ? <Empty>{t("loading")}</Empty> : reports.length === 0 ? <Empty>{t(filter === "open" ? "emptyOpen" : "emptyClosed")}</Empty> : reports.map((r) => <ReportCard key={r.id} r={r} isOwnerOrStaff onAct={acted} onError={fail} />)}
+          {!reports ? <Empty>{t("loading")}</Empty> : reports.length === 0 ? <EmptyState icon="flag" tone="neutral">{t(filter === "open" ? "emptyOpen" : "emptyClosed")}</EmptyState> : reports.map((r) => <ReportCard key={r.id} r={r} isOwnerOrStaff onAct={acted} onError={fail} />)}
         </>
       )}
 
       {tab === "groups" && (
-        <Panel title={t("tabGroups")} subtitle={t("groupsIntro")}>
+        <Panel title={t("tabGroups")}>
           {!groups ? <Empty>{t("loading")}</Empty> : groups.map((g) => (
             <div key={g.id} data-admin-group={g.slug} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 0", borderTop: `1px solid ${colors.border}` }}>
               <div>
@@ -260,8 +260,8 @@ export default function AdminCommunityPage() {
       )}
 
       {tab === "restrictions" && (
-        <Panel title={t("tabRestrictions")} subtitle={t("restrictionsIntro")}>
-          {!restrictions ? <Empty>{t("loading")}</Empty> : restrictions.length === 0 ? <Empty>{t("emptyRestrictions")}</Empty> : restrictions.map((r) => (
+        <Panel title={t("tabRestrictions")}>
+          {!restrictions ? <Empty>{t("loading")}</Empty> : restrictions.length === 0 ? <EmptyState icon="shield" tone="neutral">{t("emptyRestrictions")}</EmptyState> : restrictions.map((r) => (
             <div key={r.user_id} data-restriction={r.user_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 0", borderTop: `1px solid ${colors.border}` }}>
               <div>
                 <b data-user-text style={{ fontWeight: 600, fontSize: 15 }}>{r.user_name}</b>

@@ -189,7 +189,6 @@ function UsersInner() {
   return (
     <AdminShell
       title={t("title")}
-      subtitle={t("subtitle")}
       counts={counts}
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}

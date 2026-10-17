@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
 import { useLocalData } from "../../useLocalData";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
-import { Panel, Empty, colors, muted, button } from "../ui";
+import { EmptyState, Panel, Empty, colors, muted, button } from "../ui";
 import { adminHealthIssues, adminResolveHealthIssue, adminRunHealthChecks, adminFlowStats, adminPlaceMisses, adminHealthEvents } from "../../../../lib/platform/db";
 
 // Οι ροές και τα βήματά τους έρχονται από τη βάση ως ελληνικά κείμενα (flow_steps, 0117)·
@@ -294,7 +294,6 @@ export default function HealthPage() {
   return (
     <AdminShell
       title={t("title")}
-      subtitle={t("subtitle")}
       ownerOnly
       actions={
         <button type="button" style={button("secondary")} disabled={checking} onClick={checkNow}>
@@ -307,16 +306,15 @@ export default function HealthPage() {
         <p style={{ ...muted, fontSize: 12.5, margin: "0 0 12px" }}>{t("checkedAgo", { ago: f.timeAgo(checkedAt) })}</p>
       )}
 
-      <Panel title={t("openTitle", { count: open.length })} padded={false}>
-        {loading && <Empty>{t("loading")}</Empty>}
-        {!loading && open.length === 0 && <Empty>{t("openEmpty")}</Empty>}
+      {loading && <Empty>{t("loading")}</Empty>}
+      {!loading && open.length === 0 && <EmptyState icon="shield">{t("openEmpty")}</EmptyState>}
+      {open.length > 0 && <Panel title={t("openTitle", { count: open.length })} padded={false}>
         {open.map((i) => (
           <Issue key={i.fingerprint} issue={i} busy={busyId === i.fingerprint} onResolve={resolve} />
         ))}
-      </Panel>
+      </Panel>}
 
-      <Panel title={t("flowsTitle")} subtitle={t("flowsHint")} padded={false}>
-        {!loading && flows.every((fl) => fl.started === 0) && <Empty>{t("flowsEmpty")}</Empty>}
+      {flows.some((fl) => fl.started > 0) && <Panel title={t("flowsTitle")} padded={false}>
         {flows
           .filter((fl) => fl.started > 0)
           .map((fl) => {
@@ -355,14 +353,9 @@ export default function HealthPage() {
               </div>
             );
           })}
-      </Panel>
+      </Panel>}
 
-      <Panel
-        title={t("missesTitle")}
-        subtitle={t("missesHint")}
-        padded={false}
-      >
-        {!loading && misses.length === 0 && <Empty>{t("none")}</Empty>}
+      {misses.length > 0 && <Panel title={t("missesTitle")} padded={false}>
         {misses.map((m) => (
           <div
             key={m.query}
@@ -386,7 +379,7 @@ export default function HealthPage() {
             </div>
           </div>
         ))}
-      </Panel>
+      </Panel>}
 
       <Panel
         title={showClosed ? t("closedTitleCount", { count: closed.length }) : t("closedTitle")}

@@ -5,7 +5,7 @@ import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useFormat } from "../../useFormat";
 import { useLocalData } from "../../useLocalData";
 import AdminShell from "../AdminShell";
-import { Panel, Empty, colors, muted, money, button } from "../ui";
+import { EmptyState, Panel, Empty, colors, muted, money, button } from "../ui";
 import { badge, input, label } from "../../../../lib/platform/theme";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { useConfirm } from "../../components/ConfirmDialog";
@@ -98,12 +98,12 @@ export default function AdminBoardPage() {
   const uncollected = rows.flatMap((r) => r.claims).reduce((n, c) => n + Number(c.uncollected_fee || 0), 0);
 
   return (
-    <AdminShell title={t("title")} subtitle={t("intro")}>
+    <AdminShell title={t("title")}>
       {error && <p role="alert" style={{ color: colors.danger }}>{error}</p>}
       {notice && <p style={{ color: colors.success }}>{notice}</p>}
       {uncollected > 0 && <p style={{ ...muted, fontSize: 13 }}>{t("uncollectedTotal", { count: uncollected })}</p>}
       {busy && <Empty>{t("loading")}</Empty>}
-      {!busy && rows.length === 0 && <Empty>{t("empty")}</Empty>}
+      {!busy && rows.length === 0 && <EmptyState icon="list" tone="neutral">{t("empty")}</EmptyState>}
       {rows.map((r) => (
         <Panel
           key={r.request_id}

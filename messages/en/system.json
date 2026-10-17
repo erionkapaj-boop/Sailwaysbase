@@ -527,8 +527,8 @@
     "install": "Install the app",
     "installHint": "Put the app on your phone's home screen so it opens with one tap.",
     "promptTitle": "Phone notifications",
-    "promptBody": "Hear about new requests, acceptances and messages right away.",
     "promptYes": "Turn on",
-    "promptLater": "Later"
+    "promptLater": "Later",
+    "promptShort": "Notifications"
   }
 }

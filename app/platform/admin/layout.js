@@ -20,23 +20,14 @@ export default function AdminLayout({ children }) {
   const pathname = usePathname();
   if (pathname === "/platform/admin/login") return children;
 
-  // /user/[id] is a focused record view with its own container.
-  const isRecord = pathname.startsWith("/platform/admin/user/");
-
   return (
     <AdminCountsProvider>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      {isRecord ? (
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 16px 64px" }}>
         <div key={pathname} className="sf-admin-page">
           {children}
         </div>
-      ) : (
-        <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 16px 64px" }}>
-          <div key={pathname} className="sf-admin-page">
-            {children}
-          </div>
-        </div>
-      )}
+      </div>
     </AdminCountsProvider>
   );
 }

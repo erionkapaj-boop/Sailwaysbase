@@ -150,7 +150,6 @@
   },
   "AdminBoard": {
     "title": "Open requests",
-    "intro": "Requests on the board. Add an external candidate (no account); if the client chooses them, only the client is charged and the uncollected fee shows here.",
     "loading": "Loading…",
     "loadWhat": "open requests",
     "empty": "No open requests.",

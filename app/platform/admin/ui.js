@@ -249,6 +249,16 @@ export function Empty({ children }) {
   return <p style={{ ...muted, fontSize: 13, padding: "18px 16px", margin: 0 }}>{children}</p>;
 }
 
+// Όταν δεν υπάρχει τίποτα: ένα εικονίδιο και μία γραμμή, αντί για άδεια κουτιά ανά ενότητα.
+export function EmptyState({ icon = "check", tone = "success", children }) {
+  return (
+    <div data-empty-state style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "44px 16px" }}>
+      <IconDisc icon={icon} tone={tone} size={64} />
+      <span style={{ ...muted, fontSize: 14, textAlign: "center" }}>{children}</span>
+    </div>
+  );
+}
+
 export function Toolbar({ children }) {
   return (
     <div
@@ -424,14 +434,21 @@ export function IconDisc({ icon, tone = "neutral", size = 40 }) {
 }
 
 // Ένα μέγεθος με την εικόνα του: εικονίδιο, μεγάλος αριθμός, μία λέξη. Πατιέται και ανοίγει τη λίστα του.
-export function KpiTile({ icon, value, label, tone = "neutral", href, kpi }) {
+export function KpiTile({ icon, value, unit, label, tone = "neutral", href, kpi }) {
   const live = value > 0;
   const c = TILE_TONE[live ? tone : "neutral"];
-  return (
-    <Link href={href} data-kpi={kpi} data-kpi-value={value} aria-label={`${label}: ${value}`} style={{ ...panel, display: "flex", flexDirection: "column", gap: 10, padding: "14px 14px 12px", textDecoration: "none", boxSizing: "border-box", minWidth: 0 }}>
+  const style = { ...panel, display: "flex", flexDirection: "column", gap: 10, padding: "14px 14px 12px", textDecoration: "none", boxSizing: "border-box", minWidth: 0 };
+  const body = (
+    <>
       <IconDisc icon={icon} tone={live ? tone : "neutral"} />
-      <span style={{ ...money, fontSize: 28, fontWeight: 600, lineHeight: 1, color: live ? c.fg : colors.ink }}>{value}</span>
-      <span style={{ ...muted, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      <span style={{ ...money, fontSize: 28, fontWeight: 600, lineHeight: 1, color: live && tone !== "neutral" ? c.fg : colors.ink }}>{value}{unit && <small style={{ fontSize: 13, fontWeight: 500, marginLeft: 5, color: colors.inkSoft }}>{unit}</small>}</span>
+      <span style={{ ...muted, fontSize: 13, lineHeight: 1.3 }}>{label}</span>
+    </>
+  );
+  if (!href) return <div data-kpi={kpi} style={style}>{body}</div>;
+  return (
+    <Link href={href} data-kpi={kpi} data-kpi-value={value} aria-label={`${label}: ${value}`} style={style}>
+      {body}
     </Link>
   );
 }

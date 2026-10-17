@@ -3,7 +3,7 @@ import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import AdminShell from "../AdminShell";
-import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
+import { Panel, Empty, colors, muted, button } from "../ui";
 import { adminListSettings, adminUpdateSetting } from "../../../../lib/platform/db";
 import { useConfirm } from "../../components/ConfirmDialog";
 
@@ -188,21 +188,21 @@ export default function SettingsPage() {
         />
       );
     return (
-      <div key={s.key} style={{ borderBottom: `1px solid ${colors.border}`, padding: "14px 16px" }}>
-        <RowMain title={label} meta={meta.help ? t(`s_${s.key}_help`) : ""} />
+      <div key={s.key} style={{ borderBottom: `1px solid ${colors.border}`, padding: "12px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 14.5, fontWeight: 500, color: colors.ink, flex: "1 1 180px", minWidth: 0 }}>{label}</span>
+          <span style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+            {field}
+            {meta.unit && <span style={{ ...muted, fontSize: 13, minWidth: 34 }}>{t(`unit_${meta.unit}`)}</span>}
+            {dirty && (
+              <button style={{ ...button("primary"), padding: "7px 12px", fontSize: 13 }} disabled={busyKey === s.key} onClick={() => save(s.key)}>
+                {busyKey === s.key ? "…" : t("save")}
+              </button>
+            )}
+          </span>
+        </div>
+        {meta.help && <p style={{ ...muted, fontSize: 12.5, margin: "6px 0 0" }}>{t(`s_${s.key}_help`)}</p>}
         {meta.warn && <p style={{ color: colors.warn, fontSize: 12.5, margin: "6px 0 0" }}>{t(`s_${s.key}_warn`)}</p>}
-        <span style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
-          {field}
-          {meta.unit && <span style={{ ...muted, fontSize: 13 }}>{t(`unit_${meta.unit}`)}</span>}
-          {dirty && <span style={{ color: colors.warn, fontSize: 12.5 }}>{t("unsaved")}</span>}
-          <button
-            style={button(dirty ? "primary" : "secondary")}
-            disabled={!dirty || busyKey === s.key}
-            onClick={() => save(s.key)}
-          >
-            {busyKey === s.key ? "…" : t("save")}
-          </button>
-        </span>
         {rowErrors[s.key] && <p style={{ color: colors.danger, fontSize: 12.5, margin: "8px 0 0" }}>{rowErrors[s.key]}</p>}
         {saved === s.key && !dirty && <p style={{ color: colors.success, fontSize: 12.5, margin: "8px 0 0" }}>{t("saved")}</p>}
       </div>
@@ -213,13 +213,12 @@ export default function SettingsPage() {
     <AdminShell
       ownerOnly
       title={t("title")}
-      subtitle={t("subtitle")}
     >
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
       {list.length === 0 && <Empty>{t("loading")}</Empty>}
       {GROUP_KEYS.map((key) => {
-        const g = { key, title: t(`group_${key}_title`), subtitle: key === "reliability" ? t("group_reliability_subtitle") : undefined, collapsed: key === "reliability" };
+        const g = { key, title: t(`group_${key}_title`), collapsed: key === "reliability" };
         const rows = list.filter((s) => (SETTING_META[s.key]?.group || "other") === g.key);
         if (rows.length === 0) return null;
         const body = rows.map((s) => renderSetting(s));
@@ -230,14 +229,14 @@ export default function SettingsPage() {
               <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 600, color: colors.ink, padding: "8px 2px" }}>
                 {g.title}
               </summary>
-              <Panel title={g.title} subtitle={g.subtitle} padded={false}>
+              <Panel title={g.title} padded={false}>
                 {body}
               </Panel>
             </details>
           );
         }
         return (
-          <Panel key={g.key} title={g.title} subtitle={g.subtitle} padded={false}>
+          <Panel key={g.key} title={g.title} padded={false}>
             {body}
           </Panel>
         );

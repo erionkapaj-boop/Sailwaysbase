@@ -99,9 +99,7 @@
   },
   "AdminOffers": {
     "title": "Job offers",
-    "subtitle": "Work you assign to specific people. The first to accept takes it, and pays.",
     "newTitle": "New offer",
-    "newSubtitle": "See who is free on your dates, select them and send the job.",
     "allOffers": "All offers",
     "awaiting": "Awaiting response ({count})",
     "onlyOpen": "Open only",
@@ -119,7 +117,6 @@
     "claimedBy": "Taken by {name}",
     "sentTo": "Sent {ago} to <m>{n}</m> people",
     "withdraw": "Withdraw",
-    "withdrawNote": "Withdrawing counts against no one: anyone who did not get to respond is not recorded as unresponsive, because you ended the silence by closing the offer.",
     "expired": "expired",
     "expiresDays": "expires in {n, plural, one {# day} other {# days}}",
     "expiresHours": "expires in {n, plural, one {# hour} other {# hours}}",

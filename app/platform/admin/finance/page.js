@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
 import { useLocalData } from "../../useLocalData";
 import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
-import { Panel, Metric, MetricGrid, Row, RowMain, Empty, colors, muted, money, button, STATUS_LABEL } from "../ui";
+import { Panel, KpiTile, KpiGrid, Row, RowMain, colors, muted, money, button, STATUS_LABEL } from "../ui";
 import {
   adminFindUserByPhone,
   adminCreditWallet,
@@ -301,11 +301,10 @@ function PurchaseRequests({ onDone }) {
     }
   }
 
-  if (rows === null && !error) return null;
+  if ((rows === null || rows.length === 0) && !error) return null;
   return (
     <Panel title={`${t("requestsTitle")}${rows?.length ? ` (${rows.length})` : ""}`} padded={false}>
       {error && <p style={{ color: colors.danger, fontSize: 13, padding: "12px 16px", margin: 0 }}>{error}</p>}
-      {rows?.length === 0 && <Empty>{t("requestsEmpty")}</Empty>}
       {rows?.map((r) => (
         <Row key={r.id}>
           <RowMain
@@ -339,7 +338,6 @@ export default function FinancePage() {
     <AdminShell
       ownerOnly
       title={t("title")}
-      subtitle={t("subtitle")}
     >
       <PurchaseRequests onDone={refreshCounts} />
 
@@ -347,29 +345,26 @@ export default function FinancePage() {
           * οφείλεται ακόμα, όχι έσοδα — γι' αυτό χωριστά από τις πωλήσεις. */}
       <Panel title={t("userCredits")} padded={false}>
         <div style={{ padding: 16 }}>
-          <MetricGrid min={160}>
-            <Metric label={t("inAccounts")} value={formatCredits(live.wallet_total)} hint={t("inAccountsHint")} />
-            <Metric label={t("used30d")} value={formatCredits(live.fees_30d)} />
-            <Metric label={t("usedAll")} value={formatCredits(live.fees_all_time)} />
-            <Metric label={t("refunds30d")} value={formatCredits(live.refunds_30d)} />
-          </MetricGrid>
+          <KpiGrid>
+            <KpiTile icon="wallet" label={t("inAccounts")} value={Number(live.wallet_total || 0)} unit="credits" />
+            <KpiTile icon="coins" label={t("used30d")} value={Number(live.fees_30d || 0)} unit="credits" />
+            <KpiTile icon="list" label={t("usedAll")} value={Number(live.fees_all_time || 0)} unit="credits" />
+            <KpiTile icon="swap" label={t("refunds30d")} value={Number(live.refunds_30d || 0)} unit="credits" />
+          </KpiGrid>
         </div>
       </Panel>
 
       <Panel title={t("sales")} padded={false}>
         <div style={{ padding: 16 }}>
-          <MetricGrid min={160}>
-            <Metric label={t("days30")} value={`${live.sales_eur_30d ?? 0}€`} />
-            <Metric label={t("creditsSold30d")} value={formatCredits(live.credits_sold_30d)} />
-            <Metric label={t("total")} value={`${live.sales_eur_all_time ?? 0}€`} />
-          </MetricGrid>
+          <KpiGrid>
+            <KpiTile icon="cal" label={t("days30")} value={`${live.sales_eur_30d ?? 0}€`} />
+            <KpiTile icon="coins" label={t("creditsSold30d")} value={Number(live.credits_sold_30d || 0)} unit="credits" />
+            <KpiTile icon="wallet" label={t("total")} value={`${live.sales_eur_all_time ?? 0}€`} />
+          </KpiGrid>
         </div>
       </Panel>
 
-      <Panel
-        title={t("userCreditsOne")}
-        subtitle={t("userCreditsHint")}
-      >
+      <Panel title={t("userCreditsOne")}>
         <Topup onDone={refreshCounts} />
       </Panel>
     </AdminShell>

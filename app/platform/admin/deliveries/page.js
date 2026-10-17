@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
 import { useLocalData } from "../../useLocalData";
 import AdminShell, { useAdminCounts } from "../AdminShell";
-import { Panel, Empty, colors, muted, money } from "../ui";
+import { EmptyState, Panel, Empty, colors, muted, money } from "../ui";
 import { adminListDeliveryRequests } from "../../../../lib/platform/db";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { formatMoney } from "../../../../lib/platform/notifications";
@@ -33,11 +33,11 @@ export default function AdminDeliveriesPage() {
   }, []);
 
   return (
-    <AdminShell title={t("title")} subtitle={t("subtitle")} counts={counts}>
-      <Panel title={t("requests", { count: rows?.length ?? "…" })} padded={false}>
-        {error && <p style={{ color: colors.danger, padding: 16, margin: 0 }}>{error}</p>}
-        {rows == null && !error && <Empty>{t("loading")}</Empty>}
-        {rows?.length === 0 && <Empty>{t("empty")}</Empty>}
+    <AdminShell title={t("title")} counts={counts}>
+      {error && <p style={{ color: colors.danger, margin: 0 }}>{error}</p>}
+      {rows == null && !error && <Empty>{t("loading")}</Empty>}
+      {rows?.length === 0 && <EmptyState icon="route" tone="neutral">{t("empty")}</EmptyState>}
+      {rows?.length > 0 && <Panel title={t("requests", { count: rows.length })} padded={false}>
         {rows?.map(({ request, client_name, role_requests }) => (
           <div key={request.id} style={{ padding: "14px 16px", borderTop: `1px solid ${colors.border}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
@@ -87,7 +87,7 @@ export default function AdminDeliveriesPage() {
             {request.notes && <p data-user-text style={{ ...muted, fontSize: 12.5, margin: "4px 0 0" }}>«{request.notes}»</p>}
           </div>
         ))}
-      </Panel>
+      </Panel>}
     </AdminShell>
   );
 }

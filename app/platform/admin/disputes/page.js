@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { useFormat } from "../../useFormat";
 import { useLocalData } from "../../useLocalData";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
-import { Panel, Row, RowMain, Empty, colors, muted, money, button } from "../ui";
+import { EmptyState, Panel, Row, RowMain, Empty, colors, muted, button } from "../ui";
 import { tapTarget } from "../../../../lib/platform/theme";
 import { adminListCancellationReports, adminResolveReport, departureLabel } from "../../../../lib/platform/db";
 
@@ -70,15 +70,12 @@ export default function DisputesPage() {
   const done = list.filter((r) => r.resolved_at);
 
   return (
-    <AdminShell
-      title={t("title")}
-      subtitle={t("subtitle")}
-    >
+    <AdminShell title={t("title")}>
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
-      <Panel title={t("openTitle", { count: open.length })} padded={false}>
-        {busy && <Empty>{t("loading")}</Empty>}
-        {!busy && open.length === 0 && <Empty>{t("openEmpty")}</Empty>}
+      {busy && <Empty>{t("loading")}</Empty>}
+      {!busy && open.length === 0 && done.length === 0 && <EmptyState icon="flag" tone="neutral">{t("openEmpty")}</EmptyState>}
+      {open.length > 0 && <Panel title={t("openTitle", { count: open.length })} padded={false}>
         {open.map((r) => (
           <div key={r.id} style={{ borderBottom: `1px solid ${colors.border}`, padding: "14px 16px", background: "#FBF6EC" }}>
             <RowMain
@@ -117,10 +114,9 @@ export default function DisputesPage() {
             </button>
           </div>
         ))}
-      </Panel>
+      </Panel>}
 
-      <Panel title={t("resolvedTitle", { count: done.length })} padded={false}>
-        {done.length === 0 && <Empty>{t("resolvedEmpty")}</Empty>}
+      {done.length > 0 && <Panel title={t("resolvedTitle", { count: done.length })} padded={false}>
         {done.map((r) => (
           <Row key={r.id}>
             <RowMain
@@ -131,7 +127,7 @@ export default function DisputesPage() {
             <span style={{ ...muted, fontSize: 11.5, flexShrink: 0 }}>{f.timeAgo(r.resolved_at)}</span>
           </Row>
         ))}
-      </Panel>
+      </Panel>}
     </AdminShell>
   );
 }

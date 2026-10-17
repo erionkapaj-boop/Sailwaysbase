@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import Icon from "../../components/Icon";
+import { IconDisc } from "../ui";
 import { useAuth } from "../../AuthContext";
 import AdminShell, { SECTIONS, badgeCount, useAdminCounts } from "../AdminShell";
 import { ADMIN_GROUPS, ADMIN_SECTION_ICON } from "../../../../lib/platform/roleEnv";
@@ -34,8 +35,8 @@ export default function AdminMorePage() {
             {g.items.map((s) => {
               const n = badgeCount(s.badge, counts);
               return (
-                <Link key={s.href} href={s.href} data-admin-section={s.href.split("/").pop()} className="sf-am-row" style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 52, padding: "0 18px", borderTop: `1px solid ${colors.border}`, textDecoration: "none", color: colors.ink, fontSize: 15.5, fontFamily: fontSans }}>
-                  <Icon name={ADMIN_SECTION_ICON[s.href]} size={20} />
+                <Link key={s.href} href={s.href} data-admin-section={s.href.split("/").pop()} className="sf-am-row" style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 56, padding: "0 18px", borderTop: `1px solid ${colors.border}`, textDecoration: "none", color: colors.ink, fontSize: 15.5, fontFamily: fontSans }}>
+                  <IconDisc icon={ADMIN_SECTION_ICON[s.href]} tone={n > 0 ? "warn" : "brand"} size={34} />
                   <span style={{ flex: 1, minWidth: 0 }}>{s.label}</span>
                   {n > 0 && <span data-admin-badge style={{ minWidth: 22, height: 22, padding: "0 7px", borderRadius: 999, background: "#F7E5E2", color: "#8A2F25", fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>{n}</span>}
                   <Icon name="chev" size={16} style={{ color: colors.inkSoft }} />

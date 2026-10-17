@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
-import { card, muted, button, colors } from "../../../lib/platform/theme";
+import Icon from "./Icon";
+import { button, colors, radius } from "../../../lib/platform/theme";
 import { pushCapability, enablePush, registerWorker, deviceIsSubscribed } from "../../../lib/platform/push";
 
 const KEY = "sf_push_prompt_until";
@@ -63,13 +64,13 @@ export default function PushPrompt() {
   }
 
   return (
-    <div role="region" aria-label={t("promptTitle")} data-push-prompt style={{ ...card, borderLeft: `3px solid ${colors.accent}`, margin: "12px auto", maxWidth: 960, boxSizing: "border-box", width: "calc(100% - 40px)" }}>
-      <b style={{ fontWeight: 600 }}>{t("promptTitle")}</b>
-      <p style={{ ...muted, margin: "6px 0 12px", fontSize: 14 }}>{t("promptBody")}</p>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button type="button" style={button("primary")} disabled={busy} onClick={yes} data-push-prompt-yes>{t("promptYes")}</button>
-        <button type="button" style={button("secondary")} disabled={busy} onClick={later} data-push-prompt-later>{t("promptLater")}</button>
-      </div>
+    <div role="region" aria-label={t("promptTitle")} data-push-prompt style={{ display: "flex", alignItems: "center", gap: 10, margin: "10px auto", maxWidth: 960, boxSizing: "border-box", width: "calc(100% - 40px)", padding: "8px 8px 8px 14px", background: colors.card, border: `1px solid ${colors.border}`, borderRadius: radius.pill }}>
+      <Icon name="bell" size={18} />
+      <b style={{ fontWeight: 500, fontSize: 14, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t("promptShort")}</b>
+      <button type="button" style={{ ...button("primary"), padding: "7px 14px", fontSize: 13, borderRadius: radius.pill, flexShrink: 0 }} disabled={busy} onClick={yes} data-push-prompt-yes>{t("promptYes")}</button>
+      <button type="button" aria-label={t("promptLater")} title={t("promptLater")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, border: "none", background: "transparent", color: colors.inkSoft, cursor: "pointer", flexShrink: 0 }} disabled={busy} onClick={later} data-push-prompt-later>
+        <Icon name="x" size={18} />
+      </button>
     </div>
   );
 }

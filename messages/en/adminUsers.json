@@ -1,7 +1,6 @@
 {
   "AdminUsers": {
     "title": "Users",
-    "subtitle": "All accounts",
     "tabs": {
       "client": "Clients",
       "pro": "Professionals",

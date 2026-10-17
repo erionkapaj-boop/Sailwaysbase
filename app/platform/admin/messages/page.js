@@ -6,7 +6,7 @@ import { useFormat } from "../../useFormat";
 import { useLocalData } from "../../useLocalData";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import Link from "next/link";
-import { Panel, Row, RowMain, Empty, colors, muted, button } from "../ui";
+import { EmptyState, Panel, Row, RowMain, Empty, colors, muted, button } from "../ui";
 import { adminListContactMessages, adminSetContactMessageStatus } from "../../../../lib/platform/db";
 
 const TOPICS = ["general", "booking", "payment", "report", "privacy", "other"];
@@ -93,15 +93,12 @@ export default function AdminMessagesPage() {
   const done = list.filter((m) => m.status === "handled");
 
   return (
-    <AdminShell
-      title={t("title")}
-      subtitle={t("subtitle")}
-    >
+    <AdminShell title={t("title")}>
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
 
-      <Panel title={t("openTitle", { count: open.length })} padded={false}>
-        {busy && <Empty>{t("loading")}</Empty>}
-        {!busy && open.length === 0 && <Empty>{t("openEmpty")}</Empty>}
+      {busy && <Empty>{t("loading")}</Empty>}
+      {!busy && open.length === 0 && done.length === 0 && <EmptyState icon="chat" tone="neutral">{t("openEmpty")}</EmptyState>}
+      {open.length > 0 && <Panel title={t("openTitle", { count: open.length })} padded={false}>
         {open.map((m) => (
           <div
             key={m.id}
@@ -159,10 +156,9 @@ export default function AdminMessagesPage() {
             </button>
           </div>
         ))}
-      </Panel>
+      </Panel>}
 
-      <Panel title={t("doneTitle", { count: done.length })} padded={false}>
-        {done.length === 0 && <Empty>{t("doneEmpty")}</Empty>}
+      {done.length > 0 && <Panel title={t("doneTitle", { count: done.length })} padded={false}>
         {done.map((m) => (
           <Row key={m.id}>
             <RowMain
@@ -182,7 +178,7 @@ export default function AdminMessagesPage() {
             </div>
           </Row>
         ))}
-      </Panel>
+      </Panel>}
     </AdminShell>
   );
 }

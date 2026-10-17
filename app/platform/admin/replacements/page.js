@@ -7,7 +7,7 @@ import { useFormat } from "../../useFormat";
 import { useLocalData } from "../../useLocalData";
 import AdminShell, { useRefreshAdminCounts } from "../AdminShell";
 import OfferComposer from "../OfferComposer";
-import { Panel, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
+import { EmptyState, Panel, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
 import { badge } from "../../../../lib/platform/theme";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { useConfirm } from "../../components/ConfirmDialog";
@@ -349,10 +349,7 @@ export default function ReplacementsPage() {
   );
 
   return (
-    <AdminShell
-      title={t("title")}
-      subtitle={t("subtitle")}
-    >
+    <AdminShell title={t("title")}>
       {error && <p style={{ color: colors.danger, fontSize: 13 }}>{error}</p>}
       {notice && (
         <div
@@ -369,9 +366,9 @@ export default function ReplacementsPage() {
         </div>
       )}
 
-      <Panel title={t("needsActionTitle", { count: needsAction.length })} padded={false}>
-        {busy && <Empty>{t("loading")}</Empty>}
-        {!busy && needsAction.length === 0 && <Empty>{t("needsActionEmpty")}</Empty>}
+      {busy && <Empty>{t("loading")}</Empty>}
+      {!busy && cases.length === 0 && <EmptyState icon="swap" tone="neutral">{t("needsActionEmpty")}</EmptyState>}
+      {needsAction.length > 0 && <Panel title={t("needsActionTitle", { count: needsAction.length })} padded={false}>
         {needsAction.map((c) => (
           <CaseRow
             key={c.booking_id}
@@ -404,7 +401,7 @@ export default function ReplacementsPage() {
             <CaseDetail bookingId={c.booking_id} />
           </CaseRow>
         ))}
-      </Panel>
+      </Panel>}
 
       {awaitingSkippers.length > 0 && (
         <Panel title={t("awaitingSkippersTitle", { count: awaitingSkippers.length })} padded={false}>
@@ -431,7 +428,6 @@ export default function ReplacementsPage() {
       {awaitingClient.length > 0 && (
         <Panel
           title={t("awaitingClientTitle", { count: awaitingClient.length })}
-          subtitle={t("awaitingClientHint")}
           padded={false}
         >
           {awaitingClient.map((c) => (
@@ -464,7 +460,6 @@ export default function ReplacementsPage() {
         }
         padded={false}
       >
-        {completed === null && <Empty>{t("completedHidden")}</Empty>}
         {completed?.length === 0 && <Empty>{t("completedEmpty")}</Empty>}
         {completed?.map((c) => (
           <CaseRow
@@ -491,9 +486,6 @@ export default function ReplacementsPage() {
         ))}
       </Panel>
 
-      <p style={{ ...muted, fontSize: 12.5, lineHeight: 1.6 }}>
-        {t("footnote")}
-      </p>
       {confirmDialog}
     </AdminShell>
   );

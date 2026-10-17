@@ -7,7 +7,7 @@ import { useFormat } from "../../useFormat";
 import { useLocalData } from "../../useLocalData";
 import AdminShell, { useAdminCounts } from "../AdminShell";
 import OfferComposer from "../OfferComposer";
-import { Panel, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
+import { EmptyState, Panel, Row, RowMain, Empty, Status, colors, money, button } from "../ui";
 import { labelForRole } from "../../../../lib/platform/roles";
 import { adminListOffers, adminCancelOffer } from "../../../../lib/platform/db";
 
@@ -62,7 +62,6 @@ export default function OffersPage() {
   return (
     <AdminShell
       title={t("title")}
-      subtitle={t("subtitle")}
       counts={counts}
       ownerOnly
     >
@@ -73,13 +72,12 @@ export default function OffersPage() {
           * κάνεις τη στιγμή που προκύπτει η ανάγκη. */}
       <Panel
         title={t("newTitle")}
-        subtitle={t("newSubtitle")}
         padded={false}
       >
         <OfferComposer onDone={load} />
       </Panel>
 
-      <Panel
+      {(offers.length > 0 || showClosed || busy) && <Panel
         title={showClosed ? t("allOffers") : t("awaiting", { count: offers.length })}
         action={
           <button
@@ -92,7 +90,6 @@ export default function OffersPage() {
         padded={false}
       >
         {busy && <Empty>{t("loading")}</Empty>}
-        {!busy && offers.length === 0 && <Empty>{t("none")}</Empty>}
 
         {offers.map((o) => (
           <Row key={o.request_id}>
@@ -150,11 +147,7 @@ export default function OffersPage() {
             </span>
           </Row>
         ))}
-      </Panel>
-
-      <p style={{ ...muted, fontSize: 12.5, lineHeight: 1.6 }}>
-        {t("withdrawNote")}
-      </p>
+      </Panel>}
     </AdminShell>
   );
 }
