@@ -11,7 +11,7 @@ const SHOTS = process.env.SWEEP_SHOTS === "1";
 const ADMIN = "6900002001", MARIA = "6900002002", NIKOS = "6900002003";
 
 const GUEST = ["/platform", "/platform/login", "/platform/register", "/platform/forgot-pin", "/platform/about", "/platform/contact", "/platform/board"];
-const CLIENT = ["/platform", "/platform/search", "/platform/requests", "/platform/wallet", "/platform/wallet/buy", "/platform/profile", "/platform/bookings", "/platform/delivery", "/platform/delivery/requests", "/platform/board", "/platform/board/new"];
+const CLIENT = ["/platform", "/platform/search", "/platform/requests", "/platform/wallet", "/platform/wallet/buy", "/platform/profile", "/platform/roles", "/platform/settings", "/platform/help", "/platform/bookings", "/platform/delivery", "/platform/delivery/requests", "/platform/board", "/platform/board/new"];
 const PRO = ["/platform", "/platform/profile", "/platform/availability", "/platform/bookings", "/platform/wallet"];
 const ADMINP = ["/platform/admin", "/platform/admin/approvals", "/platform/admin/messages", "/platform/admin/disputes", "/platform/admin/replacements", "/platform/admin/offers", "/platform/admin/board", "/platform/admin/community", "/platform/admin/map", "/platform/admin/bookings", "/platform/admin/deliveries", "/platform/admin/users", "/platform/admin/finance", "/platform/admin/settings", "/platform/admin/health"];
 

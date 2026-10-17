@@ -23,7 +23,17 @@
   Η απόφαση καταγράφεται στο `admin_actions` (`role_active`, `role_rejected`) και περνά από `assert_admin_can_act_on`.
 - **Συναρτήσεις εφαρμογής**: `get_my_roles()`, `set_active_role()`, `request_role()`, `admin_decide_role()`, `admin_get_user_roles()`.
   Wrappers στο `lib/platform/db.js` (`getMyRoles`, `setActiveRole`, `requestRole`, `adminDecideRole`, `adminGetUserRoles`).
-- **Αυτό που βλέπει ο χρήστης (βήμα 2)**: avatar με δαχτυλίδι στο χρώμα του τρέχοντος ρόλου και μενού προφίλ (`app/platform/components/ProfileMenu.js`, docs/DESIGN.md). Η αλλαγή ρόλου από το μενού έρχεται στο βήμα 3.
+- **Αυτό που βλέπει ο χρήστης (βήμα 2)**: avatar με δαχτυλίδι στο χρώμα του τρέχοντος ρόλου και μενού προφίλ (`app/platform/components/ProfileMenu.js`, docs/DESIGN.md). 
+- **Οθόνη «Οι ρόλοι μου» (βήμα 3)**: `/platform/roles` (`app/platform/roles/page.js`), ανοίγει από το «Αλλαγή ρόλου» του μενού προφίλ. Κάθε ρόλος:
+  εικονίδιο, όνομα, μία γραμμή περιγραφής, χρώμα (`lib/platform/userRoles.js`: `roleRows`, `rowAction`, `registerPath`).
+  - Ενεργός ρόλος → πάτημα = τρέχων (`set_active_role`), το δαχτυλίδι του avatar αλλάζει αμέσως (γεγονός `sf:roles-changed`) και η οθόνη επιστρέφει
+    εκεί από όπου ήρθε· ο τρέχων έχει τικ.
+  - Σε έλεγχο: ένδειξη «Σε έλεγχο», δεν επιλέγεται. Απορρίφθηκε: ένδειξη, δεν επιλέγεται.
+  - Ρόλος που δεν έχει: εμφανίζεται κάτω από το κουμπί «Πρόσθεσε ρόλο» (ενότητα «Διαθέσιμοι ρόλοι»)· πάτημα → εγγραφή. Επαγγελματίας: η υπάρχουσα
+    φόρμα «Γίνε επαγγελματίας» του προφίλ (`/platform/profile?become=professional`, ανοίγει ανοιχτή). Εταιρεία και Δημιουργός: οθόνη «Σύντομα»
+    (`/platform/roles/soon?role=…`), **χωρίς** αίτηση στη βάση, ώσπου να υπάρξει εγγραφή.
+  - Ομάδα Skipper Finder και Administrator: μόνο σε όποιον έχει ενεργό Administrator ή Ομάδα, με εικονίδιο κλειδαριάς όταν δεν τον έχει.
+  - Τεστ: `tests/e2e/roles.e2e.mjs`, `tests/unit/userRoles.test.mjs`.
 - **Χρώματα ρόλων: ένα σημείο**, `lib/platform/userRoles.js` (`ROLE_COLORS`): Πελάτης απαλό μπλε, Επαγγελματίας άμμος, Εταιρεία απαλό
   πράσινο, Δημιουργός απαλό μωβ, Ομάδα γκρι-μπλε, Administrator απαλό κόκκινο.
 - **Μετάπτωση υπαρχόντων**: το `0139` καλεί `backfill_user_roles()` (ασφαλές να ξανατρέξει): Πελάτης σε όλους, Επαγγελματίας από τα
