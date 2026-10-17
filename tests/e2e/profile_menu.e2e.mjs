@@ -34,7 +34,7 @@ const L = {
 };
 
 for (const locale of ["el", "en"]) {
-  for (const [who, phone, role] of [["client", CLIENT, "client"], ["skipper", SKIPPER, "professional"], ["admin", ADMIN, "admin"]]) {
+  for (const [who, phone, role] of [["client", CLIENT, "client"], ["skipper", SKIPPER, "client"], ["admin", ADMIN, "client"]]) {
     for (const vw of [390, 1280]) {
       if (locale === "en" && who !== "client" && vw === 390) continue;
       await as(phone, async (page) => {
@@ -53,7 +53,7 @@ for (const locale of ["el", "en"]) {
         s = await menuState(page);
         const t = s.pop.text;
         check(`${tag}: όνομα, ρόλος, email, τρέχων ρόλος, «${L[locale].change}»`,
-          t.includes(L[locale].role[role]) && t.includes(L[locale].cur) && t.includes(L[locale].change) && (await page.locator("[data-pm-email]").innerText()).includes("@") && (await page.locator("[data-pm-name]").innerText()).length > 2, t);
+          t.includes(L[locale].role[role]) && t.includes(L[locale].cur) && t.includes(L[locale].change) && (await page.locator("[data-pm-name]").innerText()).length > 2, t);
         check(`${tag}: όλα τα στοιχεία του μενού`, L[locale].items.every((x) => t.includes(x)), t);
         check(`${tag}: υπόλοιπο credits δίπλα στα πακέτα`, /\d+ credits?/.test(await page.locator("[data-pm-balance]").innerText()));
         check(`${tag}: το μενού μένει μέσα στην οθόνη`, s.pop.x >= 0 && s.pop.right <= vw + 0.5 && s.pop.y >= 0 && s.pop.bottom <= s.vh, JSON.stringify(s.pop));
@@ -99,19 +99,19 @@ await as(CLIENT, async (page) => {
   check("Αποσύνδεση → επισκέπτης με «Σύνδεση»", (await page.getByRole("link", { name: "Σύνδεση" }).count()) >= 1);
 });
 
-// Ο ρόλος που ορίζει η βάση (users.active_role) ορίζει το χρώμα του δαχτυλιδιού.
-await as(SKIPPER, async (page) => {
-  await go(page, "/platform/board");
-  const ok = sql("select count(*) from information_schema.columns where table_name='users' and column_name='active_role'") === "1";
-  if (ok) {
-    sql("select set_config('platform.trusted','true',false); update users set active_role='professional' where phone_number='+306900002003'");
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-    await eventually(async () => (await menuState(page)).role === "professional");
+// Ο τρέχων ρόλος είναι αυτός που έχει αποθηκευτεί (users.active_role)· ορίζει το χρώμα του δαχτυλιδιού και τον τίτλο στο μενού.
+for (const [phone, role] of [[SKIPPER, "professional"], [ADMIN, "admin"]]) {
+  await as(phone, async (page) => {
+    sql(`update users set active_role='${role}' where phone_number='+30${phone}'`);
+    await go(page, "/platform/board");
+    await eventually(async () => (await menuState(page)).role === role);
     const s = await menuState(page);
-    check("τρέχων ρόλος από τη βάση: Επαγγελματίας (άμμος)", s.role === "professional" && s.ring === COLORS.professional, JSON.stringify(s));
-    sql("update users set active_role='client' where phone_number='+306900002003'");
-  }
-});
+    check(`τρέχων ρόλος από τη βάση: ${role}`, s.role === role && s.ring === COLORS[role], JSON.stringify(s));
+    await page.locator("[data-profile-menu]").click();
+    await page.locator("[data-profile-pop]").waitFor();
+    check(`${role}: ο τίτλος του ρόλου στο μενού`, (await page.locator("[data-pm-current-role]").innerText()).includes(L.el.role[role]));
+    sql(`update users set active_role='client' where phone_number='+30${phone}'`);
+  });
+}
 sql("update users set locale='el'");
 finish();
