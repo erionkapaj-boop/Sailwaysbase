@@ -493,5 +493,25 @@
     "settingsTitle": "Settings",
     "helpTitle": "Help",
     "note": "Coming soon"
+  },
+  "RolesScreen": {
+    "title": "My roles",
+    "loadError": "Roles could not be loaded.",
+    "retry": "Try again",
+    "current": "Current role",
+    "pending": "Under review",
+    "rejected": "Rejected",
+    "addRole": "Add a role",
+    "available": "Available roles",
+    "internal": "Internal role",
+    "loading": "Loading…",
+    "desc": {
+      "client": "Find crew, boats and experiences",
+      "professional": "Skipper, Hostess, Cook, Deckhand",
+      "company": "Manage and offer boats",
+      "creator": "Create experiences at sea",
+      "team": "Internal team",
+      "admin": "Platform administration"
+    }
   }
 }

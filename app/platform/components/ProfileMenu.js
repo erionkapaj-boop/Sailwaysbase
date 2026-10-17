@@ -6,12 +6,9 @@ import Icon from "./Icon";
 import Avatar from "./Avatar";
 import { useAuth } from "../AuthContext";
 import { getMyRoles, getMyReservedCredits } from "../../../lib/platform/db";
-import { roleColor } from "../../../lib/platform/userRoles";
+import { roleColor, ROLE_ICON, ROLES_CHANGED_EVENT } from "../../../lib/platform/userRoles";
 import { formatCredits } from "../../../lib/platform/credits";
 import { colors, fontSans, radius, shadow } from "../../../lib/platform/theme";
-
-// Εικονίδιο κάθε ρόλου (ένα σετ, components/Icon.js).
-const ROLE_ICON = { client: "user", professional: "helm", company: "boat", creator: "compass", team: "users", admin: "shield" };
 
 // Ρόλος όσο δεν έχει φορτώσει η βάση ή όσο δεν υπάρχει ακόμη ο πίνακας ρόλων: προκύπτει από όσα ξέρει ήδη η σύνδεση.
 function fallbackRole({ isAdmin, role }) {
@@ -44,6 +41,13 @@ export default function ProfileMenu({ name, photoUrl, limited = false }) {
     if (open) getMyReservedCredits().then((n) => alive && setReserved(Number(n) || 0)).catch(() => {});
     return () => { alive = false; };
   }, [session?.user?.id, open, limited]);
+
+  // Αλλαγή τρέχοντος ρόλου από την οθόνη «Οι ρόλοι μου»: το δαχτυλίδι αλλάζει χρώμα αμέσως.
+  useEffect(() => {
+    const onChange = (e) => e.detail?.active && setActive(e.detail.active);
+    window.addEventListener(ROLES_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(ROLES_CHANGED_EVENT, onChange);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -113,11 +117,10 @@ export default function ProfileMenu({ name, photoUrl, limited = false }) {
                   <span style={{ flex: 1, minWidth: 0 }}>{tr(current)}</span>
                   <Icon name="check" size={18} stroke={2.2} />
                 </div>
-                {/* Στο επόμενο βήμα ανοίγει την επιλογή ρόλου. */}
-                <button type="button" data-pm-change-role className="sf-pm-row" style={{ ...row, justifyContent: "space-between", marginTop: 2, color: colors.inkSoft, fontSize: 14 }}>
+                <Link href="/platform/roles" role="menuitem" data-pm-change-role className="sf-pm-row" style={{ ...row, justifyContent: "space-between", marginTop: 2, color: colors.inkSoft, fontSize: 14 }} onClick={() => setOpen(false)}>
                   <span>{t("changeRole")}</span>
                   <Icon name="chev" size={16} />
-                </button>
+                </Link>
               </div>
 
               <div style={{ borderTop: `1px solid ${colors.border}`, marginTop: 6, padding: "6px 4px 4px" }}>

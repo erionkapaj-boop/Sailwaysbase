@@ -70,14 +70,11 @@ for (const locale of ["el", "en"]) {
 
 sql("update users set locale='el'");
 
-// Σύνδεσμοι: προφίλ και πακέτα υπάρχουν· Ρυθμίσεις και Βοήθεια → οθόνη «Σύντομα»· η αλλαγή ρόλου δεν κάνει τίποτα.
+// Σύνδεσμοι: προφίλ και πακέτα υπάρχουν· Ρυθμίσεις και Βοήθεια → οθόνη «Σύντομα»· η «Αλλαγή ρόλου» ανοίγει την οθόνη «Οι ρόλοι μου» (tests/e2e/roles.e2e.mjs).
 await as(CLIENT, async (page) => {
   await go(page, "/platform/board");
   const open = async () => { await page.locator("[data-profile-menu]").click(); await page.locator("[data-profile-pop]").waitFor(); };
   await open();
-  const url = page.url();
-  await page.locator("[data-pm-change-role]").click();
-  check("«Αλλαγή ρόλου» δεν κάνει τίποτα ακόμη", page.url() === url && (await page.locator("[data-profile-pop]").count()) === 1);
   await page.getByRole("menuitem", { name: /Ρυθμίσεις/ }).click();
   await page.waitForURL(/\/platform\/settings/);
   await page.waitForLoadState("networkidle");

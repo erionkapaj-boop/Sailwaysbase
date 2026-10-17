@@ -2,7 +2,7 @@
 import MultiPick from "../components/MultiPick";
 import Stars from "../components/Stars";
 import DateField from "../components/calendar/DateField";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
@@ -776,6 +776,13 @@ function BecomeProfessional() {
   const t = useTranslations("Profile");
   const { refresh } = useAuth();
   const [open, setOpen] = useState(false);
+  const boxRef = useRef(null);
+  // Ο σύνδεσμος από «Οι ρόλοι μου» (?become=professional) ανοίγει κατευθείαν τη φόρμα και τη φέρνει στο κέντρο.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("become") !== "professional") return;
+    setOpen(true);
+    setTimeout(() => boxRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }), 150);
+  }, []);
   const [crewRole, setCrewRole] = useState("skipper");
   const [licenseNumber, setLicenseNumber] = useState("");
   const [licenseType, setLicenseType] = useState("");
@@ -811,7 +818,7 @@ function BecomeProfessional() {
 
   if (!open) {
     return (
-      <div style={{ ...card, textAlign: "center" }}>
+      <div ref={boxRef} style={{ ...card, textAlign: "center" }}>
         <p style={{ margin: "0 0 12px", fontSize: 14.5 }}>{t("becomeQuestion")}</p>
         <button type="button" style={button("secondary")} onClick={() => setOpen(true)}>
           {t("start")}
@@ -821,7 +828,7 @@ function BecomeProfessional() {
   }
 
   return (
-    <div style={card}>
+    <div ref={boxRef} style={card}>
       <h2 style={{ ...h2, fontSize: 17 }}>{t("becomeTitle")}</h2>
       <p style={{ ...muted, fontSize: 13, margin: "0 0 14px" }}>
         {t("becomeIntro")}
