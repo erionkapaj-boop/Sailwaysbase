@@ -100,6 +100,9 @@ RLS στους πίνακες. Οι triggers-φρουροί δέχονται α�
 
 ## 3. Ρόλοι
 
+**Μοντέλο πολλαπλών ρόλων (0139, `docs/ROLES.md`):** ένας χρήστης, πολλοί ρόλοι (`user_roles`), αποθηκευμένος τρέχων ρόλος
+(`users.active_role`). Ο πίνακας ακολουθεί τα παρακάτω με triggers· οι υπάρχοντες έλεγχοι (`users.role`, `is_admin()`) μένουν ως έχουν.
+
 - **Πελάτης** (`users.role = 'client'`).
 - **Επαγγελματίας** (`users.role = 'skipper'` + `skipper_profiles.role` =
   skipper / hostess / cook / deckhand). Μπορεί να έχει και δεύτερες ιδιότητες
