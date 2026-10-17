@@ -5,6 +5,7 @@ import { useAuth } from "../AuthContext";
 import SignedOutNotice from "../components/SignedOutNotice";
 import LoadError from "../components/LoadError";
 import CommunityMap from "../components/community/CommunityMap";
+import CommunityGroups from "../components/community/CommunityGroups";
 import { communityMyAccess } from "../../../lib/platform/db";
 import { colors, container, card, h1, muted, radius } from "../../../lib/platform/theme";
 
@@ -60,8 +61,8 @@ export default function Page() {
                 <CommunityMap access={access} />
               </div>
             ) : (
-              <div data-community-pane="groups" style={{ ...card, minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ ...muted, fontSize: 15 }}>{t("soon")}</span>
+              <div data-community-pane="groups">
+                <CommunityGroups access={access} />
               </div>
             )}
           </>

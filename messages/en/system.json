@@ -84,7 +84,13 @@
     "point_archived": "The point has been archived.",
     "invalid_reason": "The reason is not valid.",
     "invalid_note": "The comment can have up to 500 characters.",
-    "target_not_found": "The item no longer exists."
+    "target_not_found": "The item no longer exists.",
+    "group_closed": "This group is closed.",
+    "not_member": "Join the group first.",
+    "invalid_body": "The message can have up to 2000 characters.",
+    "invalid_parent": "You cannot reply to this message.",
+    "group_not_found": "The group does not exist.",
+    "message_not_found": "The message no longer exists."
   },
   "Feedback": {
     "users_PATCH": "Saved",

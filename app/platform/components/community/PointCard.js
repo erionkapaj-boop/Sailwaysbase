@@ -3,12 +3,13 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Icon from "../Icon";
 import Sheet from "./Sheet";
+import ReportSheet from "./ReportSheet";
 import { useConfirm } from "../ConfirmDialog";
 import { useFormat } from "../../useFormat";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { COMMUNITY_CATEGORY, POINT_REPORT_REASONS, ageLabel, freshness } from "../../../../lib/platform/community";
 import { communityPhotoUrl } from "../../../../lib/platform/db";
-import { colors, radius, muted, button, input } from "../../../../lib/platform/theme";
+import { colors, radius, muted, button } from "../../../../lib/platform/theme";
 
 // Κάρτα σημείου: τίτλος, περιγραφή, κατηγορία, συντάκτης, ημερομηνία παρατήρησης και τελευταίας επιβεβαίωσης,
 // φωτογραφία. Ενέργειες: «Ισχύει ακόμη», «Αναφορά προβλήματος», και για τον συντάκτη διόρθωση/διαγραφή.
@@ -19,8 +20,6 @@ export default function PointCard({ point, settings, myId, canWrite, moderator, 
   const [confirm, confirmDialog] = useConfirm();
   const [photo, setPhoto] = useState(null);
   const [view, setView] = useState("card");
-  const [reason, setReason] = useState(null);
-  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -55,41 +54,7 @@ export default function PointCard({ point, settings, myId, canWrite, moderator, 
   const row = { display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, padding: "9px 0", borderTop: `1px solid ${colors.border}` };
 
   if (view === "report") {
-    return (
-      <Sheet label={t("reportTitle")} onClose={onClose} testId="report">
-        <h2 style={{ fontSize: 19, fontWeight: 600, margin: "0 0 14px", color: colors.ink }}>{t("reportTitle")}</h2>
-        <div role="radiogroup" aria-label={t("reportTitle")} style={{ display: "grid", gap: 8, marginBottom: 14 }}>
-          {POINT_REPORT_REASONS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              role="radio"
-              aria-checked={reason === r}
-              data-report-reason={r}
-              onClick={() => setReason(r)}
-              style={{ ...button(reason === r ? "primary" : "secondary"), justifyContent: "flex-start", textAlign: "left", minHeight: 46 }}
-            >
-              {t(`reason_${r}`)}
-            </button>
-          ))}
-        </div>
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value.slice(0, 500))}
-          rows={3}
-          aria-label={t("reportNote")}
-          placeholder={t("reportNote")}
-          style={{ ...input, resize: "vertical", marginBottom: 14 }}
-        />
-        {error && <p role="alert" style={{ color: colors.danger, fontSize: 14, margin: "0 0 12px" }}>{error}</p>}
-        <div style={{ display: "flex", gap: 10 }}>
-          <button type="button" onClick={() => setView("card")} style={{ ...button("secondary"), flex: 1, minHeight: 46 }}>{t("back")}</button>
-          <button type="button" data-report-send disabled={!reason || busy} onClick={() => run(() => onReport(point, reason, note))} style={{ ...button("primary"), flex: 1, minHeight: 46, opacity: !reason || busy ? 0.5 : 1 }}>
-            {t("reportSend")}
-          </button>
-        </div>
-      </Sheet>
-    );
+    return <ReportSheet reasons={POINT_REPORT_REASONS} onSend={(r, n) => onReport(point, r, n)} onBack={() => setView("card")} onClose={onClose} />;
   }
 
   return (

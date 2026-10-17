@@ -1,5 +1,4 @@
-// Community (16-17/10/2026): η διαδρομή /platform/community έχει δύο ενότητες (Χάρτης, Ομάδες)· οι Ομάδες είναι προς το
-// παρόν κενές («Σύντομα»). Πρόσβαση μόνο για εγκεκριμένους επαγγελματίες (και τη διαχείριση)· πελάτης και επισκέπτης δεν μπαίνουν.
+// Community (16-17/10/2026): η διαδρομή /platform/community έχει δύο ενότητες (Χάρτης, Ομάδες). Πρόσβαση μόνο για εγκεκριμένους επαγγελματίες (και τη διαχείριση)· πελάτης και επισκέπτης δεν μπαίνουν.
 // Ελληνικά και αγγλικά, κινητό και υπολογιστής.
 import { chromium } from "playwright";
 import { BASE, as, go, text, check, finish, shoot, hydrationOnly, sql } from "./lib.mjs";
@@ -47,7 +46,7 @@ for (const locale of ["el", "en"]) {
       await page.waitForTimeout(800);
       check(`επαγγελματίας ${locale} ${tag}: δύο ενότητες, ανοίγει ο Χάρτης`, (await page.locator("[data-community-tab]").count()) === 2 && (await page.locator('[data-community-tab="map"]').getAttribute("aria-selected")) === "true" && (await page.locator("[data-community-map]").count()) === 1);
       await page.locator('[data-community-tab="groups"]').click();
-      check(`επαγγελματίας ${locale} ${tag}: μετάβαση στις Ομάδες`, (await page.locator('[data-community-pane="groups"]').count()) === 1 && (await page.locator('[data-community-tab="groups"]').getAttribute("aria-selected")) === "true" && (await text(page)).includes(L.soon));
+      check(`επαγγελματίας ${locale} ${tag}: μετάβαση στις Ομάδες`, (await page.locator('[data-community-pane="groups"]').count()) === 1 && (await page.locator('[data-community-tab="groups"]').getAttribute("aria-selected")) === "true" && (await page.locator("[data-community-groups]").count()) === 1);
       await shoot(page, `community-${locale}-${tag}`);
     });
   }
