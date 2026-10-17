@@ -46,6 +46,7 @@ for (const locale of ["el", "en"]) {
       await page.waitForTimeout(800);
       check(`επαγγελματίας ${locale} ${tag}: δύο ενότητες, ανοίγει ο Χάρτης`, (await page.locator("[data-community-tab]").count()) === 2 && (await page.locator('[data-community-tab="map"]').getAttribute("aria-selected")) === "true" && (await page.locator("[data-community-map]").count()) === 1);
       await page.locator('[data-community-tab="groups"]').click();
+      await page.waitForSelector("[data-community-groups]", { timeout: 10000 }).catch(() => {});
       check(`επαγγελματίας ${locale} ${tag}: μετάβαση στις Ομάδες`, (await page.locator('[data-community-pane="groups"]').count()) === 1 && (await page.locator('[data-community-tab="groups"]').getAttribute("aria-selected")) === "true" && (await page.locator("[data-community-groups]").count()) === 1);
       await shoot(page, `community-${locale}-${tag}`);
     });
