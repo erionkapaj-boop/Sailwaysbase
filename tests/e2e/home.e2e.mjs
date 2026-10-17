@@ -116,7 +116,7 @@ await b2.close();
 
 async function check_small_logo(page) {
   const link = page.locator('a[aria-label^="SkipperFinder"]').first();
-  check("σελίδα χρήσης: κέντρο κεφαλίδας με μικρό τιμόνι και «SkipperFinder» που οδηγεί στην αρχική", (await link.locator("svg").count()) > 0 && (await link.innerText()).includes("SkipperFinder"));
+  check("σελίδα χρήσης: κέντρο κεφαλίδας με μικρό τιμόνι και «SkipperFinder» που οδηγεί στην αρχική", (await link.locator("svg").count()) > 0 && ((await link.textContent()) || "").includes("SkipperFinder"));
 }
 
 finish();

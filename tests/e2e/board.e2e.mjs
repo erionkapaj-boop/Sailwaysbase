@@ -28,8 +28,11 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
   check("χωρίς όνομα πελάτη", !body.includes("Μαρία Πελάτη"));
   await click(page, "Διεκδίκηση");
   await page.waitForTimeout(500);
-  check("ζητά εγγραφή μόνο στη διεκδίκηση", (await text(page)).includes("Εγγραφή για διεκδίκηση"));
-  check("η διεκδίκηση περιμένει στη συσκευή", (await page.evaluate(() => localStorage.getItem("sf_pending_claim"))) !== null);
+  // 17/10/2026: χωρίς σύνδεση δεν ζητείται εγγραφή ή σύνδεση (lib/platform/accessPolicy.js)· η διεκδίκηση δεν ολοκληρώνεται και
+  // ο επισκέπτης παίρνει το ουδέτερο μήνυμα.
+  const afterClaim = await text(page);
+  check("χωρίς σύνδεση: καμία πρόσκληση εγγραφής ή σύνδεσης στη διεκδίκηση", !afterClaim.includes("Εγγραφή για διεκδίκηση") && !afterClaim.includes("Σύνδεση για διεκδίκηση") && (await page.evaluate(() => [...document.querySelectorAll('a[href*="/platform/login"], a[href*="/platform/register"]')].filter((a) => !a.closest("[data-sf-header], header, nav, footer")).length)) === 0);
+  check("χωρίς σύνδεση: ουδέτερο μήνυμα, καμία διεκδίκηση αποθηκευμένη", afterClaim.includes("Η ενέργεια χρειάζεται λογαριασμό.") && (await page.evaluate(() => localStorage.getItem("sf_pending_claim"))) === null);
   // Αγγλικά: ο πίνακας χωρίς ελληνικά γράμματα (εκτός από το κείμενο του πελάτη).
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await ctx.addCookies([{ name: "sf_locale", value: "en", url: BASE }]);

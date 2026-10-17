@@ -19,7 +19,8 @@ for (const locale of ["el", "en"]) {
   page.on("pageerror", (e) => hydrationOnly(e, page, `community ${locale}`) || errors.push(e.message));
   await go(page, "/platform/community");
   await page.waitForTimeout(500);
-  check(`${locale}: επισκέπτης → ζητά σύνδεση, όχι περιεχόμενο`, (await page.locator("[data-community-tab]").count()) === 0 && (await page.locator('a[href*="/platform/login"]').count()) > 0);
+  // 17/10/2026: οι εφαρμογές ανοίγουν χωρίς σύνδεση (lib/platform/accessPolicy.js): ο επισκέπτης βλέπει τις δύο ενότητες, όχι σελίδα σύνδεσης.
+  check(`${locale}: επισκέπτης → βλέπει τις δύο ενότητες, χωρίς σελίδα σύνδεσης`, (await page.locator("[data-community-tab]").count()) === 2 && (await page.locator("[data-signed-out-notice]").count()) === 0);
   check(`${locale}: χωρίς σφάλματα σελίδας`, errors.length === 0, errors.join(" | "));
   await ctx.close();
 }

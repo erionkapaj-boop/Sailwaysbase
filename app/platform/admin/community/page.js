@@ -127,19 +127,15 @@ function ReportCard({ r, isOwnerOrStaff, onAct, onError }) {
 function Settings({ rows, owner, onSaved, onError }) {
   const t = useTranslations("AdminCommunity");
   const tc = useTranslations("Community");
-  const [vals, setVals] = useState({});
-  // Ξαναγράφεται μόνο όταν αλλάξουν οι τιμές της βάσης (όχι σε κάθε ανανέωση της λίστας): αλλιώς ό,τι πληκτρολογεί ο ιδιοκτήτης σβήνει.
-  const serverKey = JSON.stringify(rows.map((r) => [r.category, r.show_days, r.archive_days]));
-  useEffect(() => {
-    setVals(Object.fromEntries(rows.map((r) => [r.category, { show: String(r.show_days), archive: String(r.archive_days) }])));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverKey]);
+  const [edits, setEdits] = useState({}); // μόνο ό,τι έχει πληκτρολογήσει ο ιδιοκτήτης· τα υπόλοιπα διαβάζονται από τη βάση
+  const valuesOf = (r) => edits[r.category] || { show: String(r.show_days), archive: String(r.archive_days) };
   const order = COMMUNITY_CATEGORIES.map((c) => c.key);
   const sorted = [...rows].sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category));
   async function save(r) {
-    const v = vals[r.category];
+    const v = valuesOf(r);
     try {
       await adminCommunitySetCategory(r.category, Number(v.show), Number(v.archive));
+      setEdits(({ [r.category]: _done, ...rest }) => rest);
       onSaved(t("saved"));
     } catch (e) {
       onError(friendlyError(e));
@@ -149,18 +145,18 @@ function Settings({ rows, owner, onSaved, onError }) {
     <Panel title={t("settingsTitle")} subtitle={owner ? t("settingsIntro") : t("settingsOwnerOnly")}>
       <div data-community-settings style={{ display: "grid", gap: 12 }}>
         {sorted.map((r) => {
-          const v = vals[r.category] || { show: "", archive: "" };
+          const v = valuesOf(r);
           const dirty = Number(v.show) !== r.show_days || Number(v.archive) !== r.archive_days;
           return (
             <div key={r.category} data-setting={r.category} style={{ display: "grid", gridTemplateColumns: "minmax(150px, 1.4fr) 1fr 1fr auto", gap: 10, alignItems: "end" }} className="cm-setting-row">
               <div style={{ fontSize: 14.5, fontWeight: 600, color: colors.ink, alignSelf: "center" }}>{tc(`cat_${r.category}`)}</div>
               <div>
                 <label style={label} htmlFor={`cs-s-${r.category}`}>{t("showDays")}</label>
-                <input id={`cs-s-${r.category}`} data-setting-show type="number" min={1} max={3650} disabled={!owner} value={v.show} onChange={(e) => setVals({ ...vals, [r.category]: { ...v, show: e.target.value } })} style={input} />
+                <input id={`cs-s-${r.category}`} data-setting-show type="number" min={1} max={3650} disabled={!owner} value={v.show} onChange={(e) => setEdits((cur) => ({ ...cur, [r.category]: { ...(cur[r.category] || v), show: e.target.value } }))} style={input} />
               </div>
               <div>
                 <label style={label} htmlFor={`cs-a-${r.category}`}>{t("archiveDays")}</label>
-                <input id={`cs-a-${r.category}`} data-setting-archive type="number" min={1} max={3650} disabled={!owner} value={v.archive} onChange={(e) => setVals({ ...vals, [r.category]: { ...v, archive: e.target.value } })} style={input} />
+                <input id={`cs-a-${r.category}`} data-setting-archive type="number" min={1} max={3650} disabled={!owner} value={v.archive} onChange={(e) => setEdits((cur) => ({ ...cur, [r.category]: { ...(cur[r.category] || v), archive: e.target.value } }))} style={input} />
               </div>
               {owner ? <button type="button" data-setting-save disabled={!dirty} style={{ ...small, minHeight: 44, opacity: dirty ? 1 : 0.5 }} onClick={() => save(r)}>{t("save")}</button> : <span />}
             </div>
