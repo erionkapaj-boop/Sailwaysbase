@@ -75,6 +75,9 @@ try {
     await p.goto(`${BASE}/platform`);
     await p.waitForLoadState("networkidle");
     await p.waitForTimeout(1200);
+    // Το όνομα φαίνεται στο μενού προφίλ (πάνω δεξιά).
+    await p.locator("[data-profile-menu]").click();
+    await p.locator("[data-profile-pop]").waitFor();
     check(`το όνομα της πελάτισσας φαίνεται λατινικά («${latin}») και όχι ελληνικά`, (await p.innerText("body")).includes(latin.split(" ")[0]) && !(await p.innerText("body")).includes("Μαρία"));
   });
   await as(NIKOS, (p) => sweep(p, "pro", PRO));

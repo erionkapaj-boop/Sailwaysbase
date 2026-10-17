@@ -131,7 +131,7 @@ try {
           await open(p, path);
           await step(p, `${tag}: ${path}`, async () => {});
           await step(p, `${tag}: ${path}, μενού`, async () => {
-            await clickIf(p, p.getByRole("button", { name: /^Menu$/i }), 1200);
+            await clickIf(p, p.getByRole("button", { name: /^(Menu|Profile menu)$/i }).first(), 1200);
           });
           await p.keyboard.press("Escape");
         }

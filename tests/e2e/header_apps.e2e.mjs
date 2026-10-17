@@ -49,7 +49,7 @@ async function bar(page, { who, home }) {
   }, { who, home });
 }
 
-function verdict(r, { home }) {
+function verdict(r, { home, who }) {
   const p = [];
   if (!r.dots) p.push("τελείες");
   if (!r.brand) p.push("τιμόνι/SkipperFinder");
@@ -78,7 +78,7 @@ for (const [label, w, h] of SIZES) {
       await page.waitForTimeout(900);
       const home = path === "/platform";
       const r = await bar(page, { who, home });
-      const problems = verdict(r, { home });
+      const problems = verdict(r, { home, who });
       if (problems.length) bad.push(`${path}: ${problems.join(", ")}`);
     }
     check(`${who}, ${label}: η πάνω μπάρα ορατή και ακάλυπτη σε ${pages.length} σελίδες`, bad.length === 0, bad.join(" | "));
