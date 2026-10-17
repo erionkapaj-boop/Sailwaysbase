@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import Icon from "../components/Icon";
 import { useLocalData } from "../useLocalData";
 import { tNow } from "../../../lib/platform/tNow";
 import { colors, radius, muted, money, fontSans, badge, button } from "../../../lib/platform/theme";
@@ -402,5 +403,82 @@ function VerifyHintText() {
 // was vouching for. Στοιχείο React (όχι κείμενο), ώστε να διαβάζει τη γλώσσα
 // της σελίδας: χρησιμοποιείται όπου θα μπορούσε να μπει κείμενο, π.χ. {VERIFY_HINT}.
 export const VERIFY_HINT = <VerifyHintText />;
+
+
+// ---- Εικόνα πρώτα: πλακίδια με εικονίδιο, αριθμό και μία λέξη· ετικέτες· αναδυόμενα φίλτρα με πλήθος. ----
+const TILE_TONE = {
+  brand: { bg: "#E8F0F4", fg: "#2F5F7A" },
+  warn: { bg: "#FBF1DD", fg: "#9A6A12" },
+  danger: { bg: "#F7E4E1", fg: "#A63A2E" },
+  success: { bg: "#E3F1E9", fg: "#2E7355" },
+  neutral: { bg: "#EFEDE8", fg: colors.inkSoft },
+};
+
+export function IconDisc({ icon, tone = "neutral", size = 40 }) {
+  const c = TILE_TONE[tone] || TILE_TONE.neutral;
+  return (
+    <span aria-hidden="true" style={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", background: c.bg, color: c.fg }}>
+      <Icon name={icon} size={Math.round(size * 0.52)} />
+    </span>
+  );
+}
+
+// Ένα μέγεθος με την εικόνα του: εικονίδιο, μεγάλος αριθμός, μία λέξη. Πατιέται και ανοίγει τη λίστα του.
+export function KpiTile({ icon, value, label, tone = "neutral", href, kpi }) {
+  const live = value > 0;
+  const c = TILE_TONE[live ? tone : "neutral"];
+  return (
+    <Link href={href} data-kpi={kpi} data-kpi-value={value} aria-label={`${label}: ${value}`} style={{ ...panel, display: "flex", flexDirection: "column", gap: 10, padding: "14px 14px 12px", textDecoration: "none", boxSizing: "border-box", minWidth: 0 }}>
+      <IconDisc icon={icon} tone={live ? tone : "neutral"} />
+      <span style={{ ...money, fontSize: 28, fontWeight: 600, lineHeight: 1, color: live ? c.fg : colors.ink }}>{value}</span>
+      <span style={{ ...muted, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+    </Link>
+  );
+}
+
+export function KpiGrid({ children }) {
+  return <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 14 }}>{children}</div>;
+}
+
+// Γρήγορη ενέργεια: εικονίδιο πάνω, μία λέξη κάτω.
+export function ActionTile({ icon, label, href, tone = "brand" }) {
+  return (
+    <Link href={href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: "1 1 0", minWidth: 84, padding: "12px 8px", textDecoration: "none", ...panel, boxSizing: "border-box" }}>
+      <IconDisc icon={icon} tone={tone} size={44} />
+      <span style={{ fontSize: 13, color: colors.ink, textAlign: "center" }}>{label}</span>
+    </Link>
+  );
+}
+
+// Μικρή ετικέτα με χρώμα: ρόλος, κατάσταση, ενέργεια.
+export function Chip({ tone = "neutral", icon, children, ...rest }) {
+  const c = TILE_TONE[tone] || TILE_TONE.neutral;
+  return (
+    <span {...rest} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: radius.pill, background: c.bg, color: c.fg, fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", lineHeight: 1.4 }}>
+      {icon && <Icon name={icon} size={12} stroke={2} />}
+      {children}
+    </span>
+  );
+}
+
+// Φίλτρα σε μία γραμμή με πλήθος, όπως τα segmented tabs: items = [{ key, label, icon, count }].
+export function Segments({ items, value, onChange }) {
+  return (
+    <div role="tablist" style={{ display: "flex", gap: 6, overflowX: "auto", padding: "12px 16px", borderBottom: `1px solid ${colors.border}`, background: colors.bg, scrollbarWidth: "none" }}>
+      {items.map((x) => {
+        const on = x.key === value;
+        return (
+          <button key={x.key} type="button" role="tab" aria-selected={on} data-segment={x.key} onClick={() => onChange(x.key)} style={{ display: "inline-flex", alignItems: "center", gap: 6, minHeight: 36, padding: "0 12px", borderRadius: radius.pill, border: `1px solid ${on ? colors.ink : colors.border}`, background: on ? colors.ink : colors.card, color: on ? "#fff" : colors.ink, fontFamily: "inherit", fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+            {x.icon && <Icon name={x.icon} size={15} />}
+            {x.label}
+            {x.count != null && <span style={{ fontSize: 12, opacity: on ? 0.85 : 0.6 }}>{x.count}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export { TILE_TONE };
 
 export { button, money, muted, colors, radius };

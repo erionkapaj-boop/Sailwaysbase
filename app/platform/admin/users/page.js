@@ -8,8 +8,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AdminShell, { useAdminCounts, useRefreshAdminCounts } from "../AdminShell";
 import { useAuth } from "../../AuthContext";
-import { Panel, Toolbar, Row, RowMain, Empty, Status, colors, muted, money, button } from "../ui";
-import { badge } from "../../../../lib/platform/theme";
+import { safeImageUrl, Panel, Toolbar, Row, Empty, Chip, Segments, colors, muted, money, button } from "../ui";
+import Avatar from "../../components/Avatar";
+import Icon from "../../components/Icon";
 import { CREW_ROLES, labelForRole } from "../../../../lib/platform/roles";
 import { adminListAccounts, adminVerifyUser, adminReactivateAccount, adminRestoreAccount } from "../../../../lib/platform/db";
 import { useConfirm } from "../../components/ConfirmDialog";
@@ -63,14 +64,11 @@ const TABS = [
   { key: "suspended", role: null, suspendedOnly: true },
 ];
 
-const SORTS = ["recent", "active", "name", "rating", "bookings", "age"];
+const iconButton = { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: "50%", border: `1px solid ${colors.border}`, background: colors.card, color: colors.ink, cursor: "pointer", padding: 0 };
 
-function ageFrom(dob) {
-  if (!dob) return null;
-  const d = new Date(dob);
-  const diff = Date.now() - d.getTime();
-  return Math.floor(diff / (365.25 * 24 * 3600 * 1000));
-}
+const TAB_ICON = { client: "user", pro: "anchor", all: "users", deleted: "trash", pending: "clock", suspended: "lock" };
+
+const SORTS = ["recent", "active", "name", "rating", "bookings", "age"];
 
 function UsersInner() {
   const t = useTranslations("AdminUsers");
@@ -218,27 +216,15 @@ function UsersInner() {
         </div>
       )}
 
-      <Panel title={`${t(`tabs.${tab}`)} (${list.length})`} padded={false}>
-        <Toolbar>
-          {TABS.map((tb) => (
-            <button
-              key={tb.key}
-              disabled={invisibleOnly && tb.key !== "pro"}
-              onClick={() => {
-                setTab(tb.key);
-                if (tb.key !== "pro") setCrewRole("");
-              }}
-              style={{
-                ...button(tab === tb.key ? "primary" : "secondary"),
-                padding: "6px 13px",
-                fontSize: 13,
-                opacity: invisibleOnly && tb.key !== "pro" ? 0.4 : 1,
-              }}
-            >
-              {t(`tabs.${tb.key}`)}
-            </button>
-          ))}
-        </Toolbar>
+      <Panel padded={false}>
+        <Segments
+          value={tab}
+          items={TABS.filter((tb) => !invisibleOnly || tb.key === "pro").map((tb) => ({ key: tb.key, label: t(`tabs.${tb.key}`), icon: TAB_ICON[tb.key], count: tb.key === tab && !busy ? list.length : null }))}
+          onChange={(k) => {
+            setTab(k);
+            if (k !== "pro") setCrewRole("");
+          }}
+        />
 
         <Toolbar>
           {/* Only professionals have a crew role, so the filter only appears
@@ -283,119 +269,73 @@ function UsersInner() {
         {!busy && list.length === 0 && <Empty>{t("empty")}</Empty>}
 
         {list.map((u) => {
-          const age = ageFrom(u.date_of_birth);
           return (
             <Row key={u.id}>
-              <RowMain
-                title={personName(u) || t("noName")}
-                photoUrl={u.photo_url}
-                meta={
-                  <>
-                    <span style={money}>{u.phone_number}</span>
-                    {u.crew_role && ` · ${labelForRole(u.crew_role)}`}
-                    {age != null && ` · ${t("yearsOld", { age })}`}
+              <Link href={`/platform/admin/user/${u.id}`} data-user-row style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 220px", textDecoration: "none", color: "inherit" }}>
+                <Avatar src={safeImageUrl(u.photo_url)} name={personName(u)} size={44} />
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span data-user-text style={{ display: "block", fontSize: 14.5, fontWeight: 600, color: colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {personName(u) || t("noName")}
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                    <Chip tone={u.role === "admin" ? "danger" : u.role === "skipper" ? "brand" : "neutral"} icon={u.role === "skipper" ? "anchor" : u.role === "admin" ? "shield" : "user"}>
+                      {u.crew_role ? labelForRole(u.crew_role) : t(`roleChip.${u.role === "skipper" ? "pro" : u.role === "admin" ? "admin" : "client"}`)}
+                    </Chip>
+                    {u.status === "deleted" ? (
+                      <Chip tone="neutral" icon="trash">{t("statusChip.deleted")}</Chip>
+                    ) : u.status === "suspended" ? (
+                      <Chip tone="danger" icon="lock">{t("statusChip.suspended")}</Chip>
+                    ) : !u.phone_verified_at && u.role !== "admin" ? (
+                      <Chip tone="warn" icon="clock">{t("statusChip.review")}</Chip>
+                    ) : u.approval_status && u.approval_status !== "approved" ? (
+                      <Chip tone="warn" icon="clock">{t("statusChip.review")}</Chip>
+                    ) : (
+                      <Chip tone="success" icon="check">{t("statusChip.active")}</Chip>
+                    )}
                     {u.rating_count > 0 && (
-                      <>
-                        {" · "}
-                        <span style={money}>{Number(u.rating_avg).toFixed(1)}</span>★ (
-                        <span style={money}>{u.rating_count}</span>)
-                      </>
+                      <span style={{ ...muted, fontSize: 12.5 }}>
+                        <span style={money}>{Number(u.rating_avg).toFixed(1)}</span>★
+                      </span>
                     )}
-                    {u.completed_bookings_count > 0 && (
-                      <>
-                        {" · "}
-                        {t.rich("bookingsCount", { count: u.completed_bookings_count, n: (c) => <span style={money}>{c}</span> })}
-                      </>
-                    )}
-                    <br />
-                    {/* The one thing the old list couldn't answer: is this
-                        account alive? It decides who you'd hand work to. */}
+                  </span>
+                  <span style={{ ...muted, fontSize: 12.5, display: "block", marginTop: 4 }}>
+                    <span style={money}>{u.phone_number}</span>
+                    {" · "}
                     <span style={{ color: u.last_seen_at ? colors.inkSoft : colors.warn }}>
-                      {u.last_seen_at ? t("lastSeen", { ago: f.timeAgo(u.last_seen_at) }) : t("neverSeen")}
+                      {u.last_seen_at ? f.timeAgo(u.last_seen_at) : t("neverSeen")}
                     </span>
-                    {/* Ο λόγος αναστολής φαίνεται εδώ κατευθείαν — αυτό
-                        * ζητήθηκε ρητά: να μη χρειάζεται ο admin να ανοίξει το
-                        * Στοιχεία για να θυμηθεί γιατί τον σταμάτησε. */}
-                    {u.status === "suspended" && u.suspension_reason && (
-                      <>
-                        <br />
-                        <span data-user-text style={{ color: colors.warn }}>{t("suspension", { reason: u.suspension_reason })}</span>
-                      </>
-                    )}
-                  </>
-                }
-              />
-              <span
-                style={{
-                  display: "flex",
-                  gap: 6,
-                  alignItems: "center",
-                  flexShrink: 0,
-                  // Caps it to the row's own width once Row's wrap has
-                  // dropped it to its own line (a flex item with
-                  // flexShrink:0 otherwise ignores the row entirely and
-                  // just sizes to its content) — without this, a status
-                  // badge plus three buttons ran straight off the edge of
-                  // the screen instead of using its own flexWrap to stack
-                  // onto a second line. A ceiling, not a fixed width: on a
-                  // wide screen where it still fits beside RowMain on one
-                  // line, this never comes into play.
-                  maxWidth: "100%",
-                  flexWrap: "wrap",
-                  justifyContent: "flex-end",
-                }}
-              >
-                {u.approval_status && u.approval_status !== "approved" && <Status value={u.approval_status} />}
-                {u.status !== "active" && <Status value={u.status} />}
-                {!u.phone_verified_at && u.role !== "admin" && u.status !== "deleted" && (
-                  <span style={badge("warn")}>{t("awaitingVerification")}</span>
-                )}
+                  </span>
+                  {u.status === "suspended" && u.suspension_reason && (
+                    <span data-user-text style={{ display: "block", marginTop: 3, fontSize: 12.5, color: colors.warn }}>{t("suspension", { reason: u.suspension_reason })}</span>
+                  )}
+                </span>
+              </Link>
+              <span style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, maxWidth: "100%", flexWrap: "wrap", justifyContent: "flex-end" }}>
                 {u.status === "deleted" && (
-                  <button
-                    style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
-                    disabled={busy}
-                    onClick={() => handleRestore(u)}
-                  >
+                  <button style={{ ...button("primary"), padding: "6px 12px", fontSize: 13 }} disabled={busy} onClick={() => handleRestore(u)}>
                     {t("restore")}
                   </button>
                 )}
-                {/* 0075: εγγραφή χωρίς SMS OTP (ή χωρίς επαλήθευση admin
-                    * ακόμα) — VerificationGate στο PlatformShell.js τον
-                    * μπλοκάρει παντού μέχρι να πατηθεί αυτό. */}
+                {/* 0075: εγγραφή χωρίς SMS OTP — VerificationGate (PlatformShell.js) τον μπλοκάρει μέχρι το «Επαλήθευση». */}
                 {!u.phone_verified_at && u.role !== "admin" && u.status !== "deleted" && (
-                  <button
-                    style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
-                    disabled={busy}
-                    onClick={() => handleVerify(u)}
-                  >
+                  <button style={{ ...button("primary"), padding: "6px 12px", fontSize: 13 }} disabled={busy} onClick={() => handleVerify(u)}>
                     {t("verify")}
                   </button>
                 )}
-                {/* Η "Προβολή ως" δεν βγάζει νόημα πάνω σε
-                    * έναν κρυμμένο/σταματημένο λογαριασμό — η σύνδεση θα
-                    * μπλοκαριστεί ούτως ή άλλως (signInWithPin αρνείται
-                    status='deleted'/'suspended'). */}
-                {u.role !== "admin" && u.status !== "deleted" && u.status !== "suspended" && (
-                  <button
-                    style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}
-                    onClick={() => enterViewAs(u)}
-                  >
-                    {t("viewAs")}
-                  </button>
-                )}
-                {/* 0078: επαναφορά με ένα κλικ, χωρίς λόγο (μόνο η αναστολή
-                    * χρειάζεται λόγο) — ίδιο μοτίβο με το «Επαλήθευση». */}
+                {/* 0078: επαναφορά με ένα κλικ. */}
                 {u.status === "suspended" && (
-                  <button
-                    style={{ ...button("primary"), padding: "5px 10px", fontSize: 12 }}
-                    disabled={busy}
-                    onClick={() => handleReactivate(u)}
-                  >
+                  <button style={{ ...button("primary"), padding: "6px 12px", fontSize: 13 }} disabled={busy} onClick={() => handleReactivate(u)}>
                     {t("restore")}
                   </button>
                 )}
-                <Link href={`/platform/admin/user/${u.id}`} style={{ textDecoration: "none" }}>
-                  <span style={{ ...button("secondary"), padding: "5px 10px", fontSize: 12 }}>{t("details")}</span>
+                {/* Η «Προβολή ως» δεν έχει νόημα σε κρυμμένο/σταματημένο λογαριασμό (η σύνδεση μπλοκάρεται ούτως ή άλλως). */}
+                {u.role !== "admin" && u.status !== "deleted" && u.status !== "suspended" && (
+                  <button type="button" aria-label={t("viewAs")} title={t("viewAs")} onClick={() => enterViewAs(u)} style={{ ...iconButton }}>
+                    <Icon name="eye" size={18} />
+                  </button>
+                )}
+                <Link href={`/platform/admin/user/${u.id}`} aria-label={t("details")} title={t("details")} style={{ ...iconButton, textDecoration: "none" }}>
+                  <Icon name="chev" size={18} />
                 </Link>
               </span>
             </Row>

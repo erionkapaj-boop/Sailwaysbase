@@ -307,6 +307,18 @@
       "6": "SAT"
     },
     "refundsOne": "Refunded {credits} (requests without a response, cases without a replacement, client cancellations).",
-    "refundsMany": "Refunded {credits} (requests without a response, cases without a replacement, client cancellations)."
+    "refundsMany": "Refunded {credits} (requests without a response, cases without a replacement, client cancellations).",
+    "kpi": {
+      "pending": "Pending",
+      "replacements": "Replacements",
+      "disputes": "Reports",
+      "messages": "Messages"
+    },
+    "qa": {
+      "credits": "Credits",
+      "offer": "Assign",
+      "bookings": "Bookings"
+    },
+    "review": "Review"
   }
 }

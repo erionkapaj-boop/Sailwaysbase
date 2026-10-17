@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
 import { useLocalData } from "../useLocalData";
 import AdminShell, { useAdminCounts } from "./AdminShell";
-import { Panel, Row, RowMain, Empty, colors, muted } from "./ui";
+import { Panel, Row, RowMain, Empty, KpiTile, KpiGrid, ActionTile, IconDisc, Chip, colors, muted } from "./ui";
 import { useAuth } from "../AuthContext";
 import { adminDashboard, adminRecentActivity, adminListAccounts, adminInvisibleProfilesCount } from "../../../lib/platform/db";
 import { formatMoney } from "../../../lib/platform/notifications";
@@ -139,104 +139,19 @@ function SectionTitle({ children, hint }) {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Η μία πρόταση: πώς είναι τα πράγματα, πριν διαβάσεις οτιδήποτε άλλο.
+// 1. Με μια ματιά: τέσσερα πλακίδια, εικονίδιο + αριθμός + μία λέξη.
 // ---------------------------------------------------------------------------
-function Pulse({ waiting, expiring, upcoming, loaded }) {
+function Kpis({ counts }) {
   const t = useTranslations("AdminHome");
-  const today = upcoming.filter((u) => daysFromToday(u.start) === 0).length;
-  const tomorrow = upcoming.filter((u) => daysFromToday(u.start) === 1).length;
-
-  let headline;
-  if (!loaded) headline = "…";
-  else if (expiring > 0 && waiting > 0) headline = t("pulseBoth", { expiring, waiting });
-  else if (expiring > 0) headline = t("pulseExpiring", { expiring });
-  else if (waiting > 0) headline = t("pulseWaiting", { waiting });
-  else headline = t("pulseCalm");
-
-  const calm = loaded && expiring === 0 && waiting === 0;
-  const trips = [
-    today > 0 && t("tripsToday", { n: today }),
-    tomorrow > 0 && t("tripsTomorrow", { n: tomorrow }),
-  ].filter(Boolean);
-
+  const pending = (counts.pending_verification || 0) + (counts.pending_approvals || 0) + (counts.pending_secondary_roles || 0);
+  const replacements = (counts.coverage_needed || 0) + (counts.replacement_awaiting_client || 0);
   return (
-    <section
-      style={{
-        background: colors.ink,
-        color: "#fff",
-        borderRadius: radius.lg,
-        padding: "20px 20px 18px",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Διακριτική γραμμή ορίζοντα — η μόνη «θαλασσινή» πινελιά. */}
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 400 40"
-        preserveAspectRatio="none"
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: "100%",
-          height: 34,
-          opacity: 0.12,
-        }}
-      >
-        <path d="M0 24 C 60 12, 110 34, 170 22 S 290 10, 400 22 L400 40 L0 40 Z" fill="#fff" />
-      </svg>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: 12,
-          position: "relative",
-        }}
-      >
-        <span
-          aria-hidden="true"
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            marginTop: 8,
-            flexShrink: 0,
-            background: calm ? "#7FC4A4" : colors.accent,
-            boxShadow: `0 0 0 4px ${calm ? "rgba(127,196,164,0.18)" : "rgba(195,161,100,0.22)"}`,
-          }}
-        />
-        <div style={{ minWidth: 0 }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 19,
-              fontWeight: 600,
-              lineHeight: 1.35,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {headline}
-          </p>
-          <p
-            style={{
-              margin: "6px 0 0",
-              fontSize: 13.5,
-              color: "rgba(255,255,255,0.72)",
-            }}
-          >
-            {loaded
-              ? trips.length
-                ? `${trips.join(" · ")}.`.replace(/^./, (c) => c.toUpperCase())
-                : upcoming.length
-                  ? t("pulseWeek", { n: upcoming.length })
-                  : t("pulseNoTrips")
-              : " "}
-          </p>
-        </div>
-      </div>
-    </section>
+    <KpiGrid>
+      <KpiTile kpi="pending" icon="shield" tone="warn" value={pending} label={t("kpi.pending")} href="/platform/admin/approvals" />
+      <KpiTile kpi="replacements" icon="swap" tone="brand" value={replacements} label={t("kpi.replacements")} href="/platform/admin/replacements" />
+      <KpiTile kpi="disputes" icon="flag" tone="danger" value={counts.open_disputes || 0} label={t("kpi.disputes")} href="/platform/admin/disputes" />
+      <KpiTile kpi="messages" icon="chat" tone="brand" value={counts.contact_new || 0} label={t("kpi.messages")} href="/platform/admin/messages" />
+    </KpiGrid>
   );
 }
 
@@ -407,43 +322,11 @@ function QuickSearch() {
 function QuickActions() {
   const t = useTranslations("AdminHome");
   const { isOwner } = useAuth();
-  const chip = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "8px 13px",
-    borderRadius: radius.pill,
-    border: `1px solid ${colors.border}`,
-    background: colors.card,
-    color: colors.ink,
-    fontSize: 13.5,
-    textDecoration: "none",
-    whiteSpace: "nowrap",
-  };
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 8,
-        overflowX: "auto",
-        marginTop: 10,
-        paddingBottom: 2,
-        scrollbarWidth: "none",
-      }}
-    >
-      {isOwner && (
-        <Link href="/platform/admin/finance" style={chip}>
-          {t("buyCredits")}
-        </Link>
-      )}
-      {isOwner && (
-        <Link href="/platform/admin/offers" style={chip}>
-          {t("newOffer")}
-        </Link>
-      )}
-      <Link href="/platform/admin/bookings?filter=upcoming" style={chip}>
-        {t("bookings")}
-      </Link>
+    <div data-quick-actions style={{ display: "flex", gap: 10, marginTop: 10 }}>
+      {isOwner && <ActionTile icon="coins" label={t("qa.credits")} href="/platform/admin/finance" />}
+      {isOwner && <ActionTile icon="plus" label={t("qa.offer")} href="/platform/admin/offers" />}
+      <ActionTile icon="cal" label={t("qa.bookings")} href="/platform/admin/bookings?filter=upcoming" />
     </div>
   );
 }
@@ -463,36 +346,48 @@ function waitingRows(counts, t) {
   return [
     counts.coverage_needed > 0 && {
       href: "/platform/admin/replacements",
+      icon: "swap",
+      tone: "danger",
       n: counts.coverage_needed,
       title: t("coverageTitle", { n: counts.coverage_needed }),
       meta: t("coverageMeta"),
     },
     counts.replacement_awaiting_client > 0 && {
       href: "/platform/admin/replacements",
+      icon: "clock",
+      tone: "warn",
       n: counts.replacement_awaiting_client,
       title: t("awaitingClientTitle", { n: counts.replacement_awaiting_client }),
       meta: t("awaitingClientMeta"),
     },
     pendingTotal > 0 && {
       href: "/platform/admin/approvals",
+      icon: "shield",
+      tone: "warn",
       n: pendingTotal,
       title: t("pendingTitle"),
       meta: t("pendingMeta", { parts: pendingParts.join(" · ") }),
     },
     counts.contact_new > 0 && {
       href: "/platform/admin/messages",
+      icon: "chat",
+      tone: "brand",
       n: counts.contact_new,
       title: t("contactTitle", { n: counts.contact_new }),
       meta: t("contactMeta"),
     },
     counts.open_disputes > 0 && {
       href: "/platform/admin/disputes",
+      icon: "flag",
+      tone: "danger",
       n: counts.open_disputes,
       title: t("disputesTitle", { n: counts.open_disputes }),
       meta: t("disputesMeta"),
     },
     counts.profiles_invisible > 0 && {
       href: "/platform/admin/users?filter=invisible",
+      icon: "eye",
+      tone: "neutral",
       n: counts.profiles_invisible,
       title: t("invisibleTitle", { n: counts.profiles_invisible }),
       meta: t("invisibleMeta", { n: counts.profiles_invisible }),
@@ -508,39 +403,13 @@ function WaitingOnYou({ rows }) {
       <SectionTitle>{t("waitingTitle")}</SectionTitle>
       <Panel padded={false}>
         {rows.map((r) => (
-          <Link key={r.href} href={r.href} style={{ textDecoration: "none" }}>
+          <Link key={r.title} href={r.href} data-waiting-row style={{ textDecoration: "none" }}>
             <Row>
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 12,
-                  minWidth: 0,
-                  flex: 1,
-                }}
-              >
-                <span
-                  style={{
-                    minWidth: 26,
-                    height: 26,
-                    padding: "0 6px",
-                    boxSizing: "border-box",
-                    borderRadius: 13,
-                    background: "#F6EFE2",
-                    color: colors.warn,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  {r.n}
-                </span>
-                <RowMain title={r.title} meta={r.meta} />
+              <span style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+                <IconDisc icon={r.icon} tone={r.tone} size={42} />
+                <span style={{ minWidth: 0, fontSize: 14.5, fontWeight: 500, color: colors.ink }}>{r.title}</span>
               </span>
-              <span style={{ ...muted, fontSize: 18 }}>›</span>
+              <Chip tone={r.tone === "neutral" ? "neutral" : r.tone} icon="chev">{t("review")}</Chip>
             </Row>
           </Link>
         ))}
@@ -1393,7 +1262,6 @@ export default function AdminOverview() {
   const expiring = (d.expiring || []).filter((e) => new Date(e.expires_at).getTime() > now);
   const upcoming = d.upcoming || [];
   const rows = waitingRows(counts, t);
-  const waitingTotal = rows.reduce((n, r) => n + r.n, 0);
   const insights = loaded ? buildInsights(d, counts, t, L) : [];
 
   const nameOf = L.person(userRow);
@@ -1406,7 +1274,7 @@ export default function AdminOverview() {
       title={`${greeting(t)}${firstName ? `, ${firstName}` : ""}`}
       subtitle={dateLine.replace(/^./, (c) => c.toUpperCase())}
     >
-      <Pulse waiting={waitingTotal} expiring={expiring.length} upcoming={upcoming} loaded={loaded} />
+      <Kpis counts={counts} />
       <QuickSearch />
       <QuickActions />
 

@@ -1,7 +1,7 @@
 {
   "AdminUsers": {
     "title": "Users",
-    "subtitle": "All accounts. “Details”: everything about the user (verification, password, suspension). “View as”: see the app as the user sees it, read-only.",
+    "subtitle": "All accounts",
     "tabs": {
       "client": "Clients",
       "pro": "Professionals",
@@ -36,7 +36,18 @@
     "restore": "Restore",
     "verify": "Verify",
     "viewAs": "View as",
-    "details": "Details"
+    "details": "Details",
+    "roleChip": {
+      "client": "Client",
+      "pro": "Professional",
+      "admin": "Administrator"
+    },
+    "statusChip": {
+      "active": "Active",
+      "review": "In review",
+      "suspended": "Suspended",
+      "deleted": "Deleted"
+    }
   },
   "AdminUser": {
     "tabs": {
