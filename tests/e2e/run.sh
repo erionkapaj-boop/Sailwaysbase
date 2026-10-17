@@ -60,6 +60,8 @@ echo "== database"
 bash tests/db/build.sh "$DB"
 # Extra data on top of the seed, e.g. E2E_EXTRA_SQL=tests/perf/scale.sql
 [ -n "${E2E_EXTRA_SQL:-}" ] && psql -X -q -v ON_ERROR_STOP=1 -d "$DB" -f "$E2E_EXTRA_SQL" >/dev/null
+# Τρέχων ρόλος των λογαριασμών δοκιμής (ρόλοι, βήμα 1-5): Administrator → admin, επαγγελματίας → professional, οι άλλοι Πελάτες.
+psql -X -q -d "$DB" -v ON_ERROR_STOP=1 -c "update users set active_role = case when role = 'admin' then 'admin' when role = 'skipper' then 'professional' else 'client' end"
 psql -X -q -d "$DB" -v ON_ERROR_STOP=1 <<SQL
 do \$\$ begin
   if not exists (select 1 from pg_roles where rolname = 'authenticator') then

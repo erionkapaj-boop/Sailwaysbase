@@ -513,5 +513,14 @@
       "team": "Internal team",
       "admin": "Platform administration"
     }
+  },
+  "AdminProfile": {
+    "title": "Administration",
+    "adminName": "Administrator",
+    "group_people": "Users & roles",
+    "group_requests": "Requests & bookings",
+    "group_credits": "Credits & packages",
+    "group_community": "Community & moderation",
+    "group_content": "Content & settings"
   }
 }

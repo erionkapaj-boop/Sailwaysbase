@@ -9,6 +9,7 @@ import { useAuth } from "../AuthContext";
 import { getMyRoles, setActiveRole } from "../../../lib/platform/db";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { ROLE_ICON, ROLES_CHANGED_EVENT, roleColor, roleRows, rowAction, registerPath } from "../../../lib/platform/userRoles";
+import { envFor } from "../../../lib/platform/roleEnv";
 import { colors, container, fontSans, h1, muted, radius, button } from "../../../lib/platform/theme";
 
 // «Οι ρόλοι μου» (βήμα 3 του μοντέλου ρόλων, docs/ROLES.md): ένας λογαριασμός, πολλοί ρόλοι. Ανοίγει από το «Αλλαγή ρόλου» του
@@ -50,7 +51,8 @@ export default function RolesPage() {
       const next = await setActiveRole(role);
       setModel(next);
       window.dispatchEvent(new CustomEvent(ROLES_CHANGED_EVENT, { detail: { active: next.active } }));
-      setTimeout(goBack, 380);
+      // Όλο το περιβάλλον αλλάζει στον νέο ρόλο: πάμε στην Αρχική του (όχι πίσω σε οθόνη του προηγούμενου ρόλου).
+      setTimeout(() => router.push(envFor(next.active).homeHref), 380);
     } catch (e) {
       setError(friendlyError(e));
       setBusy(null);

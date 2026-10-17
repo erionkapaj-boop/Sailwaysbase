@@ -6,18 +6,17 @@ import { as, go, text, check, finish, BASE, shoot } from "./lib.mjs";
 const ADMIN = "6900002001";
 const hasToken = (page) => page.evaluate(() => Object.keys(localStorage).some((k) => k.includes("auth-token")));
 
-// Σε στενή οθόνη η αποσύνδεση είναι στο συρτάρι των τριών γραμμών, σε πλατιά στο μόνιμο μενού αριστερά.
+// Η αποσύνδεση είναι πάντα στο μενού προφίλ (avatar πάνω δεξιά), για κάθε ρόλο και μέγεθος οθόνης.
 async function openMenuAndSignOut(page) {
-  const burger = page.getByRole("button", { name: "Μενού", exact: true });
-  if (await burger.isVisible()) await burger.click();
-  await page.getByRole("button", { name: "Αποσύνδεση" }).click();
+  await page.locator("[data-profile-menu]").click();
+  await page.getByRole("menuitem", { name: "Αποσύνδεση" }).click();
 }
 
 // 1. Κανονική αποσύνδεση από την κονσόλα διαχείρισης.
 await as(ADMIN, async (page) => {
   await go(page, "/platform/admin");
   // Ο χαιρετισμός εξαρτάται από την ώρα (greeting() στο admin/page.js): πρωί «Καλημέρα», αλλιώς «Καλησπέρα».
-  check("συνδεδεμένος διαχειριστής: φαίνεται η κονσόλα και το μενού", /Καλημέρα|Καλησπέρα/.test(await text(page)) && (await page.locator("aside.sf-sidenav").isVisible()));
+  check("συνδεδεμένος διαχειριστής: φαίνεται η κονσόλα και το μενού προφίλ", /Καλημέρα|Καλησπέρα/.test(await text(page)) && (await page.locator("[data-profile-menu]").isVisible()));
   await openMenuAndSignOut(page);
   await page.waitForURL((u) => u.pathname === "/platform");
   await page.waitForLoadState("networkidle");

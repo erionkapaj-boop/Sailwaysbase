@@ -1,21 +1,23 @@
 // 0112: ο υπάλληλος βλέπει μόνο τα καθημερινά· ο ιδιοκτήτης όλα, και βάζει
 // credits και στον δικό του λογαριασμό (επαγγελματίας με is_owner, όπως ο
 // λογαριασμός του ιδιοκτήτη στην παραγωγή).
-import { as, go, text, click, check, finish, sql, num } from "./lib.mjs";
+import { as, go, text, click, check, finish, sql, num, resetRoles } from "./lib.mjs";
 
 const SOFIA = "6900002008", NIKOS = "6900002003";
 const trusted = (q) => sql(`select set_config('platform.trusted', 'true', false); ${q}`);
 trusted(`update users set is_staff_admin = true where phone_number = '+${"30" + SOFIA}';
          update users set is_owner = true, is_staff_admin = true where phone_number = '+${"30" + NIKOS}';`);
 
+// Η Σοφία δουλεύει ως Ομάδα (τρέχων ρόλος team): το περιβάλλον της είναι η διαχείριση, οργανωμένη στο προφίλ της.
+sql(`update users set active_role = 'team' where phone_number = '+${"30" + SOFIA}'`);
 await as(SOFIA, async (page) => {
-  await go(page, "/platform/admin");
-  await page.getByRole("button", { name: "Μενού", exact: true }).first().click().catch(() => {});
+  await go(page, "/platform/profile");
+  await page.locator("[data-admin-groups]").waitFor();
   await page.waitForTimeout(600);
   const t = await text(page);
   check("υπάλληλος: βλέπει τη διαχείριση", t.includes("Εκκρεμότητες"));
-  check("υπάλληλος: όχι Οικονομικά, Ρυθμίσεις, Δοκιμές στο μενού",
-    !t.includes("Οικονομικά") && !t.includes("Ρυθμίσεις") && !t.includes("Ghost Mode"), t.slice(0, 600));
+  check("υπάλληλος: όχι Οικονομικά, Ρυθμίσεις, Δοκιμές στο προφίλ",
+    !t.includes("Οικονομικά") && !t.includes("Ρυθμίσεις") && !t.includes("Credits και πακέτα") && !t.includes("Ghost Mode"), t.slice(0, 600));
   check("υπάλληλος: όχι πωλήσεις", !t.includes("Πωλήσεις"));
   await go(page, "/platform/admin/finance");
   check("υπάλληλος: τα Οικονομικά κλειστά", (await text(page)).includes("Πρόσβαση μόνο για τον ιδιοκτήτη"));
@@ -48,4 +50,5 @@ trusted(`update users set is_staff_admin = false where phone_number = '+30${SOFI
            select id, 'adjustment', -5, 'Επαναφορά δοκιμής' from users where phone_number = '+30${NIKOS}';
          update users set wallet_balance = wallet_balance - 5 where phone_number = '+30${NIKOS}';`);
 
+resetRoles();
 finish();

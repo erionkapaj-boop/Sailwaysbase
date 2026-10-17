@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useFormat } from "../useFormat";
 import { useLocalData } from "../useLocalData";
 import { useAuth } from "../AuthContext";
+import useActiveRole from "../useActiveRole";
 import { listMyBookingRequests, getMyClientProfile, createMissingProfile, departureLabel } from "../../../lib/platform/db";
 import PingsInbox from "../components/PingsInbox";
 import DeliveryPingsInbox from "../components/DeliveryPingsInbox";
@@ -44,6 +45,7 @@ export default function RequestsPage() {
   const L = useLocalData();
   const f = useFormat();
   const { session, userRow, profile, isAdmin, loading, refresh, loadError } = useAuth();
+  const activeRole = useActiveRole();
   const [requests, setRequests] = useState([]);
   const [clientProfile, setClientProfile] = useState(null);
   const [busy, setBusy] = useState(true);
@@ -84,7 +86,8 @@ export default function RequestsPage() {
   if (loading) return <div style={container}>{t("loading")}</div>;
   if (!session) return <SignedOutNotice />;
 
-  const isProfessional = userRow?.role === "skipper" || isAdmin;
+  // Κάθε ρόλος βλέπει μόνο τα δικά του: ο Επαγγελματίας όσα του στάλθηκαν / ανέλαβε, ο Πελάτης όσα έστειλε.
+  const isProfessional = activeRole === "professional";
   const boardRequests = requests.filter((r) => r.board_open && (r.status === "open" || r.status === "matched"));
   const openRequests = requests.filter((r) => r.status === "open" && !r.board_open);
   const closedRequests = requests.filter((r) => r.status !== "open" && r.status !== "matched");
@@ -138,6 +141,7 @@ export default function RequestsPage() {
         </div>
       )}
 
+      {!isProfessional && (
       <div>
         {loadFailed ? (
           <LoadError what={t("loadWhat")} onRetry={load} />
@@ -190,6 +194,7 @@ export default function RequestsPage() {
           </>
         )}
       </div>
+      )}
 
       <Toast message={toast} onDismiss={() => setToast(null)} />
     </div>

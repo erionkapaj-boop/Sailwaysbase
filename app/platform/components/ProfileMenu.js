@@ -8,8 +8,16 @@ import { useAuth } from "../AuthContext";
 import useActiveRole from "../useActiveRole";
 import { getMyReservedCredits } from "../../../lib/platform/db";
 import { roleColor, ROLE_ICON } from "../../../lib/platform/userRoles";
+import { envFor } from "../../../lib/platform/roleEnv";
 import { formatCredits } from "../../../lib/platform/credits";
 import { colors, fontSans, radius, shadow } from "../../../lib/platform/theme";
+
+const MENU_ITEMS = {
+  bookings: { href: "/platform/bookings", icon: "calCheck", label: "bookings" },
+  settings: { href: "/platform/settings", icon: "sliders", label: "settings" },
+  packages: { href: "/platform/wallet", icon: "wallet", label: "packages" },
+  help: { href: "/platform/help", icon: "question", label: "help" },
+};
 
 // Το «Σύνδεση» πάνω δεξιά γίνεται, για συνδεδεμένο χρήστη, η φωτογραφία του με μικρό βελάκι. Το λεπτό δαχτυλίδι γύρω της έχει το
 // χρώμα του τρέχοντος ρόλου (lib/platform/userRoles.js), ώστε να φαίνεται πάντα σε ποιον ρόλο βρίσκεται. Πάτημα → μενού.
@@ -17,12 +25,13 @@ import { colors, fontSans, radius, shadow } from "../../../lib/platform/theme";
 export default function ProfileMenu({ name, photoUrl, limited = false }) {
   const t = useTranslations("ProfileMenu");
   const tr = useTranslations("UserRoles");
-  const { session, userRow, role, isAdmin, signOut } = useAuth();
+  const { session, userRow, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const [reserved, setReserved] = useState(0);
   const root = useRef(null);
 
   const current = useActiveRole();
+  const menu = envFor(current).menu;
   const color = roleColor(current);
   const email = session?.user?.email || userRow?.email || "";
   const balance = Math.max(0, Number(userRow?.wallet_balance ?? 0) - reserved);
@@ -110,31 +119,16 @@ export default function ProfileMenu({ name, photoUrl, limited = false }) {
               </div>
 
               <div style={{ borderTop: `1px solid ${colors.border}`, marginTop: 6, padding: "6px 4px 4px" }}>
-                <Link href="/platform/profile" role="menuitem" className="sf-pm-row" style={row} onClick={() => setOpen(false)}>
-                  <Icon name="user" size={20} /><span style={{ flex: 1 }}>{t("profile")}</span>
-                </Link>
-                {!isAdmin && (
-                  <>
-                    <Link href="/platform/bookings" role="menuitem" className="sf-pm-row" style={row} onClick={() => setOpen(false)}>
-                      <Icon name="calCheck" size={20} /><span style={{ flex: 1 }}>{t("bookings")}</span>
+                {/* Οι γραμμές ορίζονται ανά ρόλο στο lib/platform/roleEnv.js· ό,τι είναι ήδη καρτέλα δεν επαναλαμβάνεται. */}
+                {menu.map((k) => {
+                  const m = MENU_ITEMS[k];
+                  return (
+                    <Link key={k} href={m.href} role="menuitem" data-pm-item={k} {...(k === "packages" ? { "data-pm-packages": "" } : {})} className="sf-pm-row" style={row} onClick={() => setOpen(false)}>
+                      <Icon name={m.icon} size={20} /><span style={{ flex: 1 }}>{t(m.label)}</span>
+                      {k === "packages" && <span data-pm-balance style={{ fontSize: 13, color: colors.inkSoft }}>{formatCredits(balance)}</span>}
                     </Link>
-                  </>
-                )}
-                {role === "skipper" && !isAdmin && (
-                  <Link href="/platform/availability" role="menuitem" className="sf-pm-row" style={row} onClick={() => setOpen(false)}>
-                    <Icon name="cal" size={20} /><span style={{ flex: 1 }}>{t("availability")}</span>
-                  </Link>
-                )}
-                <Link href="/platform/settings" role="menuitem" className="sf-pm-row" style={row} onClick={() => setOpen(false)}>
-                  <Icon name="sliders" size={20} /><span style={{ flex: 1 }}>{t("settings")}</span>
-                </Link>
-                <Link href="/platform/wallet" role="menuitem" data-pm-packages className="sf-pm-row" style={row} onClick={() => setOpen(false)}>
-                  <Icon name="wallet" size={20} /><span style={{ flex: 1 }}>{t("packages")}</span>
-                  <span data-pm-balance style={{ fontSize: 13, color: colors.inkSoft }}>{formatCredits(balance)}</span>
-                </Link>
-                <Link href="/platform/help" role="menuitem" className="sf-pm-row" style={row} onClick={() => setOpen(false)}>
-                  <Icon name="question" size={20} /><span style={{ flex: 1 }}>{t("help")}</span>
-                </Link>
+                  );
+                })}
               </div>
             </>
           )}

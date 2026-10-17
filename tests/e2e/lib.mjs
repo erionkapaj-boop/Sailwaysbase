@@ -41,6 +41,11 @@ export async function eventually(fn, ms = 12000) {
     await new Promise((r) => setTimeout(r, 250));
   }
 }
+// Ο τρέχων ρόλος των λογαριασμών δοκιμής όπως στο seed του e2e (tests/e2e/run.sh): Administrator → admin, επαγγελματίας → professional,
+// κάθε άλλος → client. Τα τεστ που αλλάζουν τον τρέχοντα ρόλο τον επαναφέρουν εδώ στο τέλος, ώστε να μη χαλούν τα επόμενα.
+export const DEFAULT_ROLES_SQL =
+  "update users set active_role = case when role = 'admin' then 'admin' when role = 'skipper' then 'professional' else 'client' end, locale = 'el'";
+export const resetRoles = () => sql(DEFAULT_ROLES_SQL);
 export const num = (query) => Number(sql(query));
 
 // ---- dates -------------------------------------------------------------------

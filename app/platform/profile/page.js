@@ -44,6 +44,11 @@ import { container, card, h1, h2, muted, colors, radius, select, label, button, 
 import SignedOutNotice from "../components/SignedOutNotice";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import PushSettings from "../components/PushSettings";
+import AdminProfile from "./AdminProfile";
+import { scrollToElement } from "../../../lib/platform/motion";
+import PlaceholderPage from "../components/PlaceholderPage";
+import useActiveRole from "../useActiveRole";
+import { envFor } from "../../../lib/platform/roleEnv";
 
 // "Έγκριση σε εκκρεμότητα" vs "Εγκρίθηκε" vs "Δεν εγκρίθηκε" — a secondary
 // role goes through the same admin review as the main profile (0065), so it
@@ -781,7 +786,7 @@ function BecomeProfessional() {
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("become") !== "professional") return;
     setOpen(true);
-    setTimeout(() => boxRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }), 150);
+    setTimeout(() => boxRef.current && scrollToElement(boxRef.current), 150);
   }, []);
   const [crewRole, setCrewRole] = useState("skipper");
   const [licenseNumber, setLicenseNumber] = useState("");
@@ -816,16 +821,8 @@ function BecomeProfessional() {
     }
   }
 
-  if (!open) {
-    return (
-      <div ref={boxRef} style={{ ...card, textAlign: "center" }}>
-        <p style={{ margin: "0 0 12px", fontSize: 14.5 }}>{t("becomeQuestion")}</p>
-        <button type="button" style={button("secondary")} onClick={() => setOpen(true)}>
-          {t("start")}
-        </button>
-      </div>
-    );
-  }
+  // Η εγγραφή επαγγελματία ανοίγει ΜΟΝΟ από το «Οι ρόλοι μου» (?become=professional): δεν υπάρχει πρόσκληση μέσα στο προφίλ Πελάτη.
+  if (!open) return null;
 
   return (
     <div ref={boxRef} style={card}>
@@ -1062,13 +1059,19 @@ function MyRatings({ proProfile }) {
 
 export default function ProfilePage() {
   const t = useTranslations("Profile");
+  const tr = useTranslations("UserRoles");
+  const ts = useTranslations("Soon");
   const { session, profile, userRow, loading, refresh, loadError, isAdmin, role } = useAuth();
+  const active = useActiveRole();
+  const env = envFor(active);
 
   if (loading) return <div style={container}>{t("loading")}</div>;
   if (!session) return <SignedOutNotice />;
 
-  const isProfessional = userRow?.role === "skipper" || isAdmin;
-  if (!isProfessional) return <ClientIdentityProfile role={role} />;
+  // Το προφίλ ακολουθεί τον τρέχοντα ρόλο (lib/platform/roleEnv.js): κάθε ρόλος βλέπει μόνο το δικό του.
+  if (env.profile === "admin") return <AdminProfile />;
+  if (env.profile === "stub") return <PlaceholderPage title={tr(active)} note={ts("note")} />;
+  if (env.profile !== "professional") return <ClientIdentityProfile role={role} />;
   if (!profile) return <MissingProfile userRow={userRow} isAdmin={isAdmin} refresh={refresh} loadError={loadError} />;
 
   return (

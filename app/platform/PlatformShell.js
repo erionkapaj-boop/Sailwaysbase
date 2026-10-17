@@ -13,6 +13,8 @@ import HomeAppsMenu from "./components/HomeAppsMenu";
 import AccountMenu from "./components/AccountMenu";
 import ProfileMenu from "./components/ProfileMenu";
 import TopTabs from "./components/TopTabs";
+import useActiveRole from "./useActiveRole";
+import { envFor } from "../../lib/platform/roleEnv";
 import FeedbackProvider from "./components/FeedbackProvider";
 import SideNav, { SIDENAV_CSS } from "./components/SideNav";
 import { NAV_CSS } from "./components/NavGroups";
@@ -47,18 +49,16 @@ const navLink = {
 // header shape — the parts they do have should sit where they sit everywhere
 // else. Roles beyond skipper (hostess, cook, deckhand) come through here
 // unchanged, since nothing in it is specific to what someone does on a boat.
-function AccountNavBar({ isAdmin, isHome, homeLabel, name, photoUrl, items, activeHref, onSignOut, notifications, refreshNotifications, hideMenuOnWide }) {
+function AccountNavBar({ env, isAdmin, isHome, homeLabel, name, photoUrl, items, activeHref, onSignOut, notifications, refreshNotifications, hideMenuOnWide }) {
   const unreadNotifications = notifications?.pendingRequests ?? 0;
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
   return (
-    <div data-sf-header data-signed-in data-admin={isAdmin ? "" : undefined} className="sf-hdr" style={{ ...nav, padding: "6px 14px", display: "grid", alignItems: "center", columnGap: 10 }}>
-      {/* Top left: the apps dots (boat delivery, open requests) and Back; the admin keeps the
-          account menu here (it also has the permanent side menu). */}
+    <div data-sf-header data-signed-in data-admin={isAdmin ? "" : undefined} data-role-env={env.profile} className="sf-hdr" style={{ ...nav, padding: "6px 14px", display: "grid", alignItems: "center", columnGap: 10 }}>
+      {/* Αριστερά μόνο ό,τι ανήκει στον τρέχοντα ρόλο (lib/platform/roleEnv.js): τελείες, «Πίσω», καρτέλες. */}
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-        {/* Οι τελείες (launcher εφαρμογών) υπάρχουν για κάθε λογαριασμό· ο διαχειριστής έχει και το μενού της κονσόλας. */}
-        <HomeAppsMenu />
-        {isAdmin && <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} hideOnWide={hideMenuOnWide} />}
+        {env.apps && <HomeAppsMenu />}
+        {env.sidebar && <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} hideOnWide={hideMenuOnWide} />}
         <HeaderBackSlot />
         {/* Υπολογιστής: οι καρτέλες της κάτω μπάρας του κινητού (ανά τρέχοντα ρόλο). */}
         <TopTabs />
@@ -66,12 +66,12 @@ function AccountNavBar({ isAdmin, isHome, homeLabel, name, photoUrl, items, acti
 
       {/* Every page except the home: the small helm + «SkipperFinder», always links home (the fixed way back from
           anywhere). The big logo lives on the home page alone. */}
-      {isHome ? <span /> : <HomeBrandLink label={homeLabel} />}
+      {isHome ? <span /> : <HomeBrandLink label={homeLabel} href={env.homeHref} />}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4, justifySelf: "end" }}>
         <LanguageSwitcher />
-        <NotificationPanel count={unreadNotifications} onRead={refreshNotifications} />
-        <MessagesPanel count={unreadBookingIds.length} />
+        {env.bell && <NotificationPanel count={unreadNotifications} onRead={refreshNotifications} />}
+        {env.messages && <MessagesPanel count={unreadBookingIds.length} />}
         {/* Η φωτογραφία του χρήστη με δαχτυλίδι στο χρώμα του ρόλου και μενού προφίλ (αντί για «Σύνδεση»). */}
         <ProfileMenu name={name} photoUrl={photoUrl} />
       </div>
@@ -117,12 +117,15 @@ function buildMenuItems({ role, isAdmin, isOwner, adminCounts, t }) {
       prefix: !s.exact,
       badge: badgeCount(s.badge, adminCounts),
     });
-  own[0].heading = t("menuAccount");
-  return [...items, ...own];
+  // Ο Administrator βλέπει ΜΟΝΟ ό,τι αφορά διαχείριση: οι προσωπικές σελίδες πελάτη/επαγγελματία (Αιτήματα, Κρατήσεις, Διαθεσιμότητα,
+  // Credits) ανήκουν σε άλλους ρόλους και δεν μπαίνουν εδώ.
+  return items;
 }
 
 function NavBar() {
   const { session, userRow, profile, signOut, role, isAdmin, isOwner, notifications, refreshNotifications } = useAuth();
+  const activeRole = useActiveRole();
+  const env = envFor(activeRole);
   const t = useTranslations("Nav");
   const ts = useTranslations("Shell");
   const headerLocale = useLocale();
@@ -138,18 +141,19 @@ function NavBar() {
   // μόνο μέσα στο admin console.
   const [adminCounts, setAdminCounts] = useState({});
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !env.sidebar) return;
     const load = () => adminOverview().then(setAdminCounts).catch(() => {});
     load();
     window.addEventListener(ADMIN_COUNTS_EVENT, load);
     return () => window.removeEventListener(ADMIN_COUNTS_EVENT, load);
-  }, [isAdmin, pathname]);
+  }, [isAdmin, env.sidebar, pathname]);
 
   if (session && (isAdmin || role === "skipper" || role === "client")) {
     const menuItems = buildMenuItems({ role, isAdmin, isOwner, adminCounts, t: ts });
     return (
       <>
         <AccountNavBar
+          env={env}
           isAdmin={isAdmin}
           isHome={onHomePage}
           homeLabel={t("homeAriaLabel")}
@@ -160,10 +164,10 @@ function NavBar() {
           onSignOut={signOut}
           notifications={notifications}
           refreshNotifications={refreshNotifications}
-          hideMenuOnWide={isAdmin}
+          hideMenuOnWide={env.sidebar}
         />
-        {/* Διαχειριστής σε πλατιά οθόνη: η ίδια λίστα μόνιμα αριστερά, παντού (βλ. SideNav). */}
-        {isAdmin && <SideNav items={menuItems} activeHref={pathname} onSignOut={signOut} />}
+        {/* Μόνιμο αριστερό μενού: μόνο αν το ζητά η κεντρική ρύθμιση του ρόλου (σήμερα κανένας ρόλος: η διαχείριση ζει στο προφίλ του Administrator). */}
+        {env.sidebar && <SideNav items={menuItems} activeHref={pathname} onSignOut={signOut} />}
       </>
     );
   }
@@ -218,10 +222,10 @@ function NavBar() {
 }
 
 // The centre of the header on every page but the home: helm + name, one tap to the home page.
-function HomeBrandLink({ label }) {
+function HomeBrandLink({ label, href = "/platform" }) {
   return (
     <Link
-      href="/platform"
+      href={href}
       aria-label={label}
       data-home-link
       style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none", minWidth: 44, minHeight: 44, padding: "0 6px" }}
@@ -437,7 +441,7 @@ function SiteFooter() {
 // ώστε τίποτα να μη χάνεται πίσω του.
 function ShellBody({ children }) {
   const { session, isAdmin } = useAuth();
-  const side = Boolean(session && isAdmin);
+  const side = Boolean(session && isAdmin && envFor(useActiveRole()).sidebar);
   // Η γλώσσα της σελίδας στον browser (βοηθά και ορθογραφικό έλεγχο, και
   // προγράμματα ανάγνωσης οθόνης), και διαθέσιμη σε κώδικα εκτός React
   // (activeLocale στο lib/platform/i18n.js).

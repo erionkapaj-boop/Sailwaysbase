@@ -12,65 +12,26 @@ import Icon from "./components/Icon";
 import { flowSearch, inFlowUrl, isRestoredNavigation, setFlowActive } from "../../lib/platform/flowUrl";
 import PendingReadyBanner from "./components/PendingReadyBanner";
 import RequestDraftLine from "./components/RequestDraftLine";
-import { adminOverview } from "../../lib/platform/db";
-import { card, tapTarget } from "../../lib/platform/theme";
+import { tapTarget } from "../../lib/platform/theme";
+import useActiveRole from "./useActiveRole";
+import { envFor } from "../../lib/platform/roleEnv";
 import { button, colors, muted, h2 } from "../../lib/platform/theme";
 
-// The first screen shows only the CTA and the secondary link (brief §4) —
-// no form, no dropdowns, no tagline. The form appears only after the CTA is
-// pressed, and then one step at a time.
-// An admin who lands here (e.g. from the logo) sees the way back to the
-// console and whether anything is waiting — otherwise this page, built for
-// clients, gives no hint that the admin side exists at all.
-function AdminHomeBanner() {
-  const t = useTranslations("HomeEntry");
-  const { isAdmin } = useAuth();
-  const [waiting, setWaiting] = useState(null);
-  useEffect(() => {
-    if (!isAdmin) return;
-    adminOverview()
-      .then((c) =>
-        setWaiting(
-          ["pending_verification", "pending_approvals", "pending_secondary_roles", "coverage_needed", "contact_new", "open_disputes"]
-            .reduce((n, k) => n + (Number(c?.[k]) || 0), 0)
-        )
-      )
-      .catch(() => setWaiting(0));
-  }, [isAdmin]);
-  if (!isAdmin) return null;
-  return (
-    <Link
-      href="/platform/admin"
-      style={{
-        ...card,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 12,
-        textAlign: "left",
-        textDecoration: "none",
-        color: colors.ink,
-        marginBottom: 24,
-      }}
-    >
-      <span>
-        <b style={{ fontWeight: 600 }}>{t("adminTitle")}</b>
-        <span style={{ ...muted, display: "block", fontSize: 13, marginTop: 2 }}>
-          {waiting == null ? "…" : waiting === 0 ? t("adminNothing") : t("adminWaiting", { count: waiting })}
-        </span>
-      </span>
-      <span style={{ fontSize: 18 }}>›</span>
-    </Link>
-  );
-}
-
+// Η αρχική εξαρτάται από τον τρέχοντα ρόλο (lib/platform/roleEnv.js, `home`): Πελάτης → πεδίο αναζήτησης πληρώματος· Επαγγελματίας →
+// ανοιχτά αιτήματα· Εταιρεία / Δημιουργός → μόνο το λογότυπο (δεν υπάρχει ακόμη κάτι δικό τους)· Administrator → η Επισκόπηση της
+// διαχείρισης. Το πεδίο αναζήτησης ανοίγει τη ροή αιτήματος μόνο όταν η αρχική είναι του Πελάτη. Στη ροή: χωρίς φόρμα, ένα βήμα τη φορά.
 export default function HomeEntry() {
   const t = useTranslations("Home");
   const locale = useLocale();
   const router = useRouter();
   const params = useSearchParams();
   const { session, userRow } = useAuth();
+  const env = envFor(useActiveRole());
   const [started, setStarted] = useState(false);
+  // Administrator / Ομάδα: η Αρχική τους είναι η Επισκόπηση της διαχείρισης.
+  useEffect(() => {
+    if (env.home === "console") router.replace(env.homeHref);
+  }, [env.home]);
 
   // Set once, right after set-pin, for a brand-new client with nothing else
   // waiting (search/delivery picks take them straight to those pages
@@ -149,6 +110,7 @@ export default function HomeEntry() {
     setStarted(true);
   }
 
+  if (env.home === "console") return null;
   if (started) return <CrewSearchFlow />;
 
   const pill = { borderRadius: 999, padding: "16px 36px", fontSize: 17, fontWeight: 500, minHeight: 56, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" };
@@ -160,17 +122,16 @@ export default function HomeEntry() {
         <p style={{ fontSize: 16, color: colors.inkSoft, margin: "16px auto 0", maxWidth: 340, lineHeight: 1.5 }}>{t("tagline")}</p>
       </div>
 
-      {welcome && firstName && (
+      {env.home === "search" && welcome && firstName && (
         <div style={{ marginBottom: 36 }}>
           <p style={{ ...h2, fontSize: 21, margin: "0 0 6px" }}>{t("welcomeTitle", { name: firstName })}</p>
           <p style={muted}>{t("welcomeSubtitle")}</p>
         </div>
       )}
 
-      <AdminHomeBanner />
-      <PendingReadyBanner />
-      <RequestDraftLine />
-      {resumeStep !== null && (
+      {env.home === "search" && <PendingReadyBanner />}
+      {env.home === "search" && <RequestDraftLine />}
+      {env.home === "search" && resumeStep !== null && (
         <div style={{ marginBottom: 18 }}>
         <button
           type="button"
@@ -185,6 +146,7 @@ export default function HomeEntry() {
       )}
 
       {/* Search-style entry (owner, 16/10/2026): reads like a search field, opens the wizard at its first question. */}
+      {env.home === "search" && (
       <button
         type="button"
         data-home-search
@@ -196,12 +158,28 @@ export default function HomeEntry() {
         <span style={{ flex: 1, minWidth: 0 }}>{t("whereTo")}</span>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
       </button>
+      )}
 
+      {env.home === "jobs" && (
+        <Link
+          href="/platform/board"
+          data-home-jobs
+          className="sf-home-search"
+          style={{ width: "100%", maxWidth: 884, minHeight: 66, margin: "0 auto", display: "flex", alignItems: "center", gap: 16, padding: "0 30px 0 22px", borderRadius: 999, border: `1px solid ${colors.border}`, background: colors.card, color: colors.inkSoft, fontFamily: "inherit", fontSize: 16, textAlign: "left", textDecoration: "none", boxSizing: "border-box" }}
+        >
+          <Icon name="search" size={20} stroke={1.7} />
+          <span style={{ flex: 1, minWidth: 0 }}>{t("openRequests")}</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        </Link>
+      )}
+
+      {env.home === "search" && (
       <div style={{ marginTop: 17 }}>
         <Link href="/platform/experiences" style={{ ...tapTarget, display: "inline-flex", alignItems: "center", fontSize: 16, fontWeight: 400, color: colors.ink, textDecoration: "none" }}>
           {t("discoverExperiences")}
         </Link>
       </div>
+      )}
     </div>
   );
 }

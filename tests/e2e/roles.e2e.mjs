@@ -1,6 +1,6 @@
 // «Οι ρόλοι μου» (βήμα 3): ανοίγει από το «Αλλαγή ρόλου», αλλαγή τρέχοντος ρόλου, σε έλεγχο, εγγραφή ρόλου που δεν έχει,
 // εσωτερικοί ρόλοι μόνο σε Administrator. Κινητό και υπολογιστής, ελληνικά και αγγλικά.
-import { as, go, check, finish, shoot, sql, BASE, eventually } from "./lib.mjs";
+import { as, go, check, finish, shoot, sql, BASE, eventually, resetRoles } from "./lib.mjs";
 
 const CLIENT = "6900002002"; // Μαρία Πελάτη: μόνο Πελάτης
 const SKIPPER = "6900002003"; // Νίκος Αρχικός: Πελάτης + Επαγγελματίας
@@ -11,7 +11,7 @@ const activeRole = (phone) => sql(`select active_role from users where phone_num
 const RING = { client: "rgb(111, 155, 200)", professional: "rgb(195, 161, 100)", admin: "rgb(210, 119, 108)" };
 const reset = () => {
   sql("delete from user_roles where role in ('company', 'creator')");
-  sql("update users set active_role = 'client', locale = 'el'");
+  resetRoles();
 };
 reset();
 
@@ -35,6 +35,7 @@ try {
     await as(SKIPPER, async (page) => {
       await page.setViewportSize({ width: vw, height: vw === 390 ? 844 : 900 });
       if (locale === "en") await page.context().addCookies([{ name: "sf_locale", value: "en", url: BASE }]);
+      sql(`update users set active_role = 'client' where phone_number = '+30${SKIPPER}'`);
       await go(page, "/platform/board");
       const tag = `${locale}/${vw}`;
       await openRoles(page);
@@ -61,7 +62,7 @@ try {
       await eventually(async () => activeRole(SKIPPER) === "professional");
       check(`${tag}: ο τρέχων ρόλος αποθηκεύτηκε στη βάση`, activeRole(SKIPPER) === "professional");
       await page.waitForURL((u) => !u.pathname.endsWith("/roles"), { timeout: 5000 });
-      check(`${tag}: επιστρέφει εκεί από όπου ήρθε`, page.url().includes("/platform/board"));
+      check(`${tag}: ανοίγει η Αρχική του νέου ρόλου`, new URL(page.url()).pathname === "/platform");
       await eventually(async () => (await ring(page)) === RING.professional);
       check(`${tag}: το δαχτυλίδι του avatar έγινε άμμος`, (await ring(page)) === RING.professional);
       // Μετά από ανανέωση μένει.
@@ -71,7 +72,7 @@ try {
       check(`${tag}: μένει μετά την ανανέωση`, (await ring(page)) === RING.professional);
       await openRoles(page);
       check(`${tag}: ο Επαγγελματίας έχει τικ`, (await rowsOf(page)).join() === "client:active,professional:active:current", (await rowsOf(page)).join());
-      sql(`update users set active_role = 'client', locale = 'el' where phone_number = '+30${SKIPPER}'`);
+      resetRoles();
     });
   }
 
@@ -123,7 +124,7 @@ try {
       await page.waitForTimeout(400);
       check(`${locale}: η Ομάδα (δεν την έχει) δεν επιλέγεται`, activeRole(ADMIN) === "admin" && page.url().endsWith("/platform/roles"));
       await shoot(page, `roles-admin-${locale}`);
-      sql(`update users set active_role = 'client', locale = 'el' where phone_number = '+30${ADMIN}'`);
+      resetRoles();
     });
   }
 } finally {

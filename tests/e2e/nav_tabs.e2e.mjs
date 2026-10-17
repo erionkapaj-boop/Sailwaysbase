@@ -1,6 +1,6 @@
 // Κάτω μπάρα (κινητό) και πάνω καρτέλες (υπολογιστής): τα ΔΙΚΑ ΜΟΥ πράγματα στον τρέχοντα ρόλο (βήμα 4). Αλλάζει αμέσως με τον ρόλο.
 import { chromium } from "playwright";
-import { as, go, check, finish, shoot, sql, BASE, eventually } from "./lib.mjs";
+import { as, go, check, finish, shoot, sql, BASE, eventually, resetRoles } from "./lib.mjs";
 
 const CLIENT = "6900002002"; // Μαρία Πελάτη
 const SKIPPER = "6900002003"; // Νίκος Αρχικός: Πελάτης + Επαγγελματίας
@@ -11,7 +11,7 @@ const setActive = (phone, role) => sql(`update users set active_role = '${role}'
 const reset = () => {
   sql("delete from user_roles where role in ('company', 'creator')");
   sql(`update users set is_staff_admin = false where phone_number = '+30${STAFF}'`);
-  sql("update users set active_role = 'client', locale = 'el'");
+  resetRoles();
 };
 reset();
 
@@ -36,8 +36,8 @@ const CASES = [
   { who: "επαγγελματίας", phone: SKIPPER, role: "professional", tabs: "home,requests,calendar,profile", labels: "Αρχική,Αιτήματα,Ημερολόγιο,Προφίλ" },
   { who: "εταιρεία (χωρίς σελίδα σκαφών: κρύβεται)", phone: CLIENT, role: "company", tabs: "home,profile", labels: "Αρχική,Προφίλ", prep: () => sql(`insert into user_roles (user_id, role, status) values ('${uid(CLIENT)}', 'company', 'active')`) },
   { who: "δημιουργός", phone: CLIENT, role: "creator", tabs: "home,experiences,profile", labels: "Αρχική,Εμπειρίες,Προφίλ", prep: () => sql(`insert into user_roles (user_id, role, status) values ('${uid(CLIENT)}', 'creator', 'active')`) },
-  { who: "Ομάδα", phone: STAFF, role: "team", tabs: "home,admin,profile", labels: "Αρχική,Διαχείριση,Προφίλ", prep: () => sql(`update users set is_staff_admin = true where phone_number = '+30${STAFF}'`) },
-  { who: "Administrator", phone: ADMIN, role: "admin", tabs: "home,admin,profile", labels: "Αρχική,Διαχείριση,Προφίλ" },
+  { who: "Ομάδα", phone: STAFF, role: "team", tabs: "home,profile", labels: "Αρχική,Προφίλ", prep: () => sql(`update users set is_staff_admin = true where phone_number = '+30${STAFF}'`) },
+  { who: "Administrator", phone: ADMIN, role: "admin", tabs: "home,profile", labels: "Αρχική,Προφίλ" },
 ];
 
 try {
@@ -73,18 +73,19 @@ try {
     }
   }
 
-  // Ο διαχειριστής στην κονσόλα: η μπάρα δεν εμφανίζεται (έχει δικό του μενού).
+  // Ο Administrator στην Επισκόπηση: η Αρχική τονισμένη (η διαχείριση δεν έχει δικό της μενού).
   await as(ADMIN, async (page) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    setActive(ADMIN, "admin");
     await go(page, "/platform/admin");
-    check("κονσόλα διαχείρισης: χωρίς κάτω μπάρα", !(await bar(page)).shown);
+    const b = await bar(page);
+    check("Επισκόπηση διαχείρισης: κάτω μπάρα με τονισμένη την Αρχική", b.shown && b.active.join() === "home" && b.tabs.join() === "home,profile", JSON.stringify(b));
   });
 
   // Αλλαγή ρόλου: η μπάρα αλλάζει αμέσως, χωρίς ανανέωση.
   reset();
   await as(SKIPPER, async (page) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    setActive(SKIPPER, "client");
     await go(page, "/platform/profile");
     await eventually(async () => (await bar(page)).role === "client");
     check("πριν: ρόλος Πελάτης, τρεις καρτέλες", (await bar(page)).tabs.join() === "home,requests,profile");
@@ -92,7 +93,7 @@ try {
     await page.locator("[data-pm-change-role]").click();
     await page.waitForURL(/\/platform\/roles$/);
     await page.locator('[data-role-row="professional"]').click();
-    await page.waitForURL((u) => u.pathname === "/platform/profile", { timeout: 5000 });
+    await page.waitForURL((u) => u.pathname === "/platform", { timeout: 5000 });
     await eventually(async () => (await bar(page)).tabs.length === 4);
     const b = await bar(page);
     check("αμέσως μετά: Επαγγελματίας με Ημερολόγιο, χωρίς ανανέωση", b.role === "professional" && b.tabs.join() === "home,requests,calendar,profile", JSON.stringify(b));

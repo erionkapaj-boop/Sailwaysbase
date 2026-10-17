@@ -1,116 +1,91 @@
-// Ένα μενού: στον υπολογιστή το μόνιμο αριστερό μενού (ίδια λίστα με το συρτάρι του κινητού), σε ΚΑΘΕ
-// σελίδα του διαχειριστή, με «Ο λογαριασμός μου» και «Αποσύνδεση». Μία ομάδα ανοιχτή τη φορά (αυτή
-// της σελίδας που βλέπεις)· πατώντας άλλο τίτλο ανοίγει εκείνη και κλείνει η προηγούμενη. Στο κινητό:
-// το συρτάρι με την ίδια λογική. Ποτέ δύο μενού το ένα πάνω στο άλλο.
-import { as, go, check, finish, shoot, OUT, sql } from "./lib.mjs";
+// Ο Administrator βλέπει ΜΟΝΟ ό,τι αφορά διαχείριση (lib/platform/roleEnv.js): χωρίς αριστερό μενού, χωρίς συρτάρι, χωρίς τελείες των
+// κοινών εφαρμογών, χωρίς ειδοποιήσεις/μηνύματα πελάτη, χωρίς σελίδες πελάτη ή επαγγελματία. Καρτέλες: Αρχική (η Επισκόπηση) και Προφίλ
+// (η οργανωμένη διαχείριση, κάθε ενότητα σε ΜΙΑ ομάδα). Υπολογιστής και κινητό.
+import { as, go, check, finish, shoot, resetRoles, eventually } from "./lib.mjs";
 
 const ADMIN = "6900002001";
-const settle = (page) => page.waitForTimeout(600); // η κίνηση ανοίγματος/κλεισίματος διαρκεί ~0,3s
+const EXPECT = ["approvals", "users", "board", "bookings", "replacements", "offers", "deliveries", "disputes", "finance", "community", "messages", "map", "health", "settings"];
+const GROUPS = { people: 2, requests: 6, credits: 1, community: 2, content: 3 };
+resetRoles();
+
+const hub = (page) => page.evaluate(() => ({
+  sections: [...document.querySelectorAll("[data-admin-section]")].map((a) => a.dataset.adminSection),
+  groups: Object.fromEntries([...document.querySelectorAll("[data-admin-group]")].map((g) => [g.dataset.adminGroup, g.querySelectorAll("[data-admin-section]").length])),
+  identity: Boolean(document.querySelector("[data-admin-identity]")),
+  overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  minRow: Math.min(...[...document.querySelectorAll("[data-admin-section]")].map((a) => a.getBoundingClientRect().height)),
+}));
+const header = (page) => page.evaluate(() => ({
+  sidebar: document.querySelectorAll("aside.sf-sidenav").length,
+  burger: [...document.querySelectorAll("button[aria-label]")].filter((b) => /^(Μενού|Menu)$/.test(b.getAttribute("aria-label"))).length,
+  dots: [...document.querySelectorAll("button[aria-label]")].filter((b) => /^(Περισσότερα|More)$/.test(b.getAttribute("aria-label"))).length,
+  bell: [...document.querySelectorAll("[data-sf-header] button[aria-label]")].filter((b) => /Ειδοποι|Notifications/.test(b.getAttribute("aria-label"))).length,
+  messages: [...document.querySelectorAll("[data-sf-header] button[aria-label]")].filter((b) => /Μηνύματα|Messages/.test(b.getAttribute("aria-label"))).length,
+  topTabs: [...document.querySelectorAll("nav.sf-toptabs [data-toptab]")].map((a) => a.dataset.toptab),
+  barTabs: [...document.querySelectorAll("nav.sf-bnav [data-bnav-tab]")].map((a) => a.dataset.bnavTab),
+  barShown: (() => { const n = document.querySelector("nav.sf-bnav"); return Boolean(n) && getComputedStyle(n).display !== "none"; })(),
+  topShown: (() => { const n = document.querySelector("nav.sf-toptabs"); return Boolean(n) && getComputedStyle(n).display !== "none"; })(),
+  activeTop: [...document.querySelectorAll("nav.sf-toptabs [aria-current]")].map((a) => a.dataset.toptab),
+  activeBar: [...document.querySelectorAll("nav.sf-bnav [aria-current]")].map((a) => a.dataset.bnavTab),
+}));
 
 await as(ADMIN, async (page) => {
   // ---- Υπολογιστής ----
   await page.setViewportSize({ width: 1280, height: 900 });
-  await go(page, "/platform/admin");
-  const side = page.locator("aside.sf-sidenav");
-  const nav = side.locator('nav[aria-label="Πλαϊνό μενού"]');
-  const link = (name) => nav.getByRole("link", { name, exact: true });
-  const heading = (name) => nav.getByRole("button", { name: new RegExp(name, "i") });
-  const burger = page.getByRole("button", { name: "Μενού", exact: true });
-
-  check("το αριστερό μενού υπάρχει", await side.isVisible());
-  check("δεν υπάρχει δεύτερο μενού από πάνω: τα τρία γραμμάκια δεν φαίνονται σε πλατιά οθόνη", !(await burger.isVisible()));
-  check("«Αποσύνδεση» κάτω-κάτω", await side.getByRole("button", { name: "Αποσύνδεση", exact: true }).isVisible());
-  check("και υπάρχει η ομάδα «Ο λογαριασμός μου»", await heading("Ο λογαριασμός μου").isVisible());
-  check("στην Επισκόπηση: ανοιχτή η ομάδα «Διαχείριση»", (await link("Επισκόπηση").isVisible()) && (await link("Εκκρεμότητες").isVisible()));
-  check(
-    "οι άλλες ομάδες δείχνουν μόνο τον τίτλο τους",
-    !(await link("Αντικαταστάσεις").isVisible()) && !(await link("Χρήστες").isVisible()) && !(await link("Ρυθμίσεις").isVisible()) && !(await link("Credits").isVisible())
-  );
-  await shoot(page, "adminnav-home");
-
-  // Πατάω άλλον τίτλο: ανοίγει εκείνος, κλείνει η «Διαχείριση».
-  await heading("Κρατήσεις & πλήρωμα").click();
-  await settle(page);
-  check("ανοίγει η ομάδα που πάτησα", (await link("Αντικαταστάσεις").isVisible()) && (await link("Όλες οι κρατήσεις").isVisible()));
-  check("κλείνει η προηγούμενη", !(await link("Επισκόπηση").isVisible()) && !(await link("Εκκρεμότητες").isVisible()));
-  check("το κλειστό δεν υπάρχει για τον αναγνώστη οθόνης και το πληκτρολόγιο", (await link("Επισκόπηση").count()) === 0);
-  await shoot(page, "adminnav-open-bookings");
-
-  // Σελίδα της ομάδας: μένει εκείνη ανοιχτή και η ενεργή σελίδα τονίζεται.
-  await link("Όλες οι κρατήσεις").click();
-  await page.waitForURL(/\/platform\/admin\/bookings/);
-  await settle(page);
-  check(
-    "σε σελίδα της ομάδας: μένει ανοιχτή και η ενεργή σελίδα τονίζεται",
-    (await link("Όλες οι κρατήσεις").getAttribute("aria-current")) === "page" && (await link("Αντικαταστάσεις").isVisible())
-  );
-
-  // Προσωπική σελίδα του διαχειριστή: το μενού ΜΕΝΕΙ και ανοίγει «Ο λογαριασμός μου».
-  await go(page, "/platform/bookings");
-  await settle(page);
-  check("σε προσωπική σελίδα (Οι κρατήσεις μου) το μενού μένει", await side.isVisible());
-  check(
-    "και είναι ανοιχτός ο «Ο λογαριασμός μου», κλειστά τα υπόλοιπα",
-    (await link("Οι κρατήσεις μου").isVisible()) && (await link("Το προφίλ μου").isVisible()) && !(await link("Αντικαταστάσεις").isVisible()) && !(await link("Επισκόπηση").isVisible())
-  );
-  check("η ενεργή σελίδα τονίζεται", (await link("Οι κρατήσεις μου").getAttribute("aria-current")) === "page");
-  await shoot(page, "adminnav-account");
-
-  // Το περιεχόμενο και το υποσέλιδο δεν κρύβονται πίσω από το μενού.
-  const pageBox = await page.locator("h1").first().boundingBox();
-  check("το περιεχόμενο είναι δεξιά από το μενού", pageBox && pageBox.x >= 250, JSON.stringify(pageBox));
-  const footerLink = page.locator("footer a, footer span").first();
-  if (await footerLink.count()) {
-    const fb = await footerLink.boundingBox();
-    check("και το υποσέλιδο", !fb || fb.x >= 250, JSON.stringify(fb));
-  }
-
-  // Πατώντας τον τίτλο της ανοιχτής ομάδας κλείνει.
-  await heading("Ο λογαριασμός μου").click();
-  await settle(page);
-  check("πατώντας τον τίτλο της ανοιχτής ομάδας κλείνει", !(await link("Οι κρατήσεις μου").isVisible()));
-
-  // Καρτέλα χρήστη (εκτός μενού): το μενού μένει όπως ήταν.
-  await go(page, "/platform/admin/users");
-  await settle(page);
-  check("σε σελίδα άλλης ομάδας: ανοίγει η δική της", (await link("Χρήστες").isVisible()) && !(await link("Αντικαταστάσεις").isVisible()));
-  await shoot(page, "adminnav-users");
-
-  // «Βλέπεις ως»: η πορτοκαλί λωρίδα σπρώχνει την κεφαλίδα κάτω· το μενού δεν κρύβεται από κάτω της.
-  const maria = sql(`select id from users where phone_number = '+306900002002'`);
-  await page.evaluate((id) => sessionStorage.setItem("sf_view_as", JSON.stringify({ id, name: "Μαρία", role: "client" })), maria);
   await go(page, "/platform");
-  await settle(page);
-  const bar = await page.getByText("Μόνο ανάγνωση").boundingBox();
-  const headerBottom = await page.evaluate(() => {
-    const h = [...document.querySelectorAll(".platform-scope > div")].find((d) => getComputedStyle(d).position === "sticky" && d.querySelector('button[aria-label="Μενού"]'));
-    return h ? h.getBoundingClientRect().bottom : null;
-  });
-  const sideTop = (await side.boundingBox())?.y;
-  check("«Βλέπεις ως»: η λωρίδα φαίνεται", Boolean(bar));
-  check("«Βλέπεις ως»: το μενού ξεκινά κάτω από την κεφαλίδα", headerBottom !== null && sideTop >= headerBottom - 1, `${sideTop} / ${headerBottom}`);
-  await shoot(page, "adminnav-viewas");
-  await page.evaluate(() => sessionStorage.removeItem("sf_view_as"));
+  await page.waitForURL(/\/platform\/admin$/);
+  check("η Αρχική του Administrator είναι η Επισκόπηση της διαχείρισης", /Καλημέρα|Καλησπέρα/.test(await page.innerText("body")));
+  let h = await header(page);
+  check("χωρίς αριστερό μενού και χωρίς τα τρία γραμμάκια", h.sidebar === 0 && h.burger === 0, JSON.stringify(h));
+  check("χωρίς τελείες κοινών εφαρμογών, ειδοποιήσεις και μηνύματα πελάτη", h.dots === 0 && h.bell === 0 && h.messages === 0, JSON.stringify(h));
+  check("πάνω καρτέλες: Αρχική, Προφίλ (τίποτα από πελάτη/επαγγελματία)", h.topShown && h.topTabs.join() === "home,profile" && h.activeTop.join() === "home", JSON.stringify(h));
+  check("χωρίς κάτω μπάρα στον υπολογιστή", !h.barShown);
+  const t = await page.innerText("body");
+  check("τίποτα του πελάτη στην Επισκόπηση", !t.includes("Πού θα ταξιδέψεις;") && !t.includes("Ο λογαριασμός μου"));
+  await shoot(page, "admin-env-home");
 
-  // ---- Κινητό: συρτάρι με τα ίδια, ίδια λογική ----
+  // Προφίλ = οργανωμένη διαχείριση.
+  await page.locator('[data-toptab="profile"]').click();
+  await page.waitForURL(/\/platform\/profile$/);
+  await page.locator("[data-admin-groups]").waitFor();
+  await eventually(async () => (await hub(page)).sections.length === EXPECT.length);
+  const g = await hub(page);
+  check("προφίλ: κάρτα ταυτότητας (όνομα, ρόλος) και ομάδες", g.identity && Object.keys(g.groups).join() === Object.keys(GROUPS).join(), JSON.stringify(g.groups));
+  check("κάθε ενότητα της διαχείρισης υπάρχει, και ΜΙΑ φορά μόνο", [...g.sections].sort().join() === [...EXPECT].sort().join() && new Set(g.sections).size === g.sections.length, g.sections.join());
+  check("ομάδες: Χρήστες και ρόλοι 2 · Αιτήματα και κρατήσεις 6 · Credits 1 · Community 2 · Περιεχόμενο 3", JSON.stringify(g.groups) === JSON.stringify(GROUPS), JSON.stringify(g.groups));
+  check("γραμμές ≥ 44px, χωρίς οριζόντια κύλιση", g.minRow >= 44 && g.overflow === 0, JSON.stringify(g));
+  const names = await page.locator("[data-admin-group] h2").allInnerTexts();
+  check("ονόματα ομάδων", names.map((x) => x.trim()).join("|").toLowerCase() === "χρήστες και ρόλοι|αιτήματα και κρατήσεις|credits και πακέτα|community και moderation|περιεχόμενο και ρυθμίσεις", names.join("|"));
+  h = await header(page);
+  check("στο προφίλ τονίζεται η καρτέλα Προφίλ", h.activeTop.join() === "profile", JSON.stringify(h));
+  check("το προφίλ δεν δείχνει τίποτα πελάτη/επαγγελματία", !(await page.innerText("body")).includes("Ως επαγγελματίας") && !(await page.innerText("body")).includes("Διαθεσιμότητα"));
+  await shoot(page, "admin-env-profile");
+
+  // Μια ενότητα: ανοίγει, και το Προφίλ μένει τονισμένο.
+  await page.locator('[data-admin-section="users"]').click();
+  await page.waitForURL(/\/platform\/admin\/users/);
+  await page.waitForLoadState("networkidle");
+  h = await header(page);
+  check("σε σελίδα διαχείρισης: Προφίλ τονισμένο, ούτε αριστερό μενού ούτε συρτάρι", h.activeTop.join() === "profile" && h.sidebar === 0 && h.burger === 0, JSON.stringify(h));
+  await page.locator('[data-toptab="home"]').click();
+  await page.waitForURL(/\/platform\/admin$/);
+  check("η Αρχική γυρίζει στην Επισκόπηση", (await header(page)).activeTop.join() === "home");
+
+  // ---- Κινητό ----
   await page.setViewportSize({ width: 390, height: 844 });
+  await go(page, "/platform/profile");
+  await page.locator("[data-admin-groups]").waitFor();
+  h = await header(page);
+  check("κινητό: κάτω μπάρα Αρχική, Προφίλ, χωρίς πάνω καρτέλες, χωρίς συρτάρι", h.barShown && h.barTabs.join() === "home,profile" && !h.topShown && h.sidebar === 0 && h.burger === 0 && h.dots === 0, JSON.stringify(h));
+  const m = await hub(page);
+  check("κινητό: όλες οι ενότητες μία φορά, χωρίς οριζόντια κύλιση", [...m.sections].sort().join() === [...EXPECT].sort().join() && m.overflow === 0 && m.minRow >= 44, JSON.stringify(m));
+  await shoot(page, "admin-env-profile-390");
+  await go(page, "/platform/admin/users");
+  h = await header(page);
+  check("κινητό: και μέσα στη διαχείριση φαίνεται η κάτω μπάρα, με τονισμένο το Προφίλ", h.barShown && h.activeBar.join() === "profile", JSON.stringify(h));
   await go(page, "/platform/admin");
-  check("κινητό: δεν υπάρχει μόνιμο αριστερό μενού", !(await side.isVisible()));
-  check("κινητό: φαίνονται τα τρία γραμμάκια", await burger.isVisible());
-  await burger.click();
-  await settle(page);
-  const dlg = page.getByRole("dialog");
-  check("κινητό: ανοιχτή η ομάδα της σελίδας", await dlg.getByRole("link", { name: "Επισκόπηση", exact: true }).isVisible());
-  check("κινητό: οι άλλες κλειστές", !(await dlg.getByRole("link", { name: "Χρήστες", exact: true }).isVisible()));
-  check("κινητό: «Ο λογαριασμός μου» και «Αποσύνδεση» υπάρχουν και εδώ",
-    (await dlg.getByRole("button", { name: /Ο λογαριασμός μου/i }).isVisible()) && (await dlg.getByRole("button", { name: "Αποσύνδεση", exact: true }).isVisible()));
-  await dlg.getByRole("button", { name: /Χρήστες & χρήματα/i }).click();
-  await settle(page);
-  check(
-    "κινητό: ανοίγει η νέα και κλείνει η προηγούμενη",
-    (await dlg.getByRole("link", { name: "Χρήστες", exact: true }).isVisible()) && !(await dlg.getByRole("link", { name: "Επισκόπηση", exact: true }).isVisible())
-  );
-  await page.screenshot({ path: `${OUT}/design-adminnav-drawer-m.png` });
+  check("κινητό: στην Επισκόπηση τονίζεται η Αρχική", (await header(page)).activeBar.join() === "home");
+  await shoot(page, "admin-env-home-390");
 });
-
+resetRoles();
 finish();

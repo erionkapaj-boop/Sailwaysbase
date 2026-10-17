@@ -513,5 +513,14 @@
       "team": "Εσωτερική ομάδα",
       "admin": "Διαχείριση πλατφόρμας"
     }
+  },
+  "AdminProfile": {
+    "title": "Διαχείριση",
+    "adminName": "Διαχειριστής",
+    "group_people": "Χρήστες και ρόλοι",
+    "group_requests": "Αιτήματα και κρατήσεις",
+    "group_credits": "Credits και πακέτα",
+    "group_community": "Community και moderation",
+    "group_content": "Περιεχόμενο και ρυθμίσεις"
   }
 }

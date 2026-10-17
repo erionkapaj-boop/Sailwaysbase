@@ -12,7 +12,7 @@ import { colors, fontSans } from "../../../lib/platform/theme";
 // Κάτω μπάρα πλοήγησης (κινητό, ≤860px): τα ΔΙΚΑ ΜΟΥ πράγματα στον τρέχοντα ρόλο (lib/platform/navTabs.js, βήμα 4). Οι τελείες της
 // κεφαλίδας έχουν τις κοινές εφαρμογές· δεν ανακατεύονται. Αλλάζει αμέσως όταν αλλάζει ο ρόλος. Στον υπολογιστή οι ίδιες καρτέλες
 // μπαίνουν στην πάνω μπάρα (TopTabs). Επισκέπτης: Αρχική, Σύνδεση, μόνο στις εσωτερικές σελίδες — η αρχική του επισκέπτη μένει όπως είναι.
-// Στις οθόνες εστίασης (οδηγός αίτησης, πληρωμή, είσοδος) και στην κονσόλα διαχείρισης (έχει δικό της μενού) δεν εμφανίζεται, ώστε
+// Στις οθόνες εστίασης (οδηγός αίτησης, πληρωμή, είσοδος) δεν εμφανίζεται, ώστε
 // να μη συναγωνίζεται την κύρια ενέργεια. Η μπάρα ορίζει το --sf-bnav (ύψος), που οι σταθερές μπάρες των σελίδων προσθέτουν στο bottom τους.
 const FOCUS_PREFIXES = [
   "/platform/search",
@@ -27,7 +27,8 @@ const FOCUS_PREFIXES = [
 export function useBottomNavVisible() {
   const { session, userRow } = useAuth();
   const pathname = usePathname() || "/";
-  if (pathname.startsWith("/platform/admin")) return false;
+  // Η κονσόλα διαχείρισης δεν έχει πια δικό της μενού: ο Administrator κινείται με τις καρτέλες του (Αρχική, Προφίλ), όπως κάθε ρόλος.
+  if (pathname === "/platform/admin/login") return false;
   if (FOCUS_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return false;
   if (session) return true;
   void userRow;

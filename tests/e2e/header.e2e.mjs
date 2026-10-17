@@ -81,7 +81,7 @@ for (const [label, w, h] of SIZES) {
   for (const [who, phone, pages] of [
     ["πελάτης", "6900002002", EVERYONE],
     ["επαγγελματίας", "6900002003", [...EVERYONE, ...PRO_ONLY]],
-    ["admin", "6900002001", ["/platform", "/platform/board", ...adminPages().slice(0, 6)]],
+    ["admin", "6900002001", ["/platform/profile", "/platform/board", ...adminPages().slice(0, 6)]],
   ]) {
     const ctx = await browser.newContext({ viewport: { width: w, height: h } });
     const page = await ctx.newPage();

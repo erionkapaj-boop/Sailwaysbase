@@ -51,7 +51,8 @@ async function bar(page, { who, home }) {
 
 function verdict(r, { home, who }) {
   const p = [];
-  if (!r.dots) p.push("τελείες");
+  // Ο Administrator δεν έχει τελείες κοινών εφαρμογών (lib/platform/roleEnv.js): δείχνει μόνο ό,τι αφορά διαχείριση.
+  if (who === "admin" ? r.dots : !r.dots) p.push(who === "admin" ? "τελείες (δεν πρέπει να υπάρχουν)" : "τελείες");
   if (!r.brand) p.push("τιμόνι/SkipperFinder");
   if (!r.lang) p.push("γλώσσα");
   if (!r.account) p.push("λογαριασμός/Σύνδεση");
@@ -66,7 +67,7 @@ for (const [label, w, h] of SIZES) {
     ["guest", null, ["/platform", ...PUBLIC, ...APPS]],
     ["client", "6900002002", ["/platform", ...EVERYONE, ...APPS]],
     ["pro", "6900002003", ["/platform", ...EVERYONE, ...PRO_ONLY, ...APPS]],
-    ["admin", "6900002001", ["/platform", "/platform/board", "/platform/community", ...adminPages().slice(0, 4)]],
+    ["admin", "6900002001", ["/platform/profile", "/platform/board", "/platform/community", ...adminPages().slice(0, 4)]],
   ]) {
     const ctx = await browser.newContext({ viewport: { width: w, height: h } });
     const page = await ctx.newPage();
@@ -83,13 +84,17 @@ for (const [label, w, h] of SIZES) {
     }
     check(`${who}, ${label}: η πάνω μπάρα ορατή και ακάλυπτη σε ${pages.length} σελίδες`, bad.length === 0, bad.join(" | "));
 
-    // Ο launcher ανοίγει από οπουδήποτε: έξι εφαρμογές.
+    // Ο launcher ανοίγει από οπουδήποτε: έξι εφαρμογές (όχι για τον Administrator, που δεν έχει τελείες).
     await page.goto(BASE + "/platform/terms");
     await page.waitForTimeout(700);
-    await page.getByRole("button", { name: /^(Περισσότερα|More)$/ }).click();
-    await page.waitForSelector("[data-apps-grid]");
-    check(`${who}, ${label}: οι τελείες ανοίγουν τον launcher με τις έξι εφαρμογές`, (await page.locator("[data-apps-grid] [data-app]").count()) === 6 && (await page.locator("[data-apps-grid] [data-app]").evaluateAll((els) => els.map((e) => e.dataset.app).join())) === APP_KEYS.join());
-    await page.keyboard.press("Escape");
+    if (who === "admin") {
+      check(`${who}, ${label}: χωρίς τελείες κοινών εφαρμογών`, (await page.getByRole("button", { name: /^(Περισσότερα|More)$/ }).count()) === 0);
+    } else {
+      await page.getByRole("button", { name: /^(Περισσότερα|More)$/ }).click();
+      await page.waitForSelector("[data-apps-grid]");
+      check(`${who}, ${label}: οι τελείες ανοίγουν τον launcher με τις έξι εφαρμογές`, (await page.locator("[data-apps-grid] [data-app]").count()) === 6 && (await page.locator("[data-apps-grid] [data-app]").evaluateAll((els) => els.map((e) => e.dataset.app).join())) === APP_KEYS.join());
+      await page.keyboard.press("Escape");
+    }
 
     if (who === "client") {
       for (const [name, path] of [["requests", "/platform/requests"], ["buy", "/platform/wallet/buy"], ["nearby", "/platform/board?map=1"]]) {
