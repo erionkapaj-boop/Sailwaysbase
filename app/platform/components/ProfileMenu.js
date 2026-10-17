@@ -140,7 +140,7 @@ export default function ProfileMenu({ name, photoUrl, limited = false }) {
                   </Link>
                 )}
                 <Link href="/platform/settings" role="menuitem" className="sf-pm-row" style={row} onClick={() => setOpen(false)}>
-                  <Icon name="menu" size={20} /><span style={{ flex: 1 }}>{t("settings")}</span>
+                  <Icon name="sliders" size={20} /><span style={{ flex: 1 }}>{t("settings")}</span>
                 </Link>
                 <Link href="/platform/wallet" role="menuitem" data-pm-packages className="sf-pm-row" style={row} onClick={() => setOpen(false)}>
                   <Icon name="wallet" size={20} /><span style={{ flex: 1 }}>{t("packages")}</span>

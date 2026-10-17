@@ -20,7 +20,7 @@ async function menuState(page) {
       ring: ring ? getComputedStyle(ring).borderTopColor : null,
       ringW: ring ? parseFloat(getComputedStyle(ring).borderTopWidth) : 0,
       btnBox: btn ? (({ x, y, width, height }) => ({ x, y, width, height }))(btn.getBoundingClientRect()) : null,
-      pop: pop ? { text: pop.innerText.replace(/\s+/g, " "), x: r.x, y: r.y, right: r.right, bottom: r.bottom } : null,
+      pop: pop ? { text: pop.textContent.replace(/\s+/g, " "), x: r.x, y: r.y, right: r.right, bottom: r.bottom } : null,
       vw: window.innerWidth, vh: window.innerHeight,
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       signInLink: document.querySelectorAll('[data-sf-header] a[href="/platform/login"]').length,

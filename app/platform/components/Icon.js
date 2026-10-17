@@ -47,6 +47,7 @@ const P = {
   globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.4 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.4-3.5-8.5s1-5.9 3.5-8.5Z"/>',
   shield: '<path d="M12 3.5 19 6v5.5c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6Z"/><path d="m9 12 2 2 4-4"/>',
   bed: '<path d="M3 18V7M3 14h18v4M21 14v-2.5A2.5 2.5 0 0 0 18.5 9H11v5"/><circle cx="7" cy="11" r="1.6"/>',
+  sliders: '<path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   // καμπίνες
   bunk: '<path d="M4 3.5v17M20 3.5v17"/><rect x="4" y="8.2" width="16" height="2.6" rx="1"/><rect x="4" y="15.2" width="16" height="2.6" rx="1"/><rect x="6.2" y="5.6" width="4.6" height="2.6" rx="1.2"/><rect x="6.2" y="12.6" width="4.6" height="2.6" rx="1.2"/>',
