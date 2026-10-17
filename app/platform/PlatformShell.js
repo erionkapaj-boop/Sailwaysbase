@@ -12,6 +12,7 @@ import LanguageSwitcher from "./components/LanguageSwitcher";
 import HomeAppsMenu from "./components/HomeAppsMenu";
 import AccountMenu from "./components/AccountMenu";
 import ProfileMenu from "./components/ProfileMenu";
+import TopTabs from "./components/TopTabs";
 import FeedbackProvider from "./components/FeedbackProvider";
 import SideNav, { SIDENAV_CSS } from "./components/SideNav";
 import { NAV_CSS } from "./components/NavGroups";
@@ -59,6 +60,8 @@ function AccountNavBar({ isAdmin, isHome, homeLabel, name, photoUrl, items, acti
         <HomeAppsMenu />
         {isAdmin && <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} hideOnWide={hideMenuOnWide} />}
         <HeaderBackSlot />
+        {/* Υπολογιστής: οι καρτέλες της κάτω μπάρας του κινητού (ανά τρέχοντα ρόλο). */}
+        <TopTabs />
       </div>
 
       {/* Every page except the home: the small helm + «SkipperFinder», always links home (the fixed way back from

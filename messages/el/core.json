@@ -21,7 +21,12 @@
     "tabBoard": "Αγγελίες",
     "tabContact": "Επικοινωνία",
     "bottomNav": "Κύρια πλοήγηση",
-    "forPros": "Για επαγγελματίες"
+    "forPros": "Για επαγγελματίες",
+    "tabCalendar": "Ημερολόγιο",
+    "tabExperiences": "Εμπειρίες",
+    "tabAdmin": "Διαχείριση",
+    "tabBoats": "Σκάφη",
+    "topNav": "Οι ενότητές μου"
   },
   "Home": {
     "searchCrew": "Αναζήτηση πληρώματος",

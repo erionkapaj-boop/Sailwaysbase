@@ -21,7 +21,12 @@
     "tabBoard": "Listings",
     "tabContact": "Contact",
     "bottomNav": "Main navigation",
-    "forPros": "For professionals"
+    "forPros": "For professionals",
+    "tabCalendar": "Calendar",
+    "tabExperiences": "Experiences",
+    "tabAdmin": "Admin",
+    "tabBoats": "Boats",
+    "topNav": "My sections"
   },
   "Home": {
     "searchCrew": "Find crew",

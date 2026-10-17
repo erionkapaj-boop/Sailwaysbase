@@ -5,16 +5,11 @@ import { useTranslations } from "next-intl";
 import Icon from "./Icon";
 import Avatar from "./Avatar";
 import { useAuth } from "../AuthContext";
-import { getMyRoles, getMyReservedCredits } from "../../../lib/platform/db";
-import { roleColor, ROLE_ICON, ROLES_CHANGED_EVENT } from "../../../lib/platform/userRoles";
+import useActiveRole from "../useActiveRole";
+import { getMyReservedCredits } from "../../../lib/platform/db";
+import { roleColor, ROLE_ICON } from "../../../lib/platform/userRoles";
 import { formatCredits } from "../../../lib/platform/credits";
 import { colors, fontSans, radius, shadow } from "../../../lib/platform/theme";
-
-// Ρόλος όσο δεν έχει φορτώσει η βάση ή όσο δεν υπάρχει ακόμη ο πίνακας ρόλων: προκύπτει από όσα ξέρει ήδη η σύνδεση.
-function fallbackRole({ isAdmin, role }) {
-  if (isAdmin) return "admin";
-  return role === "skipper" ? "professional" : "client";
-}
 
 // Το «Σύνδεση» πάνω δεξιά γίνεται, για συνδεδεμένο χρήστη, η φωτογραφία του με μικρό βελάκι. Το λεπτό δαχτυλίδι γύρω της έχει το
 // χρώμα του τρέχοντος ρόλου (lib/platform/userRoles.js), ώστε να φαίνεται πάντα σε ποιον ρόλο βρίσκεται. Πάτημα → μενού.
@@ -24,30 +19,21 @@ export default function ProfileMenu({ name, photoUrl, limited = false }) {
   const tr = useTranslations("UserRoles");
   const { session, userRow, role, isAdmin, signOut } = useAuth();
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(null);
   const [reserved, setReserved] = useState(0);
   const root = useRef(null);
 
-  const current = active || fallbackRole({ isAdmin, role });
+  const current = useActiveRole();
   const color = roleColor(current);
   const email = session?.user?.email || userRow?.email || "";
   const balance = Math.max(0, Number(userRow?.wallet_balance ?? 0) - reserved);
 
-  // Φρέσκα στοιχεία κάθε φορά που ανοίγει. Αν ο πίνακας ρόλων δεν υπάρχει ακόμη στη βάση, μένει ο ρόλος που προκύπτει από τα υπάρχοντα.
+  // Το υπόλοιπο credits διαβάζεται φρέσκο κάθε φορά που ανοίγει το μενού.
   useEffect(() => {
-    if (!session || limited) return;
+    if (!open || limited) return;
     let alive = true;
-    getMyRoles().then((m) => alive && setActive(m.active)).catch(() => {});
-    if (open) getMyReservedCredits().then((n) => alive && setReserved(Number(n) || 0)).catch(() => {});
+    getMyReservedCredits().then((n) => alive && setReserved(Number(n) || 0)).catch(() => {});
     return () => { alive = false; };
-  }, [session?.user?.id, open, limited]);
-
-  // Αλλαγή τρέχοντος ρόλου από την οθόνη «Οι ρόλοι μου»: το δαχτυλίδι αλλάζει χρώμα αμέσως.
-  useEffect(() => {
-    const onChange = (e) => e.detail?.active && setActive(e.detail.active);
-    window.addEventListener(ROLES_CHANGED_EVENT, onChange);
-    return () => window.removeEventListener(ROLES_CHANGED_EVENT, onChange);
-  }, []);
+  }, [open, limited]);
 
   useEffect(() => {
     if (!open) return;
@@ -129,10 +115,7 @@ export default function ProfileMenu({ name, photoUrl, limited = false }) {
                 </Link>
                 {!isAdmin && (
                   <>
-                    <Link href="/platform/requests" role="menuitem" className="sf-pm-row sf-hide-narrow" style={row} onClick={() => setOpen(false)}>
-                      <Icon name="inbox" size={20} /><span style={{ flex: 1 }}>{t("requests")}</span>
-                    </Link>
-                    <Link href="/platform/bookings" role="menuitem" className="sf-pm-row sf-hide-narrow" style={row} onClick={() => setOpen(false)}>
+                    <Link href="/platform/bookings" role="menuitem" className="sf-pm-row" style={row} onClick={() => setOpen(false)}>
                       <Icon name="calCheck" size={20} /><span style={{ flex: 1 }}>{t("bookings")}</span>
                     </Link>
                   </>
