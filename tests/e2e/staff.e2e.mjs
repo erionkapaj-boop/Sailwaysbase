@@ -10,7 +10,7 @@ trusted(`update users set is_staff_admin = true where phone_number = '+${"30" + 
 
 await as(SOFIA, async (page) => {
   await go(page, "/platform/admin");
-  await page.getByRole("button", { name: /μενού|Μενού|menu/i }).first().click().catch(() => {});
+  await page.getByRole("button", { name: "Μενού", exact: true }).first().click().catch(() => {});
   await page.waitForTimeout(600);
   const t = await text(page);
   check("υπάλληλος: βλέπει τη διαχείριση", t.includes("Εκκρεμότητες"));

@@ -68,6 +68,8 @@ for (const locale of ["el", "en"]) {
   }
 }
 
+sql("update users set locale='el'");
+
 // Σύνδεσμοι: προφίλ και πακέτα υπάρχουν· Ρυθμίσεις και Βοήθεια → οθόνη «Σύντομα»· η αλλαγή ρόλου δεν κάνει τίποτα.
 await as(CLIENT, async (page) => {
   await go(page, "/platform/board");

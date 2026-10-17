@@ -57,7 +57,7 @@ function verdict(r, { home }) {
   if (!r.account) p.push("λογαριασμός/Σύνδεση");
   if (r.overflow > 0) p.push(`υπερχείλιση ${r.overflow}px`);
   // Το όνομα φαίνεται, εκτός από κινητό με βέλος «Πίσω» στην ίδια μπάρα (δεν χωρά)· στην αρχική υπάρχει το μεγάλο λογότυπο.
-  if (!home && !r.brandText && !(r.vw <= 480 && r.hasBack)) p.push("όνομα SkipperFinder");
+  if (!home && !r.brandText && !(r.vw <= 480 && (r.hasBack || who === "admin"))) p.push("όνομα SkipperFinder");
   return p;
 }
 

@@ -51,7 +51,7 @@ function AccountNavBar({ isAdmin, isHome, homeLabel, name, photoUrl, items, acti
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
   return (
-    <div data-sf-header data-signed-in className="sf-hdr" style={{ ...nav, padding: "6px 14px", display: "grid", alignItems: "center", columnGap: 10 }}>
+    <div data-sf-header data-signed-in data-admin={isAdmin ? "" : undefined} className="sf-hdr" style={{ ...nav, padding: "6px 14px", display: "grid", alignItems: "center", columnGap: 10 }}>
       {/* Top left: the apps dots (boat delivery, open requests) and Back; the admin keeps the
           account menu here (it also has the permanent side menu). */}
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -251,7 +251,7 @@ const globalStyles = `
 }
 @media (max-width: 480px) {
   .sf-hdr .sf-brand-text { font-size: 13px !important; }
-  .sf-hdr:has([data-header-back], [data-header-slot] > *) .sf-brand-text { display: none; }
+  .sf-hdr:has([data-header-back], [data-header-slot] > *) .sf-brand-text, .sf-hdr[data-admin] .sf-brand-text { display: none; }
 }
 .platform-scope a:hover { color: ${colors.ink}; }
 .platform-scope input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.65; }
