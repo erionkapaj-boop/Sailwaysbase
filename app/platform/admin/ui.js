@@ -441,7 +441,7 @@ export function KpiTile({ icon, value, unit, label, tone = "neutral", href, kpi 
   const body = (
     <>
       <IconDisc icon={icon} tone={live ? tone : "neutral"} />
-      <span style={{ ...money, fontSize: 28, fontWeight: 600, lineHeight: 1, color: live && tone !== "neutral" ? c.fg : colors.ink }}>{value}{unit && <small style={{ fontSize: 13, fontWeight: 500, marginLeft: 5, color: colors.inkSoft }}>{unit}</small>}</span>
+      <span style={{ ...money, fontSize: 28, fontWeight: 600, lineHeight: 1, color: live && tone !== "neutral" ? c.fg : colors.ink }}>{value}{unit && " "}{unit && <small style={{ fontSize: 13, fontWeight: 500, marginLeft: 5, color: colors.inkSoft }}>{unit}</small>}</span>
       <span style={{ ...muted, fontSize: 13, lineHeight: 1.3 }}>{label}</span>
     </>
   );

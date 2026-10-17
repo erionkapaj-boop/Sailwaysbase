@@ -377,7 +377,6 @@
     "confirmOtp": "Enable SMS verification? If no SMS provider is connected in Supabase, no new user will be able to sign up.",
     "no": "No",
     "yes": "Yes",
-    "unsaved": "Not saved",
     "save": "Save",
     "saved": "Saved.",
     "title": "Settings",

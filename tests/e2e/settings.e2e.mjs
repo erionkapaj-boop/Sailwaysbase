@@ -5,7 +5,7 @@ import { as, go, text, check, finish, sql, num } from "./lib.mjs";
 const ADMIN = "6900002001", MARIA = "6900002002";
 const setting = (k) => num(`select value from platform_settings where key = '${k}'`);
 const row = (page, label) =>
-  page.locator("div").filter({ has: page.getByText(label, { exact: true }) }).filter({ has: page.locator("input") }).last();
+  page.locator("[data-setting-row]").filter({ has: page.getByText(label, { exact: true }) }).first();
 
 await as(ADMIN, async (page) => {
   await go(page, "/platform/admin/settings");
@@ -13,7 +13,7 @@ await as(ADMIN, async (page) => {
   await row(page, "Starter: τιμή").locator("input").fill("130");
   await page.waitForTimeout(300);
   let t = await text(page);
-  check("η αλλαγή που δεν αποθηκεύτηκε φαίνεται", t.includes("Δεν έχει αποθηκευτεί"));
+  check("η αλλαγή που δεν αποθηκεύτηκε φαίνεται", t.includes("αλλαγές δεν έχουν αποθηκευτεί"));
   check("μπάρα: 2 αλλαγές δεν έχουν αποθηκευτεί", t.includes("2 αλλαγές δεν έχουν αποθηκευτεί"));
 
   await row(page, "Τιμή ενός credit").getByRole("button", { name: "Αποθήκευση" }).click();

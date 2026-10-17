@@ -188,7 +188,7 @@ export default function SettingsPage() {
         />
       );
     return (
-      <div key={s.key} style={{ borderBottom: `1px solid ${colors.border}`, padding: "12px 16px" }}>
+      <div key={s.key} data-setting-row style={{ borderBottom: `1px solid ${colors.border}`, padding: "12px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontSize: 14.5, fontWeight: 500, color: colors.ink, flex: "1 1 180px", minWidth: 0 }}>{label}</span>
           <span style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>

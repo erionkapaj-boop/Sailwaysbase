@@ -33,7 +33,7 @@ function PersonLink({ icon, label, p }) {
   const L = useLocalData();
   if (!p) return null;
   return (
-    <Link href={`/platform/admin/user/${p.id}`} title={label} data-user-text style={{ color: colors.ink, display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}>
+    <Link href={`/platform/admin/user/${p.id}`} title={label} data-user-text style={{ color: colors.ink, display: "inline-flex", alignItems: "center", gap: 4, minHeight: 28, textDecoration: "none" }}>
       <Icon name={icon} size={13} />
       {L.person({ full_name: p.name, full_name_latin: p.name_latin }) || t("noName")}
     </Link>
