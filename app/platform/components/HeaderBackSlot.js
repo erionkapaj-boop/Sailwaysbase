@@ -32,11 +32,11 @@ export default function HeaderBackSlot() {
   return (
     <>
       {showDefault && (
-        <button type="button" aria-label={t("back")} onClick={() => router.back()} style={backShell}>
+        <button type="button" data-header-back aria-label={t("back")} onClick={() => router.back()} style={backShell}>
           <Icon name="back" size={22} />
         </button>
       )}
-      <span ref={hb?.setSlot} style={{ display: "inline-flex", alignItems: "center" }} />
+      <span ref={hb?.setSlot} data-header-slot style={{ display: "inline-flex", alignItems: "center" }} />
     </>
   );
 }

@@ -8,6 +8,7 @@ import { useFormat } from "../../useFormat";
 import Icon from "../Icon";
 import LoadError from "../LoadError";
 import ReportSheet from "./ReportSheet";
+import { accountNeededMessage } from "../../../../lib/platform/accessPolicy";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import { GROUP_ICON, MESSAGE_MAX, MESSAGE_REPORT_REASONS, ageLabel, buildThreads } from "../../../../lib/platform/community";
 import {
@@ -48,19 +49,29 @@ export default function CommunityGroups({ access }) {
   const [openId, setOpenId] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
+  const guest = Boolean(access?.guest);
   const load = useCallback(async () => {
     setFailed(false);
+    if (guest) {
+      // Χωρίς σύνδεση: οι τέσσερις αρχικές ομάδες, χωρίς δεδομένα μελών (lib/platform/accessPolicy.js).
+      setGroups(Object.keys(GROUP_ICON).map((slug) => ({ id: slug, slug, name: t(`groupName_${slug}`), name_en: t(`groupName_${slug}`), status: "open", member_count: 0, is_member: false, last_message_at: null })));
+      return;
+    }
     try {
       setGroups((await communityListGroups()) || []);
     } catch {
       setFailed(true);
     }
-  }, []);
+  }, [guest, t]);
   useEffect(() => { load(); }, [load]);
 
   const nameOf = (g) => (locale === "en" ? g.name_en : g.name);
 
   async function toggle(g) {
+    if (guest) {
+      fb.fail(accountNeededMessage());
+      return;
+    }
     setBusyId(g.id);
     try {
       if (g.is_member) await communityLeaveGroup(g.id);
@@ -136,8 +147,9 @@ function GroupThread({ group, name, access, busy, onToggle, onBack }) {
   const [confirm, confirmDialog] = useConfirm();
   const myId = session?.user?.id || null;
   const moderator = Boolean(access?.moderator);
+  const guest = Boolean(access?.guest);
   const canWrite = Boolean(access?.can_write);
-  const canPost = canWrite && group.is_member && group.status === "open";
+  const canPost = canWrite && (group.is_member || guest) && group.status === "open";
 
   const [rows, setRows] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -150,6 +162,10 @@ function GroupThread({ group, name, access, busy, onToggle, onBack }) {
   const [reporting, setReporting] = useState(null);
 
   const load = useCallback(async () => {
+    if (guest) {
+      setRows([]);
+      return;
+    }
     try {
       const list = (await communityListMessages(group.id, { limit: 200 })) || [];
       setRows((prev) => {
@@ -163,7 +179,7 @@ function GroupThread({ group, name, access, busy, onToggle, onBack }) {
     } catch {
       setFailed(true);
     }
-  }, [group.id]);
+  }, [group.id, guest]);
 
   useEffect(() => {
     load();
@@ -184,6 +200,10 @@ function GroupThread({ group, name, access, busy, onToggle, onBack }) {
   }
 
   async function post(body, parentId = null) {
+    if (guest) {
+      setError(accountNeededMessage());
+      return;
+    }
     setSending(true);
     setError("");
     try {
@@ -209,6 +229,7 @@ function GroupThread({ group, name, access, busy, onToggle, onBack }) {
   }
 
   async function report(m, reason, note) {
+    if (guest) throw new Error("accountNeeded");
     const id = await communityReportMessage(m.id, reason, note);
     setReporting(null);
     fb.done(t(id ? "reportDone" : "reportDup"));

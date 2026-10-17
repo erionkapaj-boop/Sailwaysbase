@@ -45,8 +45,13 @@ export default function CommunityMap({ access }) {
   const focused = useRef(false);
   const frame = useRef(null);
 
+  const guest = Boolean(access?.guest);
   const load = useCallback(async () => {
     setFailed(false);
+    if (guest) {
+      setPoints([]);
+      return;
+    }
     try {
       const [list, cfg] = await Promise.all([communityListPoints(), communityCategorySettings()]);
       setPoints(list || []);
@@ -54,7 +59,7 @@ export default function CommunityMap({ access }) {
     } catch {
       setFailed(true);
     }
-  }, []);
+  }, [guest]);
   useEffect(() => { load(); }, [load]);
 
   // Πρώτη φόρτωση: ο χάρτης πηγαίνει εκεί που υπάρχουν σημεία.
@@ -111,7 +116,11 @@ export default function CommunityMap({ access }) {
     setMode("browse");
   }
 
+  // Ο επισκέπτης δοκιμάζει τα πάντα· οι εγγραφές δεν ολοκληρώνονται χωρίς λογαριασμό (lib/platform/accessPolicy.js).
+  const needAccount = () => { throw new Error("accountNeeded"); };
+
   async function save(values) {
+    if (guest) needAccount();
     const f = { ...values, lat: pos.lat, lng: pos.lng };
     let saved;
     if (editing) {
@@ -133,11 +142,13 @@ export default function CommunityMap({ access }) {
   }
 
   async function confirmPoint(point) {
+    if (guest) needAccount();
     const row = await communityConfirmPoint(point.id);
     setPoints((list) => list.map((p) => (p.id === point.id ? { ...p, last_confirmed_at: row.last_confirmed_at, expires_at: row.expires_at, is_expired: false } : p)));
     fb.done(t("confirmedToast"));
   }
   async function removePoint(point) {
+    if (guest) needAccount();
     await communityRemovePoint(point.id);
     if (point.photo_path && point.author_id === myId) communityDeletePhoto(point.photo_path);
     setSelectedId(null);
@@ -145,6 +156,7 @@ export default function CommunityMap({ access }) {
     fb.done(t("deleted"));
   }
   async function reportPoint(point, reason, note) {
+    if (guest) needAccount();
     const id = await communityReportPoint(point.id, reason, note);
     setSelectedId(null);
     fb.done(t(id ? "reportDone" : "reportDup"));

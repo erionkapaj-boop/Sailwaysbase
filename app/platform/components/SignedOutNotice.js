@@ -13,7 +13,7 @@ export default function SignedOutNotice() {
   const pathname = usePathname();
   const next = `?next=${encodeURIComponent(pathname)}`;
   return (
-    <div style={container}>
+    <div data-signed-out-notice style={container}>
       <div style={{ ...card, marginTop: 20, textAlign: "center" }}>
         <h1 style={{ ...h1, fontSize: 20 }}>{t("title")}</h1>
         <p style={{ ...muted, margin: "10px 0 20px" }}>{t("body")}</p>

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "../../AuthContext";
 import { useLocalData } from "../../useLocalData";
 import SignedOutNotice from "../../components/SignedOutNotice";
+import { loginWall, accountNeededMessage } from "../../../../lib/platform/accessPolicy";
 import BoatFields from "../../components/BoatFields";
 import { boatValid } from "../../../../lib/platform/boat";
 import { listLookups, postOpenRequests, getPlatformSetting, getMyReservedCredits } from "../../../../lib/platform/db";
@@ -50,7 +51,7 @@ export default function NewBoardRequest() {
   }, [session, balance]);
 
   if (loading) return <div style={container} />;
-  if (!session) return <SignedOutNotice />;
+  if (loginWall(session, "board_new")) return <SignedOutNotice />;
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const cost = fee * count;
@@ -59,6 +60,11 @@ export default function NewBoardRequest() {
 
   async function submit(e) {
     e.preventDefault();
+    // Προς το παρόν χωρίς αίτημα σύνδεσης (lib/platform/accessPolicy.js): η ανάρτηση θέλει λογαριασμό και credits.
+    if (!session) {
+      setError(accountNeededMessage());
+      return;
+    }
     setBusy(true);
     setError("");
     setNeedCredit(false);

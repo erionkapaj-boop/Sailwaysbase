@@ -100,7 +100,11 @@
     "orphanReply": "Απάντηση σε παλαιότερο μήνυμα",
     "older": "Παλαιότερα",
     "joinToWrite": "Συμμετοχή για να γράψεις",
-    "reason_offer": "Αγγελία εργασίας ή πληρώματος"
+    "reason_offer": "Αγγελία εργασίας ή πληρώματος",
+    "groupName_saronic": "Σαρωνικός",
+    "groupName_aegean": "Αιγαίο",
+    "groupName_small_cyclades": "Μικρές Κυκλάδες",
+    "groupName_ionian": "Ιόνιο"
   },
   "AdminCommunity": {
     "title": "Community",

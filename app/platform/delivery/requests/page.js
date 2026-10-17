@@ -17,6 +17,7 @@ import {
 import { useConfirm } from "../../components/ConfirmDialog";
 import { container, card, h1, h2, muted, button, input, colors, money, badge, sectionLabel } from "../../../../lib/platform/theme";
 import SignedOutNotice from "../../components/SignedOutNotice";
+import { loginWall } from "../../../../lib/platform/accessPolicy";
 import { friendlyError } from "../../../../lib/platform/friendlyError";
 import DeliveryClaimsPanel from "../../components/DeliveryClaimsPanel";
 import PlaceMap from "../../components/map/PlaceMap";
@@ -270,10 +271,11 @@ export default function MyDeliveryRequestsPage() {
   }
   useEffect(() => {
     if (session) load();
-  }, [session]);
+    else if (!loading) setRows([]); // χωρίς λογαριασμό δεν υπάρχουν δικά μου αιτήματα (lib/platform/accessPolicy.js)
+  }, [session, loading]);
 
   if (loading) return <div style={container}>{t("loading")}</div>;
-  if (!session) return <SignedOutNotice />;
+  if (loginWall(session, "delivery_requests")) return <SignedOutNotice />;
 
   return (
     <div style={container}>

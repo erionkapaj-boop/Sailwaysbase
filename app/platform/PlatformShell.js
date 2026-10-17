@@ -50,15 +50,13 @@ function AccountNavBar({ isAdmin, isHome, homeLabel, name, photoUrl, items, acti
   const unreadBookingIds = notifications?.unreadBookingIds ?? [];
 
   return (
-    <div data-sf-header data-signed-in style={{ ...nav, padding: "6px 14px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 10 }}>
+    <div data-sf-header data-signed-in className="sf-hdr" style={{ ...nav, padding: "6px 14px", display: "grid", alignItems: "center", columnGap: 10 }}>
       {/* Top left: the apps dots (boat delivery, open requests) and Back; the admin keeps the
           account menu here (it also has the permanent side menu). */}
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-        {isAdmin ? (
-          <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} hideOnWide={hideMenuOnWide} />
-        ) : (
-          <HomeAppsMenu />
-        )}
+        {/* Οι τελείες (launcher εφαρμογών) υπάρχουν για κάθε λογαριασμό· ο διαχειριστής έχει και το μενού της κονσόλας. */}
+        <HomeAppsMenu />
+        {isAdmin && <AccountMenu items={items} activeHref={activeHref} onSignOut={onSignOut} hideOnWide={hideMenuOnWide} />}
         <HeaderBackSlot />
       </div>
 
@@ -198,7 +196,7 @@ function NavBar() {
   // middle (home), language and Login on the right. No search link (the home page is the search entry point) and
   // deliberately no sign-up: registration is a step inside the flow, not a separate door.
   return (
-    <div data-sf-header style={{ ...nav, padding: "6px 14px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 10 }}>
+    <div data-sf-header className="sf-hdr" style={{ ...nav, padding: "6px 14px", display: "grid", alignItems: "center", columnGap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
         <HomeAppsMenu />
         <HeaderBackSlot />
@@ -206,9 +204,14 @@ function NavBar() {
       <HomeBrandLink label={t("homeAriaLabel")} />
       <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "flex-end" }}>
         <LanguageSwitcher compact />
-        <Link href="/platform/login" style={{ ...navLink, ...tapTarget, padding: "0 8px", color: colors.ink, fontSize: 15 }}>
-          {t("login")}
-        </Link>
+        {session ? (
+          // Συνδεδεμένος λογαριασμός που δεν έχει ακόμα ρόλο (π.χ. στη μέση της εγγραφής): η ίδια κεφαλίδα, με έξοδο.
+          <AccountMenu items={[{ href: "/platform", label: ts("menuHome") }]} activeHref={pathname} onSignOut={signOut} side="right" />
+        ) : (
+          <Link href="/platform/login" style={{ ...navLink, ...tapTarget, padding: "0 8px", color: colors.ink, fontSize: 15 }}>
+            {t("login")}
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -241,8 +244,18 @@ const globalStyles = `
 }
 .platform-scope ::placeholder { color: ${colors.inkSoft}; opacity: 0.7; }
 .platform-scope button:disabled { opacity: 0.45; cursor: not-allowed; }
-/* Signed in on a phone: four icons on the right leave no room for the name next to the helm — only the helm stays. */
-@media (max-width: 480px) { [data-sf-header][data-signed-in] .sf-brand-text { display: none; } }
+/* Η κεφαλίδα (ίδια για όλους, σε κάθε σελίδα): τρεις στήλες. Σε κινητό το κέντρο παίρνει τον χώρο που μένει ανάμεσα στα δύο
+ * άκρα (αλλιώς οι εικόνες δεξιά τον έτρωγαν και έμενε μόνο το τιμόνι)· το όνομα κρύβεται μόνο όταν υπάρχει και βέλος «Πίσω». */
+.sf-hdr { grid-template-columns: 1fr auto 1fr; }
+@media (max-width: 639px) {
+  .sf-hdr { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .sf-hdr > :nth-child(2) { justify-self: center; min-width: 0; }
+  .sf-hdr [data-home-link] { padding: 0 !important; }
+}
+@media (max-width: 480px) {
+  .sf-hdr .sf-brand-text { font-size: 13px !important; }
+  .sf-hdr:has([data-header-back], [data-header-slot] > *) .sf-brand-text { display: none; }
+}
 .platform-scope a:hover { color: ${colors.ink}; }
 .platform-scope input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.65; }
 .platform-scope input[type=date]::-webkit-calendar-picker-indicator:hover { opacity: 1; }

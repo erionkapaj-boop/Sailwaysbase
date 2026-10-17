@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useAuth } from "../AuthContext";
 import SignedOutNotice from "../components/SignedOutNotice";
+import { loginWall } from "../../../lib/platform/accessPolicy";
 import LoadError from "../components/LoadError";
 import CommunityMap from "../components/community/CommunityMap";
 import CommunityGroups from "../components/community/CommunityGroups";
@@ -31,10 +32,13 @@ export default function Page() {
   }, []);
   useEffect(() => {
     if (session) load();
-  }, [session, load]);
+    // Χωρίς σύνδεση (προς το παρόν ανοιχτά, lib/platform/accessPolicy.js): ο επισκέπτης βλέπει τις ίδιες οθόνες. Τα δεδομένα
+    // των μελών δεν φορτώνονται (η βάση τα δίνει μόνο σε εγκεκριμένα μέλη)· οι εγγραφές θέλουν λογαριασμό.
+    else if (!loading) setAccess({ can_read: true, can_write: true, moderator: false, restricted_until: null, guest: true });
+  }, [session, loading, load]);
 
   if (loading) return null;
-  if (!session) return <SignedOutNotice />;
+  if (loginWall(session, "community")) return <SignedOutNotice />;
 
   return (
     <div style={{ ...container, maxWidth: 1100 }}>

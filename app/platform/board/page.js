@@ -21,6 +21,7 @@ import {
 } from "../../../lib/platform/db";
 import { friendlyError } from "../../../lib/platform/friendlyError";
 import { CREW_ROLES, labelForRole } from "../../../lib/platform/roles";
+import { requiresLogin, accountNeededMessage } from "../../../lib/platform/accessPolicy";
 import { savePendingClaim, getPendingClaim, getPendingClaimKind, clearPendingClaim } from "../../../lib/platform/pendingClaim";
 import { container, card, h1, muted, button, badge, colors, money, select, radius } from "../../../lib/platform/theme";
 
@@ -57,7 +58,7 @@ const MAP_CSS = `
 .bd-area { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 5; display: inline-flex; align-items: center; gap: 8px;
   min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: #fff; color: ${colors.ink}; font: inherit; font-size: 14px; font-weight: 600;
   white-space: nowrap; cursor: pointer; box-shadow: 0 1px 2px rgba(22,40,60,0.08), 0 6px 16px rgba(22,40,60,0.14); }
-.bd-overlay { position: fixed; inset: 0; z-index: 60; background: ${colors.bg}; }
+.bd-overlay { position: fixed; inset: 0; z-index: 9; background: ${colors.bg}; }
 .bd-sheet { position: absolute; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 6; background: #fff;
   border-radius: 16px; padding: 16px; box-shadow: 0 8px 28px rgba(22,40,60,0.22); }
 .bd-sheet .bd-date { width: 56px; height: 56px; }
@@ -211,6 +212,11 @@ export default function BoardPage() {
 
   async function claim(requestId, claimKind = kind) {
     if (!session) {
+      // Προς το παρόν χωρίς αίτημα σύνδεσης (lib/platform/accessPolicy.js): η διεκδίκηση θέλει προφίλ, άρα δεν ολοκληρώνεται.
+      if (!requiresLogin("board_claim")) {
+        setToast(accountNeededMessage());
+        return;
+      }
       savePendingClaim(requestId, claimKind);
       setNotice({ kind: "guest", requestId });
       return;
@@ -351,6 +357,15 @@ export default function BoardPage() {
   }, [located, kind, area]);
 
   const showMap = tab === "all" && (wide || mapOpen);
+  // Ο χάρτης σε κινητό καλύπτει την οθόνη ΚΑΤΩ από την κεφαλίδα: η πάνω μπάρα μένει πάντα ορατή (εντολή 17/10/2026).
+  const [headerBottom, setHeaderBottom] = useState(0);
+  useEffect(() => {
+    if (!mapOpen || wide) return;
+    const measure = () => setHeaderBottom(Math.round(document.querySelector("[data-sf-header]")?.getBoundingClientRect().bottom || 0));
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [mapOpen, wide]);
   useEffect(() => {
     if (!mapOpen || wide) return;
     const prev = document.body.style.overflow;
@@ -590,7 +605,7 @@ export default function BoardPage() {
           )}
           </div>
           {showMap && (
-            <div className={wide ? "bd-mapcol" : "bd-overlay"} data-board-map role={wide ? undefined : "dialog"} aria-label={wide ? undefined : t("mapShow")}>
+            <div className={wide ? "bd-mapcol" : "bd-overlay"} style={wide ? undefined : { top: headerBottom, bottom: "var(--sf-bnav, 0px)" }} data-board-map role={wide ? undefined : "dialog"} aria-label={wide ? undefined : t("mapShow")}>
               <div style={{ position: "relative", height: "100%" }}>
                 <MapView
                   height="100%"

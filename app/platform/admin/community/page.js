@@ -128,9 +128,12 @@ function Settings({ rows, owner, onSaved, onError }) {
   const t = useTranslations("AdminCommunity");
   const tc = useTranslations("Community");
   const [vals, setVals] = useState({});
+  // Ξαναγράφεται μόνο όταν αλλάξουν οι τιμές της βάσης (όχι σε κάθε ανανέωση της λίστας): αλλιώς ό,τι πληκτρολογεί ο ιδιοκτήτης σβήνει.
+  const serverKey = JSON.stringify(rows.map((r) => [r.category, r.show_days, r.archive_days]));
   useEffect(() => {
     setVals(Object.fromEntries(rows.map((r) => [r.category, { show: String(r.show_days), archive: String(r.archive_days) }])));
-  }, [rows]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverKey]);
   const order = COMMUNITY_CATEGORIES.map((c) => c.key);
   const sorted = [...rows].sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category));
   async function save(r) {

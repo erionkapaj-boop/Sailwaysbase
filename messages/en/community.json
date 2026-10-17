@@ -100,7 +100,11 @@
     "orphanReply": "Reply to an older message",
     "older": "Older",
     "joinToWrite": "Join to write",
-    "reason_offer": "Job or crew ad"
+    "reason_offer": "Job or crew ad",
+    "groupName_saronic": "Saronic",
+    "groupName_aegean": "Aegean",
+    "groupName_small_cyclades": "Small Cyclades",
+    "groupName_ionian": "Ionian"
   },
   "AdminCommunity": {
     "title": "Community",

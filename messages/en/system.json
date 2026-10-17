@@ -90,7 +90,9 @@
     "invalid_body": "The message can have up to 2000 characters.",
     "invalid_parent": "You cannot reply to this message.",
     "group_not_found": "The group does not exist.",
-    "message_not_found": "The message no longer exists."
+    "message_not_found": "The message no longer exists.",
+    "accountNeeded": "This action needs an account.",
+    "not_authenticated": "This action needs an account."
   },
   "Feedback": {
     "users_PATCH": "Saved",

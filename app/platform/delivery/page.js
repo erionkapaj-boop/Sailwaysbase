@@ -1,6 +1,7 @@
 "use client";
 import TopUpSheet from "../components/credits/TopUpSheet";
 import { formatCredits } from "../../../lib/platform/credits";
+import { requiresLogin, accountNeededMessage } from "../../../lib/platform/accessPolicy";
 import DateField from "../components/calendar/DateField";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -199,7 +200,9 @@ function RoleBlock({
     // Τίποτα δεν έχει χρεωθεί ακόμα — δεν χάνεται τίποτα στέλνοντας στο
     // login τώρα, με τα ίδια δεδομένα έτοιμα να ξαναφανούν μόλις γυρίσει.
     if (!deliveryRequestId && !session) {
-      onAuthRequired(Number(price), Array.from(selected), isOpen);
+      // Προς το παρόν χωρίς αίτημα σύνδεσης (lib/platform/accessPolicy.js): η αποστολή θέλει λογαριασμό.
+      if (requiresLogin("delivery_send")) onAuthRequired(Number(price), Array.from(selected), isOpen);
+      else setError(accountNeededMessage());
       return;
     }
     // Αν τα credits δεν φτάνουν, αγορά επιτόπου· τίποτα δεν έχει σταλεί ακόμα.
@@ -348,7 +351,7 @@ function RoleBlock({
         <button style={button("primary")} disabled={busy || candidates === null || (!isOpen && !selected.size)} onClick={handleSend}>
           {busy
             ? "..."
-            : !session
+            : !session && requiresLogin("delivery_send")
               ? t("loginToSend")
               : isOpen
                 ? t("completeRequest")
