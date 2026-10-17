@@ -108,7 +108,8 @@ async function survey(label, phone, paths) {
       const file = `${label}${path.replace(/\/platform/, "").replace(/[^a-z0-9]+/gi, "_") || "_home"}`.slice(0, 80);
       await page.screenshot({ path: `${SHOTS}/${file}.png`, fullPage: true });
     }
-    if (phone) {
+    // Τα πάνελ ειδοποιήσεων και μηνυμάτων υπάρχουν μόνο όπου το επιτρέπει ο ρόλος (lib/platform/roleEnv.js)· όχι στον Administrator.
+    if (phone && label !== "admin") {
       await page.goto(`${BASE}/platform`);
       await page.waitForLoadState("networkidle");
       for (const name of [/^Ειδοποιήσεις/, /^Μηνύματα/]) {

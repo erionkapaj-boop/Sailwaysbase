@@ -54,8 +54,9 @@ await as(ADMIN, async (page) => {
   check("κάθε ενότητα της διαχείρισης υπάρχει, και ΜΙΑ φορά μόνο", [...g.sections].sort().join() === [...EXPECT].sort().join() && new Set(g.sections).size === g.sections.length, g.sections.join());
   check("ομάδες: Χρήστες και ρόλοι 2 · Αιτήματα και κρατήσεις 6 · Credits 1 · Community 2 · Περιεχόμενο 3", JSON.stringify(g.groups) === JSON.stringify(GROUPS), JSON.stringify(g.groups));
   check("γραμμές ≥ 44px, χωρίς οριζόντια κύλιση", g.minRow >= 44 && g.overflow === 0, JSON.stringify(g));
-  const names = await page.locator("[data-admin-group] h2").allInnerTexts();
-  check("ονόματα ομάδων", names.map((x) => x.trim()).join("|").toLowerCase() === "χρήστες και ρόλοι|αιτήματα και κρατήσεις|credits και πακέτα|community και moderation|περιεχόμενο και ρυθμίσεις", names.join("|"));
+  // textContent, όχι innerText: οι τίτλοι εμφανίζονται με κεφαλαία από το CSS (και τα ελληνικά κεφαλαία χάνουν τόνους).
+  const names = await page.locator("[data-admin-group] h2").evaluateAll((els) => els.map((e) => e.textContent.trim()));
+  check("ονόματα ομάδων", names.join("|") === "Χρήστες και ρόλοι|Αιτήματα και κρατήσεις|Credits και πακέτα|Community και moderation|Περιεχόμενο και ρυθμίσεις", names.join("|"));
   h = await header(page);
   check("στο προφίλ τονίζεται η καρτέλα Προφίλ", h.activeTop.join() === "profile", JSON.stringify(h));
   check("το προφίλ δεν δείχνει τίποτα πελάτη/επαγγελματία", !(await page.innerText("body")).includes("Ως επαγγελματίας") && !(await page.innerText("body")).includes("Διαθεσιμότητα"));

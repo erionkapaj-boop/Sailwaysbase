@@ -61,7 +61,8 @@ async function crawl(label, phone, paths) {
     }
     // The header's panels (menu, notifications, messages) load their data only
     // when opened, so open each one in turn.
-    if (phone) {
+    // Τα πάνελ ειδοποιήσεων και μηνυμάτων υπάρχουν μόνο όπου το επιτρέπει ο ρόλος (lib/platform/roleEnv.js): όχι στον Administrator.
+    if (phone && label !== "admin") {
       current = "header panels";
       await page.goto(`${BASE}/platform`);
       await page.waitForLoadState("networkidle");
